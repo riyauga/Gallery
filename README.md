@@ -42,7 +42,7 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 
 | 项 | 值 | 来源 |
 |---|---|---|
-| 标题栏高 | 48 | 反编译常量 / 实测 |
+| 标题栏高 | 48（系统三件套 48x48，`TitleBarHeightOption.Tall`） | 反编译常量 / 实测 |
 | 导航宽 | 320（折叠 48） | `ExpandedOpenPaneLength` |
 | 页面左右留白 | 32 / 48 | `GalleryViewGridMargin` / `GalleryViewGridContentMargin` |
 | 头部内边距 | 32,12,32,18；外边距 0,16,16,8；圆角 6 | XAML |
@@ -71,6 +71,8 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 应用主题卡片 | `ctc:SettingsCard`；Header「应用主题」/ Desc「选择要显示的应用主题」/ 图标 `E790` FontSize 16 | `SettingsPage.xaml` |
 | 主题下拉 | `DropDownButton` + `MenuFlyout`，三项 `RadioMenuFlyoutItem`：浅色 / 深色 / Windows 默认 | 同上 |
 | 切页 | 30ms 淡出 + 20ms 淡入 | `UnifiedGalleryPage.cs` |
+| 内容区两层边距 | 外层 `GalleryViewGridMargin 32,0,0,0`、内层 `GalleryViewGridContentMargin 0,0,48,0` | `Margins.xaml`；滚动条因此贴窗口右缘 |
+| 时间线圆点 | `TimelineIndicator`：同年内月份切换点，与年份文字共用距离过滤 | `TimelineLayout.CreateTimelineElementList` |
 
 ## 目录
 
