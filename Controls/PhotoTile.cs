@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.UI;
 using Gallery.Models;
+using Gallery.Services;
 
 namespace Gallery.Controls;
 
@@ -35,6 +36,44 @@ public sealed class PhotoTile : Grid
 
     public PhotoItem Item { get; }
 
+    /// <summary>瓦片被虚拟化回收后置位；异步加载完成时不再回贴 UI。</summary>
+    public volatile bool Detached;
+
+    private async Task LoadThumbnailAsync()
+    {
+        // 后台：读磁盘缓存（缺失则按 512 边生成，key 与 galleryold 逐字节一致）
+        string path = await Task.Run(() =>
+        {
+            try
+            {
+                var thumbs = AppService.Scanner?.Thumbs;
+                if (thumbs is null) return Item.FullPath;
+                var mtime = Item.ModifiedAtUnix
+                    ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(Item.FullPath));
+                return thumbs.GetOrBuild(Item.FullPath, mtime, Item.FileSize)
+                    ?? Item.FullPath;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return Item.FullPath;
+            }
+        });
+        if (Detached) return;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (Detached) return;
+            try
+            {
+                var bmp = new BitmapImage(new Uri(path));
+                _image.Source = bmp;
+            }
+            catch (Exception ex) when (ex is IOException or System.UriFormatException)
+            {
+                // 解码失败保持空白
+            }
+        });
+    }
+
     private bool _selected;
     public bool Selected
     {
@@ -56,11 +95,17 @@ public sealed class PhotoTile : Grid
 
         _image = new Image
         {
-            Source = item.Thumbnail,
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch
         };
+
+        // 批次 1：真实数据异步缩略图（后台读缓存/生成，UI 线程只贴位图）；
+        // manifest 示例图（无库）保持同步路径。
+        if (item.ImageId > 0)
+            _ = LoadThumbnailAsync();
+        else
+            _image.Source = item.Thumbnail;
 
         _frame = new Border
         {

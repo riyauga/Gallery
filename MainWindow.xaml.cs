@@ -3,8 +3,10 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
+using Gallery.Controls;
 using Gallery.Services;
 using Gallery.Views;
 using Windows.Graphics;
@@ -26,7 +28,6 @@ public sealed partial class MainWindow : Window
     private readonly Library _library = Library.Load();
     private readonly GalleryPage _page;
     private readonly SettingsPage _settingsPage = new();
-    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(2) };
 
     public MainWindow()
     {
@@ -70,6 +71,7 @@ public sealed partial class MainWindow : Window
         {
             ShowToast("库打开失败：" + AppService.InitError);
         }
+        BuildDirectoryTree();
 
         _page = new GalleryPage(_library);
         _page.ToastRequested += ShowToast;
@@ -81,12 +83,6 @@ public sealed partial class MainWindow : Window
         {
             Nav.IsPaneOpen = true;
             Nav.SelectedItem = Nav.MenuItems[0];
-        };
-
-        _toastTimer.Tick += (_, _) =>
-        {
-            _toastTimer.Stop();
-            AnimateToast(0, 200);
         };
 
         Activated += OnFirstActivated;
@@ -116,8 +112,39 @@ public sealed partial class MainWindow : Window
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        int index = args.SelectedItem is NavigationViewItem item ? Nav.MenuItems.IndexOf(item) : 0;
-        ShowPage(index);
+        var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string ?? "all";
+        if (ContentHost.Children.Count > 0 && ContentHost.Children[^1] == _settingsPage)
+        {
+            // 从设置页切回内容页
+            ContentHost.Children.Clear();
+            ContentHost.Children.Add(_page);
+        }
+        switch (tag)
+        {
+            case "fav":
+                _page.SetMode(true);
+                break;
+            case "all":
+                _page.SetMode(false);
+                _page.SetDirectory(null, null);
+                break;
+            default:
+                if (tag.StartsWith("dir:", StringComparison.Ordinal))
+                {
+                    var parts = tag.Split(':', 3);
+                    var rootId = int.Parse(parts[1]);
+                    var dirRel = parts.Length > 2 ? parts[2] : "";
+                    _page.SetMode(false);
+                    _page.SetDirectory(rootId, dirRel);
+                }
+                break;
+        }
+    }
+
+    /// <summary>离开设置页（供设置页内的返回类交互使用，批次 4 收口）。</summary>
+    public void LeaveSettings()
+    {
+        Nav.SelectedItem = Nav.MenuItems[0];
     }
 
     /// <summary>
@@ -210,26 +237,205 @@ public sealed partial class MainWindow : Window
         if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Right); args.Handled = true; }
     }
 
-    private void ShowToast(string message)
+    private void ShowToast(string message) => Toasts.Show(message, ToastKind.Info);
+
+    private void ShowToast(string message, ToastKind kind, string? detail = null)
+        => Toasts.Show(message, kind, detail);
+
+
+    // ------------------------------------------------------------------ 目录树
+
+    /// <summary>重建目录树（挂在「收藏夹」之后的分隔线 + 各启用根）。</summary>
+    private void BuildDirectoryTree()
     {
-        ToastText.Text = message;
-        AnimateToast(1, 150);
-        _toastTimer.Stop();
-        _toastTimer.Start();
+        for (var i = Nav.MenuItems.Count - 1; i >= 0; i--)
+            if (Nav.MenuItems[i] is NavigationViewItem nvi &&
+                nvi.Tag is string t && (t.StartsWith("dir:", StringComparison.Ordinal) || t == "dirsep"))
+                Nav.MenuItems.RemoveAt(i);
+
+        var store = AppService.Store;
+        if (store is null) return;
+        foreach (var root in store.Roots().Where(r => r.Enabled))
+        {
+            var rootPath = store.RootPath(root.Id);
+            if (rootPath is null) continue;
+            var folders = store.Folders(root.Id);
+            var item = BuildDirNode(root.Id, "", folders, rootPath, isRoot: true);
+            Nav.MenuItems.Add(new NavigationViewItemSeparator { Tag = "dirsep" });
+            Nav.MenuItems.Add(item);
+        }
     }
 
-    private void AnimateToast(double to, int ms)
+    /// <summary>
+    /// 递归构建目录节点（计数 = 自身 + 子树合计，照搬 galleryold）。
+    /// 关键：无图的中间目录也要建节点，否则层级断裂（testimages/sub 教训）。
+    /// </summary>
+    private NavigationViewItem BuildDirNode(
+        int rootId, string dirRel, List<FolderCount> folders, string rootPath, bool isRoot)
     {
-        var sb = new Storyboard();
-        var anim = new DoubleAnimation
+        var prefix = dirRel.Length > 0 ? dirRel + "/" : "";
+        var own = folders.FirstOrDefault(f => f.DirRel == dirRel)?.Count ?? 0;
+
+        // 直接子前缀：从任一 dir_rel 截出下一层（含无图的中间层）
+        var childPrefixes = folders
+            .Select(f => f.DirRel)
+            .Where(d => d.StartsWith(prefix, StringComparison.Ordinal) && d.Length > prefix.Length)
+            .Select(d =>
+            {
+                var rest = d[prefix.Length..];
+                var cut = rest.IndexOf('/');
+                return cut < 0 ? rest : rest[..cut];
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var childRels = childPrefixes.Select(c => prefix + c).ToList();
+        int total = own + childRels.Sum(full => SubtreeCount(folders, full));
+
+        var display = isRoot
+            ? Path.GetFileName(rootPath.TrimEnd('\\')) is { Length: > 0 } leaf ? leaf : rootPath
+            : dirRel[(dirRel.LastIndexOf('/') + 1)..];
+
+        var content = new Grid
         {
-            To = to,
-            Duration = TimeSpan.FromMilliseconds(ms),
-            EnableDependentAnimation = true
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto },
+            },
         };
-        Storyboard.SetTarget(anim, Toast);
-        Storyboard.SetTargetProperty(anim, "Opacity");
-        sb.Children.Add(anim);
-        sb.Begin();
+        var nameText = new TextBlock
+        {
+            Text = display,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        if (isRoot) nameText.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
+        content.Children.Add(nameText);
+        var countText = new TextBlock
+        {
+            Text = total > 0 ? total.ToString() : "",
+            FontSize = 12,
+            Opacity = 0.6,
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(countText, 1);
+        content.Children.Add(countText);
+
+        var item = new NavigationViewItem
+        {
+            Tag = $"dir:{rootId}:{dirRel}",
+            Content = content,
+            Icon = new FontIcon { Glyph = "\uE8B7", FontSize = 16 },
+            IsExpanded = false,
+        };
+        var target = dirRel.Length > 0 ? Path.Combine(rootPath, dirRel.Replace('/', '\\')) : rootPath;
+        item.ContextFlyout = FolderFlyout(rootId, dirRel, target, isRoot);
+
+        foreach (var childRel in childRels.OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
+            item.MenuItems.Add(BuildDirNode(rootId, childRel, folders, rootPath, isRoot: false));
+        return item;
     }
+
+    private static int SubtreeCount(List<FolderCount> folders, string prefix)
+        => folders
+            .Where(f => f.DirRel == prefix ||
+                        f.DirRel.StartsWith(prefix + "/", StringComparison.Ordinal))
+            .Sum(f => f.Count);
+
+    private MenuFlyout FolderFlyout(int rootId, string dirRel, string target, bool isRoot)
+    {
+        var flyout = new MenuFlyout();
+        var create = new MenuFlyoutItem
+        {
+            Text = "创建文件夹",
+            Icon = new FontIcon { Glyph = "\uE8F4" },
+        };
+        create.Click += (_, _) => _ = CreateChildFolderAsync(rootId, dirRel);
+        var open = new MenuFlyoutItem
+        {
+            Text = "在文件资源管理器中打开",
+            Icon = new FontIcon { Glyph = "\uE838" },
+        };
+        open.Click += (_, _) => System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{target}\"") { UseShellExecute = true });
+        var delete = new MenuFlyoutItem
+        {
+            Text = "删除文件夹",
+            Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)),
+            IsEnabled = !isRoot,
+        };
+        delete.Click += (_, _) => _ = DeleteFolderAsync(rootId, dirRel, target);
+        flyout.Items.Add(create);
+        flyout.Items.Add(open);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+        flyout.Items.Add(delete);
+        return flyout;
+    }
+
+    private async Task CreateChildFolderAsync(int rootId, string parentRel)
+    {
+        var input = new TextBox { PlaceholderText = "文件夹名称" };
+        var dialog = new ContentDialog
+        {
+            Title = "创建文件夹",
+            Content = input,
+            PrimaryButtonText = "创建",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = Content.XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary || input.Text.Trim().Length == 0) return;
+        var name = input.Text.Trim();
+        if (name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+        {
+            ShowToast("创建失败：名称包含非法字符", ToastKind.Pending);
+            return;
+        }
+        var store = AppService.Store!;
+        var rootPath = store.RootPath(rootId)!;
+        var parent = parentRel.Length > 0 ? Path.Combine(rootPath, parentRel.Replace('/', '\\')) : rootPath;
+        var target = Path.Combine(parent, name);
+        try
+        {
+            Directory.CreateDirectory(target);
+            lock (AppService.DbLock)
+                AppService.Scanner!.ScanRoot(rootId);
+            BuildDirectoryTree();
+            ShowToast($"已创建文件夹：{name}", ToastKind.Success);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ShowToast($"创建失败：{ex.Message}", ToastKind.Pending);
+        }
+    }
+
+    private async Task DeleteFolderAsync(int rootId, string dirRel, string target)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "删除文件夹",
+            Content = $"将文件夹“{Path.GetFileName(target)}”及其中全部内容移到回收站？\n{target}",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Secondary, // 取消为默认
+            XamlRoot = Content.XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return;
+        var ok = await Task.Run(() => FileActions.DeleteToRecycle(target));
+        if (!ok)
+        {
+            ShowToast("删除失败", ToastKind.Pending);
+            return;
+        }
+        lock (AppService.DbLock)
+            AppService.Scanner!.ScanRoot(rootId); // mark_missing
+        BuildDirectoryTree();
+        _page.SetDirectory(null, null);
+        Nav.SelectedItem = Nav.MenuItems[0];
+        ShowToast($"已删除文件夹：{Path.GetFileName(target)}", ToastKind.Success);
+    }
+
 }

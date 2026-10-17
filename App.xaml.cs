@@ -40,6 +40,39 @@ public partial class App : Application
             return;
         }
 
+        // --verify-query：批次 1 验收（8 键排序 + 搜索，写报告后退出）
+        if (cli.Contains("--verify-query"))
+        {
+            var q = new StringBuilder();
+            try
+            {
+                var store2 = new StoreService(AppPaths.DbPath);
+                foreach (var sortKey in SortKeys.All)
+                {
+                    var rows2 = store2.Query(new StoreService.QuerySpec
+                    {
+                        Sort = sortKey, Desc = false, Limit = 5,
+                    });
+                    q.AppendLine($"sort={sortKey,-8} 前5: {string.Join(" | ", rows2.Select(r => r.Name))}");
+                }
+                var hits = store2.Query(new StoreService.QuerySpec
+                {
+                    Search = "2026-0", Sort = "name", Limit = 5,
+                });
+                q.AppendLine($"search=2026-0 命中 {hits.Count}（LIMIT5: {string.Join(" | ", hits.Select(r => r.Name))}）");
+                var byName = store2.Query(new StoreService.QuerySpec
+                    { Search = "zenless", Sort = "name" });
+                q.AppendLine($"search=zenless（标签名路径）命中 {byName.Count}（LIMIT5: {string.Join(" | ", byName.Select(r => r.Name))}）");
+            }
+            catch (Exception ex) { q.AppendLine("ERROR: " + ex.Message); }
+            var outDir3 = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(outDir3);
+            File.WriteAllText(Path.Combine(outDir3, "verify_query.txt"), q.ToString());
+            Exit();
+            return;
+        }
+
         // --thumbtest <image>：验证缩略图 key/目录结构（自动化测试用）
         var ti = Array.IndexOf(cli, "--thumbtest");
         if (ti >= 0 && ti + 1 < cli.Length)

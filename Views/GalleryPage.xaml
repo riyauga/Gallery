@@ -105,13 +105,18 @@
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="SortMenu" Placement="Bottom">
-                            <MenuFlyoutItem Click="SortByDateTaken_Click" Text="拍摄日期" />
-                            <MenuFlyoutItem Click="SortByDateCreated_Click" Text="创建日期" />
-                            <MenuFlyoutItem Click="SortByDateModified_Click" Text="修改日期" />
-                            <MenuFlyoutItem Click="SortByName_Click" Text="名字" />
+                            <!--  8 键 = photos 菜单结构 ∪ galleryold 键集（裁决 D10）  -->
+                            <RadioMenuFlyoutItem x:Name="SortTaken" Click="SortKey_Click" Tag="taken" Text="拍摄日期" />
+                            <RadioMenuFlyoutItem x:Name="SortCreated" Click="SortKey_Click" Tag="created" Text="创建日期" />
+                            <RadioMenuFlyoutItem x:Name="SortModified" Click="SortKey_Click" Tag="mtime" Text="修改日期" />
+                            <RadioMenuFlyoutItem x:Name="SortName" Click="SortKey_Click" Tag="name" Text="名字" />
+                            <RadioMenuFlyoutItem x:Name="SortAdded" Click="SortKey_Click" Tag="added" Text="入库时间" />
+                            <RadioMenuFlyoutItem x:Name="SortSize" Click="SortKey_Click" Tag="size" Text="大小" />
+                            <RadioMenuFlyoutItem x:Name="SortRating" Click="SortKey_Click" Tag="rating" Text="星级" />
+                            <RadioMenuFlyoutItem x:Name="SortRandom" Click="SortKey_Click" Tag="random" Text="随机" />
                             <MenuFlyoutSeparator />
-                            <MenuFlyoutItem Click="SortAscending_Click" Text="升序" />
-                            <MenuFlyoutItem Click="SortDescending_Click" Text="降序" />
+                            <RadioMenuFlyoutItem x:Name="SortAsc" Click="SortDir_Click" Tag="asc" Text="升序" />
+                            <RadioMenuFlyoutItem x:Name="SortDesc" Click="SortDir_Click" Tag="desc" Text="降序" />
                         </MenuFlyout>
                     </AppBarButton.Flyout>
                 </AppBarButton>

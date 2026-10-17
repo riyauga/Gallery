@@ -22,10 +22,13 @@ public sealed partial class GalleryPage : UserControl
     private readonly HashSet<PhotoTile> _selected = new();
 
     private bool _favoritesMode;
-    private SortKey _sort = SortKey.DateTaken;
+    private SortKey _sort = SortKey.DateTaken;          // manifest 路径用
+    private string _sortKey = "taken";                   // 真实数据路径（galleryold 键）
     private bool _ascending = false;
     private FilterKind _filter = FilterKind.All;
     private string _query = string.Empty;
+    private int? _dirRootId;                             // 目录树选择（null=全部）
+    private string? _dirRel;
 
     private double _lastWidth;
     private int _anchorIndex;
@@ -76,12 +79,22 @@ public sealed partial class GalleryPage : UserControl
         {
             if (IsLoaded) UpdateScrollbarType();
         };
+
+        _searchTimer.Tick += (_, _) =>
+        {
+            _searchTimer.Stop();
+            if (IsLoaded) Rebuild();
+        };
     }
 
+    private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
+
+    /// <summary>galleryold：搜索 160ms 防抖（标签/中文别名/文件名）。</summary>
     public void SetSearch(string query)
     {
         _query = (query ?? string.Empty).Trim();
-        if (IsLoaded) Rebuild();
+        _searchTimer.Stop();
+        _searchTimer.Start();
     }
 
     public void SetMode(bool favorites)
@@ -146,8 +159,9 @@ public sealed partial class GalleryPage : UserControl
         _items.AddRange(BuildSource());
         _selected.Clear();
 
-        // 批次 0 原型：真实数据（库根目录 ≥1）走虚拟化；manifest 示例图保持原路径
-        bool virtualMode = AppService.DbReady && AppService.RootCount > 0 && !_favoritesMode;
+        // 批次 1：真实数据（库就绪）走虚拟化 + Query；manifest 示例图保持原路径
+        bool virtualMode = AppService.DbReady && AppService.Store is not null;
+        SyncSortMenuChecks();
         if (virtualMode)
         {
             _items.Clear();
@@ -186,19 +200,29 @@ public sealed partial class GalleryPage : UserControl
         UpdateEmptyState();
     }
 
-    /// <summary>批次 0 原型：真实数据直出（images 表 missing=0）。</summary>
+    /// <summary>批次 1：真实数据走 StoreService.Query（目录/收藏/搜索/8 键排序）。</summary>
     private IEnumerable<PhotoItem> LoadRealItems()
     {
         var store = AppService.Store;
         if (store is null) yield break;
-        var favorites = store.FavoriteIds();
-        foreach (var row in store.QueryAll(
-            "SELECT * FROM images WHERE missing=0 ORDER BY added_at DESC"))
+        var rows = store.Query(new StoreService.QuerySpec
         {
+            RootId = _dirRootId,
+            DirRel = _dirRel,
+            Recursive = AppService.Settings.Settings.recursive,
+            FavoritesOnly = _favoritesMode,
+            Search = _query,
+            Sort = _sortKey,
+            Desc = !_ascending,
+        });
+        var favorites = store.FavoriteIds();
+        foreach (var row in rows)
+        {
+            if (_filter == FilterKind.Videos) yield break;
             DateTime date = row.TakenAt is { } t
                 ? DateTime.UnixEpoch.AddSeconds(t).ToLocalTime()
                 : DateTime.UnixEpoch.AddSeconds(row.Mtime).ToLocalTime();
-            var item = new PhotoItem
+            yield return new PhotoItem
             {
                 File = row.Name,
                 FullPath = row.AbsPath,
@@ -215,9 +239,18 @@ public sealed partial class GalleryPage : UserControl
                 ModifiedAtUnix = row.Mtime,
                 Rating = row.Rating,
                 Nsfw = row.Nsfw,
+                FileSize = row.Size,
+                Tags = row.Tags,
             };
-            yield return item;
         }
+    }
+
+    /// <summary>目录树选择（null = 全部图库）。</summary>
+    public void SetDirectory(int? rootId, string? dirRel)
+    {
+        _dirRootId = rootId;
+        _dirRel = dirRel;
+        if (IsLoaded) Rebuild();
     }
 
     private void WireTile(PhotoTile tile, PhotoItem item)
@@ -239,26 +272,31 @@ public sealed partial class GalleryPage : UserControl
         if (vh <= 0) vh = Scroller.ActualHeight;
         if (vh <= 0) return;
         var (first, last) = Panel.VisibleRange(Scroller.VerticalOffset, vh, 800);
-        var keep = new HashSet<PhotoTile>();
+        var byIndex = new Dictionary<int, PhotoTile>();
+        foreach (var child in Panel.Children.OfType<PhotoTile>())
+        {
+            var idx = Panel.IndexOfTile(child);
+            if (idx >= 0) byIndex[idx] = child;
+        }
 
         for (int i = first; i <= last && i < _items.Count; i++)
         {
-            var existing = Panel.Children.OfType<PhotoTile>()
-                .FirstOrDefault(t => Panel.IndexOfTile(t) == i);
-            if (existing is not null)
+            if (byIndex.TryGetValue(i, out var existing))
             {
-                keep.Add(existing);
+                byIndex.Remove(i);
                 continue;
             }
             var tile = new PhotoTile(_items[i]);
             WireTile(tile, _items[i]);
             Panel.PlaceTile(tile, i);
-            keep.Add(tile);
         }
 
-        foreach (var child in Panel.Children.OfType<PhotoTile>().ToList())
-            if (!keep.Contains(child))
-                Panel.RemoveTile(child);
+        // 视口外的回收：置 Detached（取消在途异步贴图）后移出面板
+        foreach (var stale in byIndex.Values)
+        {
+            stale.Detached = true;
+            Panel.RemoveTile(stale);
+        }
     }
 
     /// <summary>
@@ -461,17 +499,44 @@ public sealed partial class GalleryPage : UserControl
         SyncSelection();
     }
 
-    private void SortByDateTaken_Click(object sender, RoutedEventArgs e) => ApplySort(SortKey.DateTaken);
-    private void SortByDateCreated_Click(object sender, RoutedEventArgs e) => ApplySort(SortKey.DateCreated);
-    private void SortByDateModified_Click(object sender, RoutedEventArgs e) => ApplySort(SortKey.DateModified);
-    private void SortByName_Click(object sender, RoutedEventArgs e) => ApplySort(SortKey.Name);
-    private void SortAscending_Click(object sender, RoutedEventArgs e) { _ascending = true; RebuildKeepScroll(); }
-    private void SortDescending_Click(object sender, RoutedEventArgs e) { _ascending = false; RebuildKeepScroll(); }
-
-    private void ApplySort(SortKey key)
+    private void SortKey_Click(object sender, RoutedEventArgs e)
     {
-        _sort = key;
-        RebuildKeepScroll();
+        if (sender is RadioMenuFlyoutItem item && item.Tag is string key)
+        {
+            _sortKey = key;
+            // manifest 路径的旧 enum 同步（仅 4 键可映射）
+            _sort = key switch
+            {
+                "name" => SortKey.Name,
+                "mtime" => SortKey.DateModified,
+                "created" => SortKey.DateCreated,
+                _ => SortKey.DateTaken,
+            };
+            RebuildKeepScroll();
+        }
+    }
+
+    private void SortDir_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioMenuFlyoutItem item && item.Tag is string dir)
+        {
+            _ascending = dir == "asc";
+            RebuildKeepScroll();
+        }
+    }
+
+    private void SyncSortMenuChecks()
+    {
+        SortTaken.IsChecked = _sortKey == "taken";
+        SortCreated.IsChecked = _sortKey == "created";
+        SortModified.IsChecked = _sortKey == "mtime";
+        SortName.IsChecked = _sortKey == "name";
+        SortAdded.IsChecked = _sortKey == "added";
+        SortSize.IsChecked = _sortKey == "size";
+        SortRating.IsChecked = _sortKey == "rating";
+        SortRandom.IsChecked = _sortKey == "random";
+        SortAsc.IsChecked = _ascending;
+        SortDesc.IsChecked = !_ascending;
     }
 
     private void FilterAll_Click(object sender, RoutedEventArgs e) => ApplyFilter(FilterKind.All);

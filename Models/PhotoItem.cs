@@ -21,6 +21,7 @@ public sealed class PhotoItem
     public double? ModifiedAtUnix { get; init; }   // 文件修改时间
     public int Rating { get; init; }
     public string? Nsfw { get; init; }
+    public long FileSize { get; init; }
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];
     public bool Missing { get; init; }
 

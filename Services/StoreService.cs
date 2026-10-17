@@ -13,7 +13,11 @@ public sealed record ImageRow(
     double? TakenAt, int? Width, int? Height, int Rating, bool Missing,
     double AddedAt, double UpdatedAt, string? OrigMd5, string? ContentMd5,
     string? PageUrl, string? SourceUrl, string? Nsfw, string? PostId,
-    string? ImageUuid, string? FileKey, bool Managed);
+    string? ImageUuid, string? FileKey, bool Managed)
+{
+    /// <summary>由 AttachTags 填充（批次 1 查询路径）。</summary>
+    public List<(string Category, string Name)> Tags { get; set; } = [];
+}
 
 /// <summary>
 /// 数据层，移植 galleryold <c>app/store.py</c>（批次 0 范围）：
@@ -467,6 +471,160 @@ public sealed class StoreService : IDisposable
         while (r.Read()) set.Add(r.GetInt32(0));
         return set;
     }
+
+    // ------------------------------------------------------------------ query
+
+    public sealed record QuerySpec
+    {
+        public int? RootId { get; init; }
+        public string? DirRel { get; init; }
+        public bool Recursive { get; init; } = true;
+        public bool FavoritesOnly { get; init; }
+        public string Search { get; init; } = "";
+        public string Sort { get; init; } = "taken";
+        public bool Desc { get; init; }
+        public int? Limit { get; init; }
+    }
+
+    private static string LikeEscape(string s)
+        => s.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
+    /// <summary>
+    /// 对应 store.py query_images（批次 1 范围：目录/收藏/搜索/8 键排序）。
+    /// 排序 SQL 逐字照搬 _SORT_SQL + name 特例（字母组 CASE 前置 + GALLERY_NATURAL）
+    /// + 非 name 的稳定尾排序。
+    /// </summary>
+    public List<ImageRow> Query(QuerySpec spec)
+    {
+        var where = new List<string>
+        {
+            "i.missing = 0",
+            "EXISTS(SELECT 1 FROM roots r WHERE r.id=i.root_id AND r.enabled=1)",
+        };
+        var args = new List<object>();
+
+        if (spec.RootId is not null)
+        {
+            where.Add($"i.root_id = $p{args.Count}");
+            args.Add(spec.RootId.Value);
+        }
+        if (spec.DirRel is not null)
+        {
+            if (spec.Recursive)
+            {
+                if (spec.DirRel.Length > 0)
+                {
+                    var i0 = args.Count;
+                    args.Add(spec.DirRel);
+                    args.Add(LikeEscape(spec.DirRel) + "/%");
+                    where.Add($"(i.dir_rel = $p{i0} OR i.dir_rel LIKE $p{i0 + 1} ESCAPE '\\')");
+                }
+            }
+            else
+            {
+                where.Add($"i.dir_rel = $p{args.Count}");
+                args.Add(spec.DirRel);
+            }
+        }
+        if (spec.FavoritesOnly)
+        {
+            where.Add("EXISTS(SELECT 1 FROM favorites f WHERE f.image_id=i.id)");
+        }
+        var search = spec.Search.Trim();
+        if (search.Length > 0)
+        {
+            // galleryold 语义：标签 / 中文别名 / 文件名（别名经 tag_aliases 命中标签）
+            var ph = $"$p{args.Count}";
+            args.Add("%" + LikeEscape(search) + "%");
+            where.Add(
+                $"(i.name LIKE {ph} ESCAPE '\\' OR EXISTS(" +
+                "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
+                $"WHERE it.image_id=i.id AND (t.name LIKE {ph} ESCAPE '\\' " +
+                $"OR EXISTS(SELECT 1 FROM tag_aliases ta WHERE ta.tag_id=t.id AND ta.alias LIKE {ph} ESCAPE '\\'))))");
+        }
+
+        string order;
+        var sort = SortKeys.IsValid(spec.Sort) ? spec.Sort : "name";
+        var direction = spec.Desc ? "DESC" : "ASC";
+        if (sort == "name")
+        {
+            // 字母组永远在前（A–Z 归 0，其余归 1），组内按自然排序 + 方向
+            order = "CASE WHEN substr(i.name,1,1) GLOB '[A-Za-z]' THEN 0 ELSE 1 END ASC, " +
+                    $"i.name COLLATE GALLERY_NATURAL {direction}";
+        }
+        else
+        {
+            var col = sort switch
+            {
+                "mtime" => "i.mtime",
+                "taken" => "COALESCE(i.taken_at, i.mtime)",
+                "created" => "COALESCE(i.ctime, i.mtime)",
+                "added" => "i.added_at",
+                "size" => "i.size",
+                "rating" => "i.rating",
+                "random" => "RANDOM()",
+                _ => "i.name COLLATE NOCASE",
+            };
+            order = $"{col} {direction}" + (sort != "random" ? ", i.name COLLATE NOCASE ASC" : "");
+        }
+
+        var sql = "SELECT i.* FROM images i WHERE " + string.Join(" AND ", where) +
+                  $" ORDER BY {order}";
+        if (spec.Limit is not null) sql += $" LIMIT {spec.Limit.Value}";
+
+        var rows = QueryAllWithAlias(sql, [.. args]);
+        AttachTags(rows);
+        return rows;
+    }
+
+    /// <summary>QueryAll 的可传参变体（参数带 $ 前缀按序填充）。</summary>
+    private List<ImageRow> QueryAllWithAlias(string sql, List<object> args)
+    {
+        var list = new List<ImageRow>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = sql;
+        for (var i = 0; i < args.Count; i++)
+            cmd.Parameters.AddWithValue($"$p{i}", args[i]);
+        // SQL 里的占位符按出现顺序对应 $p0..$pn
+        // （上面的 where 片段已改为使用 $p 占位符）
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(ReadImage(r));
+        return list;
+    }
+
+    private void AttachTags(List<ImageRow> rows)
+    {
+        if (rows.Count == 0) return;
+        var map = new Dictionary<int, List<(string, string)>>();
+        const int chunk = 900;
+        var ids = rows.Select(r => r.Id).ToList();
+        for (var i = 0; i < ids.Count; i += chunk)
+        {
+            var part = ids.Skip(i).Take(chunk).ToList();
+            var marks = string.Join(",", part.Select((_, j) => $"$c{j}"));
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT it.image_id, COALESCE(t.category,'custom'), t.name " +
+                "FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
+                $"WHERE it.image_id IN ({marks}) ORDER BY t.category, t.name";
+            for (var j = 0; j < part.Count; j++)
+                cmd.Parameters.AddWithValue($"$c{j}", part[j]);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetInt32(0);
+                if (!map.TryGetValue(id, out var list))
+                    map[id] = list = [];
+                list.Add((r.GetString(1), r.GetString(2)));
+            }
+        }
+        foreach (var row in rows)
+            row.Tags = map.TryGetValue(row.Id, out var list)
+                ? list
+                : new List<(string, string)>();
+    }
+
+    // ------------------------------------------------------------------ query
 
     public List<FolderCount> Folders(int rootId)
     {
