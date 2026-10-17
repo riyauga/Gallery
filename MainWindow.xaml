@@ -99,6 +99,25 @@
             OpenPaneLength="320"
             PaneDisplayMode="Left"
             SelectionChanged="Nav_SelectionChanged">
+            <!--  照 photos：导航顶部右侧「添加文件夹」按钮（folder-plus，tooltip 同名）  -->
+            <NavigationView.PaneHeader>
+                <Grid Margin="0,8,0,0">
+                    <Button
+                        x:Name="AddFolderButton"
+                        Width="40"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="添加文件夹"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="AddFolderButton_Click"
+                        ToolTipService.ToolTip="添加文件夹">
+                        <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                    </Button>
+                </Grid>
+            </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="图库" Tag="all">
                     <NavigationViewItem.Icon>

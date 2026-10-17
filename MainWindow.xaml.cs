@@ -59,6 +59,18 @@ public sealed partial class MainWindow : Window
         // 主题切到根元素（对应 photos 的 IThemeService.SetTheme）
         ThemeService.Root = RootGrid;
 
+        AppService.Init();
+        if (AppService.DbReady)
+        {
+            // 批次 0 验收可见化：库连接状态
+            ShowToast($"库已连接：{AppService.RootCount} 个目录 · " +
+                      $"{AppService.ImageCount} 张图片 · {AppService.FavoriteCount} 收藏");
+        }
+        else if (AppService.InitError.Length > 0)
+        {
+            ShowToast("库打开失败：" + AppService.InitError);
+        }
+
         _page = new GalleryPage(_library);
         _page.ToastRequested += ShowToast;
         _page.PreviewRequested += (item, items) => Preview.Open(items, item);
@@ -131,6 +143,57 @@ public sealed partial class MainWindow : Window
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         => _page.SetSearch(SearchBox.Text);
+
+    /// <summary>photos 的「添加文件夹」：选目录 → 备份 → 事务入库 → 首扫。</summary>
+    private async void AddFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppService.Folders is null)
+        {
+            ShowToast("库未连接，无法添加目录");
+            return;
+        }
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker,
+            WinRT.Interop.WindowNative.GetWindowHandle(this));
+        picker.FileTypeFilter.Add("*");
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) return;
+
+        AddFolderButton.IsEnabled = false;
+        ShowToast("正在扫描新目录…");
+        var path = folder.Path;
+        var outcome = await Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+            {
+                try
+                {
+                    var (root, scan) = AppService.Folders.AddRootAndScan(path);
+                    AppService.Scanner?.Thumbs.PruneOrphans();
+                    return AddRootOutcome.Ok(root, scan);
+                }
+                catch (Exception ex)
+                {
+                    return AddRootOutcome.Fail(ex.Message);
+                }
+            }
+        });
+        AddFolderButton.IsEnabled = true;
+        if (outcome.Error is not null)
+        {
+            ShowToast(outcome.Error);
+            return;
+        }
+        ShowToast($"已添加：{Path.GetFileName(outcome.Root!.Path)}（{outcome.Scan!.Summary()}）");
+        AppService.Recount();
+        _page.RefreshEmptyState();
+    }
+
+    private sealed record AddRootOutcome(RootInfo? Root, ScanResult? Scan, string? Error)
+    {
+        public static AddRootOutcome Ok(RootInfo root, ScanResult scan) => new(root, scan, null);
+        public static AddRootOutcome Fail(string error) => new(null, null, error);
+    }
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {

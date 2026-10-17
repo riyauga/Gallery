@@ -47,6 +47,7 @@ public sealed partial class GalleryPage : UserControl
             _anchorIndex = Panel.FirstVisibleIndex(Scroller.VerticalOffset);
             _anchorDelta = Panel.TopOfIndex(_anchorIndex) - Scroller.VerticalOffset;
             UpdateDateHeader();
+            if (Panel.IsVirtual) ReconcileViewport();
         };
 
         Scroller.SizeChanged += (_, e) =>
@@ -145,20 +146,37 @@ public sealed partial class GalleryPage : UserControl
         _items.AddRange(BuildSource());
         _selected.Clear();
 
-        Panel.Children.Clear();
-        foreach (var item in _items)
+        // 批次 0 原型：真实数据（库根目录 ≥1）走虚拟化；manifest 示例图保持原路径
+        bool virtualMode = AppService.DbReady && AppService.RootCount > 0 && !_favoritesMode;
+        if (virtualMode)
         {
-            var tile = new PhotoTile(item);
-            tile.Tapped += OnTileTapped;
-            tile.DoubleTapped += OnTileDoubleTapped;
-            tile.RightTapped += OnTileRightTapped;
-            FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
-            Panel.Children.Add(tile);
+            _items.Clear();
+            _items.AddRange(LoadRealItems());
         }
 
-        Panel.InvalidateMeasure();
-        Scroller.UpdateLayout();
-        Scroller.ChangeView(null, 0, null, true);
+        _selected.Clear();
+        if (virtualMode)
+        {
+            Panel.SetVirtualSource(_items.Select(i => i.AspectRatio).ToList());
+            Panel.InvalidateMeasure();
+            Scroller.UpdateLayout();
+            Scroller.ChangeView(null, 0, null, true);
+            ReconcileViewport();
+        }
+        else
+        {
+            Panel.ClearVirtualSource();
+            Panel.Children.Clear();
+            foreach (var item in _items)
+            {
+                var tile = new PhotoTile(item);
+                WireTile(tile, item);
+                Panel.Children.Add(tile);
+            }
+            Panel.InvalidateMeasure();
+            Scroller.UpdateLayout();
+            Scroller.ChangeView(null, 0, null, true);
+        }
 
         Timeline.IsAscending = _ascending;
         UpdateScrollbarType();
@@ -166,6 +184,81 @@ public sealed partial class GalleryPage : UserControl
         UpdateDateHeader();
         UpdateHeader();
         UpdateEmptyState();
+    }
+
+    /// <summary>批次 0 原型：真实数据直出（images 表 missing=0）。</summary>
+    private IEnumerable<PhotoItem> LoadRealItems()
+    {
+        var store = AppService.Store;
+        if (store is null) yield break;
+        var favorites = store.FavoriteIds();
+        foreach (var row in store.QueryAll(
+            "SELECT * FROM images WHERE missing=0 ORDER BY added_at DESC"))
+        {
+            DateTime date = row.TakenAt is { } t
+                ? DateTime.UnixEpoch.AddSeconds(t).ToLocalTime()
+                : DateTime.UnixEpoch.AddSeconds(row.Mtime).ToLocalTime();
+            var item = new PhotoItem
+            {
+                File = row.Name,
+                FullPath = row.AbsPath,
+                PixelWidth = row.Width ?? 0,
+                PixelHeight = row.Height ?? 0,
+                Date = date,
+                Favorite = favorites.Contains(row.Id),
+                ImageId = row.Id,
+                RootId = row.RootId,
+                DirRel = row.DirRel,
+                RelPath = row.RelPath,
+                TakenAtUnix = row.TakenAt,
+                CreatedAtUnix = row.Ctime,
+                ModifiedAtUnix = row.Mtime,
+                Rating = row.Rating,
+                Nsfw = row.Nsfw,
+            };
+            yield return item;
+        }
+    }
+
+    private void WireTile(PhotoTile tile, PhotoItem item)
+    {
+        tile.Tapped += OnTileTapped;
+        tile.DoubleTapped += OnTileDoubleTapped;
+        tile.RightTapped += OnTileRightTapped;
+        FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
+    }
+
+    /// <summary>
+    /// 虚拟化视口对账：视口 ± 缓冲区内的索引才有瓦片，其余回收。
+    /// 选中/事件按数据索引走，不依赖控件实例存活。
+    /// </summary>
+    private void ReconcileViewport()
+    {
+        if (!Panel.IsVirtual) return;
+        double vh = Scroller.ViewportHeight;
+        if (vh <= 0) vh = Scroller.ActualHeight;
+        if (vh <= 0) return;
+        var (first, last) = Panel.VisibleRange(Scroller.VerticalOffset, vh, 800);
+        var keep = new HashSet<PhotoTile>();
+
+        for (int i = first; i <= last && i < _items.Count; i++)
+        {
+            var existing = Panel.Children.OfType<PhotoTile>()
+                .FirstOrDefault(t => Panel.IndexOfTile(t) == i);
+            if (existing is not null)
+            {
+                keep.Add(existing);
+                continue;
+            }
+            var tile = new PhotoTile(_items[i]);
+            WireTile(tile, _items[i]);
+            Panel.PlaceTile(tile, i);
+            keep.Add(tile);
+        }
+
+        foreach (var child in Panel.Children.OfType<PhotoTile>().ToList())
+            if (!keep.Contains(child))
+                Panel.RemoveTile(child);
     }
 
     /// <summary>
@@ -213,13 +306,30 @@ public sealed partial class GalleryPage : UserControl
         DateHeader.Text = a == b ? a.ToString("yyyy年M月d日") : $"{a:yyyy年M月d日} - {b:yyyy年M月d日}";
     }
 
+    /// <summary>空态：无根目录 → 引导添加文件夹（批次 0 语义：图库默认空）。</summary>
+    public void RefreshEmptyState()
+    {
+        bool noRoots = !AppService.DbReady || AppService.RootCount == 0;
+        EmptyTitle.Text = noRoots ? "把你的图片目录添加进图库" : EmptyTitle.Text;
+        EmptySubtitle.Text = noRoots
+            ? "点击左侧「添加文件夹」，选择一个图片目录。图库默认为空，只有被添加的目录才会显示。"
+            : EmptySubtitle.Text;
+    }
+
     private void UpdateEmptyState()
     {
         bool empty = _items.Count == 0;
         EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         if (!empty) return;
-        EmptyTitle.Text = _filter == FilterKind.Videos ? "没有视频" : "这里还没有照片";
-        EmptySubtitle.Text = _filter == FilterKind.Videos ? "尝试将筛选器改为“所有媒体”。" : "把照片放进 assets 文件夹后重新启动。";
+        bool noRoots = !AppService.DbReady || AppService.RootCount == 0;
+        EmptyTitle.Text = noRoots
+            ? "把你的图片目录添加进图库"
+            : _filter == FilterKind.Videos ? "没有视频" : "这里还没有照片";
+        EmptySubtitle.Text = noRoots
+            ? "点击左侧「添加文件夹」，选择一个图片目录。图库默认为空，只有被添加的目录才会显示。"
+            : _filter == FilterKind.Videos
+                ? "尝试将筛选器改为“所有媒体”。"
+                : "把照片放进 assets 文件夹后重新启动。";
     }
 
     private void UpdateHeader()
