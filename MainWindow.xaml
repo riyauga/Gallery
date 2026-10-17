@@ -39,7 +39,7 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="12"
-                    Text="照片" />
+                    Text="Gallery" />
             </StackPanel>
 
             <TextBox

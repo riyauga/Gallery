@@ -31,10 +31,21 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = "照片";
+        Title = "Gallery";
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
+
+        // 照搬 photos：标题栏 48 DIP，系统三件套撑满（48x48）
+        // WinUI 默认 Standard 是 46x32，与设置按钮（40x48）高度不齐
+        var appWindow = WinRT.Interop.WindowNative.GetWindowHandle(this)
+            is IntPtr hwnd
+                ? Microsoft.UI.Windowing.AppWindow.GetFromWindowId(
+                    Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd))
+                : null;
+        if (appWindow is not null)
+            appWindow.TitleBar.PreferredHeightOption =
+                Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
 
         try
         {

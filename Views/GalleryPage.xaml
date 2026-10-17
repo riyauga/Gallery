@@ -203,19 +203,20 @@
             FontSize="14"
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
             TextTrimming="CharacterEllipsis" />
-
-        <!--  内容区：左 32 / 右 48，右侧 48 由时间线占用  -->
-        <Grid Grid.Row="2">
+        <!--  内容区：照搬 photos 的 GalleryView.xaml 两层边距
+              外层 Grid = GalleryViewGridMargin 32,0,0,0（只留左）
+              内层内容 = GalleryViewGridContentMargin 0,0,48,0（右留白给时间线）
+              这样滚动条才能贴到窗口右边缘（见 PhotosManager/Styles/Page.xaml 的注释）  -->
+        <Grid Grid.Row="2" Margin="32,0,0,0">
             <ScrollViewer
                 x:Name="Scroller"
-                Margin="32,0,48,0"
                 HorizontalScrollBarVisibility="Disabled"
                 HorizontalScrollMode="Disabled"
                 IsTabStop="False"
                 VerticalScrollBarVisibility="Hidden"
                 VerticalScrollMode="Enabled"
                 ZoomMode="Disabled">
-                <controls:PhotoGalleryPanel x:Name="Panel" />
+                <controls:PhotoGalleryPanel x:Name="Panel" Margin="0,0,48,0" />
             </ScrollViewer>
 
             <controls:TimelineScrollbar x:Name="Timeline" />
