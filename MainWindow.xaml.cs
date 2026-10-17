@@ -179,41 +179,51 @@ public sealed partial class MainWindow : Window
             ShowToast("库未连接，无法添加目录");
             return;
         }
-        var picker = new Windows.Storage.Pickers.FolderPicker();
-        WinRT.Interop.InitializeWithWindow.Initialize(picker,
-            WinRT.Interop.WindowNative.GetWindowHandle(this));
-        picker.FileTypeFilter.Add("*");
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is null) return;
-
-        AddFolderButton.IsEnabled = false;
-        ShowToast("正在扫描新目录…");
-        var path = folder.Path;
-        var outcome = await Task.Run(() =>
+        try
         {
-            lock (AppService.DbLock)
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeFilter.Add("*");
+            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+
+            AddFolderButton.IsEnabled = false;
+            ShowToast("正在扫描新目录…");
+            var path = folder.Path;
+            var outcome = await Task.Run(() =>
             {
-                try
+                lock (AppService.DbLock)
                 {
-                    var (root, scan) = AppService.Folders.AddRootAndScan(path);
-                    AppService.Scanner?.Thumbs.PruneOrphans();
-                    return AddRootOutcome.Ok(root, scan);
+                    try
+                    {
+                        var (root, scan) = AppService.Folders.AddRootAndScan(path);
+                        AppService.Scanner?.Thumbs.PruneOrphans();
+                        return AddRootOutcome.Ok(root, scan);
+                    }
+                    catch (Exception ex)
+                    {
+                        return AddRootOutcome.Fail(ex.Message);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    return AddRootOutcome.Fail(ex.Message);
-                }
-            }
         });
         AddFolderButton.IsEnabled = true;
         if (outcome.Error is not null)
         {
-            ShowToast(outcome.Error);
+            ShowToast(outcome.Error, ToastKind.Pending);
             return;
         }
-        ShowToast($"已添加：{Path.GetFileName(outcome.Root!.Path)}（{outcome.Scan!.Summary()}）");
+        ShowToast($"已添加：{Path.GetFileName(outcome.Root!.Path)}（{outcome.Scan!.Summary()}）", ToastKind.Success);
         AppService.Recount();
         _page.RefreshEmptyState();
+        BuildDirectoryTree();
+        }
+        catch (Exception ex)
+        {
+            // 非打包应用的 FolderPicker 常见环境性失败：给出可见反馈而不是静默
+            ShowToast($"打开文件夹选择器失败：{ex.Message}", ToastKind.Pending);
+        }
     }
 
     private sealed record AddRootOutcome(RootInfo? Root, ScanResult? Scan, string? Error)

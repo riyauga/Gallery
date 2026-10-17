@@ -114,7 +114,16 @@
                         BorderThickness="0"
                         Click="AddFolderButton_Click"
                         ToolTipService.ToolTip="添加文件夹">
-                        <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                        <Grid>
+                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                            <!--  右下小加号：对应 photos 的「添加文件夹」folder-plus 造型  -->
+                            <FontIcon
+                                FontSize="10"
+                                Glyph="&#xE710;"
+                                Margin="8,8,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom" />
+                        </Grid>
                     </Button>
                 </Grid>
             </NavigationView.PaneHeader>

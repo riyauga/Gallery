@@ -429,7 +429,13 @@ public sealed partial class GalleryPage : UserControl
             SyncSelection();
         }
 
-        DispatcherQueue.TryEnqueue(() => FlyoutBase.ShowAttachedFlyout(tile));
+        // photos/galleryold：右键菜单在鼠标指针处弹出（ShowAttachedFlyout 会锚到整个瓦片）
+        var position = e.GetPosition(tile);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (FlyoutBase.GetAttachedFlyout(tile) is MenuFlyout flyout)
+                flyout.ShowAt(tile, position);
+        });
     }
 
     private MenuFlyout BuildContextMenu(PhotoItem item)
