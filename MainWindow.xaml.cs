@@ -258,9 +258,12 @@ public sealed partial class MainWindow : Window
     /// <summary>重建目录树（挂在「收藏夹」之后的分隔线 + 各启用根）。</summary>
     private void BuildDirectoryTree()
     {
+        // 注意：NavigationViewItemSeparator 继承 NavigationViewItemBase 而非
+        // NavigationViewItem——用 is NavigationViewItem 匹配会漏掉分隔线，导致
+        // 每次重建目录树都累积一条横线（实测 bug）。
         for (var i = Nav.MenuItems.Count - 1; i >= 0; i--)
-            if (Nav.MenuItems[i] is NavigationViewItem nvi &&
-                nvi.Tag is string t && (t.StartsWith("dir:", StringComparison.Ordinal) || t == "dirsep"))
+            if (Nav.MenuItems[i] is NavigationViewItemBase item &&
+                item.Tag is string t && (t.StartsWith("dir:", StringComparison.Ordinal) || t == "dirsep"))
                 Nav.MenuItems.RemoveAt(i);
 
         var store = AppService.Store;
