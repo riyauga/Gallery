@@ -1,0 +1,17 @@
+# 构建产物
+bin/
+obj/
+.vs/
+*.user
+
+# 快捷方式（本机生成，路径含机器信息）
+*.lnk
+
+# 取证截图（临时验证输出，不进库）
+shot*.png
+screen*.png
+crop*.png
+validation/
+
+# 崩溃日志
+crash.log

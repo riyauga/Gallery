@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Grid
+    x:Class="Gallery.Controls.PreviewOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="#FF000000"
+    IsTabStop="True"
+    KeyDown="OnKeyDown"
+    Visibility="Collapsed">
+
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Grid Padding="24,14,16,10" Margin="0,48,0,0">
+        <TextBlock
+            x:Name="NameText"
+            VerticalAlignment="Center"
+            FontSize="14"
+            Foreground="White"
+            TextTrimming="CharacterEllipsis" />
+        <Button
+            x:Name="CloseButton"
+            Padding="8"
+            HorizontalAlignment="Right"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="Close_Click"
+            ToolTipService.ToolTip="关闭">
+            <FontIcon FontSize="14" Foreground="White" Glyph="&#xE711;" />
+        </Button>
+    </Grid>
+
+    <Grid Grid.Row="1" Margin="0,0,0,0">
+        <Image
+            x:Name="PreviewImage"
+            Margin="72,0,72,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            RenderTransformOrigin="0.5,0.5"
+            Stretch="Uniform">
+            <Image.RenderTransform>
+                <ScaleTransform x:Name="ImageScale" ScaleX="1" ScaleY="1" />
+            </Image.RenderTransform>
+        </Image>
+
+        <Button
+            x:Name="PrevButton"
+            Width="44"
+            Height="64"
+            Margin="16,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Background="#33000000"
+            BorderThickness="0"
+            Click="Prev_Click">
+            <FontIcon FontSize="16" Foreground="White" Glyph="&#xE76B;" />
+        </Button>
+
+        <Button
+            x:Name="NextButton"
+            Width="44"
+            Height="64"
+            Margin="0,0,16,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Background="#33000000"
+            BorderThickness="0"
+            Click="Next_Click">
+            <FontIcon FontSize="16" Foreground="White" Glyph="&#xE76C;" />
+        </Button>
+    </Grid>
+
+    <TextBlock
+        x:Name="HintText"
+        Grid.Row="2"
+        Margin="0,0,0,18"
+        HorizontalAlignment="Center"
+        FontSize="12"
+        Foreground="#B3FFFFFF"
+        Text="← → 切换 · Esc 关闭" />
+</Grid>

@@ -1,0 +1,282 @@
+[
+ {
+  "file": "DSC_1003.jpg",
+  "w": 1400,
+  "h": 787,
+  "date": "2026-10-14T04:34:00",
+  "favorite": true
+ },
+ {
+  "file": "DSC_1002.jpg",
+  "w": 1400,
+  "h": 1050,
+  "date": "2026-10-14T06:03:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1004.jpg",
+  "w": 933,
+  "h": 1400,
+  "date": "2026-10-12T04:15:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1001.jpg",
+  "w": 1400,
+  "h": 933,
+  "date": "2026-10-15T09:06:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1006.jpg",
+  "w": 1400,
+  "h": 1400,
+  "date": "2026-10-12T07:00:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1010.jpg",
+  "w": 1400,
+  "h": 1050,
+  "date": "2026-10-14T07:34:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1011.jpg",
+  "w": 1400,
+  "h": 787,
+  "date": "2026-10-12T04:36:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1005.jpg",
+  "w": 1050,
+  "h": 1400,
+  "date": "2026-09-25T15:17:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1009.jpg",
+  "w": 1400,
+  "h": 933,
+  "date": "2026-09-27T16:42:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1007.jpg",
+  "w": 1400,
+  "h": 600,
+  "date": "2026-09-27T14:13:00",
+  "favorite": true
+ },
+ {
+  "file": "DSC_1019.jpg",
+  "w": 1400,
+  "h": 787,
+  "date": "2026-09-25T18:33:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1014.jpg",
+  "w": 1400,
+  "h": 1400,
+  "date": "2026-09-28T17:19:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1018.jpg",
+  "w": 1400,
+  "h": 1050,
+  "date": "2026-09-28T16:06:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1008.jpg",
+  "w": 787,
+  "h": 1400,
+  "date": "2026-09-28T16:23:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1017.jpg",
+  "w": 1400,
+  "h": 933,
+  "date": "2025-12-21T16:47:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1026.jpg",
+  "w": 1400,
+  "h": 1050,
+  "date": "2025-12-21T16:43:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1015.jpg",
+  "w": 1400,
+  "h": 600,
+  "date": "2025-12-21T18:57:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1025.jpg",
+  "w": 1400,
+  "h": 933,
+  "date": "2025-12-22T19:16:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1016.jpg",
+  "w": 787,
+  "h": 1400,
+  "date": "2025-12-24T18:56:00",
+  "favorite": true
+ },
+ {
+  "file": "DSC_1027.jpg",
+  "w": 1400,
+  "h": 787,
+  "date": "2025-12-21T18:14:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1022.jpg",
+  "w": 1400,
+  "h": 1400,
+  "date": "2025-12-22T16:22:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1035.jpg",
+  "w": 1400,
+  "h": 787,
+  "date": "2024-07-17T13:15:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1033.jpg",
+  "w": 1400,
+  "h": 933,
+  "date": "2024-07-16T11:57:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1013.jpg",
+  "w": 1050,
+  "h": 1400,
+  "date": "2024-07-17T12:17:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1034.jpg",
+  "w": 1400,
+  "h": 1050,
+  "date": "2024-07-16T11:51:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1023.jpg",
+  "w": 1400,
+  "h": 600,
+  "date": "2024-07-18T13:58:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1012.jpg",
+  "w": 933,
+  "h": 1400,
+  "date": "2024-07-19T14:27:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1030.jpg",
+  "w": 1400,
+  "h": 1400,
+  "date": "2024-07-18T14:03:00",
+  "favorite": true
+ },
+ {
+  "file": "DSC_1020.jpg",
+  "w": 933,
+  "h": 1400,
+  "date": "2023-05-06T06:27:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1021.jpg",
+  "w": 1050,
+  "h": 1400,
+  "date": "2023-05-04T05:50:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1024.jpg",
+  "w": 787,
+  "h": 1400,
+  "date": "2023-05-06T07:43:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1028.jpg",
+  "w": 933,
+  "h": 1400,
+  "date": "2023-05-03T04:08:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1031.jpg",
+  "w": 1400,
+  "h": 600,
+  "date": "2023-05-06T05:19:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1029.jpg",
+  "w": 1050,
+  "h": 1400,
+  "date": "2023-05-06T04:45:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1036.jpg",
+  "w": 933,
+  "h": 1400,
+  "date": "2020-01-10T14:20:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1032.jpg",
+  "w": 787,
+  "h": 1400,
+  "date": "2020-01-09T10:52:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1038.jpg",
+  "w": 1400,
+  "h": 1400,
+  "date": "2020-01-08T13:30:00",
+  "favorite": true
+ },
+ {
+  "file": "DSC_1040.jpg",
+  "w": 787,
+  "h": 1400,
+  "date": "2020-01-11T14:07:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1037.jpg",
+  "w": 1050,
+  "h": 1400,
+  "date": "1999-08-18T05:00:00",
+  "favorite": false
+ },
+ {
+  "file": "DSC_1039.jpg",
+  "w": 1400,
+  "h": 600,
+  "date": "1999-08-19T05:18:00",
+  "favorite": false
+ }
+]
