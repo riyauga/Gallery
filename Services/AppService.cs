@@ -29,6 +29,9 @@ public static class AppService
     /// <summary>跨线程串行化（批次 0 简化：扫描/监听与 UI 读共用一把锁）。</summary>
     public static readonly object DbLock = new();
 
+    /// <summary>主窗口句柄（FolderPicker 等需要 InitializeWithWindow）。</summary>
+    public static IntPtr MainWindowHandle { get; set; }
+
     public static void Init()
     {
         Settings.Load();

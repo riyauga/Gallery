@@ -22,6 +22,8 @@ public sealed class PhotoItem
     public int Rating { get; init; }
     public string? Nsfw { get; init; }
     public long FileSize { get; init; }
+    public string? PageUrl { get; init; }      // 来源页（详情面板）
+    public string? SourceUrl { get; init; }    // 原图地址
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];
     public bool Missing { get; init; }
 

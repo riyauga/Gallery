@@ -427,24 +427,50 @@ public sealed class StoreService : IDisposable
         return list;
     }
 
-    private static ImageRow ReadImage(SqliteDataReader r) => new(
-        r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetString(4),
-        r.GetString(5), r.GetString(6), r.GetInt64(7), r.GetDouble(8),
-        r.IsDBNull(9) ? null : r.GetDouble(9),
-        r.IsDBNull(10) ? null : r.GetDouble(10),
-        r.IsDBNull(11) ? null : r.GetInt32(11),
-        r.IsDBNull(12) ? null : r.GetInt32(12),
-        r.GetInt32(13), r.GetInt64(14) != 0,
-        r.GetDouble(15), r.GetDouble(16),
-        r.IsDBNull(17) ? null : r.GetString(17),
-        r.IsDBNull(18) ? null : r.GetString(18),
-        r.IsDBNull(19) ? null : r.GetString(19),
-        r.IsDBNull(20) ? null : r.GetString(20),
-        r.IsDBNull(21) ? null : r.GetString(21),
-        r.IsDBNull(22) ? null : r.GetString(22),
-        r.IsDBNull(23) ? null : r.GetString(23),
-        r.IsDBNull(24) ? null : r.GetString(24),
-        !r.IsDBNull(25) && r.GetInt64(25) != 0);
+    /// <summary>
+    /// 按列名读取（容错缺失列/NULL）——自定义 SELECT（非 SELECT *）也安全。
+    /// 此前按列序读，SidecarEntries/known 查询等自定义列序会崩（批次 2 引爆的批次 0 雷）。
+    /// </summary>
+    private ImageRow ReadImage(SqliteDataReader r)
+    {
+        int Ord(string c)
+        {
+            try { return r.GetOrdinal(c); } catch { return -1; }
+        }
+        T V<T>(string c, Func<int, T> f, T d)
+        {
+            var o = Ord(c);
+            return o >= 0 && !r.IsDBNull(o) ? f(o) : d;
+        }
+        return new ImageRow(
+            V("id", r.GetInt32, 0),
+            V("root_id", r.GetInt32, 0),
+            V("rel_path", r.GetString, ""),
+            V("abs_path", r.GetString, ""),
+            V("dir_rel", r.GetString, ""),
+            V("name", r.GetString, ""),
+            V("ext", r.GetString, ""),
+            V("size", r.GetInt64, 0L),
+            V("mtime", o => r.GetDouble(o), 0.0),
+            V("ctime", o => (double?)r.GetDouble(o), (double?)null),
+            V("taken_at", o => (double?)r.GetDouble(o), (double?)null),
+            V("width", o => (int?)r.GetInt32(o), (int?)null),
+            V("height", o => (int?)r.GetInt32(o), (int?)null),
+            V("rating", r.GetInt32, 0),
+            V("missing", o => r.GetInt64(o) != 0, false),
+            V("added_at", o => r.GetDouble(o), 0.0),
+            V("updated_at", o => r.GetDouble(o), 0.0),
+            V("orig_md5", r.GetString, null),
+            V("content_md5", r.GetString, null),
+            V("page_url", r.GetString, null),
+            V("source_url", r.GetString, null),
+            V("nsfw", r.GetString, null),
+            V("post_id", r.GetString, null),
+            V("image_uuid", r.GetString, null),
+            V("file_key", r.GetString, null),
+            V("managed", o => r.GetInt64(o) != 0, false))
+        { Tags = [] };
+    }
 
     public int CountImages(bool includeMissing = false)
     {
@@ -622,6 +648,32 @@ public sealed class StoreService : IDisposable
             row.Tags = map.TryGetValue(row.Id, out var list)
                 ? list
                 : new List<(string, string)>();
+    }
+
+    /// <summary>
+    /// 照搬 store.py root_containing：找出包含该路径的启用根（normcase 比较、
+    /// 最长根优先），rel 保留原始大小写（与库内记录一致）。
+    /// </summary>
+    public (int RootId, string Rel)? RootContaining(string path)
+    {
+        var original = Path.GetFullPath(path);
+        var target = FileIdentity.PathKey(original);
+        (int Id, string Rel, int Depth)? best = null;
+        foreach (var root in Roots())
+        {
+            if (!root.Enabled) continue;
+            var rootAbs = Path.GetFullPath(root.Path);
+            var rootKey = FileIdentity.PathKey(rootAbs);
+            string rel;
+            if (target == rootKey) rel = "";
+            else if (IsUnder(target, rootKey))
+                rel = Path.GetRelativePath(rootAbs, original).Replace('\\', '/');
+            else continue;
+            int depth = rootKey.Length;
+            if (best is null || depth > best.Value.Depth)
+                best = (root.Id, rel, depth);
+        }
+        return best is null ? null : (best.Value.Id, best.Value.Rel);
     }
 
     // ------------------------------------------------------------------ query

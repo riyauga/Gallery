@@ -101,6 +101,47 @@ public partial class App : Application
             return;
         }
 
+        // --verify-fileops <imageId>：批次 2 验收（改名/删除/移动），写报告后退出
+        var vf = Array.IndexOf(cli, "--verify-fileops");
+        if (vf >= 0 && vf + 1 < cli.Length)
+        {
+            var rep = new StringBuilder();
+            try
+            {
+                var store3 = new StoreService(AppPaths.DbPath);
+                var id = int.Parse(cli[vf + 1]);
+                var img = store3.GetImage(id) ?? throw new Exception("图片不存在");
+                var beforeKey = img.FileKey;
+
+                // ① 重命名：file_key 不变（同卷改名保身份）
+                var newStem = "renamed_" + DateTime.Now.Ticks % 100000;
+                var (ok, err) = FileActions.RenameImage(store3, id, newStem);
+                rep.AppendLine($"rename: ok={ok} err={err}");
+                var after = store3.GetImage(id);
+                rep.AppendLine($"  file_key unchanged = {after?.FileKey == beforeKey}, name = {after?.Name}");
+
+                // ② 删除：回收站 + missing=1
+                var del = FileActions.DeleteImages(store3, new[] { id });
+                var afterDel = store3.GetImage(id);
+                rep.AppendLine($"delete: done={del.Done.Count} errors=[{string.Join("; ", del.Errors)}] missing={afterDel?.Missing}");
+
+                // ③ 复制到 Temp（图库外，记录不动）——rename 后重查最新行
+                var cur = store3.GetImage(id);
+                if (cur is not null)
+                {
+                    var (cdone, cerr) = FileActions.CopyImages(store3, new[] { id }, System.IO.Path.GetTempPath());
+                    rep.AppendLine($"copy: done={cdone.Count} errors=[{string.Join("; ", cerr)}]");
+                }
+            }
+            catch (Exception ex) { rep.AppendLine("ERROR: " + ex.Message); }
+            var od = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(od);
+            File.WriteAllText(Path.Combine(od, "verify_fileops.txt"), rep.ToString());
+            Exit();
+            return;
+        }
+
         // --addroot <path>：非交互添加根目录 + 扫描（自动化测试用）
         var idx = Array.IndexOf(cli, "--addroot");
         if (idx >= 0 && idx + 1 < cli.Length)

@@ -6,7 +6,7 @@
     xmlns:controls="using:Gallery.Controls"
     Background="Transparent">
 
-    <Grid x:Name="Root">
+    <Grid x:Name="Root" KeyDown="FileOps_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

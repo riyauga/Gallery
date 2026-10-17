@@ -62,6 +62,7 @@ public sealed partial class MainWindow : Window
         ThemeService.Root = RootGrid;
 
         AppService.Init();
+        AppService.MainWindowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
         if (AppService.DbReady)
         {
             // 批次 0 验收可见化：库连接状态
@@ -76,6 +77,7 @@ public sealed partial class MainWindow : Window
 
         _page = new GalleryPage(_library);
         _page.ToastRequested += ShowToast;
+        _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += (item, items) => Preview.Open(items, item);
         ContentHost.Children.Add(_page);
 

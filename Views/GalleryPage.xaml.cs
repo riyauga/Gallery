@@ -37,6 +37,11 @@ public sealed partial class GalleryPage : UserControl
     private bool? _lastDefaultBar;
 
     public event Action<string>? ToastRequested;
+    public event Action<string, Gallery.Controls.ToastKind, string?>? ToastKindRequested = null!;
+
+    /// <summary>带类型的通知（Info/Success/Pending），MainWindow 转 ToastHost。</summary>
+    public void SendToast(string message, Gallery.Controls.ToastKind kind,
+        string? detail = null) => ToastKindRequested?.Invoke(message, kind, detail);
     public event Action<PhotoItem, IReadOnlyList<PhotoItem>>? PreviewRequested;
 
     public GalleryPage(Library library)
@@ -240,6 +245,8 @@ public sealed partial class GalleryPage : UserControl
                 Rating = row.Rating,
                 Nsfw = row.Nsfw,
                 FileSize = row.Size,
+                PageUrl = row.PageUrl,
+                SourceUrl = row.SourceUrl,
                 Tags = row.Tags,
             };
         }
@@ -259,6 +266,56 @@ public sealed partial class GalleryPage : UserControl
         tile.DoubleTapped += OnTileDoubleTapped;
         tile.RightTapped += OnTileRightTapped;
         FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
+
+        // 拖拽外发（galleryold drag_out）：按下起手、位移超阈值发起；
+        // 拖已选中图 = 拖整个选区；Windows 标记复制语义（不搬移）。
+        Windows.Foundation.Point? dragStart = null;
+        tile.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(tile).Properties.IsLeftButtonPressed)
+                dragStart = e.GetCurrentPoint(tile).Position;
+        };
+        tile.PointerMoved += async (_, e) =>
+        {
+            if (dragStart is null) return;
+            var pos = e.GetCurrentPoint(tile).Position;
+            var dist = Math.Abs(pos.X - dragStart.Value.X) + Math.Abs(pos.Y - dragStart.Value.Y);
+            if (dist < 12) return; // galleryold 用系统 startDragDistance，近似 12
+            dragStart = null;
+            await StartDragOutAsync(tile, e.GetCurrentPoint(tile));
+        };
+        tile.PointerReleased += (_, _) => dragStart = null;
+    }
+
+    /// <summary>拖拽外发：文件 URI 交给系统（CF_HDROP），复制语义防同盘搬移。</summary>
+    private async System.Threading.Tasks.Task StartDragOutAsync(PhotoTile tile, Microsoft.UI.Input.PointerPoint start)
+    {
+        var items = new List<PhotoItem>();
+        if (tile.Selected && _selected.Count > 0)
+            items.AddRange(_selected.Select(t => t.Item));
+        else
+            items.Add(tile.Item);
+
+        var storageFiles = new List<Windows.Storage.StorageFile>();
+        foreach (var it in items)
+        {
+            try
+            {
+                storageFiles.Add(await Windows.Storage.StorageFile.GetFileFromPathAsync(it.FullPath));
+            }
+            catch (Exception ex) when (ex is IOException or System.IO.FileNotFoundException
+                or UnauthorizedAccessException)
+            {
+                SendToast($"{it.Name}：文件已不在原位，无法拖出", Gallery.Controls.ToastKind.Pending);
+                return;
+            }
+        }
+
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage
+        { RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy };
+        dp.SetStorageItems(storageFiles);
+        // NSFW 模糊保护中拒绝拖出：nsfw 分级数据在批次 3 接入后补判断（nsfw_display=blur 时）
+        await tile.StartDragAsync(start);
     }
 
     /// <summary>
@@ -387,6 +444,59 @@ public sealed partial class GalleryPage : UserControl
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(CoreVirtualKeyStates.Down);
 
+    /// <summary>
+    /// 文件操作快捷键（galleryold）：Delete 删除 / F2 重命名 / F3 资源管理器 /
+    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Ctrl+E 编辑标签（批次 3）/ Enter 打开详情。
+    /// </summary>
+    private async void FileOps_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                .HasFlag(Windows.System.VirtualKeyModifiers.Control);
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+                .HasFlag(Windows.System.VirtualKeyModifiers.Shift);
+        var firstTile = _selected.Count > 0 ? _selected.First() : null;
+        var first = firstTile?.Item;
+
+        switch (e.Key)
+        {
+            case VirtualKey.Delete:
+                e.Handled = true;
+                await DeleteSelectedAsync();
+                break;
+            case VirtualKey.F2 when first is not null:
+                e.Handled = true;
+                await RenameAsync(first);
+                break;
+            case VirtualKey.F3 when first is not null:
+                e.Handled = true;
+                FileActions.RevealInExplorer(first.FullPath);
+                break;
+            case VirtualKey.C when ctrl && shift && first is not null:
+                e.Handled = true;
+                {
+                    var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                    dp.SetText(string.Join("\n", SelectedPaths()));
+                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+                    SendToast("已复制路径", Gallery.Controls.ToastKind.Success);
+                }
+                break;
+            case VirtualKey.C when ctrl && first is not null:
+                e.Handled = true;
+                await CopyImageToClipboardAsync(first);
+                break;
+        }
+    }
+
+    private List<string> SelectedPaths()
+    {
+        var paths = new List<string>();
+        foreach (var t in Panel.Children.OfType<PhotoTile>())
+            if (t.Selected) paths.Add(t.Item.FullPath);
+        foreach (var t in _selected)
+            if (!paths.Contains(t.Item.FullPath)) paths.Add(t.Item.FullPath);
+        return paths;
+    }
+
     private void OnTileTapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is not PhotoTile tile) return;
@@ -449,7 +559,7 @@ public sealed partial class GalleryPage : UserControl
             ToastRequested?.Invoke(item.Favorite ? "已添加到收藏夹" : "已从收藏夹中移除");
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("复制", "\uE8C8", () => ToastRequested?.Invoke("演示模式：未复制文件")));
+        menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
         menu.Items.Add(Item("复制为路径", "\uE71B", () =>
         {
             var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
@@ -457,15 +567,155 @@ public sealed partial class GalleryPage : UserControl
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
             ToastRequested?.Invoke("已复制路径");
         }));
-        menu.Items.Add(Item("移动/复制", "\uE8DE", () => ToastRequested?.Invoke("演示模式：未移动或复制文件")));
+        menu.Items.Add(Item("复制/移动", "\uE8DE", () => _ = CopyMoveAsync(new[] { item.ImageId })));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("在文件资源管理器中打开", "\uEC50", () =>
         {
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
         }));
+        menu.Items.Add(Item("重命名", "\uE8AC", () => _ = RenameAsync(item)));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("删除", "\uE74D", () => ToastRequested?.Invoke("演示模式：未删除文件")));
+        var delete = Item("删除", "\uE74D", () => _ = DeleteSelectedAsync());
+        delete.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)); // #ff99a4（删除红）
+        menu.Items.Add(delete);
         return menu;
+    }
+
+    // ---------------------------------------------------------- 批次 2：真实操作
+
+    /// <summary>复制位图到剪贴板（单图；galleryold copy_image_to_clipboard）。</summary>
+    private async System.Threading.Tasks.Task CopyImageToClipboardAsync(PhotoItem item)
+    {
+        try
+        {
+            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(item.FullPath);
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(file));
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            ToastRequested?.Invoke($"已复制图片：{item.Name}");
+        }
+        catch (Exception ex) when (ex is IOException or System.IO.FileNotFoundException
+            or UnauthorizedAccessException)
+        {
+            SendToast($"这张图读不出来，复制失败：{ex.Message}", Gallery.Controls.ToastKind.Pending);
+        }
+    }
+
+    /// <summary>删除选中（回收站 + 二次确认，取消为默认，红 #ff99a4）。</summary>
+    private async System.Threading.Tasks.Task DeleteSelectedAsync()
+    {
+        var ids = SelectedIds();
+        if (ids.Count == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
+        var confirm = new ContentDialog
+        {
+            Title = "删除",
+            Content = $"将选中的 {ids.Count} 个项目移到回收站？",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Secondary, // 取消为默认
+            XamlRoot = XamlRoot,
+        };
+        confirm.Resources["ContentDialogButton1BackgroundBrush"] =
+            new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4));
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var (done, errors) = await System.Threading.Tasks.Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+                return FileActions.DeleteImages(AppService.Store!, ids);
+        });
+        AppService.Recount();
+        Rebuild();
+        if (errors.Count > 0) SendToast($"删除失败：{errors[0]}", Gallery.Controls.ToastKind.Pending);
+        else SendToast($"已删除 {done.Count} 个项目", Gallery.Controls.ToastKind.Success);
+    }
+
+    /// <summary>重命名（F2，单图，扩展名不动；file_key 保身份）。</summary>
+    private async System.Threading.Tasks.Task RenameAsync(PhotoItem item)
+    {
+        var stem = System.IO.Path.GetFileNameWithoutExtension(item.File);
+        var input = new TextBox { Text = stem };
+        var dialog = new ContentDialog
+        {
+            Title = "重命名",
+            Content = input,
+            PrimaryButtonText = "重命名",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return;
+        var newName = input.Text.Trim();
+        if (newName.Length == 0 || newName == stem) return;
+        var (ok, error) = await System.Threading.Tasks.Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+                return FileActions.RenameImage(AppService.Store!, item.ImageId, newName);
+        });
+        if (!ok) { SendToast(error, Gallery.Controls.ToastKind.Pending); return; }
+        SendToast($"已重命名：{newName}", Gallery.Controls.ToastKind.Success);
+        Rebuild();
+    }
+
+    /// <summary>复制/移动到指定目录（FolderPicker；移动限图库内）。</summary>
+    private async System.Threading.Tasks.Task CopyMoveAsync(IReadOnlyList<int> ids)
+    {
+        if (ids.Count == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, AppService.MainWindowHandle);
+        picker.FileTypeFilter.Add("*");
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) return;
+
+        var dialog = new ContentDialog
+        {
+            Title = "复制或移动",
+            Content = $"将 {ids.Count} 个项目复制还是移动到\n{folder.Path}？",
+            PrimaryButtonText = "移动",
+            SecondaryButtonText = "复制",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.None) return;
+        var move = result == ContentDialogResult.Primary;
+        var (count, firstError) = await System.Threading.Tasks.Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+            {
+                try
+                {
+                    var (done, errors) = move
+                        ? FileActions.MoveImages(AppService.Store!, ids, folder.Path)
+                        : FileActions.CopyImages(AppService.Store!, ids, folder.Path);
+                    return (done.Count, errors.Count > 0 ? errors[0] : null);
+                }
+                finally
+                {
+                    if (move) AppService.Recount();
+                }
+            }
+        });
+        SendToast(
+            firstError is not null
+                ? $"{(move ? "移动" : "复制")}失败：{firstError}"
+                : $"已{(move ? "移动" : "复制")} {count} 个项目",
+            firstError is not null ? Gallery.Controls.ToastKind.Pending : Gallery.Controls.ToastKind.Success);
+        if (move) Rebuild();
+    }
+
+    private List<int> SelectedIds()
+    {
+        var ids = new List<int>();
+        foreach (var tile in _selected)
+            if (tile.Item.ImageId > 0) ids.Add(tile.Item.ImageId);
+        if (ids.Count == 0 && Panel.IsVirtual)
+            foreach (var t in Panel.Children.OfType<PhotoTile>())
+                if (t.Selected && t.Item.ImageId > 0) ids.Add(t.Item.ImageId);
+        return ids.Distinct().ToList();
     }
 
     private static MenuFlyoutItem Item(string text, string glyph, Action action)
