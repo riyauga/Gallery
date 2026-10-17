@@ -19,11 +19,14 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  标题栏：48 高，右侧留出系统按钮 138  -->
+        <!--  标题栏：48 高，右侧留出系统按钮 138
+              照搬 photos 的 CollectionTitleBar 列结构：
+              [AppIconAndName Auto] [SearchBox *] [CommandBar Auto MinWidth=110] [RightPadding 138]  -->
         <Grid x:Name="TitleBar" Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" MinWidth="110" />
                 <ColumnDefinition Width="138" />
             </Grid.ColumnDefinitions>
 
@@ -50,6 +53,38 @@
                 CornerRadius="4"
                 PlaceholderText="在图库中搜索"
                 TextChanged="SearchBox_TextChanged" />
+
+            <!--  标题栏按钮：设置（E713 齿轮）。
+                  照搬 photos：SettingsButtonWidth=40、CommandBar 右对齐、
+                  按钮在系统按钮左侧（右padding列 138 即系统按钮区）。  -->
+            <CommandBar
+                x:Name="TitleCommandBar"
+                Grid.Column="2"
+                Margin="12,0,12,0"
+                Padding="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                HorizontalContentAlignment="Right"
+                Background="Transparent"
+                BorderThickness="0"
+                ClosedDisplayMode="Compact"
+                DefaultLabelPosition="Collapsed"
+                IsDynamicOverflowEnabled="False"
+                OverflowButtonVisibility="Collapsed">
+                <AppBarButton
+                    x:Name="SettingsButton"
+                    Width="40"
+                    Height="48"
+                    AutomationProperties.Name="设置"
+                    Click="SettingsButton_Click"
+                    Label="设置"
+                    LabelPosition="Collapsed"
+                    ToolTipService.ToolTip="设置">
+                    <AppBarButton.Icon>
+                        <FontIcon FontSize="16" Glyph="&#xE713;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
         </Grid>
 
         <NavigationView

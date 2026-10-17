@@ -33,6 +33,8 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 导航「图库 / 收藏夹」 | 切换数据源，内容淡出 30ms / 淡入 20ms |
 | 搜索框 | 按文件名过滤 |
 | 命令栏 | 选择、排序、筛选、库类型与大小、更多（全选/不选） |
+| 标题栏齿轮 | 打开设置页（整页替换内容区，标题栏与导航保留） |
+| 设置 · 应用主题 | 浅色 / 深色 / Windows 默认，切换即时生效 |
 
 > 幻灯片按钮按要求**已删除**（原版有，本项目不做）。
 
@@ -61,6 +63,13 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 选择按钮底色 | `AppBarButtonHighlightedStyles.xaml`（灰底 + 描边） | 同上 |
 | 下拉 chevron | `E70D`（ChevronDown ∨），**覆盖 WinUI 默认 `E974`** | `CommandBarStyles.xaml:21` |
 | 排序类型 → 滚动条 | 日期维度 → 时间线；名字等非日期维度 → 原生条（`ScrollBarVisibility.Auto`） | `GalleryViewModel.EvaluateScrollbarType` |
+| 设置按钮 | 标题栏首，宽 40 高 48，图标 `E713` FontSize 16 | `TitleBarStyles.xaml: SettingsButtonWidth` |
+| 标题栏按钮间距 | `CommandBarMargin = 12,0,12,0`；CommandBar 列 MinWidth 110 | `TitleBarStyles.xaml` |
+| 设置页头 | margin `32,28,48,26`；图标 `E713` FontSize 20；标题 FontSize 24 | `Margins.xaml` / `GetSettingsHeaderIcon` |
+| 设置页内容 | ScrollViewer padding `32,0,48,0`；StackPanel MaxWidth 958、Spacing 3 | `SettingsStyles.xaml` |
+| 「个性化」副标题 | margin `1,24,0,6`，`BodyStrongTextBlockStyle` | 同上 |
+| 应用主题卡片 | `ctc:SettingsCard`；Header「应用主题」/ Desc「选择要显示的应用主题」/ 图标 `E790` FontSize 16 | `SettingsPage.xaml` |
+| 主题下拉 | `DropDownButton` + `MenuFlyout`，三项 `RadioMenuFlyoutItem`：浅色 / 深色 / Windows 默认 | 同上 |
 | 切页 | 30ms 淡出 + 20ms 淡入 | `UnifiedGalleryPage.cs` |
 
 ## 目录
@@ -74,6 +83,8 @@ Gallery/
 │  ├─ PhotoTile.cs               缩略图状态机与按压动画
 │  ├─ TimelineScrollbar.cs       时间线滚动条
 │  └─ PreviewOverlay.xaml(.cs)   全窗预览
+├─ Views/SettingsPage.xaml(.cs)  设置页（个性化 · 应用主题）
+├─ ThemeService.cs               主题服务（SetTheme / GetThemeName）
 ├─ Models/PhotoItem.cs
 ├─ Services/Library.cs           读取 assets/manifest.json
 └─ assets/                       40 张示例图 + manifest.json

@@ -25,6 +25,7 @@ public sealed partial class MainWindow : Window
 
     private readonly Library _library = Library.Load();
     private readonly GalleryPage _page;
+    private readonly SettingsPage _settingsPage = new();
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(2) };
 
     public MainWindow()
@@ -43,6 +44,9 @@ public sealed partial class MainWindow : Window
         {
             RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.Transparent);
         }
+
+        // 主题切到根元素（对应 photos 的 IThemeService.SetTheme）
+        ThemeService.Root = RootGrid;
 
         _page = new GalleryPage(_library);
         _page.ToastRequested += ShowToast;
@@ -90,7 +94,28 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         int index = args.SelectedItem is NavigationViewItem item ? Nav.MenuItems.IndexOf(item) : 0;
-        _page.SetMode(index == 1);
+        ShowPage(index);
+    }
+
+    /// <summary>
+    /// 对应 photos 的 _navigationService.NavigateTo(typeof(SettingsPage))：
+    /// 整页替换内容区，标题栏与左侧导航原地保留。
+    /// </summary>
+    private void SettingsButton_Click(object sender, RoutedEventArgs e) => ShowPage(-1);
+
+    private void ShowPage(int navIndex)
+    {
+        ContentHost.Children.Clear();
+        if (navIndex < 0)
+        {
+            ContentHost.Children.Add(_settingsPage);
+            return;
+        }
+        ContentHost.Children.Add(_page);
+        _page.SetMode(navIndex == 1);
+        // 离开设置页时同步导航选中态（photos 进设置页会清掉导航选中高亮）
+        if (!ReferenceEquals(Nav.SelectedItem, Nav.MenuItems[navIndex]))
+            Nav.SelectedItem = Nav.MenuItems[navIndex];
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
