@@ -14,7 +14,7 @@
     Visibility="Collapsed">
 
     <Grid x:Name="ContentArea" Margin="16,52,16,16">
-        <Grid x:Name="PhotoArea">
+        <Grid x:Name="PhotoArea" RightTapped="OnPhotoAreaRightTapped">
             <!--  飞入/飞回变换载体（galleryold：缩略图 rect → image_rect 插值，圆角 8）  -->
             <Grid
                 x:Name="ImageHost"

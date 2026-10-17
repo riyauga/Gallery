@@ -79,6 +79,7 @@ public sealed partial class MainWindow : Window
         _page.ToastRequested += ShowToast;
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
+        Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         ContentHost.Children.Add(_page);
 
         Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;

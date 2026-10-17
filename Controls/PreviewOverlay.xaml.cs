@@ -25,6 +25,9 @@ public sealed partial class PreviewOverlay : Grid
 
     public event Action<string>? ToastRequested;
 
+    /// <summary>宿主注入菜单构建器（GalleryPage.BuildContextMenu 不含「打开」变体）。</summary>
+    public Func<PhotoItem, MenuFlyout>? ContextMenuBuilder { get; set; }
+
     public PreviewOverlay()
     {
         InitializeComponent();
@@ -56,51 +59,37 @@ public sealed partial class PreviewOverlay : Grid
         ShowCurrent();
         Focus(FocusState.Programmatic);
 
-        // galleryold：源缩略图完整可见 → 飞入（300ms OutCubic，圆角 8）；否则渐入
-        bool fly = request.FullyVisible && request.SourceRect.Width > 0 && ActualWidth >= 900;
+        // 动画统一飞入（用户裁决：抛弃淡入淡出）；遮罩同步渐入 300ms
+        double srcX = request.SourceRect.X - 16;
+        double srcY = request.SourceRect.Y - 52;
+        double hostW = PhotoArea.ActualWidth, hostH = PhotoArea.ActualHeight;
         var sb = new Storyboard();
         var fade = new DoubleAnimation
         {
             To = 1,
-            Duration = TimeSpan.FromMilliseconds(fly ? 300 : 150),
+            Duration = TimeSpan.FromMilliseconds(300),
             EnableDependentAnimation = true,
         };
         Storyboard.SetTarget(fade, this);
         Storyboard.SetTargetProperty(fade, "Opacity");
         sb.Children.Add(fade);
 
-        if (fly)
+        if (hostW > 0 && hostH > 0 && request.SourceRect.Width > 0)
         {
-            // sourceRect（窗口 DIP）→ 相对 ContentArea（margin 16,52）
-            double srcX = request.SourceRect.X - 16;
-            double srcY = request.SourceRect.Y - 52;
-            double hostW = PhotoArea.ActualWidth, hostH = PhotoArea.ActualHeight;
-            if (hostW > 0 && hostH > 0)
+            FlightTransform.ScaleX = request.SourceRect.Width / hostW;
+            FlightTransform.ScaleY = request.SourceRect.Height / hostH;
+            FlightTransform.TranslateX = srcX;
+            FlightTransform.TranslateY = srcY;
+            foreach (var prop in new[] { "ScaleX", "ScaleY", "TranslateX", "TranslateY" })
             {
-                FlightTransform.ScaleX = request.SourceRect.Width / hostW;
-                FlightTransform.ScaleY = request.SourceRect.Height / hostH;
-                FlightTransform.TranslateX = srcX;
-                FlightTransform.TranslateY = srcY;
-
-                var cubic = new SplineDoubleKeyFrame { KeyTime = TimeSpan.FromMilliseconds(300) };
-                cubic.KeySpline = new KeySpline { ControlPoint1 = new Point(0.215, 0.61), ControlPoint2 = new Point(0.355, 1) };
-                cubic.Value = 1;
-                foreach (var (prop, target) in new[]
-                {
-                    ("ScaleX", FlightTransform), ("ScaleY", FlightTransform),
-                    ("TranslateX", FlightTransform), ("TranslateY", FlightTransform),
-                })
-                {
-                    var kf = new SplineDoubleKeyFrame { KeyTime = TimeSpan.FromMilliseconds(300) };
-                    kf.KeySpline = new KeySpline { ControlPoint1 = new Point(0.215, 0.61), ControlPoint2 = new Point(0.355, 1) };
-                    kf.Value = prop.StartsWith("Scale") ? 1 : 0;
-                    var anim = new DoubleAnimationUsingKeyFrames();
-                    anim.KeyFrames.Add(kf);
-                    Storyboard.SetTarget(anim, target);
-                    Storyboard.SetTargetProperty(anim, prop);
-                    sb.Children.Add(anim);
-                }
-                var cubic2 = cubic; // 遮罩与飞行同 300ms
+                var kf = new SplineDoubleKeyFrame { KeyTime = TimeSpan.FromMilliseconds(300) };
+                kf.KeySpline = new KeySpline { ControlPoint1 = new Point(0.215, 0.61), ControlPoint2 = new Point(0.355, 1) };
+                kf.Value = prop.StartsWith("Scale") ? 1 : 0;
+                var anim = new DoubleAnimationUsingKeyFrames();
+                anim.KeyFrames.Add(kf);
+                Storyboard.SetTarget(anim, FlightTransform);
+                Storyboard.SetTargetProperty(anim, prop);
+                sb.Children.Add(anim);
             }
         }
         sb.Begin();
@@ -136,34 +125,16 @@ public sealed partial class PreviewOverlay : Grid
         var item = _items[_index];
         Detail.SetItem(item);
         Viewer.Clear();
-        LoadingText.Visibility = Visibility.Visible;
-        // 异步载入大图（不阻塞 UI）
-        _ = LoadAsync(item);
+        LoadOriginal(item);
         PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
         NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private async System.Threading.Tasks.Task LoadAsync(PhotoItem item)
+    /// <summary>点开即原图（用户要求）：直接解码原文件，不走缩略图缓存。</summary>
+    private void LoadOriginal(PhotoItem item)
     {
-        var path = await System.Threading.Tasks.Task.Run(() =>
-        {
-            try
-            {
-                var thumbs = AppService.Scanner?.Thumbs;
-                if (thumbs is not null && item.ImageId > 0)
-                {
-                    var mtime = item.ModifiedAtUnix ?? 0;
-                    return thumbs.GetOrBuild(item.FullPath, mtime, item.FileSize) ?? item.FullPath;
-                }
-                return item.FullPath;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return item.FullPath;
-            }
-        });
-        if (!IsOpen) return;
-        Viewer.SetSource(path, item.PixelWidth, item.PixelHeight);
+        LoadingText.Visibility = item.FileSize > 3_000_000 ? Visibility.Visible : Visibility.Collapsed;
+        Viewer.SetSource(item.FullPath, item.PixelWidth, item.PixelHeight);
         LoadingText.Visibility = Visibility.Collapsed;
     }
 
@@ -203,6 +174,15 @@ public sealed partial class PreviewOverlay : Grid
         }
     }
 
+    /// <summary>查看器内右键：菜单与外部一致，但无「打开」（photos 语义）。</summary>
+    private void OnPhotoAreaRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (ContextMenuBuilder is null || _items.Count == 0) return;
+        var menu = ContextMenuBuilder(_items[_index]);
+        menu.ShowAt(PhotoArea, e.GetPosition(PhotoArea));
+        e.Handled = true;
+    }
+
     /// <summary>仅精确命中遮罩空白（非按钮/图片/详情）时关闭。</summary>
     private void OnBackgroundTapped(object sender, TappedRoutedEventArgs e)
     {
@@ -211,15 +191,14 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Close()
     {
-        // galleryold：飞回缩略图位置（300ms OutCubic）+ 遮罩同步淡出，完成后隐藏
-        bool flyBack = _request is { FullyVisible: true } && ActualWidth >= 900 &&
-                       _lastSourceRect.Width > 0;
+        // 动画统一飞回（用户裁决）；遮罩同步淡出 300ms
+        bool flyBack = _lastSourceRect.Width > 0;
         var sb = new Storyboard();
 
         var fade = new DoubleAnimation
         {
             To = 0,
-            Duration = TimeSpan.FromMilliseconds(flyBack ? 300 : 120),
+            Duration = TimeSpan.FromMilliseconds(300),
             EnableDependentAnimation = true,
         };
         Storyboard.SetTarget(fade, this);

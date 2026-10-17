@@ -47,23 +47,28 @@ public sealed class ImageViewer : Grid
         PointerPressed += OnDown;
         PointerMoved += OnMove;
         PointerReleased += (_, e) => { _panning = false; ReleasePointerCaptures(); };
-        SizeChanged += (_, _) => ComputeFit();
+        SizeChanged += (_, _) => { ComputeFit(); ApplyFit(); };
+        Loaded += (_, _) => { ComputeFit(); ApplyFit(); };
     }
 
-    /// <summary>载入图像（路径或缓存 webp）。</summary>
+    /// <summary>
+    /// 载入原图（用户要求：点开即原图）。pixelW/H 为原图像素（fit 按原图计算，
+    /// 不用解码位图的实际尺寸——缩略图/分档解码不会带偏显示）。
+    /// </summary>
     public void SetSource(string path, int pixelW, int pixelH)
     {
+        _pixelW = Math.Max(1, pixelW);
+        _pixelH = Math.Max(1, pixelH);
         _bitmap = new BitmapImage(new Uri(path));
         _image.Source = _bitmap;
-        _image.SizeChanged += (_, _) => ComputeFit();
-        // 读取位图尺寸（BitmapImage 解码后）
         _bitmap.ImageOpened += (_, _) =>
         {
-            _pixelW = _bitmap.PixelWidth;
-            _pixelH = _bitmap.PixelHeight;
             ComputeFit();
             ApplyFit();
+            CenterContent();
         };
+        ComputeFit();
+        ApplyFit();
     }
 
     public void Clear()

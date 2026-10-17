@@ -578,19 +578,25 @@ public sealed partial class GalleryPage : UserControl
         });
     }
 
-    private MenuFlyout BuildContextMenu(PhotoItem item)
+    /// <summary>includeOpen=false 供查看器内右键使用（photos 语义：查看器内无「打开」）。</summary>
+    public MenuFlyout BuildContextMenu(PhotoItem item, bool includeOpen = true)
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(Item("打开", "\uE8E5", () =>
-        {
-            var t = Panel.Children.OfType<PhotoTile>().FirstOrDefault(x => x.Item == item);
-            if (t is not null) OpenPreview(t);
-        }));
+        if (includeOpen)
+            menu.Items.Add(Item("打开", "\uE8E5", () =>
+            {
+                var t = Panel.Children.OfType<PhotoTile>().FirstOrDefault(x => x.Item == item);
+                if (t is not null) OpenPreview(t);
+            }));
         menu.Items.Add(Item(item.Favorite ? "从收藏夹中移除" : "添加到收藏夹", item.Favorite ? "\uEB52" : "\uEB51", () =>
         {
+            if (item.ImageId > 0)
+                lock (AppService.DbLock)
+                    AppService.Store!.SetFavorite(item.ImageId, !item.Favorite);
             item.Favorite = !item.Favorite;
             if (_favoritesMode) Rebuild(); else UpdateHeader();
-            ToastRequested?.Invoke(item.Favorite ? "已添加到收藏夹" : "已从收藏夹中移除");
+            ToastKindRequested?.Invoke(item.Favorite ? "已添加到收藏夹" : "已从收藏夹中移除",
+                Gallery.Controls.ToastKind.Success, null);
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
