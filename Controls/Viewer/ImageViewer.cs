@@ -121,6 +121,26 @@ public sealed class ImageViewer : Grid
     public void ZoomFit() { if (!_ready) return; EndDrag(); _state.Fit(); Render(); }
     public void Zoom100() { if (!_ready) return; EndDrag(); _state.Actual(); Render(); }
 
+    /// <summary>缩放到指定百分比（100% = 一个原图像素对一个屏幕物理像素），以视口中心为锚点。</summary>
+    public void ZoomTo(double percent)
+    {
+        if (!_ready || IsAnimating) return;
+        double target = Math.Clamp(percent, 5, 800) / 100.0;
+        if (Math.Abs(target - _state.Scale) < 0.0001) return;
+        EndDrag();
+        _state.ZoomAt(target / _state.Scale, ActualWidth / 2, ActualHeight / 2);
+        Render();
+    }
+
+    /// <summary>按倍率缩放（滚轮/按钮），以视口中心为锚点。</summary>
+    public void ZoomBy(double factor)
+    {
+        if (!_ready || IsAnimating) return;
+        EndDrag();
+        _state.ZoomAt(factor, ActualWidth / 2, ActualHeight / 2);
+        Render();
+    }
+
     private void OnWheel(object sender, PointerRoutedEventArgs e)
     {
         if (!_ready || IsAnimating) return;

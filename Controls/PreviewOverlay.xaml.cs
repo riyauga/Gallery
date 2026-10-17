@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Gallery.Models;
@@ -34,7 +36,9 @@ public sealed partial class PreviewOverlay : Grid
     public PreviewOverlay()
     {
         InitializeComponent();
-        Viewer.ZoomChanged += pct => ZoomText.Text = $"{pct}%";
+        // ImageViewer 平移时会吃掉 PointerMoved（Handled=true），边缘唤醒必须用 handledEventsToo 订阅
+        AddHandler(PointerMovedEvent, new PointerEventHandler(OnOverlayPointerMoved), true);
+        Viewer.ZoomChanged += SyncZoomControls;
         Viewer.LoadingChanged += loading =>
         {
             LoadingText.Text = "正在加载原图…";
@@ -52,6 +56,310 @@ public sealed partial class PreviewOverlay : Grid
                 AppService.Settings.Settings.open_mode,
                 AppService.Settings.Settings.open_custom_exe);
         SizeChanged += (_, _) => Relayout();
+
+        // 百分比下拉（Photos 缩放条）：预设档位，当前缩放以占位文本显示
+        foreach (var percent in new[] { "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%" })
+            ZoomPercentBox.Items.Add(percent);
+
+        // 下拉展开期间不收起缩放条（指针会移到弹出层里）
+        ZoomPercentBox.DropDownOpened += (_, _) => ShowZoomBar();
+        ZoomPercentBox.DropDownClosed += (_, _) => TryHideZoomBar();
+    }
+
+    private bool _syncingZoom;
+    private Storyboard? _zoomBarAnimation;
+    private bool _fullscreen;
+    private bool _infoInFullscreen;
+    private double _pointerX;
+    private Storyboard? _topBarAnimation;
+
+    /// <summary>WinUI 3 的 UIElement.PointerCaptures 在无捕获时可能返回 null，别直接取 Count。</summary>
+    private bool HasPointerCapture() => ZoomSlider.PointerCaptures is { Count: > 0 };
+
+    private void ZoomBarHost_PointerEntered(object sender, PointerRoutedEventArgs e) => ShowZoomBar();
+    private void ZoomBarHost_PointerExited(object sender, PointerRoutedEventArgs e) => TryHideZoomBar();
+
+    /// <summary>浮出底部缩放条（Photos 是 PointerMoved 后自动淡出，这里按用户要求改成悬停才显示）。</summary>
+    private void ShowZoomBar()
+    {
+        _zoomBarAnimation?.Stop();
+        ZoomBar.Visibility = Visibility.Visible;
+        var fade = new DoubleAnimation { To = 1, Duration = TimeSpan.FromMilliseconds(120) };
+        Storyboard.SetTarget(fade, ZoomBar);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        var sb = new Storyboard();
+        sb.Children.Add(fade);
+        _zoomBarAnimation = sb;
+        sb.Begin();
+    }
+
+    private void TryHideZoomBar()
+    {
+        if (ZoomPercentBox.IsDropDownOpen) return;
+        if (HasPointerCapture()) return;
+        HideZoomBar();
+    }
+
+    /// <summary>淡出终点留 0.01：本项目合成层在 Opacity 归零后会停绘制（见 MEMORY 的已知坑）。</summary>
+    private void HideZoomBar()
+    {
+        if (ZoomBar.Visibility != Visibility.Visible) return;
+        _zoomBarAnimation?.Stop();
+        var fade = new DoubleAnimation { To = 0.01, Duration = TimeSpan.FromMilliseconds(120) };
+        Storyboard.SetTarget(fade, ZoomBar);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        var sb = new Storyboard();
+        sb.Children.Add(fade);
+        sb.Completed += (_, _) =>
+        {
+            if (ZoomPercentBox.IsDropDownOpen || HasPointerCapture()) return;
+            ZoomBar.Visibility = Visibility.Collapsed;
+            ZoomBar.Opacity = 1;
+        };
+        _zoomBarAnimation = sb;
+        sb.Begin();
+    }
+
+    /// <summary>把查看器当前缩放同步到滑块与百分比下拉（避免回环触发）。</summary>
+    private void SyncZoomControls(double percent)
+    {
+        _syncingZoom = true;
+        ZoomPercentBox.SelectedIndex = -1;
+        ZoomPercentBox.PlaceholderText = $"{percent:0}%";
+        ZoomSlider.Value = Math.Clamp(percent, ZoomSlider.Minimum, ZoomSlider.Maximum);
+        _syncingZoom = false;
+    }
+
+    private void ZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_syncingZoom) return;
+        Viewer.ZoomTo(e.NewValue);
+    }
+
+    private void ZoomPercent_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingZoom || ZoomPercentBox.SelectedItem is not string text) return;
+        if (double.TryParse(text.TrimEnd('%'), out double percent)) Viewer.ZoomTo(percent);
+    }
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e) => Viewer.ZoomBy(1 / 1.25);
+    private void ZoomIn_Click(object sender, RoutedEventArgs e) => Viewer.ZoomBy(1.25);
+
+    private void Fullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(!IsFullscreen);
+
+    private bool IsFullscreen =>
+        GetAppWindow()?.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen;
+
+    /// <summary>
+    /// 全屏：切窗口 presenter + 收起应用标题栏行 + 遮罩转不透明 + 图片区上下留白对齐
+    /// （原来只在窗口层全屏、`ContentArea` 还留着 52 的标题栏上边距，导致顶部一条黑带）。
+    /// 证据：Photos 的 FullScreenService（TryEnter/Exit/ToggleFullScreenMode + FullScreenModeChanged）
+    /// 与 ViewerRootViewModel.GetTitleBarRowHeight(isFullScreenMode) —— 具体实现是原生 WinRT 组件，源码不可读。
+    /// </summary>
+    private void SetFullscreen(bool full)
+    {
+        var appWindow = GetAppWindow();
+        if (appWindow is null) return;
+        _fullscreen = full;
+        _infoInFullscreen = false;
+        appWindow.SetPresenter(full
+            ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
+            : Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped);
+        MainWindow.Instance?.SetTitleBarHidden(full);
+        // 全屏时遮罩转不透明（否则图库在下面隐约可见）
+        Background = new SolidColorBrush(full
+            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0, 0, 0)
+            : Microsoft.UI.ColorHelper.FromArgb(0xCC, 0, 0, 0));
+        // 全屏是沉浸式：图片贴边铺满，只留顶栏/缩放条/左右箭头这些按需浮出的控件
+        ContentArea.Margin = full
+            ? new Thickness(0)
+            : new Thickness(16, 52, 16, 16);
+        FullscreenIcon.Glyph = full ? "\uE73F" : "\uE740";
+        TopBar.Visibility = Visibility.Collapsed;
+        TopBar.Opacity = 0;
+        CloseButton.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        ApplyFullscreenLayout();
+    }
+
+    /// <summary>
+    /// 全屏布局：收起右侧详情栏（顶栏 ⓘ 可临时唤回），图片铺满，翻页箭头改成边缘唤醒。
+    /// 退出全屏时恢复窗口态（详情栏常显、箭头常显）。
+    /// </summary>
+    private void ApplyFullscreenLayout()
+    {
+        if (!_fullscreen)
+        {
+            TopBarHost.IsHitTestVisible = false;
+            LeftEdgeHost.IsHitTestVisible = false;
+            RightEdgeHost.IsHitTestVisible = false;
+            TopBar.Visibility = Visibility.Collapsed;
+            Detail.Visibility = Visibility.Visible;
+            Relayout();
+            PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
+            NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+
+        PhotoArea.Margin = new Thickness(0);
+        TopBarHost.IsHitTestVisible = true;
+        LeftEdgeHost.IsHitTestVisible = true;
+        RightEdgeHost.IsHitTestVisible = true;
+        Detail.Visibility = _infoInFullscreen ? Visibility.Visible : Visibility.Collapsed;
+        if (_infoInFullscreen)
+        {
+            Detail.HorizontalAlignment = HorizontalAlignment.Right;
+            Detail.VerticalAlignment = VerticalAlignment.Stretch;
+            Detail.Width = 360;
+            Detail.Height = double.NaN;
+            Detail.Margin = new Thickness(0, 0, 16, 16);
+        }
+
+        ShowEdgeArrows(_pointerX);
+    }
+
+    /// <summary>全屏时左右翻页箭头只在指针贴到对应边缘 96 DIP 内出现。</summary>
+    private void ShowEdgeArrows(double x)
+    {
+        const double edge = 96;
+        bool left = _index > 0 && x <= edge;
+        bool right = _index < _items.Count - 1 && x >= ActualWidth - edge;
+        PrevButton.Visibility = left ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Visibility = right ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnOverlayPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        var position = e.GetCurrentPoint(this).Position;
+        _pointerX = position.X;
+        ShowEdgeArrows(position.X);
+    }
+
+    private void LeftEdgeHost_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void LeftEdgeHost_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        PrevButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void RightEdgeHost_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RightEdgeHost_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        NextButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void TopBarHost_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        ShowTopBar();
+    }
+
+    private void TopBarHost_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        HideTopBar();
+    }
+
+    /// <summary>顶栏淡入（150ms），退场淡到 0.01 再收起（合成层归零会停绘，见 MEMORY）。</summary>
+    private void ShowTopBar()
+    {
+        _topBarAnimation?.Stop();
+        TopBar.Visibility = Visibility.Visible;
+        var fade = new DoubleAnimation { To = 1, Duration = TimeSpan.FromMilliseconds(150) };
+        Storyboard.SetTarget(fade, TopBar);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(fade);
+        _topBarAnimation = storyboard;
+        storyboard.Begin();
+    }
+
+    private void HideTopBar()
+    {
+        if (TopBar.Visibility != Visibility.Visible) return;
+        _topBarAnimation?.Stop();
+        var fade = new DoubleAnimation { To = 0.01, Duration = TimeSpan.FromMilliseconds(150) };
+        Storyboard.SetTarget(fade, TopBar);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(fade);
+        storyboard.Completed += (_, _) =>
+        {
+            TopBar.Visibility = Visibility.Collapsed;
+            TopBar.Opacity = 1;
+        };
+        _topBarAnimation = storyboard;
+        storyboard.Begin();
+    }
+
+    private void TopInfo_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_fullscreen) return;
+        _infoInFullscreen = !_infoInFullscreen;
+        ApplyFullscreenLayout();
+    }
+
+    private async void TopDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_items.Count == 0) return;
+        var item = _items[_index];
+        if (item.ImageId <= 0 || DeleteRequested is null) return;
+        await DeleteRequested(new[] { item.ImageId });
+    }
+
+    private void TopMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (_items.Count == 0) return;
+        var menu = ContextMenuBuilder?.Invoke(_items[_index]);
+        menu?.ShowAt(TopMoreButton);
+    }
+
+    private void TopMinimize_Click(object sender, RoutedEventArgs e)
+    {
+        var appWindow = GetAppWindow();
+        if (appWindow is null) return;
+        if (_fullscreen) SetFullscreen(false);
+        if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.Minimize();
+    }
+
+    private void TopExitFullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(false);
+
+    private static Microsoft.UI.Windowing.AppWindow? GetAppWindow()
+    {
+        var hwnd = AppService.MainWindowHandle;
+        if (hwnd == IntPtr.Zero) return null;
+        var id = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+        return Microsoft.UI.Windowing.AppWindow.GetFromWindowId(id);
+    }
+
+    /// <summary>退出全屏并恢复标题栏（打开/关闭查看器时都要回到普通窗口）。</summary>
+    private void RestoreChrome()
+    {
+        var appWindow = GetAppWindow();
+        if (appWindow is not null && appWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
+            appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped);
+        MainWindow.Instance?.SetTitleBarHidden(false);
+        Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xCC, 0, 0, 0));
+        ContentArea.Margin = new Thickness(16, 52, 16, 16);
+        FullscreenIcon.Glyph = "\uE740";
+        _fullscreen = false;
+        _infoInFullscreen = false;
+        TopBar.Visibility = Visibility.Collapsed;
+        TopBar.Opacity = 0;
+        TopBarHost.IsHitTestVisible = false;
+        CloseButton.Visibility = Visibility.Visible;
+        Detail.Visibility = Visibility.Visible;
     }
 
     private GalleryPage.PreviewRequest? _request;
@@ -63,6 +371,7 @@ public sealed partial class PreviewOverlay : Grid
     {
         _animation?.Stop();
         _closing = false;
+        RestoreChrome();
         Viewer.IsAnimating = true;
         FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
         FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
@@ -123,6 +432,11 @@ public sealed partial class PreviewOverlay : Grid
         // 照 galleryold layout_panels：宽 ≥900 左图+右详情 360；窄窗上下分栏（图片区高 50%）
         double areaW = ActualWidth, areaH = ActualHeight;
         if (areaW <= 0) return;
+        if (_fullscreen)
+        {
+            PhotoArea.Margin = new Thickness(0);
+            return;
+        }
         if (areaW >= 900)
         {
             PhotoArea.Margin = new Thickness(0, 0, 380, 0); // 图片区宽 = area-380
@@ -147,10 +461,18 @@ public sealed partial class PreviewOverlay : Grid
     {
         var item = _items[_index];
         Detail.SetItem(item);
+        TopFileName.Text = System.IO.Path.GetFileName(item.FullPath);
         Viewer.Clear();
         LoadOriginal(item);
-        PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (_fullscreen)
+        {
+            ShowEdgeArrows(_pointerX);
+        }
+        else
+        {
+            PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
+            NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     /// <summary>点开即原图（用户要求）：直接解码原文件，不走缩略图缓存。</summary>
@@ -194,6 +516,8 @@ public sealed partial class PreviewOverlay : Grid
         if (_closing) return;
         switch (key)
         {
+            // Photos 语义：全屏时 Esc 先退出全屏，再按一次才关查看器
+            case VirtualKey.Escape when IsFullscreen: SetFullscreen(false); break;
             case VirtualKey.Escape: Close(); break;
             case VirtualKey.Left: Move(-1); break;
             case VirtualKey.Right: Move(1); break;
@@ -286,6 +610,7 @@ public sealed partial class PreviewOverlay : Grid
             // 先移出焦点再隐藏，避免 XAML 自动选中窗口内第一个输入框。
             ReturnFocusRequested?.Invoke();
             Visibility = Visibility.Collapsed;
+            RestoreChrome();
             Viewer.Clear();
             Viewer.IsAnimating = false;
             _items = Array.Empty<PhotoItem>();

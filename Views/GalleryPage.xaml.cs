@@ -123,6 +123,58 @@ public sealed partial class GalleryPage : UserControl
             _searchTimer.Stop();
             if (IsLoaded) Rebuild();
         };
+
+        WireCommandBarFlyouts();
+    }
+
+    /// <summary>
+    /// 对齐 Photos 的点按体验：①工具栏按钮与菜单项都不画系统焦点框（原来点开菜单会把焦点框
+    /// 锁在第一个菜单项上、关掉后又锁回按钮）；②各二级菜单与「更多」溢出菜单互斥，同时只挂一个。
+    /// </summary>
+    private void WireCommandBarFlyouts()
+    {
+        foreach (var button in new FrameworkElement[]
+        {
+            SelectButton, DeleteButton, MoveCopyButton, ShareButton,
+            SortButton, FilterButton, LayoutButton, SelectAllButton, SelectNoneButton,
+        })
+        {
+            button.UseSystemFocusVisuals = false;
+        }
+
+        var flyouts = new[] { SortButton.Flyout, FilterButton.Flyout, LayoutButton.Flyout, MoveCopyButton.Flyout };
+        foreach (var flyout in flyouts)
+        {
+            if (flyout is null) continue;
+            foreach (var item in EnumerateMenuItems(flyout)) item.UseSystemFocusVisuals = false;
+            var current = flyout;
+            current.Opened += (_, _) =>
+            {
+                Bar.IsOpen = false;
+                foreach (var other in flyouts)
+                {
+                    if (!ReferenceEquals(other, current)) other?.Hide();
+                }
+            };
+        }
+
+        Bar.Opened += (_, _) =>
+        {
+            foreach (var flyout in flyouts) flyout?.Hide();
+        };
+    }
+
+    private static IEnumerable<MenuFlyoutItemBase> EnumerateMenuItems(FlyoutBase flyout)
+    {
+        if (flyout is not MenuFlyout menu) yield break;
+        foreach (var item in menu.Items)
+        {
+            yield return item;
+            if (item is MenuFlyoutSubItem sub)
+            {
+                foreach (var child in sub.Items) yield return child;
+            }
+        }
     }
 
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };

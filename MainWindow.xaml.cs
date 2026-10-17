@@ -35,9 +35,21 @@ public sealed partial class MainWindow : Window
     };
     private readonly SettingsPage _settingsPage = new();
 
+    /// <summary>当前窗口实例（查看器进全屏时需要暂时隐藏应用标题栏）。</summary>
+    public static MainWindow? Instance { get; private set; }
+
+    /// <summary>查看器全屏：隐藏 48 高标题栏行，让查看器占满窗口（返回时恢复）。</summary>
+    public void SetTitleBarHidden(bool hidden)
+    {
+        TitleBar.Visibility = hidden ? Visibility.Collapsed : Visibility.Visible;
+        RootGrid.RowDefinitions[0].Height = new GridLength(hidden ? 0 : 48);
+    }
+
     public MainWindow()
     {
         InitializeComponent();
+        Instance = this;
+
         Nav.MenuItems.Add(_settingsNavigationItem);
         Title = "Gallery";
 
