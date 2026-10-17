@@ -3,177 +3,169 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Foundation;
 
 namespace Gallery.Controls.Viewer;
 
 /// <summary>
-/// 单图缩放/平移画布，行为照搬 galleryold preview.py 的 PhotoCanvas：
-/// 滚轮 1.2^(delta/120) 鼠标锚点缩放、范围 [0.05, max(8, fit*4)]；
-/// 双击三档循环 适应 → 2×fit → 4×fit；100% = 1 图像像素对 1 物理像素；
-/// 左键拖动平移（ScrollViewer 承载，边界自然受限）。
+/// Gallery_Old PhotoCanvas 的 WinUI 适配：原图按物理像素倍率进行矩阵绘制，
+/// 保留旧版适应、100%、锚点缩放、双击三档和平移逻辑。
 /// </summary>
 public sealed class ImageViewer : Grid
 {
-    private readonly ScrollViewer _sv;
-    private readonly Image _image;
-    private readonly ContentPresenter _presenter;
+    private readonly Canvas _canvas = new();
+    private readonly Image _image = new() { Stretch = Stretch.Fill };
+    private readonly MatrixTransform _transform = new();
+    private readonly RectangleGeometry _clip = new();
+    private readonly PhotoCanvasState _state = new();
     private BitmapImage? _bitmap;
-    private double _pixelW, _pixelH;
-    private double _scale = 1;      // 显示 DIP / (像素/RasterizationScale)
-    private double _fit = 1;
+    private XamlRoot? _observedRoot;
+    private bool _ready;
     private bool _panning;
-    private double _panStartX, _panStartY, _svStartX, _svStartY;
+    private Point _lastPointer;
 
-    public event Action<double>? ZoomChanged; // 百分比（100 = 100%）
+    public event Action<double>? ZoomChanged;
+    public event Action<bool>? LoadingChanged;
+    public event Action<string>? LoadFailed;
+    public bool IsAnimating { get; set; }
 
     public ImageViewer()
     {
-        _sv = new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            HorizontalScrollMode = ScrollMode.Enabled,
-            VerticalScrollMode = ScrollMode.Enabled,
-            ZoomMode = ZoomMode.Disabled,
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-        };
-        _image = new Image { Stretch = Stretch.None };
-        _presenter = new ContentPresenter { Content = _image };
-        _sv.Content = _presenter;
-        Children.Add(_sv);
-
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        Clip = _clip;
+        _image.RenderTransform = _transform;
+        _canvas.Children.Add(_image);
+        Children.Add(_canvas);
         PointerWheelChanged += OnWheel;
         DoubleTapped += OnDoubleTapped;
         PointerPressed += OnDown;
         PointerMoved += OnMove;
-        PointerReleased += (_, e) => { _panning = false; ReleasePointerCaptures(); };
-        SizeChanged += (_, _) => { ComputeFit(); ApplyFit(); };
-        Loaded += (_, _) => { ComputeFit(); ApplyFit(); };
+        PointerReleased += (_, _) => EndDrag();
+        PointerCanceled += (_, _) => EndDrag();
+        PointerCaptureLost += (_, _) => _panning = false;
+        SizeChanged += (_, _) => UpdateViewport();
+        Loaded += (_, _) =>
+        {
+            _observedRoot = XamlRoot;
+            if (_observedRoot is not null) _observedRoot.Changed += OnXamlRootChanged;
+            UpdateViewport();
+        };
+        Unloaded += (_, _) =>
+        {
+            EndDrag();
+            if (_observedRoot is not null) _observedRoot.Changed -= OnXamlRootChanged;
+            _observedRoot = null;
+        };
     }
 
-    /// <summary>
-    /// 载入原图（用户要求：点开即原图）。pixelW/H 为原图像素（fit 按原图计算，
-    /// 不用解码位图的实际尺寸——缩略图/分档解码不会带偏显示）。
-    /// </summary>
+    private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateViewport();
+
+    private void UpdateViewport()
+    {
+        _clip.Rect = new Rect(0, 0, ActualWidth, ActualHeight);
+        _state.SetViewport(ActualWidth, ActualHeight, XamlRoot?.RasterizationScale ?? 1);
+        Render();
+    }
+
+    /// <summary>直接载入原文件；只允许当前请求的加载回调更新画布。</summary>
     public void SetSource(string path, int pixelW, int pixelH)
     {
-        _pixelW = Math.Max(1, pixelW);
-        _pixelH = Math.Max(1, pixelH);
-        _bitmap = new BitmapImage(new Uri(path));
-        _image.Source = _bitmap;
-        _bitmap.ImageOpened += (_, _) =>
+        Clear();
+        var bitmap = new BitmapImage();
+        _bitmap = bitmap;
+        LoadingChanged?.Invoke(true);
+        bitmap.ImageOpened += (_, _) =>
         {
-            ComputeFit();
-            ApplyFit();
-            CenterContent();
+            if (!ReferenceEquals(_bitmap, bitmap)) return;
+            _state.SetPhoto(pixelW > 0 ? pixelW : bitmap.PixelWidth, pixelH > 0 ? pixelH : bitmap.PixelHeight);
+            _ready = true;
+            _canvas.Visibility = Visibility.Visible;
+            UpdateViewport();
+            LoadingChanged?.Invoke(false);
         };
-        ComputeFit();
-        ApplyFit();
+        bitmap.ImageFailed += (_, args) =>
+        {
+            if (!ReferenceEquals(_bitmap, bitmap)) return;
+            _ready = false;
+            _canvas.Visibility = Visibility.Collapsed;
+            LoadingChanged?.Invoke(false);
+            LoadFailed?.Invoke(args.ErrorMessage);
+        };
+        _canvas.Visibility = Visibility.Collapsed;
+        _image.Source = bitmap;
+        bitmap.UriSource = new Uri(path);
     }
 
     public void Clear()
     {
-        _image.Source = null;
+        EndDrag();
+        _ready = false;
         _bitmap = null;
-        _scale = 1;
+        _image.Source = null;
+        LoadingChanged?.Invoke(false);
     }
 
-    private double RasterScale => XamlRoot?.RasterizationScale is { } s && s > 0 ? s : 1.0;
-
-    /// <summary>100% 时图像的 DIP 尺寸（1 图像像素 = 1 物理像素）。</summary>
-    private double BaseW => _pixelW / RasterScale;
-    private double BaseH => _pixelH / RasterScale;
-
-    private void ComputeFit()
+    private void Render()
     {
-        if (_pixelW <= 0 || ActualWidth <= 0) return;
-        _fit = Math.Min(ActualWidth / BaseW, ActualHeight / BaseH);
-        if (_fit <= 0) _fit = 1;
-    }
-
-    private void ApplyFit()
-    {
-        _scale = _fit;
-        ApplyScale();
-        CenterContent();
+        if (!_ready) return;
+        var rect = _state.ImageRect;
+        // Canvas 不把原图的固定宽高反向传播为父容器的最小尺寸。
+        // 显式填充整张位图，再用矩阵变换缩放；避免 Stretch=None 只缩小裁切框。
+        _image.Width = _state.PixelWidth / _state.Dpi;
+        _image.Height = _state.PixelHeight / _state.Dpi;
+        _transform.Matrix = new Matrix(_state.Scale, 0, 0, _state.Scale, rect.X, rect.Y);
         ZoomChanged?.Invoke(Percent);
     }
 
-    private void ApplyScale()
-    {
-        _image.Width = BaseW * _scale;
-        _image.Height = BaseH * _scale;
-    }
-
-    private void CenterContent()
-    {
-        _sv.UpdateLayout();
-        _sv.ChangeView(
-            (_image.ActualWidth - _sv.ViewportWidth) / 2,
-            (_image.ActualHeight - _sv.ViewportHeight) / 2, null, true);
-    }
-
-    public double Percent => _scale <= 0 ? 100 : Math.Round(_scale / _fit * 100);
-
-    public void ZoomFit() { _scale = _fit; ApplyScale(); CenterContent(); ZoomChanged?.Invoke(Percent); }
-    public void Zoom100() { _scale = 1; ApplyScale(); ZoomChanged?.Invoke(Percent); }
-
-    private void ZoomAt(double factor, Windows.Foundation.Point anchorInSv)
-    {
-        var max = Math.Max(8, _fit * 4);
-        var next = Math.Clamp(_scale * factor, 0.05, max);
-        if (Math.Abs(next - _scale) < 1e-9) return;
-
-        // 锚点不动：锚点处的内容比例保持
-        double oldW = BaseW * _scale, newW = BaseW * next;
-        double anchorRatioX = _sv.HorizontalOffset + anchorInSv.X;
-        double anchorRatioY = _sv.VerticalOffset + anchorInSv.Y;
-        double cx = oldW > 0 ? anchorRatioX / oldW : 0.5;
-        double cy = (BaseH * _scale) > 0
-            ? (_sv.VerticalOffset + anchorInSv.Y) / (BaseH * _scale) : 0.5;
-
-        _scale = next;
-        ApplyScale();
-        _sv.UpdateLayout();
-        _sv.ChangeView(cx * newW - anchorInSv.X, cy * (BaseH * _scale) - anchorInSv.Y, null, true);
-        ZoomChanged?.Invoke(Percent);
-    }
+    public double Percent => Math.Round(_state.Scale * 100);
+    public void ZoomFit() { if (!_ready) return; EndDrag(); _state.Fit(); Render(); }
+    public void Zoom100() { if (!_ready) return; EndDrag(); _state.Actual(); Render(); }
 
     private void OnWheel(object sender, PointerRoutedEventArgs e)
     {
-        var point = e.GetCurrentPoint(_sv);
-        var delta = point.Properties.MouseWheelDelta;
+        if (!_ready || IsAnimating) return;
+        var point = e.GetCurrentPoint(this);
+        int delta = point.Properties.MouseWheelDelta;
         if (delta == 0) return;
-        ZoomAt(Math.Pow(1.2, delta / 120.0), point.Position);
+        _state.ZoomAt(Math.Pow(1.2, delta / 120.0), point.Position.X, point.Position.Y);
+        Render();
         e.Handled = true;
     }
 
-    private int _tapCount; // 双击三档：fit → 2×fit → 4×fit → fit
     private void OnDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        _tapCount = (_tapCount + 1) % 3;
-        _scale = _tapCount switch { 1 => _fit * 2, 2 => _fit * 4, _ => _fit };
-        ApplyScale();
-        if (_tapCount == 0) CenterContent();
-        ZoomChanged?.Invoke(Percent);
+        var point = e.GetPosition(this);
+        if (!_ready || IsAnimating || !_state.ImageRect.Contains(point.X, point.Y)) return;
+        EndDrag();
+        _state.DoubleTap(point.X, point.Y);
+        Render();
         e.Handled = true;
     }
 
     private void OnDown(object sender, PointerRoutedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        _panning = true;
-        _panStartX = e.GetCurrentPoint(this).Position.X;
-        _panStartY = e.GetCurrentPoint(this).Position.Y;
-        _svStartX = _sv.HorizontalOffset;
-        _svStartY = _sv.VerticalOffset;
-        CapturePointer(e.Pointer);
+        var point = e.GetCurrentPoint(this);
+        if (!_ready || IsAnimating || !point.Properties.IsLeftButtonPressed ||
+            !_state.ImageRect.Contains(point.Position.X, point.Position.Y)) return;
+        _panning = CapturePointer(e.Pointer);
+        _lastPointer = point.Position;
+        _state.Pan(0, 0);
+        e.Handled = true;
     }
 
     private void OnMove(object sender, PointerRoutedEventArgs e)
     {
         if (!_panning) return;
-        var p = e.GetCurrentPoint(this).Position;
-        _sv.ChangeView(_svStartX - (p.X - _panStartX), _svStartY - (p.Y - _panStartY), null, true);
+        var point = e.GetCurrentPoint(this).Position;
+        _state.Pan(point.X - _lastPointer.X, point.Y - _lastPointer.Y);
+        _lastPointer = point;
+        Render();
+        e.Handled = true;
+    }
+
+    private void EndDrag()
+    {
+        _panning = false;
+        ReleasePointerCaptures();
     }
 }

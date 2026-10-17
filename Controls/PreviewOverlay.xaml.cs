@@ -24,14 +24,28 @@ public sealed partial class PreviewOverlay : Grid
     private int _index;
 
     public event Action<string>? ToastRequested;
+    public event Action? ReturnFocusRequested;
 
     /// <summary>宿主注入菜单构建器（GalleryPage.BuildContextMenu 不含「打开」变体）。</summary>
     public Func<PhotoItem, MenuFlyout>? ContextMenuBuilder { get; set; }
+    public Func<IReadOnlyCollection<int>, Task>? DeleteRequested { get; set; }
+    public Func<PhotoItem, Task>? RenameRequested { get; set; }
 
     public PreviewOverlay()
     {
         InitializeComponent();
         Viewer.ZoomChanged += pct => ZoomText.Text = $"{pct}%";
+        Viewer.LoadingChanged += loading =>
+        {
+            LoadingText.Text = "正在加载原图…";
+            LoadingText.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+        };
+        Viewer.LoadFailed += message =>
+        {
+            LoadingText.Text = "无法显示图片";
+            LoadingText.Visibility = Visibility.Visible;
+            ToastRequested?.Invoke("图片加载失败：" + message);
+        };
         Detail.EditTagsRequested += _ => ToastRequested?.Invoke("标签编辑将在批次 3 提供");
         Detail.OpenExternalRequested += item =>
             FileActions.OpenImage(item.FullPath,
@@ -42,9 +56,16 @@ public sealed partial class PreviewOverlay : Grid
 
     private GalleryPage.PreviewRequest? _request;
     private Windows.Foundation.Rect _lastSourceRect;
+    private Storyboard? _animation;
+    private bool _closing;
 
     public void Open(GalleryPage.PreviewRequest request)
     {
+        _animation?.Stop();
+        _closing = false;
+        Viewer.IsAnimating = true;
+        FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
+        FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
         _request = request;
         _lastSourceRect = request.SourceRect;
         _items = request.Items;
@@ -92,6 +113,8 @@ public sealed partial class PreviewOverlay : Grid
                 sb.Children.Add(anim);
             }
         }
+        sb.Completed += (_, _) => Viewer.IsAnimating = false;
+        _animation = sb;
         sb.Begin();
     }
 
@@ -133,9 +156,7 @@ public sealed partial class PreviewOverlay : Grid
     /// <summary>点开即原图（用户要求）：直接解码原文件，不走缩略图缓存。</summary>
     private void LoadOriginal(PhotoItem item)
     {
-        LoadingText.Visibility = item.FileSize > 3_000_000 ? Visibility.Visible : Visibility.Collapsed;
         Viewer.SetSource(item.FullPath, item.PixelWidth, item.PixelHeight);
-        LoadingText.Visibility = Visibility.Collapsed;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -146,6 +167,7 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Move(int delta)
     {
+        if (_closing || _items.Count == 0) return;
         int next = Math.Clamp(_index + delta, 0, _items.Count - 1);
         if (next == _index) return;
         _index = next;
@@ -154,23 +176,42 @@ public sealed partial class PreviewOverlay : Grid
 
     public bool IsOpen => Visibility == Visibility.Visible;
 
+    /// <summary>文件操作或查询更新后按图片 ID 保持当前位置；删末图时退至前一张。</summary>
+    public void RefreshItems(IReadOnlyList<PhotoItem> items)
+    {
+        if (!IsOpen || _items.Count == 0) return;
+        var current = _items[_index];
+        int next = items.ToList().FindIndex(item => current.ImageId > 0
+            ? item.ImageId == current.ImageId : item.FullPath == current.FullPath);
+        _items = items.ToArray();
+        if (_items.Count == 0) { Close(); return; }
+        _index = next >= 0 ? next : Math.Min(_index, _items.Count - 1);
+        ShowCurrent();
+    }
+
     public void HandleKey(VirtualKey key)
     {
+        if (_closing) return;
         switch (key)
         {
             case VirtualKey.Escape: Close(); break;
             case VirtualKey.Left: Move(-1); break;
             case VirtualKey.Right: Move(1); break;
+            case VirtualKey.Delete when _items.Count > 0:
+                if (DeleteRequested is { } delete) _ = delete(new[] { _items[_index].ImageId });
+                break;
+            case VirtualKey.F2 when _items.Count > 0:
+                if (RenameRequested is { } rename) _ = rename(_items[_index]);
+                break;
         }
     }
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        switch (e.Key)
+        if (e.Key is VirtualKey.Escape or VirtualKey.Left or VirtualKey.Right or VirtualKey.Delete or VirtualKey.F2)
         {
-            case VirtualKey.Escape: Close(); e.Handled = true; break;
-            case VirtualKey.Left: Move(-1); e.Handled = true; break;
-            case VirtualKey.Right: Move(1); e.Handled = true; break;
+            HandleKey(e.Key);
+            e.Handled = true;
         }
     }
 
@@ -191,6 +232,13 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Close()
     {
+        if (_closing || !IsOpen) return;
+        _closing = true;
+        Viewer.IsAnimating = true;
+        _animation?.Stop();
+        if (_items.Count > 0)
+            _lastSourceRect = _request?.ResolveSourceRect(_items[_index]) ?? default;
+        else _lastSourceRect = default;
         // 动画统一飞回（用户裁决）；遮罩同步淡出 300ms
         bool flyBack = _lastSourceRect.Width > 0;
         var sb = new Storyboard();
@@ -235,11 +283,19 @@ public sealed partial class PreviewOverlay : Grid
 
         sb.Completed += (_, _) =>
         {
+            // 先移出焦点再隐藏，避免 XAML 自动选中窗口内第一个输入框。
+            ReturnFocusRequested?.Invoke();
             Visibility = Visibility.Collapsed;
             Viewer.Clear();
+            Viewer.IsAnimating = false;
+            _items = Array.Empty<PhotoItem>();
+            _request = null;
+            _animation = null;
+            _closing = false;
             FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
             FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
         };
+        _animation = sb;
         sb.Begin();
     }
 }

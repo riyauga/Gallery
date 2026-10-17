@@ -19,7 +19,11 @@ public sealed partial class GalleryPage : UserControl
 
     private readonly Library _library;
     private readonly List<PhotoItem> _items = new();
-    private readonly HashSet<PhotoTile> _selected = new();
+    private readonly HashSet<int> _selected = new();
+
+    // 示例素材没有数据库 ID，使用其在固定 manifest 中的负数索引。
+    private int SelectionId(PhotoItem item) => item.ImageId > 0 ? item.ImageId : -_library.All.IndexOf(item) - 1;
+    private IEnumerable<PhotoItem> SelectedItems() => _items.Where(item => _selected.Contains(SelectionId(item)));
 
     private bool _favoritesMode;
     private bool _selectMode; // photos 选择模式（工具栏「选择」切换）
@@ -30,6 +34,7 @@ public sealed partial class GalleryPage : UserControl
     private string _query = string.Empty;
     private int? _dirRootId;                             // 目录树选择（null=全部）
     private string? _dirRel;
+    private string? _dirTitle;                           // 目录页标题（根/末段文件夹名）
 
     private double _lastWidth;
     private int _anchorIndex;
@@ -45,13 +50,37 @@ public sealed partial class GalleryPage : UserControl
         string? detail = null) => ToastKindRequested?.Invoke(message, kind, detail);
     public sealed record PreviewRequest(
         PhotoItem Item, IReadOnlyList<PhotoItem> Items,
-        Windows.Foundation.Rect SourceRect, bool FullyVisible);
+        Windows.Foundation.Rect SourceRect, bool FullyVisible,
+        Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect);
     public event Action<PreviewRequest>? PreviewRequested;
+    public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
+    public UIElement FocusAnchor => Root;
 
     public GalleryPage(Library library)
     {
         _library = library;
+        _sortKey = AppService.Settings.Settings.sort_key;
+        _ascending = !AppService.Settings.Settings.sort_desc;
+        _filter = AppService.Settings.Settings.media_filter switch
+        {
+            "photos" => FilterKind.Photos,
+            "videos" => FilterKind.Videos,
+            _ => FilterKind.All,
+        };
+        _sort = _sortKey switch
+        {
+            "name" => SortKey.Name,
+            "modified" => SortKey.DateModified,
+            "created" => SortKey.DateCreated,
+            _ => SortKey.DateTaken,
+        };
         InitializeComponent();
+
+        // 布局与尺寸从配置恢复（galleryold 键：gallery_mode = justified|square，thumbbar_size = 目标行高）
+        Panel.Mode = AppService.Settings.Settings.gallery_mode == "square"
+            ? GalleryLayoutMode.Grid : GalleryLayoutMode.River;
+        Panel.Size = SizeFromRowHeight(AppService.Settings.Settings.thumbbar_size);
+        LayoutIcon.Glyph = Panel.Mode == GalleryLayoutMode.Grid ? "\uE8A9" : "\uECA5";
 
         Scroller.ViewChanged += (_, _) =>
         {
@@ -207,6 +236,7 @@ public sealed partial class GalleryPage : UserControl
         UpdateDateHeader();
         UpdateHeader();
         UpdateEmptyState();
+        ItemsChanged?.Invoke(_items.ToArray());
     }
 
     /// <summary>批次 1：真实数据走 StoreService.Query（目录/收藏/搜索/8 键排序）。</summary>
@@ -228,9 +258,14 @@ public sealed partial class GalleryPage : UserControl
         foreach (var row in rows)
         {
             if (_filter == FilterKind.Videos) yield break;
-            DateTime date = row.TakenAt is { } t
-                ? DateTime.UnixEpoch.AddSeconds(t).ToLocalTime()
-                : DateTime.UnixEpoch.AddSeconds(row.Mtime).ToLocalTime();
+            double timestamp = _sortKey switch
+            {
+                "modified" => row.Mtime,
+                "created" => row.Ctime ?? row.Mtime,
+                "added" => row.AddedAt,
+                _ => row.TakenAt ?? row.Mtime,
+            };
+            DateTime date = DateTime.UnixEpoch.AddSeconds(timestamp).ToLocalTime();
             yield return new PhotoItem
             {
                 File = row.Name,
@@ -261,16 +296,36 @@ public sealed partial class GalleryPage : UserControl
     {
         _dirRootId = rootId;
         _dirRel = dirRel;
+        // photos 的页头标题就是当前集合名：根目录 = 根文件夹名，子目录 = 最后一段目录名
+        _dirTitle = ResolveDirectoryTitle(rootId, dirRel);
         if (IsLoaded) Rebuild();
+    }
+
+    /// <summary>
+    /// 目录页标题（photos SimplePageHeader.Title ← CurrentPageInfo 的名称）。
+    /// 落盘路径在 RootInfo.Path / dirRel，只取文件夹末段显示，不再拼完整路径。
+    /// </summary>
+    private static string? ResolveDirectoryTitle(int? rootId, string? dirRel)
+    {
+        if (rootId is null) return null;
+        if (!string.IsNullOrEmpty(dirRel))
+        {
+            var leaf = System.IO.Path.GetFileName(dirRel.TrimEnd('\\', '/'));
+            if (!string.IsNullOrEmpty(leaf)) return leaf;
+        }
+        var root = AppService.Store?.Roots().FirstOrDefault(r => r.Id == rootId);
+        if (root is null) return null;
+        var name = System.IO.Path.GetFileName(root.Path.TrimEnd('\\', '/'));
+        return string.IsNullOrEmpty(name) ? root.Path : name;
     }
 
     private void WireTile(PhotoTile tile, PhotoItem item)
     {
         tile.Tapped += OnTileTapped;
-        tile.DoubleTapped += OnTileDoubleTapped;
         tile.RightTapped += OnTileRightTapped;
         FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
         tile.SelectMode = _selectMode;
+        tile.Selected = _selected.Contains(SelectionId(item));
 
         // 拖拽外发（galleryold drag_out）：按下起手、位移超阈值发起；
         // 拖已选中图 = 拖整个选区；Windows 标记复制语义（不搬移）。
@@ -297,7 +352,7 @@ public sealed partial class GalleryPage : UserControl
     {
         var items = new List<PhotoItem>();
         if (tile.Selected && _selected.Count > 0)
-            items.AddRange(_selected.Select(t => t.Item));
+            items.AddRange(SelectedItems());
         else
             items.Add(tile.Item);
 
@@ -416,33 +471,117 @@ public sealed partial class GalleryPage : UserControl
             : EmptySubtitle.Text;
     }
 
+    /// <summary>扫描或监听完成后重取当前查询，保留仍在结果中的图片 ID 选区。</summary>
+    public void RefreshFromStore()
+    {
+        if (!IsLoaded) return;
+        var selection = _selected.ToArray();
+        RebuildKeepScroll();
+        _selected.UnionWith(selection);
+        _selected.IntersectWith(_items.Select(SelectionId));
+        SyncSelection();
+    }
+
     private void UpdateEmptyState()
     {
         bool empty = _items.Count == 0;
         EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         if (!empty) return;
         bool noRoots = !AppService.DbReady || AppService.RootCount == 0;
+        bool inFolder = _dirRootId is not null;
+        bool recursive = AppService.Settings.Settings.recursive;
         EmptyTitle.Text = noRoots
             ? "把你的图片目录添加进图库"
-            : _filter == FilterKind.Videos ? "没有视频" : "这里还没有照片";
+            : _filter == FilterKind.Videos ? "没有视频" : inFolder ? "此文件夹中没有照片" : "这里还没有照片";
         EmptySubtitle.Text = noRoots
             ? "点击左侧「添加文件夹」，选择一个图片目录。图库默认为空，只有被添加的目录才会显示。"
             : _filter == FilterKind.Videos
                 ? "尝试将筛选器改为“所有媒体”。"
-                : "把照片放进 assets 文件夹后重新启动。";
+                : inFolder
+                    ? recursive
+                        ? "这个文件夹里没有可显示的图片。"
+                        : "打开「筛选器」里的“显示子文件夹内容”，就能看到子文件夹里的照片。"
+                    : "把照片放进 assets 文件夹后重新启动。";
     }
 
     private void UpdateHeader()
     {
         int n = _selected.Count;
-        string pageName = _favoritesMode ? "收藏夹" : "图库";
-        TitleText.Text = n > 0 ? $"已选择 {n} 个项目" : pageName;
+        string pageName = _favoritesMode ? "收藏夹" : _dirTitle ?? "图库";
+        IconAndTitleHeader.Title = n > 0 ? $"已选择 {n} 个项目" : pageName;
         SubtitleText.Text = n > 0 ? pageName : $"{_items.Count} 张照片";
         // 可见文案来自 GetSelectionText()（CommandBar_SelectSelectionText / _CancelSelectionText）
         // → 「选择」/「取消选择」；UIA 的 Name 才是「选择项目」（GetSelectionButtonFriendlyName）
         SelectButton.Label = n > 0 ? "取消选择" : "选择";
         // GetSelectionIcon(): 取消=E711，勾选=E73A
         SelectIcon.Glyph = n > 0 ? "\uE711" : "\uE73A";
+
+        // photos GalleryHeader.xaml 的 VisualStateGroup ControlBackgroundGroup：
+        // Normal = 透明，Selected = CardBackgroundFillColorDefaultBrush + CardStrokeColorDefaultBrush
+        bool selected = n > 0;
+        Header.Background = selected ? CardFillBrush(HeaderBackgroundKey) : TransparentBrush;
+        Header.BorderBrush = selected ? CardFillBrush(HeaderBorderKey) : TransparentBrush;
+
+        // photos 这几个按钮的可见性绑命令（VisibilityBoundCommand / HasSelection）
+        var selectionVis = selected ? Visibility.Visible : Visibility.Collapsed;
+        DeleteButton.Visibility = selectionVis;
+        MoveCopyButton.Visibility = selectionVis;
+        ShareButton.Visibility = selectionVis;
+
+        SyncSortMenuChecks();
+        SyncFilterMenuChecks();
+        SyncLayoutMenuChecks();
+        SyncSubfolderMenuChecks();
+    }
+
+    private const string HeaderBackgroundKey = "CardBackgroundFillColorDefaultBrush";
+    private const string HeaderBorderKey = "CardStrokeColorDefaultBrush";
+
+    /// <summary>透明画笔单例（头部 Normal 态用）。</summary>
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush TransparentBrush =
+        new(Microsoft.UI.Colors.Transparent);
+
+    /// <summary>按主题资源键取画笔；缺键时退回透明，避免 ElementNotFound 崩。</summary>
+    private static Microsoft.UI.Xaml.Media.Brush CardFillBrush(string key)
+    {
+        if (Application.Current.Resources.TryGetValue(key, out object? value)
+            && value is Microsoft.UI.Xaml.Media.Brush brush)
+        {
+            return brush;
+        }
+        return TransparentBrush;
+    }
+
+    private void SyncFilterMenuChecks()
+    {
+        FilterAll.IsChecked = _filter == FilterKind.All;
+        FilterPhotos.IsChecked = _filter == FilterKind.Photos;
+        FilterVideos.IsChecked = _filter == FilterKind.Videos;
+    }
+
+    private void SyncLayoutMenuChecks()
+    {
+        LayoutRiver.IsChecked = Panel.Mode == GalleryLayoutMode.River;
+        LayoutGrid.IsChecked = Panel.Mode == GalleryLayoutMode.Grid;
+        SizeSmall.IsChecked = Panel.Size == ThumbnailSize.Small;
+        SizeMedium.IsChecked = Panel.Size == ThumbnailSize.Medium;
+        SizeLarge.IsChecked = Panel.Size == ThumbnailSize.Large;
+    }
+
+    /// <summary>
+    /// 子文件夹内容的两项（photos CommandBar_ShowSubfolderContentButton / …Hide…）只在目录页出现，
+    /// 对应原版 IsSubfolderOptionVisible(CurrentPageInfo)。
+    /// </summary>
+    private void SyncSubfolderMenuChecks()
+    {
+        bool inFolder = _dirRootId is not null || !string.IsNullOrEmpty(_dirRel);
+        var vis = inFolder ? Visibility.Visible : Visibility.Collapsed;
+        SubfolderContentSeparator.Visibility = vis;
+        ShowSubfolderContentItem.Visibility = vis;
+        HideSubfolderContentItem.Visibility = vis;
+        bool recursive = AppService.Settings.Settings.recursive;
+        ShowSubfolderContentItem.IsChecked = recursive;
+        HideSubfolderContentItem.IsChecked = !recursive;
     }
 
     private static bool IsCtrlDown()
@@ -456,11 +595,10 @@ public sealed partial class GalleryPage : UserControl
     private async void FileOps_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
-                .HasFlag(Windows.System.VirtualKeyModifiers.Control);
+                .HasFlag(CoreVirtualKeyStates.Down);
         var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
-                .HasFlag(Windows.System.VirtualKeyModifiers.Shift);
-        var firstTile = _selected.Count > 0 ? _selected.First() : null;
-        var first = firstTile?.Item;
+                .HasFlag(CoreVirtualKeyStates.Down);
+        var first = SelectedItems().FirstOrDefault();
 
         switch (e.Key)
         {
@@ -493,14 +631,7 @@ public sealed partial class GalleryPage : UserControl
     }
 
     private List<string> SelectedPaths()
-    {
-        var paths = new List<string>();
-        foreach (var t in Panel.Children.OfType<PhotoTile>())
-            if (t.Selected) paths.Add(t.Item.FullPath);
-        foreach (var t in _selected)
-            if (!paths.Contains(t.Item.FullPath)) paths.Add(t.Item.FullPath);
-        return paths;
-    }
+        => SelectedItems().Select(item => item.FullPath).ToList();
 
     /// <summary>
     /// photos 语义：正常模式单击=打开查看器；选择模式单击=切换选中；
@@ -511,14 +642,15 @@ public sealed partial class GalleryPage : UserControl
         if (sender is not PhotoTile tile) return;
         if (_selectMode)
         {
-            tile.Selected = !tile.Selected;
+            int id = SelectionId(tile.Item);
+            if (!_selected.Add(id)) _selected.Remove(id);
             SyncSelection();
             return;
         }
         if (IsCtrlDown())
         {
             SetSelectMode(true);
-            tile.Selected = true;
+            _selected.Add(SelectionId(tile.Item));
             SyncSelection();
             return;
         }
@@ -532,7 +664,7 @@ public sealed partial class GalleryPage : UserControl
         var rect = transform.TransformBounds(
             new Windows.Foundation.Rect(0, 0, tile.ActualWidth, tile.ActualHeight));
         // 完整可见 = tile 完全落在滚动视口内
-        var svRect = TransformToVisual(Scroller).TransformBounds(
+        var svRect = Scroller.TransformToVisual(null).TransformBounds(
             new Windows.Foundation.Rect(0, 0, Scroller.ActualWidth, Scroller.ActualHeight));
         bool fully = rect.Top >= svRect.Top && rect.Bottom <= svRect.Bottom;
         return (rect, fully);
@@ -541,21 +673,21 @@ public sealed partial class GalleryPage : UserControl
     private void OpenPreview(PhotoTile tile)
     {
         var (rect, fully) = TileFlightRect(tile) ?? (default, false);
-        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items, rect, fully));
+        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, ResolveSourceRect));
+    }
+
+    private Windows.Foundation.Rect? ResolveSourceRect(PhotoItem item)
+    {
+        int index = _items.FindIndex(candidate => SelectionId(candidate) == SelectionId(item));
+        if (index < 0 || index >= Panel.Rects.Count) return null;
+        return Panel.TransformToVisual(null).TransformBounds(Panel.Rects[index]);
     }
 
     private void SyncSelection()
     {
-        _selected.Clear();
-        foreach (var child in Panel.Children)
-            if (child is PhotoTile { Selected: true } t) _selected.Add(t);
+        foreach (var tile in Panel.Children.OfType<PhotoTile>())
+            tile.Selected = _selected.Contains(SelectionId(tile.Item));
         UpdateHeader();
-    }
-
-    private void OnTileDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
-    {
-        if (sender is not PhotoTile tile) return;
-        OpenPreview(tile);
     }
 
     private void OnTileRightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -563,9 +695,8 @@ public sealed partial class GalleryPage : UserControl
         if (sender is not PhotoTile tile) return;
         if (!tile.Selected)
         {
-            foreach (var other in _selected.ToArray()) other.Selected = false;
             _selected.Clear();
-            tile.Selected = true;
+            _selected.Add(SelectionId(tile.Item));
             SyncSelection();
         }
 
@@ -615,7 +746,8 @@ public sealed partial class GalleryPage : UserControl
         }));
         menu.Items.Add(Item("重命名", "\uE8AC", () => _ = RenameAsync(item)));
         menu.Items.Add(new MenuFlyoutSeparator());
-        var delete = Item("删除", "\uE74D", () => _ = DeleteSelectedAsync());
+        var delete = Item("删除", "\uE74D", () => _ = DeleteAsync(
+            includeOpen && _selected.Contains(SelectionId(item)) ? SelectedIds() : new[] { item.ImageId }));
         delete.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
             Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)); // #ff99a4（删除红）
         menu.Items.Add(delete);
@@ -643,17 +775,19 @@ public sealed partial class GalleryPage : UserControl
     }
 
     /// <summary>删除选中（回收站 + 二次确认，取消为默认，红 #ff99a4）。</summary>
-    private async System.Threading.Tasks.Task DeleteSelectedAsync()
+    private Task DeleteSelectedAsync() => DeleteAsync(SelectedIds());
+
+    public async Task DeleteAsync(IReadOnlyCollection<int> targets)
     {
-        var ids = SelectedIds();
-        if (ids.Count == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
+        var ids = targets.Where(id => id > 0).Distinct().ToArray();
+        if (ids.Length == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
         var confirm = new ContentDialog
         {
             Title = "删除",
-            Content = $"将选中的 {ids.Count} 个项目移到回收站？",
+            Content = $"将选中的 {ids.Length} 个项目移到回收站？",
             PrimaryButtonText = "删除",
             CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Secondary, // 取消为默认
+            DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
         };
         confirm.Resources["ContentDialogButton1BackgroundBrush"] =
@@ -672,7 +806,7 @@ public sealed partial class GalleryPage : UserControl
     }
 
     /// <summary>重命名（F2，单图，扩展名不动；file_key 保身份）。</summary>
-    private async System.Threading.Tasks.Task RenameAsync(PhotoItem item)
+    public async System.Threading.Tasks.Task RenameAsync(PhotoItem item)
     {
         var stem = System.IO.Path.GetFileNameWithoutExtension(item.File);
         var input = new TextBox { Text = stem };
@@ -699,8 +833,12 @@ public sealed partial class GalleryPage : UserControl
         Rebuild();
     }
 
-    /// <summary>复制/移动到指定目录（FolderPicker；移动限图库内）。</summary>
-    private async System.Threading.Tasks.Task CopyMoveAsync(IReadOnlyList<int> ids)
+    /// <summary>
+    /// 复制/移动到指定目录（FolderPicker；移动限图库内）。
+    /// requestedMove: null=先问「复制还是移动」（右键菜单路径）；true/false=命令栏
+    /// 「移动到文件夹」/「复制到文件夹」已定语义，只做一次确认。
+    /// </summary>
+    private async System.Threading.Tasks.Task CopyMoveAsync(IReadOnlyList<int> ids, bool? requestedMove = null)
     {
         if (ids.Count == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
         var picker = new Windows.Storage.Pickers.FolderPicker();
@@ -709,19 +847,37 @@ public sealed partial class GalleryPage : UserControl
         var folder = await picker.PickSingleFolderAsync();
         if (folder is null) return;
 
-        var dialog = new ContentDialog
+        bool move;
+        if (requestedMove is bool fixedMove)
         {
-            Title = "复制或移动",
-            Content = $"将 {ids.Count} 个项目复制还是移动到\n{folder.Path}？",
-            PrimaryButtonText = "移动",
-            SecondaryButtonText = "复制",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = XamlRoot,
-        };
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.None) return;
-        var move = result == ContentDialogResult.Primary;
+            move = fixedMove;
+            var confirm = new ContentDialog
+            {
+                Title = move ? "移动" : "复制",
+                Content = $"将 {ids.Count} 个项目{(move ? "移动" : "复制")}到\n{folder.Path}？",
+                PrimaryButtonText = move ? "移动" : "复制",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot,
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        }
+        else
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "复制或移动",
+                Content = $"将 {ids.Count} 个项目复制还是移动到\n{folder.Path}？",
+                PrimaryButtonText = "移动",
+                SecondaryButtonText = "复制",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot,
+            };
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.None) return;
+            move = result == ContentDialogResult.Primary;
+        }
         var (count, firstError) = await System.Threading.Tasks.Task.Run(() =>
         {
             lock (AppService.DbLock)
@@ -748,15 +904,7 @@ public sealed partial class GalleryPage : UserControl
     }
 
     private List<int> SelectedIds()
-    {
-        var ids = new List<int>();
-        foreach (var tile in _selected)
-            if (tile.Item.ImageId > 0) ids.Add(tile.Item.ImageId);
-        if (ids.Count == 0 && Panel.IsVirtual)
-            foreach (var t in Panel.Children.OfType<PhotoTile>())
-                if (t.Selected && t.Item.ImageId > 0) ids.Add(t.Item.ImageId);
-        return ids.Distinct().ToList();
-    }
+        => SelectedItems().Where(item => item.ImageId > 0).Select(item => item.ImageId).ToList();
 
     private static MenuFlyoutItem Item(string text, string glyph, Action action)
     {
@@ -780,7 +928,6 @@ public sealed partial class GalleryPage : UserControl
         }
         if (_selected.Count > 0)
         {
-            foreach (var t in _selected.ToArray()) t.Selected = false;
             _selected.Clear();
             SyncSelection();
             SetSelectMode(false);
@@ -796,7 +943,6 @@ public sealed partial class GalleryPage : UserControl
             if (child is PhotoTile t) t.SelectMode = on;
         if (!on)
         {
-            foreach (var t in _selected.ToArray()) t.Selected = false;
             _selected.Clear();
             SyncSelection();
         }
@@ -805,17 +951,102 @@ public sealed partial class GalleryPage : UserControl
 
     private void SelectAll_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var child in Panel.Children)
-            if (child is PhotoTile t) t.Selected = true;
+        _selected.UnionWith(_items.Select(SelectionId));
         SyncSelection();
     }
 
     private void SelectNone_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var child in Panel.Children)
-            if (child is PhotoTile t) t.Selected = false;
+        _selected.Clear();
         SyncSelection();
     }
+
+    /// <summary>命令栏「删除」（photos DeleteButton / DeleteCommand）。</summary>
+    private async void DeleteButton_Click(object sender, RoutedEventArgs e) => await DeleteAsync(SelectedIds());
+
+    /// <summary>「移动或复制」→ 移动到文件夹（photos CommandBar_MoveToFolderFlyoutItem）。</summary>
+    private async void MoveToFolder_Click(object sender, RoutedEventArgs e) => await CopyMoveAsync(SelectedIds(), true);
+
+    /// <summary>「移动或复制」→ 复制到文件夹（photos CommandBar_CopyToFolderFlyoutItem）。</summary>
+    private async void CopyToFolder_Click(object sender, RoutedEventArgs e) => await CopyMoveAsync(SelectedIds(), false);
+
+    /// <summary>筛选器 → 显示子文件夹内容（photos CommandBar_ShowSubfolderContentButton）。</summary>
+    private void ShowSubfolderContent_Click(object sender, RoutedEventArgs e) => SetRecursive(true);
+
+    /// <summary>筛选器 → 隐藏子文件夹内容（photos CommandBar_HideSubfolderContentButton）。</summary>
+    private void HideSubfolderContent_Click(object sender, RoutedEventArgs e) => SetRecursive(false);
+
+    /// <summary>目录递归开关落盘到 settings.recursive（galleryold 同名键），再重取当前查询。</summary>
+    private void SetRecursive(bool recursive)
+    {
+        if (AppService.Settings.Settings.recursive != recursive)
+        {
+            AppService.Settings.Settings.recursive = recursive;
+            AppService.Settings.Save();
+            RebuildKeepScroll();
+        }
+        SyncSubfolderMenuChecks();
+    }
+
+    /// <summary>命令栏「共享」（photos ShareButton / ShouldShowDefaultShareOption → 系统共享面板）。</summary>
+    private async void ShareButton_Click(object sender, RoutedEventArgs e)
+    {
+        var paths = SelectedItems()
+            .Where(item => !item.Missing)
+            .Select(item => item.FullPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+            .ToArray();
+        if (paths.Length == 0)
+        {
+            ToastRequested?.Invoke("这些项目没有可用文件");
+            return;
+        }
+
+        var files = new List<Windows.Storage.StorageFile>(paths.Length);
+        foreach (var path in paths)
+        {
+            try
+            {
+                files.Add(await Windows.Storage.StorageFile.GetFileFromPathAsync(path));
+            }
+            catch (Exception)
+            {
+                // 单项读不到就跳过，剩下的仍然共享（原版也是这样逐项取 StorageFile）
+            }
+        }
+        if (files.Count == 0)
+        {
+            ToastRequested?.Invoke("这些项目没有可用文件");
+            return;
+        }
+
+        try
+        {
+            var manager = GetShareManager(AppService.MainWindowHandle);
+            // 每次点「共享」重挂一次，取完数据立刻摘掉，避免 DataRequested 订阅累积
+            Windows.Foundation.TypedEventHandler<
+                Windows.ApplicationModel.DataTransfer.DataTransferManager,
+                Windows.ApplicationModel.DataTransfer.DataRequestedEventArgs>? handler = null;
+            handler = (_, args) =>
+            {
+                manager.DataRequested -= handler;
+                args.Request.Data.SetStorageItems(files, true);
+            };
+            manager.DataRequested += handler;
+            Windows.ApplicationModel.DataTransfer.DataTransferManagerInterop.ShowShareUIForWindow(AppService.MainWindowHandle);
+        }
+        catch (Exception ex)
+        {
+            SendToast($"共享面板打不开：{ex.Message}", Gallery.Controls.ToastKind.Pending);
+        }
+    }
+
+    /// <summary>
+    /// 桌面应用没有 CoreWindow，DataTransferManager 必须经 IDataTransferManagerInterop 取窗口实例
+    /// （Microsoft 桌面共享标准做法：GetForWindow(hwnd) + ShowShareUIForWindow(hwnd)）。
+    /// </summary>
+    private static Windows.ApplicationModel.DataTransfer.DataTransferManager GetShareManager(IntPtr hwnd)
+        => Windows.ApplicationModel.DataTransfer.DataTransferManagerInterop.GetForWindow(hwnd);
 
     private void SortKey_Click(object sender, RoutedEventArgs e)
     {
@@ -826,10 +1057,12 @@ public sealed partial class GalleryPage : UserControl
             _sort = key switch
             {
                 "name" => SortKey.Name,
-                "mtime" => SortKey.DateModified,
+                "modified" => SortKey.DateModified,
                 "created" => SortKey.DateCreated,
                 _ => SortKey.DateTaken,
             };
+            AppService.Settings.Settings.sort_key = _sortKey;
+            AppService.Settings.Save();
             RebuildKeepScroll();
         }
     }
@@ -839,6 +1072,8 @@ public sealed partial class GalleryPage : UserControl
         if (sender is RadioMenuFlyoutItem item && item.Tag is string dir)
         {
             _ascending = dir == "asc";
+            AppService.Settings.Settings.sort_desc = !_ascending;
+            AppService.Settings.Save();
             RebuildKeepScroll();
         }
     }
@@ -847,7 +1082,7 @@ public sealed partial class GalleryPage : UserControl
     {
         SortTaken.IsChecked = _sortKey == "taken";
         SortCreated.IsChecked = _sortKey == "created";
-        SortModified.IsChecked = _sortKey == "mtime";
+        SortModified.IsChecked = _sortKey == "modified";
         SortName.IsChecked = _sortKey == "name";
         SortAdded.IsChecked = _sortKey == "added";
         SortSize.IsChecked = _sortKey == "size";
@@ -864,8 +1099,36 @@ public sealed partial class GalleryPage : UserControl
     private void ApplyFilter(FilterKind kind)
     {
         _filter = kind;
+        AppService.Settings.Settings.media_filter = kind switch
+        {
+            FilterKind.Photos => "photos",
+            FilterKind.Videos => "videos",
+            _ => "all",
+        };
+        AppService.Settings.Save();
         Rebuild();
     }
+
+    /// <summary>
+    /// 布局/尺寸落盘到 galleryold 的配置键：gallery_mode = justified|square，
+    /// thumbbar_size = 当前档位的目标行高（Photos 的布局/尺寸选择同样是持久的）。
+    /// </summary>
+    private void PersistLayout()
+    {
+        var settings = AppService.Settings.Settings;
+        settings.gallery_mode = Panel.Mode == GalleryLayoutMode.Grid ? "square" : "justified";
+        var (_, target, _) = Panel.SizeRange;
+        settings.thumbbar_size = (int)Math.Round(target);
+        AppService.Settings.Save();
+    }
+
+    /// <summary>目标行高 → 三档尺寸（小于 200 小、小于 350 中等，其余大）。</summary>
+    private static ThumbnailSize SizeFromRowHeight(int rowHeight) => rowHeight switch
+    {
+        < 200 => ThumbnailSize.Small,
+        < 350 => ThumbnailSize.Medium,
+        _ => ThumbnailSize.Large,
+    };
 
     private void LayoutRiver_Click(object sender, RoutedEventArgs e) => ApplyLayout(GalleryLayoutMode.River);
     private void LayoutGrid_Click(object sender, RoutedEventArgs e) => ApplyLayout(GalleryLayoutMode.Grid);
@@ -880,10 +1143,12 @@ public sealed partial class GalleryPage : UserControl
         double delta = _anchorDelta;
         Panel.Mode = mode;
         LayoutIcon.Glyph = mode == GalleryLayoutMode.Grid ? "\uE8A9" : "\uECA5";
+        PersistLayout();
         Panel.InvalidateMeasure();
         Scroller.UpdateLayout();
         Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
         Timeline.Refresh();
+        SyncLayoutMenuChecks();
     }
 
     private void ApplySize(ThumbnailSize size)
@@ -891,9 +1156,11 @@ public sealed partial class GalleryPage : UserControl
         int index = _anchorIndex;
         double delta = _anchorDelta;
         Panel.Size = size;
+        PersistLayout();
         Panel.InvalidateMeasure();
         Scroller.UpdateLayout();
         Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
+        SyncLayoutMenuChecks();
     }
 
     private void RebuildKeepScroll()

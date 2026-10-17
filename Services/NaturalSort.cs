@@ -1,109 +1,107 @@
-using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Numerics;
+using System.Text;
 
 namespace Gallery.Services;
 
-/// <summary>
-/// 文件名自然排序，逐行移植 galleryold 的 <c>app/name_sort.py</c>：
-/// ASCII 字母分组，组内忽略大小写（casefold）并按数字段数值比较；
-/// 非 ASCII 首字符一律归「#」桶。
-/// </summary>
-public static partial class NaturalSort
+/// <summary>按旧版 Python 的 Unicode casefold、十进制数字和码点顺序比较文件名。</summary>
+public static class NaturalSort
 {
-    [GeneratedRegex(@"(\d+)")]
-    private static partial Regex DigitSplit();
+    private static readonly (Dictionary<int, string> Folds, Dictionary<int, int> Digits) Tables = LoadTables();
 
-    /// <summary>对应 name_group：首字符 ∈ A-Za-z → 大写首字母，否则 '#'。</summary>
     public static string NameGroup(string name)
-    {
-        var first = string.IsNullOrEmpty(name) ? '\0' : name[0];
-        return char.IsAsciiLetter(first)
-            ? char.ToUpperInvariant(first).ToString()
-            : "#";
-    }
+        => !string.IsNullOrEmpty(name) && char.IsAsciiLetter(name[0])
+            ? char.ToUpperInvariant(name[0]).ToString() : "#";
 
-    /// <summary>
-    /// 对应 natural_key：casefold 后按 (\d+) 切分（保留空段），
-    /// 数字段 → (1, 数值)，其余（含空段）→ (0, 文本)。
-    /// </summary>
     public static IReadOnlyList<Part> NaturalKey(string name)
     {
-        var folded = Casefold(name ?? "");
-        var pieces = DigitSplit().Split(folded);
-        var parts = new List<Part>(pieces.Length);
-        foreach (var seg in pieces)
+        var parts = new List<Part>();
+        var text = new StringBuilder();
+        var number = BigInteger.Zero;
+        bool inNumber = false;
+        foreach (var rune in Casefold(name).EnumerateRunes())
         {
-            if (IsDecimal(seg))
-                parts.Add(new Part(1, null, ParseDecimal(seg)));
+            if (Tables.Digits.TryGetValue(rune.Value, out var digit))
+            {
+                if (!inNumber)
+                {
+                    parts.Add(new Part(0, text.ToString(), 0));
+                    text.Clear();
+                    number = 0;
+                    inNumber = true;
+                }
+                number = number * 10 + digit;
+            }
             else
-                parts.Add(new Part(0, seg, 0));
+            {
+                if (inNumber) parts.Add(new Part(1, null, number));
+                inNumber = false;
+                text.Append(rune.ToString());
+            }
         }
+        if (inNumber) parts.Add(new Part(1, null, number));
+        parts.Add(new Part(0, text.ToString(), 0));
         return parts;
     }
 
-    /// <summary>对应 compare_names：返回 -1/0/1。</summary>
     public static int CompareNames(string? a, string? b)
     {
-        var ka = NaturalKey(a ?? "");
-        var kb = NaturalKey(b ?? "");
-        int n = Math.Min(ka.Count, kb.Count);
-        for (int i = 0; i < n; i++)
+        var left = NaturalKey(a ?? "");
+        var right = NaturalKey(b ?? "");
+        for (int i = 0; i < Math.Min(left.Count, right.Count); i++)
         {
-            int c = ka[i].CompareTo(kb[i]);
-            if (c != 0) return c;
+            int result = left[i].CompareTo(right[i]);
+            if (result != 0) return result;
         }
-        return ka.Count.CompareTo(kb.Count);
+        return left.Count.CompareTo(right.Count);
     }
 
-    /// <summary>Python str.casefold：简单小写 + 少数 full-folding 特例（ß→ss 等）。</summary>
-    public static string Casefold(string s)
+    public static string Casefold(string value)
     {
-        var lowered = s.ToLowerInvariant();
-        foreach (var (src, dst) in FullFolds)
-        {
-            if (lowered.Contains(src)) lowered = lowered.Replace(src, dst);
-        }
-        return lowered;
+        var result = new StringBuilder();
+        foreach (var rune in value.EnumerateRunes())
+            result.Append(Tables.Folds.TryGetValue(rune.Value, out var folded) ? folded : rune.ToString());
+        return result.ToString();
     }
 
-    // Full Case Folding 中「简单小写覆盖不到」的常见项（Unicode CaseFolding C+F）。
-    private static readonly (string, string)[] FullFolds =
+    /// <summary>Python 的字符串比较按 Unicode 码点，不能用 UTF-16 码元顺序替代。</summary>
+    private static int CompareText(string left, string right)
     {
-        ("ß", "ss"), ("ﬀ", "ff"), ("ﬁ", "fi"), ("ﬂ", "fl"), ("ﬃ", "ffi"),
-        ("ﬄ", "ffl"), ("ﬅ", "st"), ("ﬆ", "st"), ("ﬓ", "մն"), ("ﬔ", "մե"),
-        ("ﬕ", "մի"), ("ﬖ", "վն"), ("ﬗ", "մխ"), ("ς", "σ"), ("ẛ", "ṡ"),
-        ("ŉ", "ʼn"), ("ǰ", "ǰ"), ("ΐ", "ΐ"), ("ΰ", "ΰ"),
-    };
+        var a = left.EnumerateRunes().GetEnumerator();
+        var b = right.EnumerateRunes().GetEnumerator();
+        while (true)
+        {
+            bool hasA = a.MoveNext(), hasB = b.MoveNext();
+            if (!hasA || !hasB) return hasA.CompareTo(hasB);
+            int result = a.Current.Value.CompareTo(b.Current.Value);
+            if (result != 0) return result;
+        }
+    }
 
-    public readonly record struct Part(int Kind, string? Text, long Number) : IComparable<Part>
+    private static (Dictionary<int, string>, Dictionary<int, int>) LoadTables()
+    {
+        using var stream = typeof(NaturalSort).Assembly.GetManifestResourceStream("Gallery.Services.NaturalSortUnicode.txt")
+            ?? throw new InvalidOperationException("缺少自然排序的 Unicode 数据。");
+        using var reader = new StreamReader(stream);
+        var folds = new Dictionary<int, string>();
+        var digits = new Dictionary<int, int>();
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.StartsWith('#')) continue;
+            var fields = line.Split(';');
+            int codepoint = int.Parse(fields[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            if (fields[0] == "F")
+                folds.Add(codepoint, string.Concat(fields[2].Split(' ').Select(code =>
+                    char.ConvertFromUtf32(int.Parse(code, NumberStyles.HexNumber, CultureInfo.InvariantCulture)))));
+            else digits.Add(codepoint, int.Parse(fields[2], CultureInfo.InvariantCulture));
+        }
+        return (folds, digits);
+    }
+
+    public readonly record struct Part(int Kind, string? Text, BigInteger Number) : IComparable<Part>
     {
         public int CompareTo(Part other)
-        {
-            // Python 元组比较：先比 kind（数字段 kind=1 排在文本段 kind=0 之后）
-            if (Kind != other.Kind) return Kind.CompareTo(other.Kind);
-            if (Kind == 1) return Number.CompareTo(other.Number);
-            return string.CompareOrdinal(Text ?? "", other.Text ?? "");
-        }
-    }
-
-    private static bool IsDecimal(string s)
-    {
-        if (s.Length == 0) return false;
-        foreach (var ch in s)
-            if (!char.IsDigit(ch)) return false; // char.IsDigit = Unicode Nd，与 str.isdecimal 同类
-        return true;
-    }
-
-    private static long ParseDecimal(string s)
-    {
-        // ASCII 快路径；非 ASCII 十进制数字按 Unicode 数值逐位合成（对应 Python int()）
-        long value = 0;
-        foreach (var ch in s)
-        {
-            if (ch is >= '0' and <= '9')
-                value = value * 10 + (ch - '0');
-            else
-                value = value * 10 + System.Globalization.CharUnicodeInfo.GetDecimalDigitValue(ch);
-        }
-        return value;
+            => Kind != other.Kind ? Kind.CompareTo(other.Kind)
+                : Kind == 1 ? Number.CompareTo(other.Number) : CompareText(Text ?? "", other.Text ?? "");
     }
 }

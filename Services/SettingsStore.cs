@@ -15,10 +15,13 @@ public sealed class AppSettings
     public string sort_key { get; set; } = "added";
     public bool sort_desc { get; set; } = true;
     public string tag_filter_mode { get; set; } = "or";
-    public int thumbbar_size { get; set; } = 160;
+    // galleryold 语义：缩略图目标行高。默认取 280（= 图库“中等”档的河流布局目标行高），
+    // 与迁移前的默认尺寸一致；旧配置里的 160 仍按“小”档还原。
+    public int thumbbar_size { get; set; } = 280;
     public Dictionary<string, JsonElement> layout_options { get; set; } = [];
     public int button_height { get; set; } = 40;
     public string gallery_mode { get; set; } = "justified";
+    public string media_filter { get; set; } = "all";   // all | photos | videos（图库筛选器落盘）
     public bool sidebar_collapsed { get; set; }
     public int sidebar_width { get; set; } = 280;
     public bool recursive { get; set; } = true;
@@ -136,6 +139,8 @@ public sealed class SettingsStore
         s.tag_filter_mode = s.tag_filter_mode is "or" or "and" ? s.tag_filter_mode : "or";
         s.sidebar_width = Math.Clamp(s.sidebar_width, 180, 500);
         s.thumbbar_size = Math.Clamp(s.thumbbar_size, 64, 512);
+        s.gallery_mode = s.gallery_mode is "square" or "justified" ? s.gallery_mode : "justified";
+        s.media_filter = s.media_filter is "photos" or "videos" or "all" ? s.media_filter : "all";
         s.created_folders = s.created_folders.Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p).Distinct().ToList();
         s.roots = s.roots.Where(p => !string.IsNullOrWhiteSpace(p))

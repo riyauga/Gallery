@@ -24,12 +24,48 @@ public sealed class Db : IDisposable
             Pooling = false, // collation 按连接注册；池化会换连接，禁用
         }.ToString());
         Connection.Open();
-        Connection.CreateCollation("GALLERY_NATURAL", (a, b) => NaturalSort.CompareNames(a ?? "", b ?? ""));
+        try
+        {
+            Connection.CreateCollation("GALLERY_NATURAL", (a, b) => NaturalSort.CompareNames(a ?? "", b ?? ""));
+            Exec("PRAGMA busy_timeout=10000");
+            EnsureSchema();
+            Exec("PRAGMA journal_mode=WAL");
+            Exec("PRAGMA synchronous=NORMAL");
+            Exec("PRAGMA foreign_keys=ON");
+        }
+        catch
+        {
+            Connection.Dispose();
+            throw;
+        }
+    }
 
-        Exec("PRAGMA busy_timeout=10000");
-        Exec("PRAGMA journal_mode=WAL");
-        Exec("PRAGMA synchronous=NORMAL");
-        Exec("PRAGMA foreign_keys=ON");
+    /// <summary>只初始化空库；已有库必须为兼容的 v3，不在 C# 侧改写旧库结构。</summary>
+    private void EnsureSchema()
+    {
+        using var command = Connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+        if (Convert.ToInt32(command.ExecuteScalar()) == 0)
+        {
+            using var stream = typeof(Db).Assembly.GetManifestResourceStream("Gallery.Services.LibrarySchema.sql")
+                ?? throw new InvalidOperationException("缺少新图库的数据结构资源。");
+            using var reader = new StreamReader(stream);
+            Exec("BEGIN IMMEDIATE");
+            try
+            {
+                Exec(reader.ReadToEnd());
+                Exec("COMMIT");
+            }
+            catch
+            {
+                Exec("ROLLBACK");
+                throw;
+            }
+            return;
+        }
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='meta'";
+        if (Convert.ToInt32(command.ExecuteScalar()) == 0 || SchemaVersion != 3)
+            throw new InvalidDataException("图库数据库版本不兼容；需要 schema v3，未修改原有数据结构。");
     }
 
     public int SchemaVersion

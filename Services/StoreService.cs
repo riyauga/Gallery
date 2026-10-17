@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 
 namespace Gallery.Services;
 
@@ -32,6 +33,10 @@ public sealed class StoreService : IDisposable
 
     private readonly SqliteConnection _conn;
     private int _inTransaction;
+    private bool _rollbackOnly;
+
+    /// <summary>所有仓储入口及跨入口事务共用的可重入锁，禁止在事务内跨线程 await。</summary>
+    public object SyncRoot => this;
 
     public string DbPath { get; }
     public bool SidecarEnabled { get; set; } = true;
@@ -49,6 +54,7 @@ public sealed class StoreService : IDisposable
 
     public int SchemaVersion
     {
+        [MethodImpl(MethodImplOptions.Synchronized)]
         get
         {
             using var cmd = _conn.CreateCommand();
@@ -57,6 +63,7 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void Exec(string sql)
     {
         using var cmd = _conn.CreateCommand();
@@ -65,31 +72,63 @@ public sealed class StoreService : IDisposable
     }
 
     /// <summary>自动提交模式下语句即时持久化；保留方法名与 galleryold 对齐。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void Commit() { }
 
     /// <summary>
     /// 对应 store.py transaction()：外层 BEGIN IMMEDIATE，可嵌套；
     /// 成功置 <see cref="TxScope.Success"/>，异常时 Dispose 回滚（对齐 Python with 语义）。
     /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public TxScope Transaction() => new(this);
 
-    public sealed class TxScope(StoreService s) : IDisposable
+    public sealed class TxScope : IDisposable
     {
+        private readonly StoreService _store;
+        private bool _disposed;
         public bool Success { get; set; }
+
+        internal TxScope(StoreService store)
+        {
+            _store = store;
+            Monitor.Enter(store.SyncRoot);
+            try
+            {
+                if (store._inTransaction == 0)
+                {
+                    store.Exec("BEGIN IMMEDIATE");
+                    store._rollbackOnly = false;
+                }
+                store._inTransaction++;
+            }
+            catch
+            {
+                Monitor.Exit(store.SyncRoot);
+                throw;
+            }
+        }
 
         public void Dispose()
         {
-            s._inTransaction--;
-            if (s._inTransaction == 0)
+            if (_disposed) return;
+            _disposed = true;
+            try
             {
-                if (Success) s.Exec("COMMIT");
-                else { try { s.Exec("ROLLBACK"); } catch (SqliteException) { } }
+                if (!Success) _store._rollbackOnly = true;
+                if (--_store._inTransaction == 0)
+                {
+                    _store.Exec(_store._rollbackOnly ? "ROLLBACK" : "COMMIT");
+                    if (Success && _store._rollbackOnly)
+                        throw new InvalidOperationException("嵌套事务失败，整笔操作已回滚。");
+                }
             }
+            finally { Monitor.Exit(_store.SyncRoot); }
         }
     }
 
     // ------------------------------------------------------------------ roots
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public List<RootInfo> Roots()
     {
         var list = new List<RootInfo>();
@@ -101,6 +140,7 @@ public sealed class StoreService : IDisposable
         return list;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public string? RootPath(int rootId)
     {
         using var cmd = _conn.CreateCommand();
@@ -135,6 +175,7 @@ public sealed class StoreService : IDisposable
             StringComparison.OrdinalIgnoreCase);
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int AddRoot(string path)
     {
         using var cmd = _conn.CreateCommand();
@@ -148,6 +189,7 @@ public sealed class StoreService : IDisposable
     /// 对应 store.py replace_roots：整体更新启用根；子根记录原地迁移；
     /// 任何 rel_path 冲突即抛异常整笔回滚。
     /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public Dictionary<string, int> ReplaceRoots(IEnumerable<string> paths)
     {
         var canonical = paths.Select(p => Path.GetFullPath(p))
@@ -241,6 +283,7 @@ public sealed class StoreService : IDisposable
     // ----------------------------------------------------------------- images
 
     /// <summary>对应 store.py upsert_image（移动识别 + 内容 md5 兜底）。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public (int ImageId, bool Created) UpsertImage(
         int rootId, string relPath, string absPath, string dirRel,
         string name, string ext, long size, double mtime, double? ctime,
@@ -380,6 +423,7 @@ public sealed class StoreService : IDisposable
         if (id is not null) Add("$i", id);
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int MarkMissing(int rootId, HashSet<string> seenRel)
     {
         var gone = new List<int>();
@@ -404,9 +448,11 @@ public sealed class StoreService : IDisposable
         return gone.Count;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public ImageRow? GetImage(int id) =>
         QueryOne("SELECT * FROM images WHERE id=$i", ("$i", id));
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public ImageRow? QueryOne(string sql, params (string, object)[] args)
     {
         using var cmd = _conn.CreateCommand();
@@ -416,6 +462,7 @@ public sealed class StoreService : IDisposable
         return r.Read() ? ReadImage(r) : null;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public List<ImageRow> QueryAll(string sql, params (string, object)[] args)
     {
         var list = new List<ImageRow>();
@@ -472,6 +519,7 @@ public sealed class StoreService : IDisposable
         { Tags = [] };
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int CountImages(bool includeMissing = false)
     {
         using var cmd = _conn.CreateCommand();
@@ -481,6 +529,7 @@ public sealed class StoreService : IDisposable
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int CountFavorites()
     {
         using var cmd = _conn.CreateCommand();
@@ -488,6 +537,7 @@ public sealed class StoreService : IDisposable
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public HashSet<int> FavoriteIds()
     {
         var set = new HashSet<int>();
@@ -520,6 +570,7 @@ public sealed class StoreService : IDisposable
     /// 排序 SQL 逐字照搬 _SORT_SQL + name 特例（字母组 CASE 前置 + GALLERY_NATURAL）
     /// + 非 name 的稳定尾排序。
     /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public List<ImageRow> Query(QuerySpec spec)
     {
         var where = new List<string>
@@ -582,7 +633,7 @@ public sealed class StoreService : IDisposable
         {
             var col = sort switch
             {
-                "mtime" => "i.mtime",
+                "modified" => "i.mtime",
                 "taken" => "COALESCE(i.taken_at, i.mtime)",
                 "created" => "COALESCE(i.ctime, i.mtime)",
                 "added" => "i.added_at",
@@ -654,6 +705,7 @@ public sealed class StoreService : IDisposable
     /// 照搬 store.py root_containing：找出包含该路径的启用根（normcase 比较、
     /// 最长根优先），rel 保留原始大小写（与库内记录一致）。
     /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public (int RootId, string Rel)? RootContaining(string path)
     {
         var original = Path.GetFullPath(path);
@@ -678,6 +730,7 @@ public sealed class StoreService : IDisposable
 
     // ------------------------------------------------------------------ query
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public List<FolderCount> Folders(int rootId)
     {
         var list = new List<FolderCount>();
@@ -691,6 +744,7 @@ public sealed class StoreService : IDisposable
         return list;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public (int RootId, string DirRel)? FolderOf(int imageId)
     {
         using var cmd = _conn.CreateCommand();
@@ -703,6 +757,7 @@ public sealed class StoreService : IDisposable
 
     // ------------------------------------------------------------------- tags
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int EnsureTag(string name, string category = "custom")
     {
         var clean = (name ?? "").Trim();
@@ -726,6 +781,7 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int AddTags(IReadOnlyCollection<int> imageIds, IEnumerable<string> names)
     {
         var cleaned = names.Select(n => n.Trim()).Where(n => n.Length > 0).ToList();
@@ -746,6 +802,7 @@ public sealed class StoreService : IDisposable
     }
 
     /// <summary>整体替换标签集（managed=1），对应 set_categorized_tags。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void SetCategorizedTags(IReadOnlyCollection<int> imageIds,
         IReadOnlyCollection<(string Category, string Name)> pairs)
     {
@@ -791,6 +848,7 @@ public sealed class StoreService : IDisposable
         if (_inTransaction == 0) SyncSidecars(imageIds);
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public List<(string Category, string Name)> CategorizedTags(int imageId)
     {
         var list = new List<(string, string)>();
@@ -804,6 +862,7 @@ public sealed class StoreService : IDisposable
         return list;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void SetFavorite(int imageId, bool favorite)
     {
         using (var cmd = _conn.CreateCommand())
@@ -829,6 +888,7 @@ public sealed class StoreService : IDisposable
     // ---------------------------------------------------------------- sidecar
 
     /// <summary>对应 _sync_sidecars：按 (root,dir) 去重后重写 sidecar。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void SyncSidecars(IReadOnlyCollection<int> imageIds)
     {
         if (!SidecarEnabled) return;
@@ -843,6 +903,7 @@ public sealed class StoreService : IDisposable
     }
 
     /// <summary>对应 write_sidecar：整目录镜像到 .gallery.json（含未索引文件的既有条目保留）。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public bool WriteSidecar(int rootId, string dirRel)
     {
         if (!SidecarEnabled) return false;
@@ -937,33 +998,44 @@ public sealed class StoreService : IDisposable
     }
 
     private static bool SidecarEquals(Dictionary<string, JsonElement> existing, Dictionary<string, object> merged)
-    {
-        if (existing.Count != merged.Count) return false;
-        foreach (var (name, element) in existing)
-        {
-            if (!merged.TryGetValue(name, out var value)) return false;
-            var a = JsonSerializer.Serialize(element);
-            var b = JsonSerializer.Serialize(value);
-            if (a != b) return false;
-        }
-        return true;
-    }
+        => JsonElement.DeepEquals(JsonSerializer.SerializeToElement(existing),
+            JsonSerializer.SerializeToElement(merged));
 
     /// <summary>对应 _atomic_write_json：UTF-8 无 BOM / indent=2 / 键排序 / .tmp 原子替换。</summary>
     private static double AtomicWriteJson(string path, Dictionary<string, object> payload)
     {
-        var ordered = new SortedDictionary<string, object>(payload, StringComparer.Ordinal);
-        var options = new JsonSerializerOptions
+        var options = new JsonWriterOptions
         {
-            WriteIndented = true,
+            Indented = true,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            PropertyNamingPolicy = null,
         };
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(ordered, options),
-            new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        using (var stream = File.Create(tmp))
+        using (var writer = new Utf8JsonWriter(stream, options))
+            WriteSortedJson(writer, JsonSerializer.SerializeToElement(payload));
         File.Move(tmp, path, overwrite: true);
         return ToUnixSeconds(File.GetLastWriteTimeUtc(path));
+    }
+
+    private static void WriteSortedJson(Utf8JsonWriter writer, JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            writer.WriteStartObject();
+            foreach (var property in value.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+            {
+                writer.WritePropertyName(property.Name);
+                WriteSortedJson(writer, property.Value);
+            }
+            writer.WriteEndObject();
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+        {
+            writer.WriteStartArray();
+            foreach (var item in value.EnumerateArray()) WriteSortedJson(writer, item);
+            writer.WriteEndArray();
+        }
+        else value.WriteTo(writer);
     }
 
     private static void HideFile(string path, bool hide)
@@ -1087,6 +1159,7 @@ public sealed class StoreService : IDisposable
     }
 
     /// <summary>对应 import_sidecar：外部改动的 sidecar → 导入库。返回导入文件数。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public int ImportSidecar(int rootId, string dirRel)
     {
         if (!SidecarEnabled) return 0;
@@ -1122,6 +1195,7 @@ public sealed class StoreService : IDisposable
             while (r.Read()) byName[r.GetString(1)] = r.GetInt32(0);
         }
 
+        using var transaction = Transaction();
         var imported = 0;
         foreach (var (fname, element) in files)
         {
@@ -1233,6 +1307,10 @@ public sealed class StoreService : IDisposable
             imported++;
         }
         Commit();
+        if (imported > 0)
+            Exec($"INSERT INTO sidecar_state(path,mtime) VALUES('{Esc(sp)}',{Fmt(mtime)}) " +
+                 "ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime");
+        transaction.Success = true;
         return imported;
     }
 
@@ -1272,5 +1350,6 @@ public sealed class StoreService : IDisposable
         return sec + frac;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public void Dispose() => _conn.Dispose();
 }

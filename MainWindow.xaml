@@ -14,6 +14,7 @@
             <KeyboardAccelerator Key="Escape" Invoked="OnEscapeInvoked" />
             <KeyboardAccelerator Key="Left" Invoked="OnLeftInvoked" />
             <KeyboardAccelerator Key="Right" Invoked="OnRightInvoked" />
+            <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="OnSearchInvoked" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
@@ -43,7 +44,7 @@
                     Text="Gallery" />
             </StackPanel>
 
-            <TextBox
+            <controls:PhotosSearchBox
                 x:Name="SearchBox"
                 Grid.Column="1"
                 MinWidth="160"
@@ -58,7 +59,7 @@
             <!--  标题栏按钮：设置（E713 齿轮）。
                   照搬 photos：SettingsButtonWidth=40、CommandBar 右对齐、
                   按钮在系统按钮左侧（右padding列 138 即系统按钮区）。  -->
-            <CommandBar
+            <controls:CustomCommandBar
                 x:Name="TitleCommandBar"
                 Grid.Column="2"
                 Margin="12,0,12,0"
@@ -85,7 +86,7 @@
                         <FontIcon FontSize="16" Glyph="&#xE713;" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-            </CommandBar>
+            </controls:CustomCommandBar>
         </Grid>
 
         <NavigationView
@@ -155,6 +156,8 @@
                 <controls:PaneResizer x:Name="Gripper" />
                 <Grid
                     x:Name="ContentHost"
+                    IsTabStop="True"
+                    UseSystemFocusVisuals="False"
                     Margin="16,0,0,0"
                     HorizontalAlignment="Stretch" />
             </Grid>

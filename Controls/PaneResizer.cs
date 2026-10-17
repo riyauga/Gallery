@@ -55,7 +55,7 @@ public sealed class PaneResizer : Grid
             FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
+            Foreground = Application.Current.Resources.TryGetValue("TextFillColorTertiaryBrush", out var fg) && fg is Brush fgb ? fgb : null!,
         });
 
         PointerEntered += (_, _) => ProtectedCursor =

@@ -3,7 +3,7 @@ namespace Gallery.Services;
 /// <summary>
 /// 文件监听，移植 galleryold <c>app/ui/watcher.py</c>：
 /// 递归监听每个启用根目录；忽略 .tmp/.crdownload/.part；
-/// 事件归并为 (root_id, dir_rel)，1200ms 防抖后对受影响目录重扫。
+/// 事件归并为 (root_id, dir_rel)，1200ms 防抖后每个受影响根只扫描一次。
 /// </summary>
 public sealed class WatcherService : IDisposable
 {
@@ -17,8 +17,11 @@ public sealed class WatcherService : IDisposable
     private readonly System.Threading.Timer _timer;
     private readonly object _gate = new();
     private readonly HashSet<(int RootId, string DirRel)> _pending = [];
+    private bool _flushing;
+    private bool _disposed;
 
     public event Action<IReadOnlyCollection<(int RootId, string DirRel)>>? Changed;
+    public event Action<string>? Failed;
 
     public WatcherService(StoreService store, ScannerService scanner, AppSettings settings)
     {
@@ -30,39 +33,48 @@ public sealed class WatcherService : IDisposable
 
     public void Start()
     {
-        if (!_settings.watch_filesystem) return;
-        foreach (var root in _store.Roots())
+        var roots = _settings.watch_filesystem
+            ? _store.Roots().Where(root => root.Enabled && Directory.Exists(root.Path)).ToArray() : [];
+        lock (_gate)
         {
-            if (!root.Enabled || !Directory.Exists(root.Path)) continue;
-            if (_watchers.ContainsKey(root.Id)) continue;
-            var watcher = new FileSystemWatcher(root.Path)
+            if (_disposed) return;
+            foreach (var id in _watchers.Keys.Except(roots.Select(root => root.Id)).ToArray())
             {
-                IncludeSubdirectories = true,
-                InternalBufferSize = 64 * 1024,
-                EnableRaisingEvents = true,
-            };
-            watcher.Created += (_, e) => OnEvent(root.Id, e.FullPath, isDirectory: false);
-            watcher.Deleted += (_, e) => OnEvent(root.Id, e.FullPath, isDirectory: null);
-            watcher.Renamed += (_, e) =>
+                _watchers[id].Dispose();
+                _watchers.Remove(id);
+            }
+            foreach (var root in roots)
             {
-                OnEvent(root.Id, e.OldFullPath, isDirectory: null);
-                OnEvent(root.Id, e.FullPath, isDirectory: null);
-            };
-            watcher.Changed += (_, e) =>
-            {
-                try
+                if (_watchers.ContainsKey(root.Id)) continue;
+                var watcher = new FileSystemWatcher(root.Path)
                 {
-                    if (Directory.Exists(e.FullPath)) return; // modified 仅文件
-                    OnEvent(root.Id, e.FullPath, isDirectory: false);
-                }
-                catch (IOException) { }
-            };
-            watcher.Error += (_, _) => { /* 单次溢出可容忍，下次扫描兜底 */ };
-            _watchers[root.Id] = watcher;
+                    IncludeSubdirectories = true,
+                    InternalBufferSize = 64 * 1024,
+                };
+                watcher.Created += (_, e) => OnEvent(root.Id, root.Path, e.FullPath, isDirectory: null);
+                watcher.Deleted += (_, e) => OnEvent(root.Id, root.Path, e.FullPath, isDirectory: null);
+                watcher.Renamed += (_, e) =>
+                {
+                    OnEvent(root.Id, root.Path, e.OldFullPath, isDirectory: null);
+                    OnEvent(root.Id, root.Path, e.FullPath, isDirectory: null);
+                };
+                watcher.Changed += (_, e) =>
+                {
+                    try
+                    {
+                        if (Directory.Exists(e.FullPath)) return; // modified 仅文件
+                        OnEvent(root.Id, root.Path, e.FullPath, isDirectory: false);
+                    }
+                    catch (IOException) { }
+                };
+                watcher.Error += (_, _) => Queue(root.Id, ""); // 溢出时全根补扫，避免丢失变更。
+                _watchers[root.Id] = watcher;
+                watcher.EnableRaisingEvents = true;
+            }
         }
     }
 
-    private void OnEvent(int rootId, string fullPath, bool? isDirectory)
+    private void OnEvent(int rootId, string rootPath, string fullPath, bool? isDirectory)
     {
         var name = Path.GetFileName(fullPath);
         if (IgnoreSuffixes.Any(s => name.EndsWith(s, StringComparison.OrdinalIgnoreCase))) return;
@@ -78,9 +90,6 @@ public sealed class WatcherService : IDisposable
         catch (IOException) { return; }
         if (dir is null) return;
 
-        var rootPath = _store.RootPath(rootId);
-        if (rootPath is null) return;
-
         string dirRel;
         try
         {
@@ -89,8 +98,14 @@ public sealed class WatcherService : IDisposable
         }
         catch (Exception ex) when (ex is IOException or ArgumentException) { return; }
 
+        Queue(rootId, dirRel);
+    }
+
+    private void Queue(int rootId, string dirRel)
+    {
         lock (_gate)
         {
+            if (_disposed || !_watchers.ContainsKey(rootId)) return;
             _pending.Add((rootId, dirRel));
             _timer.Change(DebounceMs, Timeout.Infinite);
         }
@@ -101,26 +116,49 @@ public sealed class WatcherService : IDisposable
         (int, string)[] batch;
         lock (_gate)
         {
-            if (_pending.Count == 0) return;
+            if (_disposed || _flushing || _pending.Count == 0) return;
+            _flushing = true;
             batch = [.. _pending];
             _pending.Clear();
         }
-        foreach (var (rootId, dirRel) in batch)
+        try
         {
-            try { _scanner.ScanRoot(rootId); } // 简化：整根重扫，幂等且成本低
-            catch (Exception ex) when (ex is IOException or InvalidOperationException) { }
+            foreach (var rootId in batch.Select(pair => pair.Item1).Distinct())
+            {
+                try
+                {
+                    lock (_store.SyncRoot)
+                    {
+                        if (!_store.Roots().Any(root => root.Id == rootId && root.Enabled)) continue;
+                        var result = _scanner.ScanRoot(rootId);
+                        if (result.Errors.Count > 0) Failed?.Invoke(result.Errors[0]);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException
+                    or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+                { Failed?.Invoke(ex.Message); }
+            }
+            Changed?.Invoke(batch);
         }
-        Changed?.Invoke(batch);
+        finally
+        {
+            lock (_gate)
+            {
+                _flushing = false;
+                if (!_disposed && _pending.Count > 0) _timer.Change(DebounceMs, Timeout.Infinite);
+            }
+        }
     }
 
     public void Dispose()
     {
-        _timer.Dispose();
-        foreach (var watcher in _watchers.Values)
+        lock (_gate)
         {
-            watcher.EnableRaisingEvents = false;
-            watcher.Dispose();
+            _disposed = true;
+            _pending.Clear();
+            _timer.Dispose();
+            foreach (var watcher in _watchers.Values) watcher.Dispose();
+            _watchers.Clear();
         }
-        _watchers.Clear();
     }
 }

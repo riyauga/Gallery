@@ -8,7 +8,7 @@ public enum ToastKind { Info, Success, Pending }
 
 /// <summary>
 /// 通知浮层，照搬 galleryold <c>app/ui/toast.py</c>：
-/// 348×82、寿命 5000ms、右下堆叠间距 10、屏幕/窗口边距 18、最多 4 条（新的在最下），
+/// 宽 348、高度随内容、寿命 5000ms、右下堆叠间距 10、屏幕/窗口边距 18、最多 4 条（新的在最下），
 /// 左缘 4px 色带：成功 #3f9d63 / 需处理 #d08a2c / 中性用强调灰；
 /// 圆角 12，深 #2b2b2b/边 #4a4a4a，浅 #ffffff/边 #dedede；标题 15px w500，副文 13px muted。
 /// </summary>
@@ -86,7 +86,6 @@ public sealed class ToastHost : StackPanel
         return new Border
         {
             Width = 348,
-            Height = 82,
             CornerRadius = new CornerRadius(12),
             Background = new SolidColorBrush(bg),
             BorderBrush = new SolidColorBrush(border),
@@ -124,10 +123,5 @@ public sealed class ToastHost : StackPanel
     }
 
     private static Windows.UI.Color ColorFrom(string hex)
-    {
-        var v = Convert.ToUInt32(hex.TrimStart('#'), 16);
-        return Microsoft.UI.ColorHelper.FromArgb(
-            (byte)((v >> 24) & 0xFF), (byte)((v >> 16) & 0xFF),
-            (byte)((v >> 8) & 0xFF), (byte)(v & 0xFF));
-    }
+        => Tags.TagColors.FromHex(hex);
 }

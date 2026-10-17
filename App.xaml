@@ -2,12 +2,146 @@
 <Application
     x:Class="Gallery.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Gallery.Controls">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Photos Styles/CommandBarStyles.xaml：实际被图库引用的默认样式和覆盖；未引用的旧 Win10 OpenDownCommandBar 不加载。 -->
+    <!--  CommandBar & AppBarButon  -->
+    <SolidColorBrush x:Key="CommandBarBackgroundOpen" Color="Transparent" />
+    <Thickness x:Key="CommandBarBorderThicknessOpen">0</Thickness>
+    <Thickness x:Key="CommandBarElementMargin">2,0,2,0</Thickness>
+    <x:Double x:Key="TitleBarButtonFontSize">16</x:Double>
+
+    <Style BasedOn="{StaticResource DefaultCommandBarStyle}" TargetType="controls:CustomCommandBar" />
+    <Style BasedOn="{StaticResource DefaultAppBarButtonStyle}" TargetType="AppBarButton">
+        <Setter Property="Width" Value="52" />
+        <Setter Property="Height" Value="{ThemeResource AppBarThemeCompactHeight}" />
+    </Style>
+
+    <!--  Overrides for WinUI styling  -->
+    <!--  https://github.com/microsoft/microsoft-ui-xaml/blob/main/dev/CommonStyles/AppBarButton_themeresources.xaml  -->
+    <!--  https://github.com/microsoft/microsoft-ui-xaml/blob/main/dev/CommonStyles/CommandBar_themeresources.xaml  -->
+    <x:String x:Key="AppBarButtonFlyoutGlyph">&#xE70D;</x:String>
+    <Thickness x:Key="AppBarButtonSubItemChevronMargin">0,20,12,0</Thickness>
+    <Thickness x:Key="AppBarButtonInnerBorderMargin">2,7,2,7</Thickness>
+    <Thickness x:Key="AppBarEllipsisButtonInnerBorderMargin">2,7,6,7</Thickness>
+
+    <!--  Glyphs  -->
+    <x:String x:Key="ImportGlyph">&#xE89D;</x:String>
+    <x:String x:Key="CancelGlyph">&#xE711;</x:String>
+    <x:String x:Key="OverflowGlyph">&#xE712;</x:String>
+
+    <x:String x:Key="SaveGlyph">&#xE74E;</x:String>
+
+    <x:String x:Key="AddToAlbumGlyph">&#xEEB3;</x:String>
+    <x:String x:Key="MoveToGlyph">&#xE8DE;</x:String>
+    <x:String x:Key="CopyToGlyph">&#xF413;</x:String>
+    <x:String x:Key="MoveCopyGlyph">&#xF2DF;</x:String>
+    <x:String x:Key="BackupToOneDriveGlyph">&#xEC8E;</x:String>
+    <x:String x:Key="ShareGlyph">&#xE72D;</x:String>
+    <x:String x:Key="ShareViaOneDriveGlyph">&#xE941;</x:String>
+    <x:String x:Key="DeleteGlyph">&#xE74D;</x:String>
+    <x:String x:Key="EditGlyph">&#xEF77;</x:String>
+
+    <x:String x:Key="FilterGlyph">&#xE71C;</x:String>
+    <x:String x:Key="AllMediaFilterGlyph">&#xF0B1;</x:String>
+    <x:String x:Key="PhotosFilterGlyph">&#xE91B;</x:String>
+    <x:String x:Key="VideosFilterGlyph">&#xF411;</x:String>
+
+    <x:String x:Key="SortGlyph">&#xE174;</x:String>
+    <x:String x:Key="RelevancySortGlyph">&#xE735;</x:String>
+    <x:String x:Key="DateCreatedSortGlyph">&#xEEB5;</x:String>
+    <x:String x:Key="DateTakenSortGlyph">&#xE787;</x:String>
+    <x:String x:Key="DateModifiedSortGlyph">&#xF05B;</x:String>
+    <x:String x:Key="NameSortGlyph">&#xF1B2;</x:String>
+    <x:String x:Key="AscendingSortGlyph">&#xEE68;</x:String>
+    <x:String x:Key="DescendingSortGlyph">&#xEE69;</x:String>
+
+    <x:String x:Key="GridLayoutGlyph">&#xE8A9;</x:String>
+    <x:String x:Key="RiverLayoutGlyph">&#xECA5;</x:String>
+
+    <x:String x:Key="SmallSizeGlyph">&#xF232;</x:String>
+    <x:String x:Key="MediumSizeGlyph">&#xF233;</x:String>
+    <x:String x:Key="LargeSizeGlyph">&#xF234;</x:String>
+
+    <x:String x:Key="FolderGlyph">&#xE8B7;</x:String>
+    <x:String x:Key="SubfoldersGlyph">&#xEE73;</x:String>
+
+    <x:String x:Key="MoreGlyph">&#xE712;</x:String>
+
+    <x:String x:Key="SelectionClearGlyph">&#xE711;</x:String>
+
+            <FontFamily x:Key="PhotosUWPFontFamily">ms-appx:///assets/Common/PhotosIcons.ttf#Photos Fluent Icons</FontFamily>
+
+    <Style TargetType="controls:IconWithBadge">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:IconWithBadge">
+                    <Grid x:Name="PartContainerGrid" Height="40">
+                        <IconSourceElement
+                            x:Name="PartIcon"
+                            AutomationProperties.AccessibilityView="{TemplateBinding IconAccessibilityView}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Stretch" />
+
+                        <IconSourceElement
+                            x:Name="PartBadgeIcon"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            x:Load="False" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="controls:SimplePageHeader">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:SimplePageHeader">
+                    <Grid
+                        x:Name="PageHeaderGrid"
+                        BorderBrush="Transparent"
+                        BorderThickness="1"
+                        CornerRadius="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid
+                            x:Name="PartIconWithBadgeGrid"
+                            Grid.Column="0"
+                            VerticalAlignment="Top">
+                            <controls:IconWithBadge
+                                x:Name="PartIconWithBadge"
+                                HorizontalAlignment="Left"
+                                IconAccessibilityView="{TemplateBinding IconAccessibilityView}"
+                                VerticalAlignment="Stretch" />
+                        </Grid>
+                        <TextBlock
+                            x:Name="PartTitleTextBlock"
+                            Grid.Column="1"
+                            MinWidth="124"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            AutomationProperties.HeadingLevel="1"
+                            FontSize="24"
+                            Style="{StaticResource TitleTextBlockStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap">
+                            <ToolTipService.ToolTip>
+                                <ToolTip Name="PartTitleTooltip" />
+                            </ToolTipService.ToolTip>
+                        </TextBlock>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

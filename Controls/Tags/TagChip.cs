@@ -31,6 +31,7 @@ public static class TagColors
     public static Windows.UI.Color FromHex(string hex)
     {
         var v = Convert.ToUInt32(hex.TrimStart('#'), 16);
+        if (hex.TrimStart('#').Length == 6) v |= 0xFF000000;
         return Microsoft.UI.ColorHelper.FromArgb(
             (byte)((v >> 24) & 0xFF), (byte)((v >> 16) & 0xFF),
             (byte)((v >> 8) & 0xFF), (byte)(v & 0xFF));
@@ -50,7 +51,7 @@ public sealed class TagChip : Grid
 
         Height = 28;
         VerticalAlignment = VerticalAlignment.Top;
-        Children.Add(new Border
+        var frame = new Border
         {
             CornerRadius = new CornerRadius(6),
             BorderThickness = new Thickness(1),
@@ -64,6 +65,16 @@ public sealed class TagChip : Grid
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = new SolidColorBrush(TagColors.FromHex(fg)),
             },
-        });
+        };
+        Children.Add(frame);
+        void ApplyTheme()
+        {
+            var colors = TagColors.Get(category, ActualTheme == ElementTheme.Dark);
+            frame.Background = new SolidColorBrush(TagColors.FromHex(colors.Bg));
+            frame.BorderBrush = new SolidColorBrush(TagColors.FromHex(colors.Border));
+            ((TextBlock)frame.Child).Foreground = new SolidColorBrush(TagColors.FromHex(colors.Fg));
+        }
+        Loaded += (_, _) => ApplyTheme();
+        ActualThemeChanged += (_, _) => ApplyTheme();
     }
 }

@@ -32,23 +32,31 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
         var backupDir = BackupBeforeChange();
 
         var newRoots = new List<string>(Settings.roots) { candidate };
+        var originalRoots = Settings.roots;
+        Dictionary<string, int> destinations;
         try
         {
-            var destinations = store.ReplaceRoots(newRoots);
+            using var tx = store.Transaction();
+            destinations = store.ReplaceRoots(newRoots);
             Settings.roots = destinations.Keys.ToList();
             settings.Save();
-            var rootId = destinations[candidate];
-            var scanner = new ScannerService(store, Settings);
-            var scan = scanner.ScanRoot(rootId, progress);
-            var root = store.Roots().First(r => r.Id == rootId);
-            return (root, scan);
+            tx.Success = true;
         }
-        catch
+        catch (Exception changeError)
         {
-            // 配置回滚（对齐 root_changes.save_root_change 的失败分支）
-            RestoreBackup(backupDir);
+            Settings.roots = originalRoots;
+            try { RestoreBackup(backupDir); }
+            catch (Exception restoreError) when (restoreError is IOException or UnauthorizedAccessException)
+            {
+                throw new AggregateException($"根目录变更失败，设置恢复也失败。备份位于 {backupDir}", changeError, restoreError);
+            }
             throw;
         }
+        var rootId = destinations[candidate];
+        var scanner = new ScannerService(store, Settings);
+        var scan = scanner.ScanRoot(rootId, progress);
+        var root = store.Roots().First(r => r.Id == rootId);
+        return (root, scan);
     }
 
     /// <summary>移除根目录：forget=true 连同索引记录一起移除（不删图）。</summary>
@@ -59,8 +67,10 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
                 FileIdentity.PathKey(p) == FileIdentity.PathKey(r.Path)).Id != rootId)
             .ToList();
         var backupDir = BackupBeforeChange();
+        var originalRoots = Settings.roots;
         try
         {
+            using var tx = store.Transaction();
             if (newRoots.Count > 0)
             {
                 store.ReplaceRoots(newRoots);
@@ -76,10 +86,16 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
             }
             Settings.roots = newRoots;
             settings.Save();
+            tx.Success = true;
         }
-        catch
+        catch (Exception changeError)
         {
-            RestoreBackup(backupDir);
+            Settings.roots = originalRoots;
+            try { RestoreBackup(backupDir); }
+            catch (Exception restoreError) when (restoreError is IOException or UnauthorizedAccessException)
+            {
+                throw new AggregateException($"根目录变更失败，设置恢复也失败。备份位于 {backupDir}", changeError, restoreError);
+            }
             throw;
         }
     }
@@ -127,21 +143,16 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
 
     private static void RestoreBackup(string backupDir)
     {
-        try
+        var configBackup = Path.Combine(backupDir, "settings.json");
+        if (!File.Exists(configBackup))
         {
-            var configBackup = Path.Combine(backupDir, "settings.json");
-            if (!File.Exists(configBackup))
-            {
-                if (File.Exists(AppPaths.SettingsPath)) File.Delete(AppPaths.SettingsPath);
-                return;
-            }
-            var tmp = AppPaths.SettingsPath + ".restore.tmp";
-            File.Copy(configBackup, tmp, overwrite: true);
-            File.Move(tmp, AppPaths.SettingsPath, overwrite: true);
+            if (File.Exists(AppPaths.SettingsPath)) File.Delete(AppPaths.SettingsPath);
+            return;
         }
-        catch (IOException)
-        {
-            // 回滚失败只保留备份目录，不阻塞
-        }
+        var tmp = AppPaths.SettingsPath + ".restore.tmp";
+        if (File.Exists(AppPaths.SettingsPath) &&
+            File.ReadAllBytes(configBackup).SequenceEqual(File.ReadAllBytes(AppPaths.SettingsPath))) return;
+        File.Copy(configBackup, tmp, overwrite: true);
+        File.Move(tmp, AppPaths.SettingsPath, overwrite: true);
     }
 }

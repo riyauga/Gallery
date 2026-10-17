@@ -23,5 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="assets\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
+    <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
   </ItemGroup>
 </Project>

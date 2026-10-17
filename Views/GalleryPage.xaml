@@ -6,7 +6,7 @@
     xmlns:controls="using:Gallery.Controls"
     Background="Transparent">
 
-    <Grid x:Name="Root" KeyDown="FileOps_KeyDown">
+    <Grid x:Name="Root" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="FileOps_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -21,21 +21,18 @@
             BorderBrush="Transparent"
             BorderThickness="1"
             CornerRadius="6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel VerticalAlignment="Top">
-                <TextBlock x:Name="TitleText" Style="{StaticResource TitleTextBlockStyle}" />
-                <TextBlock
-                    x:Name="SubtitleText"
-                    Margin="1,4,0,0"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource BodyTextBlockStyle}" />
-            </StackPanel>
-
-            <CommandBar
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid x:Name="TitleAndCommandBarGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <controls:SimplePageHeader x:Name="IconAndTitleHeader" HorizontalAlignment="Left" VerticalAlignment="Top" />
+            <controls:CustomCommandBar
                 x:Name="Bar"
                 Grid.Column="1"
                 Padding="0"
@@ -48,7 +45,7 @@
                 IsDynamicOverflowEnabled="True"
                 OverflowButtonVisibility="Visible">
                 <!--  照搬 CommandBarStyles.xaml 对 AppBarButton 的覆盖  -->
-                <CommandBar.Resources>
+                <controls:CustomCommandBar.Resources>
                     <Thickness x:Key="CommandBarElementMargin">2,0,2,0</Thickness>
                     <Thickness x:Key="AppBarButtonSubItemChevronMargin">0,20,12,0</Thickness>
                     <Thickness x:Key="AppBarButtonInnerBorderMargin">2,7,2,7</Thickness>
@@ -56,7 +53,7 @@
                     <!--  这条是关键：WinUI 默认是 E974(ChevronRight ›)，Photos 覆盖成 E70D(ChevronDown ∨)  -->
                     <x:String x:Key="AppBarButtonFlyoutGlyph">&#xE70D;</x:String>
                     <x:String x:Key="AppBarButtonOverflowFlyoutGlyph">&#xE70D;</x:String>
-                </CommandBar.Resources>
+                </controls:CustomCommandBar.Resources>
 
                 <!--  选择：Photos 里唯一一个「图标 + 文字」的按钮
                       Label 文案来自 CommandBar_SelectSelectionText / CommandBar_CancelSelectionText
@@ -65,90 +62,328 @@
                       带 AppBarButtonHighlightedStyles 的灰底高亮（Styles/AppBarButtonHighlightedStyles.xaml）  -->
                 <AppBarButton
                     x:Name="SelectButton"
-                    Height="48"
                     Click="SelectButton_Click"
                     Label="选择"
                     LabelPosition="Default">
                     <AppBarButton.Resources>
-                        <!--  照搬 AppBarButtonHighlightedStyles.xaml：选择按钮的灰底高亮  -->
-                        <StaticResource x:Key="AppBarButtonBackground" ResourceKey="ControlFillColorDefaultBrush" />
-                        <StaticResource x:Key="AppBarButtonBackgroundPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
-                        <StaticResource x:Key="AppBarButtonBackgroundPressed" ResourceKey="ControlFillColorTertiaryBrush" />
-                        <StaticResource x:Key="AppBarButtonBorderBrush" ResourceKey="ControlElevationBorderBrush" />
-                        <StaticResource x:Key="AppBarButtonBorderBrushPointerOver" ResourceKey="ControlElevationBorderBrush" />
-                        <StaticResource x:Key="AppBarButtonBorderBrushPressed" ResourceKey="ControlStrokeColorDefaultBrush" />
+                        <ResourceDictionary>
+                            <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <StaticResource x:Key="AppBarButtonBackground" ResourceKey="ControlFillColorDefaultBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPressed" ResourceKey="ControlFillColorTertiaryBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundDisabled" ResourceKey="ControlFillColorDisabledBrush" />
+            <StaticResource x:Key="AppBarButtonForeground" ResourceKey="TextFillColorPrimaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPressed" ResourceKey="TextFillColorSecondaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundDisabled" ResourceKey="TextFillColorDisabledBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrush" ResourceKey="ControlElevationBorderBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPointerOver" ResourceKey="ControlElevationBorderBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPressed" ResourceKey="ControlStrokeColorDefaultBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushDisabled" ResourceKey="ControlStrokeColorDefaultBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <StaticResource x:Key="AppBarButtonBackground" ResourceKey="ControlFillColorDefaultBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPressed" ResourceKey="ControlFillColorTertiaryBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundDisabled" ResourceKey="ControlFillColorDisabledBrush" />
+            <StaticResource x:Key="AppBarButtonForeground" ResourceKey="TextFillColorPrimaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPressed" ResourceKey="TextFillColorSecondaryBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundDisabled" ResourceKey="TextFillColorDisabledBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrush" ResourceKey="ControlElevationBorderBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPointerOver" ResourceKey="ControlElevationBorderBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPressed" ResourceKey="ControlStrokeColorDefaultBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushDisabled" ResourceKey="ControlStrokeColorDefaultBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="AppBarButtonBackground" ResourceKey="SystemControlBackgroundBaseLowBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPointerOver" ResourceKey="SystemColorHighlightTextColorBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
+            <StaticResource x:Key="AppBarButtonBackgroundDisabled" ResourceKey="SystemControlBackgroundBaseLowBrush" />
+            <StaticResource x:Key="AppBarButtonForeground" ResourceKey="SystemColorButtonTextColorBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPointerOver" ResourceKey="SystemControlHighlightBaseHighBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundPressed" ResourceKey="SystemControlHighlightBaseHighBrush" />
+            <StaticResource x:Key="AppBarButtonForegroundDisabled" ResourceKey="SystemControlDisabledBaseMediumLowBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrush" ResourceKey="SystemControlForegroundTransparentBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPointerOver" ResourceKey="SystemColorHighlightColorBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
+            <StaticResource x:Key="AppBarButtonBorderBrushDisabled" ResourceKey="SystemControlDisabledTransparentBrush" />
+        </ResourceDictionary>
+                            </ResourceDictionary.ThemeDictionaries>
+                        </ResourceDictionary>
                     </AppBarButton.Resources>
                     <AppBarButton.Icon>
                         <FontIcon
                             x:Name="SelectIcon"
                             FontSize="12"
-                            FontFamily="Segoe Fluent Icons"
+                            FontFamily="{StaticResource PhotosUWPFontFamily}"
                             Glyph="&#xE73A;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <!--
+                    选择态按钮（photos GalleryCommandBar.xaml DeleteButton / MoveCopyButton / ShareButton）：
+                    只在有选中时出现；删除/共享为纯图标（LabelPosition=Collapsed + 中文 ToolTip），
+                    移动或复制保留 Label（UIA 实测选择态可见文本「移动或复制」，带展开箭头）。
+                    未迁：EditButton(EF77，无编辑器)、幻灯片、OneDrive 备份/分享、Clipchamp。
+                -->
+                <AppBarButton
+                    x:Name="DeleteButton"
+                    Click="DeleteButton_Click"
+                    Label="删除"
+                    LabelPosition="Collapsed"
+                    ToolTipService.ToolTip="删除"
+                    Visibility="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon
+                            FontSize="16"
+                            FontFamily="{StaticResource PhotosUWPFontFamily}"
+                            Glyph="&#xE74D;" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton
+                    x:Name="MoveCopyButton"
+                    Label="移动或复制"
+                    ToolTipService.ToolTip="移动或复制"
+                    Visibility="Collapsed">
+                    <AppBarButton.Resources>
+                        <Visibility x:Key="AppBarButtonHasFlyoutChevronVisibility">Visible</Visibility>
+                    </AppBarButton.Resources>
+                    <AppBarButton.Icon>
+                        <FontIcon
+                            FontSize="16"
+                            FontFamily="{StaticResource PhotosUWPFontFamily}"
+                            Glyph="&#xF2DF;" />
+                    </AppBarButton.Icon>
+                    <AppBarButton.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem Click="MoveToFolder_Click" Text="移动到文件夹">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE8DE;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Click="CopyToFolder_Click" Text="复制到文件夹">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF413;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </AppBarButton.Flyout>
+                </AppBarButton>
+
+                <AppBarButton
+                    x:Name="ShareButton"
+                    Click="ShareButton_Click"
+                    Label="共享"
+                    LabelPosition="Collapsed"
+                    ToolTipService.ToolTip="共享"
+                    Visibility="Collapsed">
+                    <AppBarButton.Icon>
+                        <FontIcon
+                            FontSize="16"
+                            FontFamily="{StaticResource PhotosUWPFontFamily}"
+                            Glyph="&#xE72D;" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
                 <!--  排序 / 筛选 / 布局：带下拉小箭头，实测 62 宽  -->
                 <AppBarButton
                     x:Name="SortButton"
-                    Width="62"
-                    Height="48"
                     Label="排序选项和方向"
                     LabelPosition="Collapsed">
                     <AppBarButton.Resources>
                         <Visibility x:Key="AppBarButtonHasFlyoutChevronVisibility">Visible</Visibility>
                     </AppBarButton.Resources>
                     <AppBarButton.Icon>
-                        <FontIcon
-                            FontSize="16"
-                            FontFamily="Segoe Fluent Icons"
-                            Glyph="&#xE174;" />
+                        <FontIcon FontSize="16" Glyph="&#xE174;" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="SortMenu" Placement="Bottom">
-                            <!--  8 键 = photos 菜单结构 ∪ galleryold 键集（裁决 D10）  -->
-                            <RadioMenuFlyoutItem x:Name="SortTaken" Click="SortKey_Click" Tag="taken" Text="拍摄日期" />
-                            <RadioMenuFlyoutItem x:Name="SortCreated" Click="SortKey_Click" Tag="created" Text="创建日期" />
-                            <RadioMenuFlyoutItem x:Name="SortModified" Click="SortKey_Click" Tag="mtime" Text="修改日期" />
-                            <RadioMenuFlyoutItem x:Name="SortName" Click="SortKey_Click" Tag="name" Text="名字" />
-                            <RadioMenuFlyoutItem x:Name="SortAdded" Click="SortKey_Click" Tag="added" Text="入库时间" />
-                            <RadioMenuFlyoutItem x:Name="SortSize" Click="SortKey_Click" Tag="size" Text="大小" />
-                            <RadioMenuFlyoutItem x:Name="SortRating" Click="SortKey_Click" Tag="rating" Text="星级" />
-                            <RadioMenuFlyoutItem x:Name="SortRandom" Click="SortKey_Click" Tag="random" Text="随机" />
+                            <!--
+                                8 键 = photos 菜单结构 ∪ galleryold 键集（裁决 D10）。
+                                photos 的 4 项/2 方向码位走 PhotosUWPFontFamily（EEB5 F05B F1B2 EE68 EE69
+                                在 Segoe Fluent Icons 里不存在）；后 4 项是 galleryold 键，码位取自 Photos 字体
+                                已有字形（EC50 入库/EC92 大小/E735 星级/EB9F 随机）。
+                                GroupName 与原版一致：选项组 / 方向组（RadioMenuFlyoutItem 原生互斥）。
+                            -->
+                            <RadioMenuFlyoutItem
+                                x:Name="SortTaken"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="taken"
+                                Text="拍摄日期">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE787;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortCreated"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="created"
+                                Text="创建日期">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEEB5;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortModified"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="modified"
+                                Text="修改日期">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF05B;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortName"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="name"
+                                Text="名字">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF1B2;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortAdded"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="added"
+                                Text="入库时间">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEC50;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortSize"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="size"
+                                Text="大小">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEC92;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortRating"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="rating"
+                                Text="星级">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE735;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortRandom"
+                                Click="SortKey_Click"
+                                GroupName="CommandBar_GallerySortButton_OptionGroup"
+                                Tag="random"
+                                Text="随机">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEB9F;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
                             <MenuFlyoutSeparator />
-                            <RadioMenuFlyoutItem x:Name="SortAsc" Click="SortDir_Click" Tag="asc" Text="升序" />
-                            <RadioMenuFlyoutItem x:Name="SortDesc" Click="SortDir_Click" Tag="desc" Text="降序" />
+                            <RadioMenuFlyoutItem
+                                x:Name="SortAsc"
+                                Click="SortDir_Click"
+                                GroupName="CommandBar_GallerySortButton_DirectionGroup"
+                                Tag="asc"
+                                Text="升序">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE68;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SortDesc"
+                                Click="SortDir_Click"
+                                GroupName="CommandBar_GallerySortButton_DirectionGroup"
+                                Tag="desc"
+                                Text="降序">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE69;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
                         </MenuFlyout>
                     </AppBarButton.Flyout>
                 </AppBarButton>
 
                 <AppBarButton
                     x:Name="FilterButton"
-                    Width="62"
-                    Height="48"
                     Label="筛选器"
                     LabelPosition="Collapsed">
                     <AppBarButton.Resources>
                         <Visibility x:Key="AppBarButtonHasFlyoutChevronVisibility">Visible</Visibility>
                     </AppBarButton.Resources>
                     <AppBarButton.Icon>
-                        <FontIcon
-                            FontSize="16"
-                            FontFamily="Segoe Fluent Icons"
-                            Glyph="&#xE71C;" />
+                        <FontIcon FontSize="16" Glyph="&#xE71C;" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="FilterMenu" Placement="Bottom">
-                            <MenuFlyoutItem Click="FilterAll_Click" Text="所有媒体" />
-                            <MenuFlyoutItem Click="FilterPhotos_Click" Text="照片" />
-                            <MenuFlyoutItem Click="FilterVideos_Click" Text="视频" />
+                            <!--  媒体类型组 + 子文件夹内容组（原版 CommandBar_MediaTypeFilter_TypeGroup / CommandBar_SubfolderContentButton_TypeGroup）
+                                  子文件夹两项只在目录页出现（原版 IsSubfolderOptionVisible(CurrentPageInfo)），
+                                  切换的是 settings.recursive（= galleryold 递归浏览开关，QuerySpec.Recursive 的输入）。  -->
+                            <RadioMenuFlyoutItem
+                                x:Name="FilterAll"
+                                Click="FilterAll_Click"
+                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
+                                Text="所有媒体">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF0B1;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="FilterPhotos"
+                                Click="FilterPhotos_Click"
+                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
+                                Text="照片">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE91B;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="FilterVideos"
+                                Click="FilterVideos_Click"
+                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
+                                Text="视频">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF411;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <MenuFlyoutSeparator
+                                x:Name="SubfolderContentSeparator"
+                                Visibility="Collapsed" />
+                            <RadioMenuFlyoutItem
+                                x:Name="ShowSubfolderContentItem"
+                                Click="ShowSubfolderContent_Click"
+                                GroupName="CommandBar_SubfolderContentButton_TypeGroup"
+                                Text="显示子文件夹内容"
+                                Visibility="Collapsed">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE73;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="HideSubfolderContentItem"
+                                Click="HideSubfolderContent_Click"
+                                GroupName="CommandBar_SubfolderContentButton_TypeGroup"
+                                Text="隐藏子文件夹内容"
+                                Visibility="Collapsed">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE8B7;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
                         </MenuFlyout>
                     </AppBarButton.Flyout>
                 </AppBarButton>
 
                 <AppBarButton
                     x:Name="LayoutButton"
-                    Width="62"
-                    Height="48"
                     Label="库类型和大小"
                     LabelPosition="Collapsed">
                     <AppBarButton.Resources>
@@ -158,23 +393,64 @@
                         <FontIcon
                             x:Name="LayoutIcon"
                             FontSize="16"
-                            FontFamily="Segoe Fluent Icons"
+                            FontFamily="{StaticResource PhotosUWPFontFamily}"
                             Glyph="&#xECA5;" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="LayoutMenu" Placement="Bottom">
-                            <MenuFlyoutItem Click="LayoutRiver_Click" Text="等高" />
-                            <MenuFlyoutItem Click="LayoutGrid_Click" Text="方形" />
+                            <!--  图库类型组 / 图库尺寸组（原版 CommandBar_GalleryLayoutButton_TypeGroup / …_SizeGroup）  -->
+                            <RadioMenuFlyoutItem
+                                x:Name="LayoutRiver"
+                                Click="LayoutRiver_Click"
+                                GroupName="CommandBar_GalleryLayoutButton_TypeGroup"
+                                Text="等高">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xECA5;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="LayoutGrid"
+                                Click="LayoutGrid_Click"
+                                GroupName="CommandBar_GalleryLayoutButton_TypeGroup"
+                                Text="方形">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE8A9;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
                             <MenuFlyoutSeparator />
-                            <MenuFlyoutItem Click="SizeSmall_Click" Text="小" />
-                            <MenuFlyoutItem Click="SizeMedium_Click" Text="中等" />
-                            <MenuFlyoutItem Click="SizeLarge_Click" Text="大" />
+                            <RadioMenuFlyoutItem
+                                x:Name="SizeSmall"
+                                Click="SizeSmall_Click"
+                                GroupName="CommandBar_GalleryLayoutButton_SizeGroup"
+                                Text="小">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF232;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SizeMedium"
+                                Click="SizeMedium_Click"
+                                GroupName="CommandBar_GalleryLayoutButton_SizeGroup"
+                                Text="中等">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF233;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
+                            <RadioMenuFlyoutItem
+                                x:Name="SizeLarge"
+                                Click="SizeLarge_Click"
+                                GroupName="CommandBar_GalleryLayoutButton_SizeGroup"
+                                Text="大">
+                                <RadioMenuFlyoutItem.Icon>
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF234;" />
+                                </RadioMenuFlyoutItem.Icon>
+                            </RadioMenuFlyoutItem>
                         </MenuFlyout>
                     </AppBarButton.Flyout>
                 </AppBarButton>
 
                 <!--  「更多」就是 CommandBar 自带的溢出按钮（实测 48 宽）  -->
-                <CommandBar.SecondaryCommands>
+                <controls:CustomCommandBar.SecondaryCommands>
                     <AppBarButton
                         x:Name="SelectAllButton"
                         Click="SelectAll_Click"
@@ -182,7 +458,7 @@
                         <AppBarButton.Icon>
                             <FontIcon
                                 FontSize="16"
-                                FontFamily="Segoe Fluent Icons"
+                                FontFamily="{StaticResource PhotosUWPFontFamily}"
                                 Glyph="&#xE8B3;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
@@ -193,12 +469,14 @@
                         <AppBarButton.Icon>
                             <FontIcon
                                 FontSize="16"
-                                FontFamily="Segoe Fluent Icons"
+                                FontFamily="{StaticResource PhotosUWPFontFamily}"
                                 Glyph="&#xE711;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                </CommandBar.SecondaryCommands>
-            </CommandBar>
+                </controls:CustomCommandBar.SecondaryCommands>
+            </controls:CustomCommandBar>
+            </Grid>
+            <TextBlock x:Name="SubtitleText" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource BodyTextBlockStyle}" />
         </Grid>
 
         <TextBlock

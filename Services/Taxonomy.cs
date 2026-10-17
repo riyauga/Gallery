@@ -53,8 +53,9 @@ public static class Taxonomy
     public static string OrientationTag(int? width, int? height)
     {
         if (width is null || height is null || width <= 0 || height <= 0) return "";
-        if (width > height) return "横图";
-        if (width < height) return "竖图";
+        var ratio = (double)width.Value / height.Value;
+        if (ratio > 1.15) return "横图";
+        if (ratio < 0.87) return "竖图";
         return "方图";
     }
 

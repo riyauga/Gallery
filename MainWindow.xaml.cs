@@ -28,11 +28,17 @@ public sealed partial class MainWindow : Window
 
     private readonly Library _library = Library.Load();
     private readonly GalleryPage _page;
+    // Photos MenuItemsViewModel.CreateSettingsPageMenuItem：隐藏项仍参与导航选择。
+    private readonly NavigationViewItem _settingsNavigationItem = new()
+    {
+        Tag = "settings", Content = "设置", Visibility = Visibility.Collapsed,
+    };
     private readonly SettingsPage _settingsPage = new();
 
     public MainWindow()
     {
         InitializeComponent();
+        Nav.MenuItems.Add(_settingsNavigationItem);
         Title = "Gallery";
 
         ExtendsContentIntoTitleBar = true;
@@ -76,11 +82,28 @@ public sealed partial class MainWindow : Window
         BuildDirectoryTree();
 
         _page = new GalleryPage(_library);
+        SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
         _page.ToastRequested += ShowToast;
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
+        _page.ItemsChanged += Preview.RefreshItems;
+        Preview.ToastRequested += ShowToast;
+        Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
+        Preview.DeleteRequested = _page.DeleteAsync;
+        Preview.RenameRequested = _page.RenameAsync;
         Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         ContentHost.Children.Add(_page);
+        if (AppService.Watcher is { } watcher)
+        {
+            watcher.Changed += OnLibraryChanged;
+            watcher.Failed += OnWatchFailed;
+            Closed += (_, _) =>
+            {
+                watcher.Changed -= OnLibraryChanged;
+                watcher.Failed -= OnWatchFailed;
+                watcher.Dispose();
+            };
+        }
 
         Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
         Nav.Loaded += (_, _) =>
@@ -114,6 +137,17 @@ public sealed partial class MainWindow : Window
         ContentHost.Margin = Nav.IsPaneOpen ? new Thickness(16, 0, 0, 0) : new Thickness(0);
     }
 
+    private void OnLibraryChanged(IReadOnlyCollection<(int RootId, string DirRel)> changes)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            AppService.Recount();
+            BuildDirectoryTree();
+            _page.RefreshFromStore();
+        });
+
+    private void OnWatchFailed(string message)
+        => DispatcherQueue.TryEnqueue(() => ShowToast("目录监听扫描失败：" + message, ToastKind.Pending));
+
     private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
     {
         Activated -= OnFirstActivated;
@@ -138,10 +172,18 @@ public sealed partial class MainWindow : Window
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string ?? "all";
+        if (args.SelectedItem is not NavigationViewItem { Tag: string tag }) return;
+        if (tag == "settings")
+        {
+            SearchBox.DefaultFocusAnchor = ContentHost;
+            ContentHost.Children.Clear();
+            ContentHost.Children.Add(_settingsPage);
+            return;
+        }
         if (ContentHost.Children.Count > 0 && ContentHost.Children[^1] == _settingsPage)
         {
             // 从设置页切回内容页
+            SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
             ContentHost.Children.Clear();
             ContentHost.Children.Add(_page);
         }
@@ -177,10 +219,13 @@ public sealed partial class MainWindow : Window
     /// 对应 photos 的 _navigationService.NavigateTo(typeof(SettingsPage))：
     /// 整页替换内容区，标题栏与左侧导航原地保留。
     /// </summary>
-    private void SettingsButton_Click(object sender, RoutedEventArgs e) => ShowPage(-1);
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        => Nav.SelectedItem = _settingsNavigationItem;
 
     private void ShowPage(int navIndex)
     {
+        // 在卸载旧页前更新锚点；图库锚点位于快捷键路由内部。
+        SearchBox.DefaultFocusAnchor = navIndex < 0 ? ContentHost : _page.FocusAnchor;
         ContentHost.Children.Clear();
         if (navIndex < 0)
         {
@@ -196,6 +241,13 @@ public sealed partial class MainWindow : Window
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         => _page.SetSearch(SearchBox.Text);
+
+    private void OnSearchInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (Preview.IsOpen) return;
+        SearchBox.FocusSearch();
+        args.Handled = true;
+    }
 
     /// <summary>photos 的「添加文件夹」：选目录 → 备份 → 事务入库 → 首扫。</summary>
     private async void AddFolderButton_Click(object sender, RoutedEventArgs e)
@@ -242,7 +294,8 @@ public sealed partial class MainWindow : Window
         }
         ShowToast($"已添加：{Path.GetFileName(outcome.Root!.Path)}（{outcome.Scan!.Summary()}）", ToastKind.Success);
         AppService.Recount();
-        _page.RefreshEmptyState();
+        AppService.Watcher?.Start();
+        _page.RefreshFromStore();
         BuildDirectoryTree();
         }
         catch (Exception ex)
@@ -473,6 +526,8 @@ public sealed partial class MainWindow : Window
             return;
         }
         BuildDirectoryTree();
+        AppService.Recount();
+        AppService.Watcher?.Start();
         _page.SetDirectory(null, null);
         Nav.SelectedItem = Nav.MenuItems[0];
         ShowToast($"已从图库移除：{Path.GetFileName(target)}（磁盘文件保留）", ToastKind.Success);

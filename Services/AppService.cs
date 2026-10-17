@@ -2,7 +2,7 @@ namespace Gallery.Services;
 
 /// <summary>
 /// 应用服务装配（批次 0 简易 DI）。
-/// 启动即打开真实库（%LOCALAPPDATA%\Gallery\library.db），并启动文件监听。
+/// 启动时打开 AppPaths 指定的库，并启动文件监听；支持 --dataroot 沙箱。
 /// </summary>
 public static class AppService
 {
@@ -27,19 +27,31 @@ public static class AppService
     }
 
     /// <summary>跨线程串行化（批次 0 简化：扫描/监听与 UI 读共用一把锁）。</summary>
-    public static readonly object DbLock = new();
+    private static readonly object InitLock = new();
+    public static object DbLock => Store?.SyncRoot ?? InitLock;
 
     /// <summary>主窗口句柄（FolderPicker 等需要 InitializeWithWindow）。</summary>
     public static IntPtr MainWindowHandle { get; set; }
 
     public static void Init()
     {
+        lock (InitLock)
+        {
+            if (DbReady) return;
+            InitCore();
+        }
+    }
+
+    private static void InitCore()
+    {
+        InitError = "";
         Settings.Load();
         try
         {
             AppPaths.EnsureDirs();
             Store = new StoreService(AppPaths.DbPath);
-            DbReady = true;
+            Store.SidecarEnabled = Settings.Settings.sidecar_enabled;
+            Store.HideSidecar = Settings.Settings.hide_sidecar;
             RootCount = Store.Roots().Count(r => r.Enabled);
             ImageCount = Store.CountImages();
             FavoriteCount = Store.CountFavorites();
@@ -49,12 +61,30 @@ public static class AppService
             Folders = new FolderService(Store, Settings);
             Watcher = new WatcherService(Store, scanner, Settings.Settings);
             Watcher.Start();
+            Settings.Changed += ApplyWriteSettings;
+            DbReady = true;
         }
         catch (Exception ex) when (ex is IOException
             or Microsoft.Data.Sqlite.SqliteException
             or UnauthorizedAccessException)
         {
+            Watcher?.Dispose();
+            Watcher = null;
+            Folders = null;
+            Scanner = null;
+            Store?.Dispose();
+            Store = null;
             InitError = ex.Message;
+        }
+    }
+
+    private static void ApplyWriteSettings()
+    {
+        if (Store is null) return;
+        lock (Store.SyncRoot)
+        {
+            Store.SidecarEnabled = Settings.Settings.sidecar_enabled;
+            Store.HideSidecar = Settings.Settings.hide_sidecar;
         }
     }
 }
