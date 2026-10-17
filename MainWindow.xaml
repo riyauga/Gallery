@@ -3,7 +3,8 @@
     x:Class="Gallery.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Gallery.Controls">
+    xmlns:controls="using:Gallery.Controls"
+    xmlns:ctc="using:CommunityToolkit.WinUI.Controls">
 
     <Grid
         x:Name="RootGrid"
@@ -120,7 +121,7 @@
                             Grid.Column="1"
                             Width="36"
                             Height="36"
-                            Margin="0,0,-10,0"
+                            Margin="0,0,-20,0"
                             Padding="0"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
@@ -151,6 +152,24 @@
             <Grid x:Name="ContentHost" />
         </NavigationView>
 
+        <!--  照搬 photos 的 Gripper 视觉（LeftNavGripperStyle：E784 字形、透明底、宽 16）
+              + 交互语义（拖动改 OpenPaneLength，范围 galleryold 180–500，拖完记忆）。
+              photos 用 ctc:PropertySizer，但其模板内 Thumb 不冒泡 ManipulationDelta，
+              故这里用 Grid 自实现同样的交互。  -->
+        <Grid
+            x:Name="Gripper"
+            Grid.RowSpan="2"
+            Width="16"
+            Margin="272,48,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Stretch"
+            Background="Transparent">
+            <FontIcon
+                FontSize="12"
+                Glyph="&#xE784;"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+        </Grid>
         <controls:PreviewOverlay x:Name="Preview" Grid.RowSpan="2" />
 
         <!--  通知浮层：照搬 galleryold toast.py（右下 348×82，最多 4 条）  -->

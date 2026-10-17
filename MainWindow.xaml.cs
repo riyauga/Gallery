@@ -14,6 +14,23 @@ using System.Runtime.InteropServices;
 
 namespace Gallery;
 
+internal static partial class User32
+{
+    [System.Runtime.InteropServices.StructLayout(
+        System.Runtime.InteropServices.LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    internal static extern bool GetCursorPos(out POINT pt);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    internal static extern short GetAsyncKeyState(int vKey);
+}
+
 public sealed partial class MainWindow : Window
 {
     [DllImport("user32.dll")]
@@ -26,6 +43,8 @@ public sealed partial class MainWindow : Window
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 
     private readonly Library _library = Library.Load();
+    private DispatcherTimer? _gripTimer;
+    private double _gripStartLength, _gripStartScreenX;
     private readonly GalleryPage _page;
     private readonly SettingsPage _settingsPage = new();
 
@@ -85,7 +104,47 @@ public sealed partial class MainWindow : Window
             Nav.SelectedItem = Nav.MenuItems[0];
         };
 
+        // 照搬 photos 的 Gripper：把手贴 pane 右缘，拖动改 OpenPaneLength；
+        // 宽度范围沿用 galleryold 180–500（D4 裁决），拖完记忆 sidebar_width。
+        // PropertySizer 的 Binding 语义不可靠（实测方向漂移），改手动 delta。
+        // 拖拽自实现：PointerPressed 抓起后用 16ms 轮询 GetCursorPos 更新宽度，
+        // PointerReleased/左键松开停止并记忆。不依赖 PointerMoved/Manipulation
+        // （XAML 按住状态下的 Moved 事件链不可靠，实测注入与真实输入都会丢）。
+        _gripTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _gripTimer.Tick += (_, _) =>
+        {
+            if ((User32.GetAsyncKeyState(0x01) & 0x8000) == 0) // VK_LBUTTON 已松开
+            {
+                _gripTimer.Stop();
+                AppService.Settings.Settings.sidebar_width = (int)Math.Round(Nav.OpenPaneLength);
+                AppService.Settings.Save();
+                return;
+            }
+            User32.GetCursorPos(out var pt);
+            var scale = Gripper.XamlRoot?.RasterizationScale ?? 1.0;
+            if (scale <= 0) scale = 1.0;
+            var dx = (pt.X - _gripStartScreenX) / scale;
+            Nav.OpenPaneLength = Math.Clamp(_gripStartLength + dx, 180, 500);
+        };
+        Gripper.PointerPressed += (_, _) =>
+        {
+            _gripStartLength = Nav.OpenPaneLength;
+            User32.GetCursorPos(out var pt);
+            _gripStartScreenX = pt.X;
+            _gripTimer.Start();
+        };
+        Nav.LayoutUpdated += (_, _) => UpdateGripperPosition();
+        Nav.RegisterPropertyChangedCallback(NavigationView.IsPaneOpenProperty, (_, _) => UpdateGripperPosition());
+        Nav.OpenPaneLength = Math.Clamp(AppService.Settings.Settings.sidebar_width, 180, 500);
+
         Activated += OnFirstActivated;
+    }
+
+    /// <summary>把手贴 NavigationView pane 右缘；折叠态隐藏（照 photos Visibility=IsPaneOpen）。</summary>
+    private void UpdateGripperPosition()
+    {
+        Gripper.Margin = new Thickness(Nav.OpenPaneLength - 8, 48, 0, 0);
+        Gripper.Visibility = Nav.IsPaneOpen ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
