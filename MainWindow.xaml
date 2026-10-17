@@ -99,39 +99,47 @@
             OpenPaneLength="320"
             PaneDisplayMode="Left"
             SelectionChanged="Nav_SelectionChanged">
-            <!--  照 photos：导航顶部右侧「添加文件夹」按钮（folder-plus，tooltip 同名）  -->
-            <NavigationView.PaneHeader>
-                <Grid Margin="0,8,0,0">
-                    <Button
-                        x:Name="AddFolderButton"
-                        Width="40"
-                        Height="36"
-                        Margin="0,0,8,0"
-                        Padding="0"
-                        HorizontalAlignment="Right"
-                        AutomationProperties.Name="添加文件夹"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="AddFolderButton_Click"
-                        ToolTipService.ToolTip="添加文件夹">
-                        <Grid>
-                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
-                            <!--  右下小加号：对应 photos 的「添加文件夹」folder-plus 造型  -->
-                            <FontIcon
-                                FontSize="10"
-                                Glyph="&#xE710;"
-                                Margin="8,8,0,0"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Bottom" />
-                        </Grid>
-                    </Button>
-                </Grid>
-            </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
-                <NavigationViewItem Content="图库" Tag="all">
+                <!--  照搬 photos 的 MainGalleryNavigationViewItem：
+                      按钮在图库行右列（36×36，margin 0,0,-10,0，E8F4），
+                      图库项右键 =「添加文件夹」（ECC8）  -->
+                <NavigationViewItem Tag="all" HorizontalContentAlignment="Stretch">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE91B;" />
                     </NavigationViewItem.Icon>
+                    <Grid HorizontalAlignment="Stretch">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Text="图库" />
+                        <Button
+                            x:Name="AddFolderButton"
+                            Grid.Column="1"
+                            Width="36"
+                            Height="36"
+                            Margin="0,0,-10,0"
+                            Padding="0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="AddFolderButton_Click"
+                            ToolTipService.ToolTip="添加文件夹">
+                            <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                        </Button>
+                    </Grid>
+                    <NavigationViewItem.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Click="AddFolderButton_Click" Text="添加文件夹">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xECC8;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </NavigationViewItem.ContextFlyout>
                 </NavigationViewItem>
                 <NavigationViewItem Content="收藏夹" Tag="fav">
                     <NavigationViewItem.Icon>

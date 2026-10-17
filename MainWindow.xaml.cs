@@ -265,13 +265,19 @@ public sealed partial class MainWindow : Window
 
         var store = AppService.Store;
         if (store is null) return;
+        // 照搬 photos：整个目录树区上方只一条分隔线
+        bool separatorAdded = false;
         foreach (var root in store.Roots().Where(r => r.Enabled))
         {
             var rootPath = store.RootPath(root.Id);
             if (rootPath is null) continue;
+            if (!separatorAdded)
+            {
+                Nav.MenuItems.Add(new NavigationViewItemSeparator { Tag = "dirsep" });
+                separatorAdded = true;
+            }
             var folders = store.Folders(root.Id);
             var item = BuildDirNode(root.Id, "", folders, rootPath, isRoot: true);
-            Nav.MenuItems.Add(new NavigationViewItemSeparator { Tag = "dirsep" });
             Nav.MenuItems.Add(item);
         }
     }
@@ -353,34 +359,94 @@ public sealed partial class MainWindow : Window
                         f.DirRel.StartsWith(prefix + "/", StringComparison.Ordinal))
             .Sum(f => f.Count);
 
+    /// <summary>
+    /// 照搬 photos 的 FolderGalleryNavigationViewItem 菜单语义：
+    /// 根目录（IsRemovable）→「移除文件夹」（从图库移除，磁盘文件保留）；
+    /// 子目录 →「删除文件夹」（移到回收站）。
+    /// </summary>
     private MenuFlyout FolderFlyout(int rootId, string dirRel, string target, bool isRoot)
     {
         var flyout = new MenuFlyout();
         var create = new MenuFlyoutItem
         {
             Text = "创建文件夹",
-            Icon = new FontIcon { Glyph = "\uE8F4" },
+            Icon = new FontIcon { Glyph = "\uE8F4" }, // FolderCreateGlyph
         };
         create.Click += (_, _) => _ = CreateChildFolderAsync(rootId, dirRel);
         var open = new MenuFlyoutItem
         {
             Text = "在文件资源管理器中打开",
-            Icon = new FontIcon { Glyph = "\uE838" },
+            Icon = new FontIcon { Glyph = "\uEC50" }, // FolderInFileExplorerGlyph
         };
         open.Click += (_, _) => System.Diagnostics.Process.Start(
             new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{target}\"") { UseShellExecute = true });
-        var delete = new MenuFlyoutItem
-        {
-            Text = "删除文件夹",
-            Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)),
-            IsEnabled = !isRoot,
-        };
-        delete.Click += (_, _) => _ = DeleteFolderAsync(rootId, dirRel, target);
         flyout.Items.Add(create);
         flyout.Items.Add(open);
-        flyout.Items.Add(new MenuFlyoutSeparator());
-        flyout.Items.Add(delete);
+
+        if (isRoot)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            var remove = new MenuFlyoutItem
+            {
+                Text = "移除文件夹",
+                Icon = new FontIcon { Glyph = "\uECC9" }, // FolderRemoveGlyph
+            };
+            remove.Click += (_, _) => _ = RemoveFolderAsync(rootId, target);
+            flyout.Items.Add(remove);
+        }
+        else
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            var delete = new MenuFlyoutItem
+            {
+                Text = "删除文件夹",
+                Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)),
+                Icon = new FontIcon { Glyph = "\uE74D" }, // FolderDeleteGlyph
+            };
+            delete.Click += (_, _) => _ = DeleteFolderAsync(rootId, dirRel, target);
+            flyout.Items.Add(delete);
+        }
         return flyout;
+    }
+
+    /// <summary>photos 的 RemoveFolderDialog 语义：从图库移除，磁盘文件不受影响。</summary>
+    private async Task RemoveFolderAsync(int rootId, string target)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "移除文件夹",
+            Content = $"将从图库移除“{Path.GetFileName(target)}”。\n磁盘上的文件夹与图片不受影响。",
+            PrimaryButtonText = "移除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Secondary,
+            XamlRoot = Content.XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return;
+        var error = await Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+            {
+                try
+                {
+                    AppService.Folders!.RemoveRoot(rootId, forget: true);
+                    return (string?)null;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            }
+        });
+        if (error is not null)
+        {
+            ShowToast(error, ToastKind.Pending);
+            return;
+        }
+        BuildDirectoryTree();
+        _page.SetDirectory(null, null);
+        Nav.SelectedItem = Nav.MenuItems[0];
+        ShowToast($"已从图库移除：{Path.GetFileName(target)}（磁盘文件保留）", ToastKind.Success);
     }
 
     private async Task CreateChildFolderAsync(int rootId, string parentRel)
