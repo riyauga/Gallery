@@ -149,27 +149,17 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Grid x:Name="ContentHost" />
+            <!--  照搬 photos CollectionRootPage：NavigationView.Content = MainPanel
+                  {Gripper 贴左缘（即 pane 右缘）, Frame 在 Gripper 右侧 16px}  -->
+            <Grid x:Name="MainPanel">
+                <controls:PaneResizer x:Name="Gripper" />
+                <Grid
+                    x:Name="ContentHost"
+                    Margin="16,0,0,0"
+                    HorizontalAlignment="Stretch" />
+            </Grid>
         </NavigationView>
 
-        <!--  照搬 photos 的 Gripper 视觉（LeftNavGripperStyle：E784 字形、透明底、宽 16）
-              + 交互语义（拖动改 OpenPaneLength，范围 galleryold 180–500，拖完记忆）。
-              photos 用 ctc:PropertySizer，但其模板内 Thumb 不冒泡 ManipulationDelta，
-              故这里用 Grid 自实现同样的交互。  -->
-        <Grid
-            x:Name="Gripper"
-            Grid.RowSpan="2"
-            Width="16"
-            Margin="272,48,0,0"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Stretch"
-            Background="Transparent">
-            <FontIcon
-                FontSize="12"
-                Glyph="&#xE784;"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
-        </Grid>
         <controls:PreviewOverlay x:Name="Preview" Grid.RowSpan="2" />
 
         <!--  通知浮层：照搬 galleryold toast.py（右下 348×82，最多 4 条）  -->
