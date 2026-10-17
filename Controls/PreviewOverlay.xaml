@@ -15,7 +15,16 @@
 
     <Grid x:Name="ContentArea" Margin="16,52,16,16">
         <Grid x:Name="PhotoArea">
-            <viewer:ImageViewer x:Name="Viewer" />
+            <!--  飞入/飞回变换载体（galleryold：缩略图 rect → image_rect 插值，圆角 8）  -->
+            <Grid
+                x:Name="ImageHost"
+                CornerRadius="8"
+                RenderTransformOrigin="0,0">
+                <Grid.RenderTransform>
+                    <CompositeTransform x:Name="FlightTransform" />
+                </Grid.RenderTransform>
+                <viewer:ImageViewer x:Name="Viewer" />
+            </Grid>
 
             <!--  翻页按钮 44×44、垂直居中、距边 12（照 galleryold）  -->
             <Button

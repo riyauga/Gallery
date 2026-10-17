@@ -78,7 +78,7 @@ public sealed partial class MainWindow : Window
         _page = new GalleryPage(_library);
         _page.ToastRequested += ShowToast;
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
-        _page.PreviewRequested += (item, items) => Preview.Open(items, item);
+        _page.PreviewRequested += req => Preview.Open(req);
         ContentHost.Children.Add(_page);
 
         Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;

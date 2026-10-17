@@ -74,6 +74,19 @@ public sealed class PhotoTile : Grid
         });
     }
 
+    private bool _selectMode;
+    /// <summary>photos 选择模式：勾选框常显（单击=切换选中，而非打开）。</summary>
+    public bool SelectMode
+    {
+        get => _selectMode;
+        set
+        {
+            if (_selectMode == value) return;
+            _selectMode = value;
+            (_selectMode || _selected ? _selectIn : _selectOut).Begin();
+        }
+    }
+
     private bool _selected;
     public bool Selected
     {

@@ -22,6 +22,7 @@ public sealed partial class GalleryPage : UserControl
     private readonly HashSet<PhotoTile> _selected = new();
 
     private bool _favoritesMode;
+    private bool _selectMode; // photos 选择模式（工具栏「选择」切换）
     private SortKey _sort = SortKey.DateTaken;          // manifest 路径用
     private string _sortKey = "taken";                   // 真实数据路径（galleryold 键）
     private bool _ascending = false;
@@ -42,7 +43,10 @@ public sealed partial class GalleryPage : UserControl
     /// <summary>带类型的通知（Info/Success/Pending），MainWindow 转 ToastHost。</summary>
     public void SendToast(string message, Gallery.Controls.ToastKind kind,
         string? detail = null) => ToastKindRequested?.Invoke(message, kind, detail);
-    public event Action<PhotoItem, IReadOnlyList<PhotoItem>>? PreviewRequested;
+    public sealed record PreviewRequest(
+        PhotoItem Item, IReadOnlyList<PhotoItem> Items,
+        Windows.Foundation.Rect SourceRect, bool FullyVisible);
+    public event Action<PreviewRequest>? PreviewRequested;
 
     public GalleryPage(Library library)
     {
@@ -266,6 +270,7 @@ public sealed partial class GalleryPage : UserControl
         tile.DoubleTapped += OnTileDoubleTapped;
         tile.RightTapped += OnTileRightTapped;
         FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
+        tile.SelectMode = _selectMode;
 
         // 拖拽外发（galleryold drag_out）：按下起手、位移超阈值发起；
         // 拖已选中图 = 拖整个选区；Windows 标记复制语义（不搬移）。
@@ -497,21 +502,46 @@ public sealed partial class GalleryPage : UserControl
         return paths;
     }
 
+    /// <summary>
+    /// photos 语义：正常模式单击=打开查看器；选择模式单击=切换选中；
+    /// Ctrl+单击=进入选择模式并选中该张。
+    /// </summary>
     private void OnTileTapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is not PhotoTile tile) return;
-        if (IsCtrlDown())
+        if (_selectMode)
         {
             tile.Selected = !tile.Selected;
+            SyncSelection();
+            return;
         }
-        else
+        if (IsCtrlDown())
         {
-            foreach (var other in _selected.ToArray()) other.Selected = false;
-            _selected.Clear();
+            SetSelectMode(true);
             tile.Selected = true;
+            SyncSelection();
+            return;
         }
+        OpenPreview(tile);
+    }
 
-        SyncSelection();
+    /// <summary>算缩略图窗口 rect 与可见性（galleryold：完整可见→飞入，被遮挡→渐入）。</summary>
+    private (Windows.Foundation.Rect Rect, bool FullyVisible)? TileFlightRect(PhotoTile tile)
+    {
+        var transform = tile.TransformToVisual(null);
+        var rect = transform.TransformBounds(
+            new Windows.Foundation.Rect(0, 0, tile.ActualWidth, tile.ActualHeight));
+        // 完整可见 = tile 完全落在滚动视口内
+        var svRect = TransformToVisual(Scroller).TransformBounds(
+            new Windows.Foundation.Rect(0, 0, Scroller.ActualWidth, Scroller.ActualHeight));
+        bool fully = rect.Top >= svRect.Top && rect.Bottom <= svRect.Bottom;
+        return (rect, fully);
+    }
+
+    private void OpenPreview(PhotoTile tile)
+    {
+        var (rect, fully) = TileFlightRect(tile) ?? (default, false);
+        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items, rect, fully));
     }
 
     private void SyncSelection()
@@ -525,7 +555,7 @@ public sealed partial class GalleryPage : UserControl
     private void OnTileDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (sender is not PhotoTile tile) return;
-        PreviewRequested?.Invoke(tile.Item, _items);
+        OpenPreview(tile);
     }
 
     private void OnTileRightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -551,7 +581,11 @@ public sealed partial class GalleryPage : UserControl
     private MenuFlyout BuildContextMenu(PhotoItem item)
     {
         var menu = new MenuFlyout();
-        menu.Items.Add(Item("打开", "\uE8E5", () => PreviewRequested?.Invoke(item, _items)));
+        menu.Items.Add(Item("打开", "\uE8E5", () =>
+        {
+            var t = Panel.Children.OfType<PhotoTile>().FirstOrDefault(x => x.Item == item);
+            if (t is not null) OpenPreview(t);
+        }));
         menu.Items.Add(Item(item.Favorite ? "从收藏夹中移除" : "添加到收藏夹", item.Favorite ? "\uEB52" : "\uEB51", () =>
         {
             item.Favorite = !item.Favorite;
@@ -729,16 +763,38 @@ public sealed partial class GalleryPage : UserControl
         return mi;
     }
 
+    /// <summary>photos 选择模式：工具栏「选择」进入（勾选框常显、单击=选中），
+    /// 有选中时再点=退出并清空（照 photos 按钮状态机）。</summary>
     private void SelectButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_selectMode && _selected.Count == 0)
+        {
+            SetSelectMode(false);
+            return;
+        }
         if (_selected.Count > 0)
         {
             foreach (var t in _selected.ToArray()) t.Selected = false;
             _selected.Clear();
             SyncSelection();
+            SetSelectMode(false);
             return;
         }
-        ToastRequested?.Invoke("单击照片即可选择，Ctrl+单击可多选");
+        SetSelectMode(true);
+    }
+
+    private void SetSelectMode(bool on)
+    {
+        _selectMode = on;
+        foreach (var child in Panel.Children)
+            if (child is PhotoTile t) t.SelectMode = on;
+        if (!on)
+        {
+            foreach (var t in _selected.ToArray()) t.Selected = false;
+            _selected.Clear();
+            SyncSelection();
+        }
+        UpdateHeader();
     }
 
     private void SelectAll_Click(object sender, RoutedEventArgs e)

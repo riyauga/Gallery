@@ -4,8 +4,10 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Gallery.Models;
+using Gallery.Views;
 using Gallery.Controls.Viewer;
 using Gallery.Services;
+using Windows.Foundation;
 using Windows.System;
 
 namespace Gallery.Controls;
@@ -35,24 +37,73 @@ public sealed partial class PreviewOverlay : Grid
         SizeChanged += (_, _) => Relayout();
     }
 
-    public void Open(IReadOnlyList<PhotoItem> items, PhotoItem item)
+    private GalleryPage.PreviewRequest? _request;
+    private Windows.Foundation.Rect _lastSourceRect;
+
+    public void Open(GalleryPage.PreviewRequest request)
     {
-        _items = items;
-        _index = Math.Max(0, items.ToList().IndexOf(item));
+        _request = request;
+        _lastSourceRect = request.SourceRect;
+        _items = request.Items;
+        _index = Math.Max(0, request.Items.ToList().IndexOf(request.Item));
         if (_items.Count == 0) return;
-        ShowCurrent();
+
         Visibility = Visibility.Visible;
         Opacity = 0;
+        Relayout();
+        UpdateLayout();
 
+        ShowCurrent();
+        Focus(FocusState.Programmatic);
+
+        // galleryold：源缩略图完整可见 → 飞入（300ms OutCubic，圆角 8）；否则渐入
+        bool fly = request.FullyVisible && request.SourceRect.Width > 0 && ActualWidth >= 900;
         var sb = new Storyboard();
-        var fade = new DoubleAnimation { To = 1, Duration = TimeSpan.FromMilliseconds(150), EnableDependentAnimation = true };
+        var fade = new DoubleAnimation
+        {
+            To = 1,
+            Duration = TimeSpan.FromMilliseconds(fly ? 300 : 150),
+            EnableDependentAnimation = true,
+        };
         Storyboard.SetTarget(fade, this);
         Storyboard.SetTargetProperty(fade, "Opacity");
         sb.Children.Add(fade);
-        sb.Begin();
 
-        Focus(FocusState.Programmatic);
-        Relayout();
+        if (fly)
+        {
+            // sourceRect（窗口 DIP）→ 相对 ContentArea（margin 16,52）
+            double srcX = request.SourceRect.X - 16;
+            double srcY = request.SourceRect.Y - 52;
+            double hostW = PhotoArea.ActualWidth, hostH = PhotoArea.ActualHeight;
+            if (hostW > 0 && hostH > 0)
+            {
+                FlightTransform.ScaleX = request.SourceRect.Width / hostW;
+                FlightTransform.ScaleY = request.SourceRect.Height / hostH;
+                FlightTransform.TranslateX = srcX;
+                FlightTransform.TranslateY = srcY;
+
+                var cubic = new SplineDoubleKeyFrame { KeyTime = TimeSpan.FromMilliseconds(300) };
+                cubic.KeySpline = new KeySpline { ControlPoint1 = new Point(0.215, 0.61), ControlPoint2 = new Point(0.355, 1) };
+                cubic.Value = 1;
+                foreach (var (prop, target) in new[]
+                {
+                    ("ScaleX", FlightTransform), ("ScaleY", FlightTransform),
+                    ("TranslateX", FlightTransform), ("TranslateY", FlightTransform),
+                })
+                {
+                    var kf = new SplineDoubleKeyFrame { KeyTime = TimeSpan.FromMilliseconds(300) };
+                    kf.KeySpline = new KeySpline { ControlPoint1 = new Point(0.215, 0.61), ControlPoint2 = new Point(0.355, 1) };
+                    kf.Value = prop.StartsWith("Scale") ? 1 : 0;
+                    var anim = new DoubleAnimationUsingKeyFrames();
+                    anim.KeyFrames.Add(kf);
+                    Storyboard.SetTarget(anim, target);
+                    Storyboard.SetTargetProperty(anim, prop);
+                    sb.Children.Add(anim);
+                }
+                var cubic2 = cubic; // 遮罩与飞行同 300ms
+            }
+        }
+        sb.Begin();
     }
 
     private void Relayout()
@@ -160,15 +211,55 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Close()
     {
+        // galleryold：飞回缩略图位置（300ms OutCubic）+ 遮罩同步淡出，完成后隐藏
+        bool flyBack = _request is { FullyVisible: true } && ActualWidth >= 900 &&
+                       _lastSourceRect.Width > 0;
         var sb = new Storyboard();
-        var fade = new DoubleAnimation { To = 0, Duration = TimeSpan.FromMilliseconds(120), EnableDependentAnimation = true };
+
+        var fade = new DoubleAnimation
+        {
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(flyBack ? 300 : 120),
+            EnableDependentAnimation = true,
+        };
         Storyboard.SetTarget(fade, this);
         Storyboard.SetTargetProperty(fade, "Opacity");
         sb.Children.Add(fade);
+
+        if (flyBack)
+        {
+            double srcX = _lastSourceRect.X - 16;
+            double srcY = _lastSourceRect.Y - 52;
+            double hostW = PhotoArea.ActualWidth, hostH = PhotoArea.ActualHeight;
+            if (hostW > 0 && hostH > 0)
+            {
+                foreach (var (prop, to) in new[]
+                {
+                    ("ScaleX", _lastSourceRect.Width / hostW),
+                    ("ScaleY", _lastSourceRect.Height / hostH),
+                    ("TranslateX", srcX), ("TranslateY", srcY),
+                })
+                {
+                    var anim = new DoubleAnimation
+                    {
+                        To = to,
+                        Duration = TimeSpan.FromMilliseconds(300),
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                        EnableDependentAnimation = true,
+                    };
+                    Storyboard.SetTarget(anim, FlightTransform);
+                    Storyboard.SetTargetProperty(anim, prop);
+                    sb.Children.Add(anim);
+                }
+            }
+        }
+
         sb.Completed += (_, _) =>
         {
             Visibility = Visibility.Collapsed;
             Viewer.Clear();
+            FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
+            FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
         };
         sb.Begin();
     }
