@@ -1,0 +1,66 @@
+{
+  "source": {
+    "id": "ggz-wiki",
+    "url": "https://ggz.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Characters": 2,
+      "Enemies": 0
+    }
+  },
+  "games": [
+    {
+      "key": "houkai_gakuen",
+      "zh": "崩坏学园 2",
+      "en": "Houkai Gakuen 2",
+      "source_url": "https://ggz.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "ggz:page:12692",
+      "game": "houkai_gakuen",
+      "zh": "",
+      "en": "Karin Mered",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://ggz.fandom.com/wiki/Karin_Mered",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 31144,
+      "source_title": "Karin Mered"
+    },
+    {
+      "key": "ggz:page:12466",
+      "game": "houkai_gakuen",
+      "zh": "",
+      "en": "Shion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://ggz.fandom.com/wiki/Shion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 31010,
+      "source_title": "Shion"
+    }
+  ],
+  "gaps": [
+    {
+      "category": "Enemies",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Chinese name missing or contains unaudited template markup",
+      "record_keys": [
+        "ggz:page:12692",
+        "ggz:page:12466"
+      ]
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

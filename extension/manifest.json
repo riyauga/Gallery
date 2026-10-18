@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Gallery 图片自动归类",
+  "version": "2.2.0",
+  "description": "Danbooru 图片取得标签后归档；X 图片记录来源、可确认的发帖账号与分辨率，目录和其他标签手动填写。其他网站支持配置接收规则。",
+  "minimum_chrome_version": "120",
+
+  "permissions": [
+    "downloads",
+    "storage",
+    "unlimitedStorage",
+    "activeTab",
+    "notifications",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+
+  "content_scripts": [
+    {"matches":["https://x.com/*","https://www.x.com/*","https://twitter.com/*","https://www.twitter.com/*","https://mobile.twitter.com/*"],"js":["content-x.js"],"run_at":"document_idle"},
+    {
+      "matches": [
+        "https://danbooru.donmai.us/posts/*",
+        "https://*.donmai.us/posts/*"
+      ],
+      "js": ["content-danbooru.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_title": "Gallery 图片自动归类",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

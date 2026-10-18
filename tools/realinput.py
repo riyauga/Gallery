@@ -40,6 +40,12 @@ elif mode=='rclick':
     x=int(sys.argv[3]); y=int(sys.argv[4])
     u.SetCursorPos(r.left+x, r.top+y); time.sleep(0.15)
     u.mouse_event(0x0008,0,0,0,0); time.sleep(0.05); u.mouse_event(0x0010,0,0,0,0)
+elif mode=='hotkey':
+    mods=[int(m) for m in sys.argv[3].split('+')]
+    vk=int(sys.argv[4])
+    for m in mods: u.keybd_event(m,0,0,0); time.sleep(0.05)
+    u.keybd_event(vk,0,0,0); time.sleep(0.06); u.keybd_event(vk,0,2,0)
+    for m in reversed(mods): u.keybd_event(m,0,2,0); time.sleep(0.05)
 elif mode=='key':
     vk=int(sys.argv[3])
     u.keybd_event(vk,0,0,0); time.sleep(0.06); u.keybd_event(vk,0,2,0)

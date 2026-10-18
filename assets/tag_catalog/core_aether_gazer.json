@@ -1,0 +1,41 @@
+{
+  "source": {
+    "id": "aether-gazer-wiki",
+    "url": "https://aether-gazer.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Modifiers": 0,
+      "Characters": 0,
+      "Enemies": 0
+    }
+  },
+  "games": [
+    {
+      "key": "aether_gazer",
+      "zh": "深空之眼",
+      "en": "Aether Gazer",
+      "source_url": "https://aether-gazer.fandom.com/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "Modifiers",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Characters",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Enemies",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

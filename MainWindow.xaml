@@ -59,9 +59,36 @@
             <!--  标题栏按钮：设置（E713 齿轮）。
                   照搬 photos：SettingsButtonWidth=40、CommandBar 右对齐、
                   按钮在系统按钮左侧（右padding列 138 即系统按钮区）。  -->
+            <StackPanel
+                Grid.Column="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+
+            <!--  待审核文字入口，与标题栏按钮共用垂直中心线。  -->
+            <Button
+                x:Name="ReviewChipButton"
+                Height="28"
+                Margin="0,0,4,0"
+                Padding="10,0"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="待审核"
+                Click="ReviewChip_Click"
+                CornerRadius="14"
+                ToolTipService.ToolTip="打开待审核"
+                Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon VerticalAlignment="Center" FontSize="12" Glyph="&#xE8B5;" />
+                    <TextBlock
+                        x:Name="ReviewChipText"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Text="待审核" />
+                </StackPanel>
+            </Button>
+
             <controls:CustomCommandBar
                 x:Name="TitleCommandBar"
-                Grid.Column="2"
                 Margin="12,0,12,0"
                 Padding="0"
                 HorizontalAlignment="Stretch"
@@ -87,6 +114,7 @@
                     </AppBarButton.Icon>
                 </AppBarButton>
             </controls:CustomCommandBar>
+            </StackPanel>
         </Grid>
 
         <NavigationView
@@ -143,7 +171,17 @@
                         </MenuFlyout>
                     </NavigationViewItem.ContextFlyout>
                 </NavigationViewItem>
-                <NavigationViewItem Content="收藏夹" Tag="fav">
+                <NavigationViewItem Content="资料库" Tag="catalog">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE8F1;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="ReviewNavItem" Content="待审核" Tag="review">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE8B5;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="收藏夹" Tag="fav">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEB51;" />
                     </NavigationViewItem.Icon>

@@ -1,9 +1,10 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
+using Gallery.Models;
+using Gallery.Services;
 
 namespace Gallery.Controls.Viewer;
 
@@ -18,7 +19,14 @@ public sealed class ImageViewer : Grid
     private readonly MatrixTransform _transform = new();
     private readonly RectangleGeometry _clip = new();
     private readonly PhotoCanvasState _state = new();
-    private BitmapImage? _bitmap;
+    private readonly DispatcherTimer _upgradeTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
+    private string? _path;
+    private int _sourceVersion;
+    private int _loadVersion;
+    private int _loadedEdge;
+    private int _loadingEdge;
+    private CancellationTokenSource? _loadCancellation;
+    private PhotoItem? _item;
     private XamlRoot? _observedRoot;
     private bool _ready;
     private bool _panning;
@@ -31,6 +39,11 @@ public sealed class ImageViewer : Grid
 
     public ImageViewer()
     {
+        _upgradeTimer.Tick += (_, _) =>
+        {
+            _upgradeTimer.Stop();
+            RequestUpgrade();
+        };
         Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         Clip = _clip;
         _image.RenderTransform = _transform;
@@ -67,40 +80,107 @@ public sealed class ImageViewer : Grid
         Render();
     }
 
-    /// <summary>直接载入原文件；只允许当前请求的加载回调更新画布。</summary>
-    public void SetSource(string path, int pixelW, int pixelH)
+    /// <summary>先显示已有缩略图，按显示面积解码；几何始终使用原图尺寸。</summary>
+    public void SetSource(PhotoItem item, ImageSource? thumbnail = null)
     {
         Clear();
-        var bitmap = new BitmapImage();
-        _bitmap = bitmap;
-        LoadingChanged?.Invoke(true);
-        bitmap.ImageOpened += (_, _) =>
+        ImageLoader.SetPreviewOpen(true);
+        _item = item;
+        _path = item.FullPath;
+        int pixelW = item.PixelWidth, pixelH = item.PixelHeight;
+        if (pixelW > 0 && pixelH > 0)
         {
-            if (!ReferenceEquals(_bitmap, bitmap)) return;
-            _state.SetPhoto(pixelW > 0 ? pixelW : bitmap.PixelWidth, pixelH > 0 ? pixelH : bitmap.PixelHeight);
+            _state.SetPhoto(pixelW, pixelH);
             _ready = true;
+            UpdateViewport();
+        }
+        _image.Source = thumbnail ?? ImageLoader.FindThumbnail(item, _ready ? DesiredEdge() : 2048, 0);
+        _canvas.Visibility = _image.Source is null ? Visibility.Collapsed : Visibility.Visible;
+        _ = LoadAsync(_ready ? DesiredEdge() : 0, _sourceVersion);
+    }
+
+    private int DesiredEdge()
+    {
+        int native = (int)Math.Max(_state.PixelWidth, _state.PixelHeight);
+        double wanted = Math.Min(native, native * _state.Scale);
+        foreach (int edge in new[] { 512, 1024, 2048, 4096 })
+            if (edge >= wanted) return Math.Min(native, edge);
+        return native;
+    }
+
+    private void RequestUpgrade()
+    {
+        if (_path is null || !_ready || ActualWidth <= 0 || ActualHeight <= 0) return;
+        int edge = DesiredEdge();
+        if (edge > Math.Max(_loadedEdge, _loadingEdge))
+            _ = LoadAsync(edge, _sourceVersion);
+    }
+
+    private async Task LoadAsync(int edge, int sourceVersion)
+    {
+        var item = _item!;
+        int loadVersion = ++_loadVersion;
+        _loadCancellation?.Cancel();
+        _loadCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _loadCancellation = cancellation;
+        _loadingEdge = edge;
+        LoadingChanged?.Invoke(true);
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            if (!_ready)
+            {
+                var meta = await Task.Run(() => ImageInfo.ReadMeta(item.FullPath), cancellation.Token);
+                if (sourceVersion != _sourceVersion || loadVersion != _loadVersion) return;
+                if (meta.Width is not > 0 || meta.Height is not > 0) throw new InvalidDataException("无法读取图片尺寸");
+                _state.SetPhoto(meta.Width.Value, meta.Height.Value);
+                _ready = true;
+                UpdateViewport();
+                edge = DesiredEdge();
+                _loadingEdge = edge;
+            }
+            var bitmap = await ImageLoader.LoadPreviewAsync(item, edge, cancellation.Token);
+            if (sourceVersion != _sourceVersion || loadVersion != _loadVersion) return;
+            if (!_ready)
+            {
+                _state.SetPhoto(bitmap.PixelWidth, bitmap.PixelHeight);
+                _ready = true;
+            }
+            _loadedEdge = edge > 0 ? edge : Math.Max(bitmap.PixelWidth, bitmap.PixelHeight);
+            _loadingEdge = 0;
+            _image.Source = bitmap;
             _canvas.Visibility = Visibility.Visible;
             UpdateViewport();
             LoadingChanged?.Invoke(false);
-        };
-        bitmap.ImageFailed += (_, args) =>
+            AppService.DebugLog($"preview loaded edge={edge} elapsedMs={elapsed.ElapsedMilliseconds}");
+        }
+        catch (OperationCanceledException)
         {
-            if (!ReferenceEquals(_bitmap, bitmap)) return;
-            _ready = false;
-            _canvas.Visibility = Visibility.Collapsed;
+            // 切图、关闭或更高分辨率请求已接管当前画面。
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or System.Runtime.InteropServices.COMException or ArgumentException)
+        {
+            if (sourceVersion != _sourceVersion || loadVersion != _loadVersion) return;
             LoadingChanged?.Invoke(false);
-            LoadFailed?.Invoke(args.ErrorMessage);
-        };
-        _canvas.Visibility = Visibility.Collapsed;
-        _image.Source = bitmap;
-        bitmap.UriSource = new Uri(path);
+            LoadFailed?.Invoke(ex.Message);
+        }
     }
 
     public void Clear()
     {
         EndDrag();
+        ImageLoader.SetPreviewOpen(false);
+        _upgradeTimer.Stop();
+        _sourceVersion++;
+        _loadCancellation?.Cancel();
+        _loadCancellation?.Dispose();
+        _loadCancellation = null;
+        _item = null;
+        _path = null;
+        _loadedEdge = _loadingEdge = 0;
         _ready = false;
-        _bitmap = null;
         _image.Source = null;
         LoadingChanged?.Invoke(false);
     }
@@ -115,6 +195,11 @@ public sealed class ImageViewer : Grid
         _image.Height = _state.PixelHeight / _state.Dpi;
         _transform.Matrix = new Matrix(_state.Scale, 0, 0, _state.Scale, rect.X, rect.Y);
         ZoomChanged?.Invoke(Percent);
+        if (_path is not null)
+        {
+            _upgradeTimer.Stop();
+            _upgradeTimer.Start();
+        }
     }
 
     public double Percent => Math.Round(_state.Scale * 100);

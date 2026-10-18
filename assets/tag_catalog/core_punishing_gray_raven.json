@@ -1,0 +1,3101 @@
+{
+  "source": {
+    "id": "punishing-gray-raven-wiki",
+    "url": "https://punishing-gray-raven.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Constructs": 86,
+      "NPCs": 0,
+      "Enemies": 232
+    }
+  },
+  "games": [
+    {
+      "key": "punishing_gray_raven",
+      "zh": "战双帕弥什",
+      "en": "Punishing: Gray Raven",
+      "source_url": "https://punishing-gray-raven.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "punishing-gray-raven:page:1387",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "2B",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/2B",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27244,
+      "source_title": "2B"
+    },
+    {
+      "key": "punishing-gray-raven:page:1388",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "9S",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/9S",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27243,
+      "source_title": "9S"
+    },
+    {
+      "key": "punishing-gray-raven:page:1386",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "A2",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/A2",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27242,
+      "source_title": "A2"
+    },
+    {
+      "key": "punishing-gray-raven:page:10903",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Adelyde - Anabasis",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Adelyde_-_Anabasis",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 29028,
+      "source_title": "Adelyde - Anabasis"
+    },
+    {
+      "key": "punishing-gray-raven:page:6071",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Alisa - Echo",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Alisa_-_Echo",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27223,
+      "source_title": "Alisa - Echo"
+    },
+    {
+      "key": "punishing-gray-raven:page:522",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ayla - Brilliance",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ayla_-_Brilliance",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27695,
+      "source_title": "Ayla - Brilliance"
+    },
+    {
+      "key": "punishing-gray-raven:page:5264",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ayla - Kaleido",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ayla_-_Kaleido",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27227,
+      "source_title": "Ayla - Kaleido"
+    },
+    {
+      "key": "punishing-gray-raven:page:6374",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "BLACK★ROCK SHOOTER",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/BLACK%E2%98%85ROCK_SHOOTER",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27221,
+      "source_title": "BLACK★ROCK SHOOTER"
+    },
+    {
+      "key": "punishing-gray-raven:page:4902",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bambinata - Vitrum",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bambinata_-_Vitrum",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27696,
+      "source_title": "Bambinata - Vitrum"
+    },
+    {
+      "key": "punishing-gray-raven:page:9294",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bianca - Crepuscule",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bianca_-_Crepuscule",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27179,
+      "source_title": "Bianca - Crepuscule"
+    },
+    {
+      "key": "punishing-gray-raven:page:4726",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bianca - Stigmata",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bianca_-_Stigmata",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27182,
+      "source_title": "Bianca - Stigmata"
+    },
+    {
+      "key": "punishing-gray-raven:page:513",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bianca - Veritas",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bianca_-_Veritas",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27181,
+      "source_title": "Bianca - Veritas"
+    },
+    {
+      "key": "punishing-gray-raven:page:105",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bianca - Zero",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bianca_-_Zero",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27180,
+      "source_title": "Bianca - Zero"
+    },
+    {
+      "key": "punishing-gray-raven:page:6890",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Bridget - Ardeo",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Bridget_-_Ardeo",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27213,
+      "source_title": "Bridget - Ardeo"
+    },
+    {
+      "key": "punishing-gray-raven:page:525",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Camu - Crocotta",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Camu_-_Crocotta",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27246,
+      "source_title": "Camu - Crocotta"
+    },
+    {
+      "key": "punishing-gray-raven:page:1305",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Changyu - Qilin",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Changyu_-_Qilin",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27245,
+      "source_title": "Changyu - Qilin"
+    },
+    {
+      "key": "punishing-gray-raven:page:521",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Chrome - Arclight",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Chrome_-_Arclight",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27241,
+      "source_title": "Chrome - Arclight"
+    },
+    {
+      "key": "punishing-gray-raven:page:1527",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Chrome - Glory",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Chrome_-_Glory",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27240,
+      "source_title": "Chrome - Glory"
+    },
+    {
+      "key": "punishing-gray-raven:page:9048",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Dante",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Dante",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27184,
+      "source_title": "Dante"
+    },
+    {
+      "key": "punishing-gray-raven:page:9498",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Discord - Secator",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Discord_-_Secator",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27178,
+      "source_title": "Discord - Secator"
+    },
+    {
+      "key": "punishing-gray-raven:page:4308",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Haicma - Starveil",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Haicma_-_Starveil",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27700,
+      "source_title": "Haicma - Starveil"
+    },
+    {
+      "key": "punishing-gray-raven:page:6980",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Hanying - Solacetune",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Hanying_-_Solacetune",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27752,
+      "source_title": "Hanying - Solacetune"
+    },
+    {
+      "key": "punishing-gray-raven:page:5628",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Hanying - Zitherwoe",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Hanying_-_Zitherwoe",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27212,
+      "source_title": "Hanying - Zitherwoe"
+    },
+    {
+      "key": "punishing-gray-raven:page:10671",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Helentine - Lacrimosa",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Helentine_-_Lacrimosa",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28369,
+      "source_title": "Helentine - Lacrimosa"
+    },
+    {
+      "key": "punishing-gray-raven:page:10368",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ishmael - Parhelion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ishmael_-_Parhelion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28192,
+      "source_title": "Ishmael - Parhelion"
+    },
+    {
+      "key": "punishing-gray-raven:page:8643",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Jetavie - Daybreak",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Jetavie_-_Daybreak",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27188,
+      "source_title": "Jetavie - Daybreak"
+    },
+    {
+      "key": "punishing-gray-raven:page:10361",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Kamui - Aeternion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Kamui_-_Aeternion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27842,
+      "source_title": "Kamui - Aeternion"
+    },
+    {
+      "key": "punishing-gray-raven:page:518",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Kamui - Bastion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Kamui_-_Bastion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27249,
+      "source_title": "Kamui - Bastion"
+    },
+    {
+      "key": "punishing-gray-raven:page:519",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Kamui - Tenebrion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Kamui_-_Tenebrion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27248,
+      "source_title": "Kamui - Tenebrion"
+    },
+    {
+      "key": "punishing-gray-raven:page:515",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Karenina - Blast",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Karenina_-_Blast",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28613,
+      "source_title": "Karenina - Blast"
+    },
+    {
+      "key": "punishing-gray-raven:page:10739",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Karenina - Effulgence",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Karenina_-_Effulgence",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28762,
+      "source_title": "Karenina - Effulgence"
+    },
+    {
+      "key": "punishing-gray-raven:page:516",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Karenina - Ember",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Karenina_-_Ember",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28616,
+      "source_title": "Karenina - Ember"
+    },
+    {
+      "key": "punishing-gray-raven:page:4469",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Karenina - Scire",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Karenina_-_Scire",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28615,
+      "source_title": "Karenina - Scire"
+    },
+    {
+      "key": "punishing-gray-raven:page:10915",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Kurumi Tokisaki",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Kurumi_Tokisaki",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28974,
+      "source_title": "Kurumi Tokisaki"
+    },
+    {
+      "key": "punishing-gray-raven:page:6239",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lamia - Lost Lullaby",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lamia_-_Lost_Lullaby",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27558,
+      "source_title": "Lamia - Lost Lullaby"
+    },
+    {
+      "key": "punishing-gray-raven:page:512",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lee - Entropy",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lee_-_Entropy",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27230,
+      "source_title": "Lee - Entropy"
+    },
+    {
+      "key": "punishing-gray-raven:page:5058",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lee - Hyperreal",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lee_-_Hyperreal",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27229,
+      "source_title": "Lee - Hyperreal"
+    },
+    {
+      "key": "punishing-gray-raven:page:511",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lee - Palefire",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lee_-_Palefire",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27231,
+      "source_title": "Lee - Palefire"
+    },
+    {
+      "key": "punishing-gray-raven:page:11092",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Leia - Fortunaster",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Leia_-_Fortunaster",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 29036,
+      "source_title": "Leia - Fortunaster"
+    },
+    {
+      "key": "punishing-gray-raven:page:8142",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lilith - Daemonissa",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lilith_-_Daemonissa",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27699,
+      "source_title": "Lilith - Daemonissa"
+    },
+    {
+      "key": "punishing-gray-raven:page:108",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Liv - Eclipse",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Liv_-_Eclipse",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27693,
+      "source_title": "Liv - Eclipse"
+    },
+    {
+      "key": "punishing-gray-raven:page:3513",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Liv - Empyrea",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Liv_-_Empyrea",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27176,
+      "source_title": "Liv - Empyrea"
+    },
+    {
+      "key": "punishing-gray-raven:page:9833",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Liv - Limpidity",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Liv_-_Limpidity",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28753,
+      "source_title": "Liv - Limpidity"
+    },
+    {
+      "key": "punishing-gray-raven:page:510",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Liv - Luminance",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Liv_-_Luminance",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27175,
+      "source_title": "Liv - Luminance"
+    },
+    {
+      "key": "punishing-gray-raven:page:509",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Liv - Lux",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Liv_-_Lux",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27174,
+      "source_title": "Liv - Lux"
+    },
+    {
+      "key": "punishing-gray-raven:page:153",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Crimson Abyss",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Crimson_Abyss",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28018,
+      "source_title": "Lucia - Crimson Abyss"
+    },
+    {
+      "key": "punishing-gray-raven:page:5404",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Crimson Weave",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Crimson_Weave",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28020,
+      "source_title": "Lucia - Crimson Weave"
+    },
+    {
+      "key": "punishing-gray-raven:page:131",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Dawn",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Dawn",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28016,
+      "source_title": "Lucia - Dawn"
+    },
+    {
+      "key": "punishing-gray-raven:page:10501",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Inverse Crown",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Inverse_Crown",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28752,
+      "source_title": "Lucia - Inverse Crown"
+    },
+    {
+      "key": "punishing-gray-raven:page:107",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Lotus",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Lotus",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28015,
+      "source_title": "Lucia - Lotus"
+    },
+    {
+      "key": "punishing-gray-raven:page:517",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Plume",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Plume",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28019,
+      "source_title": "Lucia - Plume"
+    },
+    {
+      "key": "punishing-gray-raven:page:7214",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lucia - Pyroath",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Pyroath",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28600,
+      "source_title": "Lucia - Pyroath"
+    },
+    {
+      "key": "punishing-gray-raven:page:1351",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Luna - Laurel",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Luna_-_Laurel",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27701,
+      "source_title": "Luna - Laurel"
+    },
+    {
+      "key": "punishing-gray-raven:page:6755",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Luna - Oblivion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Luna_-_Oblivion",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27214,
+      "source_title": "Luna - Oblivion"
+    },
+    {
+      "key": "punishing-gray-raven:page:514",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nanami - Pulse",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nanami_-_Pulse",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27197,
+      "source_title": "Nanami - Pulse"
+    },
+    {
+      "key": "punishing-gray-raven:page:4285",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nanami - Starfarer",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nanami_-_Starfarer",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27196,
+      "source_title": "Nanami - Starfarer"
+    },
+    {
+      "key": "punishing-gray-raven:page:7576",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nanami - Startrail",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nanami_-_Startrail",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28454,
+      "source_title": "Nanami - Startrail"
+    },
+    {
+      "key": "punishing-gray-raven:page:110",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nanami - Storm",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nanami_-_Storm",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27199,
+      "source_title": "Nanami - Storm"
+    },
+    {
+      "key": "punishing-gray-raven:page:10253",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nirvatia - Dirge",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nirvatia_-_Dirge",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27509,
+      "source_title": "Nirvatia - Dirge"
+    },
+    {
+      "key": "punishing-gray-raven:page:5756",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "No.21 - Feral",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/No.21_-_Feral",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27225,
+      "source_title": "No.21 - Feral"
+    },
+    {
+      "key": "punishing-gray-raven:page:1608",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "No.21 - XXI",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/No.21_-_XXI",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27226,
+      "source_title": "No.21 - XXI"
+    },
+    {
+      "key": "punishing-gray-raven:page:4625",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Noan - Arca",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Noan_-_Arca",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27233,
+      "source_title": "Noan - Arca"
+    },
+    {
+      "key": "punishing-gray-raven:page:5941",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Noctis - Indomitus",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Noctis_-_Indomitus",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27224,
+      "source_title": "Noctis - Indomitus"
+    },
+    {
+      "key": "punishing-gray-raven:page:3962",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Pulao - Dragontoll",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Pulao_-_Dragontoll",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27238,
+      "source_title": "Pulao - Dragontoll"
+    },
+    {
+      "key": "punishing-gray-raven:page:1306",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Qu - Pavo",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Qu_-_Pavo",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27217,
+      "source_title": "Qu - Pavo"
+    },
+    {
+      "key": "punishing-gray-raven:page:6502",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Qu - Shukra",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Qu_-_Shukra",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27216,
+      "source_title": "Qu - Shukra"
+    },
+    {
+      "key": "punishing-gray-raven:page:2433",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Roland - Flambeau",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Roland_-_Flambeau",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27239,
+      "source_title": "Roland - Flambeau"
+    },
+    {
+      "key": "punishing-gray-raven:page:10115",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Rosetta - Arete",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Rosetta_-_Arete",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27357,
+      "source_title": "Rosetta - Arete"
+    },
+    {
+      "key": "punishing-gray-raven:page:1070",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Rosetta - Rigor",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Rosetta_-_Rigor",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27168,
+      "source_title": "Rosetta - Rigor"
+    },
+    {
+      "key": "punishing-gray-raven:page:3627",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Selena - Capriccio",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Selena_-_Capriccio",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27191,
+      "source_title": "Selena - Capriccio"
+    },
+    {
+      "key": "punishing-gray-raven:page:8432",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Selena - Pianissimo",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Selena_-_Pianissimo",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27189,
+      "source_title": "Selena - Pianissimo"
+    },
+    {
+      "key": "punishing-gray-raven:page:1390",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Selena - Tempest",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Selena_-_Tempest",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27190,
+      "source_title": "Selena - Tempest"
+    },
+    {
+      "key": "punishing-gray-raven:page:520",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Sophia - Silverfang",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Sophia_-_Silverfang",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27751,
+      "source_title": "Sophia - Silverfang"
+    },
+    {
+      "key": "punishing-gray-raven:page:6646",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Teddy - Decryptor",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Teddy_-_Decryptor",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27170,
+      "source_title": "Teddy - Decryptor"
+    },
+    {
+      "key": "punishing-gray-raven:page:9974",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Teddy - Spectre",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Teddy_-_Spectre",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27169,
+      "source_title": "Teddy - Spectre"
+    },
+    {
+      "key": "punishing-gray-raven:page:1744",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vera - Garnet",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vera_-_Garnet",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27187,
+      "source_title": "Vera - Garnet"
+    },
+    {
+      "key": "punishing-gray-raven:page:8779",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vera - Geiravor",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vera_-_Geiravor",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27185,
+      "source_title": "Vera - Geiravor"
+    },
+    {
+      "key": "punishing-gray-raven:page:526",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vera - Rozen",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vera_-_Rozen",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27186,
+      "source_title": "Vera - Rozen"
+    },
+    {
+      "key": "punishing-gray-raven:page:9053",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vergil",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vergil",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27183,
+      "source_title": "Vergil"
+    },
+    {
+      "key": "punishing-gray-raven:page:9584",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Veronica - Aegis",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Veronica_-_Aegis",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28688,
+      "source_title": "Veronica - Aegis"
+    },
+    {
+      "key": "punishing-gray-raven:page:1543",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Wanshi - Hypnos",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Wanshi_-_Hypnos",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27209,
+      "source_title": "Wanshi - Hypnos"
+    },
+    {
+      "key": "punishing-gray-raven:page:7108",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Wanshi - Lucid Dreamer",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Wanshi_-_Lucid_Dreamer",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27208,
+      "source_title": "Wanshi - Lucid Dreamer"
+    },
+    {
+      "key": "punishing-gray-raven:page:524",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Watanabe - Astral",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Watanabe_-_Astral",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27220,
+      "source_title": "Watanabe - Astral"
+    },
+    {
+      "key": "punishing-gray-raven:page:6476",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Watanabe - Epitaph",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Watanabe_-_Epitaph",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27218,
+      "source_title": "Watanabe - Epitaph"
+    },
+    {
+      "key": "punishing-gray-raven:page:523",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Watanabe - Nightblade",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Watanabe_-_Nightblade",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27219,
+      "source_title": "Watanabe - Nightblade"
+    },
+    {
+      "key": "punishing-gray-raven:page:7327",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Yata - Fulgor",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Yata_-_Fulgor",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27200,
+      "source_title": "Yata - Fulgor"
+    },
+    {
+      "key": "punishing-gray-raven:page:9672",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Chiko\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Chiko%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26018,
+      "source_title": "\"Chiko\""
+    },
+    {
+      "key": "punishing-gray-raven:page:6701",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Echo\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Echo%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18440,
+      "source_title": "\"Echo\""
+    },
+    {
+      "key": "punishing-gray-raven:page:10435",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Ezette\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Ezette%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28726,
+      "source_title": "\"Ezette\""
+    },
+    {
+      "key": "punishing-gray-raven:page:9325",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Gwynplaine\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Gwynplaine%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26713,
+      "source_title": "\"Gwynplaine\""
+    },
+    {
+      "key": "punishing-gray-raven:page:8633",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Hyperreal\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Hyperreal%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 23641,
+      "source_title": "\"Hyperreal\""
+    },
+    {
+      "key": "punishing-gray-raven:page:7162",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Scorpio\" Nigel",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Scorpio%22_Nigel",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19296,
+      "source_title": "\"Scorpio\" Nigel"
+    },
+    {
+      "key": "punishing-gray-raven:page:8638",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Shorthalt\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Shorthalt%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26978,
+      "source_title": "\"Shorthalt\""
+    },
+    {
+      "key": "punishing-gray-raven:page:8102",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"The Emperor\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22The_Emperor%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26843,
+      "source_title": "\"The Emperor\""
+    },
+    {
+      "key": "punishing-gray-raven:page:10571",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "\"Vanguard\"",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/%22Vanguard%22",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28306,
+      "source_title": "\"Vanguard\""
+    },
+    {
+      "key": "punishing-gray-raven:page:8372",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Agent Zero",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Agent_Zero",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 22925,
+      "source_title": "Agent Zero"
+    },
+    {
+      "key": "punishing-gray-raven:page:6815",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Alpha 2",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Alpha_2",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18654,
+      "source_title": "Alpha 2"
+    },
+    {
+      "key": "punishing-gray-raven:page:2346",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Amberia",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Amberia",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 14275,
+      "source_title": "Amberia"
+    },
+    {
+      "key": "punishing-gray-raven:page:5626",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Assault Fort",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Assault_Fort",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 17006,
+      "source_title": "Assault Fort"
+    },
+    {
+      "key": "punishing-gray-raven:page:7915",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ballard",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ballard",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 23296,
+      "source_title": "Ballard"
+    },
+    {
+      "key": "punishing-gray-raven:page:2334",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Boss Leon",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Boss_Leon",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 12885,
+      "source_title": "Boss Leon"
+    },
+    {
+      "key": "punishing-gray-raven:page:9061",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Chaos (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Chaos_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 24649,
+      "source_title": "Chaos (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:9670",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Chiko",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Chiko",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26836,
+      "source_title": "Chiko"
+    },
+    {
+      "key": "punishing-gray-raven:page:10046",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Chiko (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Chiko_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27001,
+      "source_title": "Chiko (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:8280",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Cradle",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Cradle",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27052,
+      "source_title": "Cradle"
+    },
+    {
+      "key": "punishing-gray-raven:page:10141",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Cradle (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Cradle_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27051,
+      "source_title": "Cradle (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:7374",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Cthylla",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Cthylla",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19815,
+      "source_title": "Cthylla"
+    },
+    {
+      "key": "punishing-gray-raven:page:7617",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "DEAD MASTER",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/DEAD_MASTER",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 20669,
+      "source_title": "DEAD MASTER"
+    },
+    {
+      "key": "punishing-gray-raven:page:2335",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Dark Camu",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Dark_Camu",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 13534,
+      "source_title": "Dark Camu"
+    },
+    {
+      "key": "punishing-gray-raven:page:7377",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Deep Star Cthylla",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Deep_Star_Cthylla",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19813,
+      "source_title": "Deep Star Cthylla"
+    },
+    {
+      "key": "punishing-gray-raven:page:9322",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Enora Lueya",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Enora_Lueya",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 25206,
+      "source_title": "Enora Lueya"
+    },
+    {
+      "key": "punishing-gray-raven:page:9329",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ephialtes",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ephialtes",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26733,
+      "source_title": "Ephialtes"
+    },
+    {
+      "key": "punishing-gray-raven:page:10001",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ephialtes (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ephialtes_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26709,
+      "source_title": "Ephialtes (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10437",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Ezette",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Ezette",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27747,
+      "source_title": "Ezette"
+    },
+    {
+      "key": "punishing-gray-raven:page:8898",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Falling Star: Powered",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Falling_Star%3A_Powered",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26767,
+      "source_title": "Falling Star: Powered"
+    },
+    {
+      "key": "punishing-gray-raven:page:10010",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Falling Star: Powered (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Falling_Star%3A_Powered_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27006,
+      "source_title": "Falling Star: Powered (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:8100",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Frenzied Huaxu",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Frenzied_Huaxu",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 23896,
+      "source_title": "Frenzied Huaxu"
+    },
+    {
+      "key": "punishing-gray-raven:page:6940",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Fu Shen",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Fu_Shen",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19063,
+      "source_title": "Fu Shen"
+    },
+    {
+      "key": "punishing-gray-raven:page:2347",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Gabriel",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Gabriel",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 13685,
+      "source_title": "Gabriel"
+    },
+    {
+      "key": "punishing-gray-raven:page:10848",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Gabriel - Starfall",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Gabriel_-_Starfall",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28595,
+      "source_title": "Gabriel - Starfall"
+    },
+    {
+      "key": "punishing-gray-raven:page:9997",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Gwynplaine (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Gwynplaine_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26738,
+      "source_title": "Gwynplaine (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:6661",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Hamlet",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Hamlet",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18349,
+      "source_title": "Hamlet"
+    },
+    {
+      "key": "punishing-gray-raven:page:7051",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Hetero-Beast: Fenrir",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Hetero-Beast%3A_Fenrir",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19072,
+      "source_title": "Hetero-Beast: Fenrir"
+    },
+    {
+      "key": "punishing-gray-raven:page:9804",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Hetero-Hive Mother",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Hetero-Hive_Mother",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26250,
+      "source_title": "Hetero-Hive Mother"
+    },
+    {
+      "key": "punishing-gray-raven:page:2345",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Huaxu",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Huaxu",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 13615,
+      "source_title": "Huaxu"
+    },
+    {
+      "key": "punishing-gray-raven:page:6605",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Iron Maiden: Phantom",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Iron_Maiden%3A_Phantom",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18980,
+      "source_title": "Iron Maiden: Phantom"
+    },
+    {
+      "key": "punishing-gray-raven:page:2958",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lamia (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lamia_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 22793,
+      "source_title": "Lamia (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:6813",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lilith (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lilith_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 22877,
+      "source_title": "Lilith (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:6942",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lithos & Paper Crane",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lithos_%26_Paper_Crane",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19898,
+      "source_title": "Lithos & Paper Crane"
+    },
+    {
+      "key": "punishing-gray-raven:page:9327",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Lloyd",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Lloyd",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 25211,
+      "source_title": "Lloyd"
+    },
+    {
+      "key": "punishing-gray-raven:page:2351",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Luna (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Luna_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 16230,
+      "source_title": "Luna (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:5882",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "MC Solar",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/MC_Solar",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 17289,
+      "source_title": "MC Solar"
+    },
+    {
+      "key": "punishing-gray-raven:page:2349",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Machiavelli",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Machiavelli",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 15015,
+      "source_title": "Machiavelli"
+    },
+    {
+      "key": "punishing-gray-raven:page:9107",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Madam Monzano",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Madam_Monzano",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26975,
+      "source_title": "Madam Monzano"
+    },
+    {
+      "key": "punishing-gray-raven:page:10119",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Madam Monzano (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Madam_Monzano_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27000,
+      "source_title": "Madam Monzano (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10850",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Mannan M-1A",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Mannan_M-1A",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28675,
+      "source_title": "Mannan M-1A"
+    },
+    {
+      "key": "punishing-gray-raven:page:10318",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Margaret",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Margaret",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27496,
+      "source_title": "Margaret"
+    },
+    {
+      "key": "punishing-gray-raven:page:9913",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Melinoe",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Melinoe",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27335,
+      "source_title": "Melinoe"
+    },
+    {
+      "key": "punishing-gray-raven:page:10231",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Melinoe (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Melinoe_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27334,
+      "source_title": "Melinoe (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:9479",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Mirrored Vergil",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Mirrored_Vergil",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 25575,
+      "source_title": "Mirrored Vergil"
+    },
+    {
+      "key": "punishing-gray-raven:page:6199",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Moon Eater",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Moon_Eater",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18983,
+      "source_title": "Moon Eater"
+    },
+    {
+      "key": "punishing-gray-raven:page:2342",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Musashi IX",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Musashi_IX",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 12886,
+      "source_title": "Musashi IX"
+    },
+    {
+      "key": "punishing-gray-raven:page:6524",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Mutated Mechanoid: Madorea",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Mutated_Mechanoid%3A_Madorea",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26996,
+      "source_title": "Mutated Mechanoid: Madorea"
+    },
+    {
+      "key": "punishing-gray-raven:page:10126",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Mutated Mechanoid: Madorea (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Mutated_Mechanoid%3A_Madorea_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26995,
+      "source_title": "Mutated Mechanoid: Madorea (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:7913",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nigel: Broken Tail",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nigel%3A_Broken_Tail",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 23901,
+      "source_title": "Nigel: Broken Tail"
+    },
+    {
+      "key": "punishing-gray-raven:page:2343",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Nozzle",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Nozzle",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 12883,
+      "source_title": "Nozzle"
+    },
+    {
+      "key": "punishing-gray-raven:page:9778",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Overseer",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Overseer",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26742,
+      "source_title": "Overseer"
+    },
+    {
+      "key": "punishing-gray-raven:page:10012",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Overseer (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Overseer_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27005,
+      "source_title": "Overseer (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:6607",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Primal Projection",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Primal_Projection",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26745,
+      "source_title": "Primal Projection"
+    },
+    {
+      "key": "punishing-gray-raven:page:10014",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Primal Projection (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Primal_Projection_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27004,
+      "source_title": "Primal Projection (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:2350",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Pterygota Queen",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Pterygota_Queen",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 16225,
+      "source_title": "Pterygota Queen"
+    },
+    {
+      "key": "punishing-gray-raven:page:2315",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Qu (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Qu_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 19953,
+      "source_title": "Qu (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:2316",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Roland (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Roland_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 22981,
+      "source_title": "Roland (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:2352",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Rosetta (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Rosetta_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 21788,
+      "source_title": "Rosetta (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10987",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Rusalka",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Rusalka",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28855,
+      "source_title": "Rusalka"
+    },
+    {
+      "key": "punishing-gray-raven:page:8370",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Selene",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Selene",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 22923,
+      "source_title": "Selene"
+    },
+    {
+      "key": "punishing-gray-raven:page:2348",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Sharkspeare",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Sharkspeare",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18456,
+      "source_title": "Sharkspeare"
+    },
+    {
+      "key": "punishing-gray-raven:page:10118",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Shorthalt (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Shorthalt_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26998,
+      "source_title": "Shorthalt (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:3035",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Siren",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Siren",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 25775,
+      "source_title": "Siren"
+    },
+    {
+      "key": "punishing-gray-raven:page:8476",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Skych",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Skych",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26772,
+      "source_title": "Skych"
+    },
+    {
+      "key": "punishing-gray-raven:page:10022",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Skych (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Skych_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27003,
+      "source_title": "Skych (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10740",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Tavis Spelmin",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Tavis_Spelmin",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28400,
+      "source_title": "Tavis Spelmin"
+    },
+    {
+      "key": "punishing-gray-raven:page:10047",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "The Emperor (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/The_Emperor_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26997,
+      "source_title": "The Emperor (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10056",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "The Pseudo-Unwinged",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/The_Pseudo-Unwinged",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28156,
+      "source_title": "The Pseudo-Unwinged"
+    },
+    {
+      "key": "punishing-gray-raven:page:10645",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "The Pseudo-Unwinged (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/The_Pseudo-Unwinged_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28154,
+      "source_title": "The Pseudo-Unwinged (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:2288",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Tifa - Iron Maiden",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Tifa_-_Iron_Maiden",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 12887,
+      "source_title": "Tifa - Iron Maiden"
+    },
+    {
+      "key": "punishing-gray-raven:page:6147",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Trailblazer",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Trailblazer",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26739,
+      "source_title": "Trailblazer"
+    },
+    {
+      "key": "punishing-gray-raven:page:9999",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Trailblazer (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Trailblazer_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26776,
+      "source_title": "Trailblazer (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:7044",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Unidentified Twins",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Unidentified_Twins",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 28222,
+      "source_title": "Unidentified Twins"
+    },
+    {
+      "key": "punishing-gray-raven:page:5526",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Unknown Data Cluster",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Unknown_Data_Cluster",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 18063,
+      "source_title": "Unknown Data Cluster"
+    },
+    {
+      "key": "punishing-gray-raven:page:2344",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Unknown construct α (Alpha)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Unknown_construct_%CE%B1_%28Alpha%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 13533,
+      "source_title": "Unknown construct α (Alpha)"
+    },
+    {
+      "key": "punishing-gray-raven:page:2317",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vassago",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vassago",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 13120,
+      "source_title": "Vassago"
+    },
+    {
+      "key": "punishing-gray-raven:page:8635",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Veronica (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Veronica_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26980,
+      "source_title": "Veronica (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:10024",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Veronica (PPC)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Veronica_%28PPC%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27002,
+      "source_title": "Veronica (PPC)"
+    },
+    {
+      "key": "punishing-gray-raven:page:8837",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Vonnegut (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Vonnegut_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 24145,
+      "source_title": "Vonnegut (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:5117",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Voodoo",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Voodoo",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 17281,
+      "source_title": "Voodoo"
+    },
+    {
+      "key": "punishing-gray-raven:page:9677",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Watanabe (Boss)",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Watanabe_%28Boss%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 26039,
+      "source_title": "Watanabe (Boss)"
+    },
+    {
+      "key": "punishing-gray-raven:page:8847",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Yuka Saotome",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Yuka_Saotome",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 24196,
+      "source_title": "Yuka Saotome"
+    },
+    {
+      "key": "punishing-gray-raven:page:10201",
+      "game": "punishing_gray_raven",
+      "zh": "",
+      "en": "Zack the Frostheart Emperor",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://punishing-gray-raven.fandom.com/wiki/Zack_the_Frostheart_Emperor",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 27630,
+      "source_title": "Zack the Frostheart Emperor"
+    }
+  ],
+  "gaps": [
+    {
+      "category": "NPCs",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "page": "Aerial Monitor",
+      "reason": "no template"
+    },
+    {
+      "page": "Blubber VI",
+      "reason": "no template"
+    },
+    {
+      "page": "Ballwheel IV",
+      "reason": "no template"
+    },
+    {
+      "page": "Bio-Salamander",
+      "reason": "no template"
+    },
+    {
+      "page": "Acid Ant",
+      "reason": "no template"
+    },
+    {
+      "page": "Bio-Bull",
+      "reason": "no template"
+    },
+    {
+      "page": "A' Mao",
+      "reason": "no template"
+    },
+    {
+      "page": "Aerial 7 - Snow Owl",
+      "reason": "no template"
+    },
+    {
+      "page": "Beetle",
+      "reason": "no template"
+    },
+    {
+      "page": "Blair",
+      "reason": "no template"
+    },
+    {
+      "page": "Ambulance",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Good Child\"",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Dottie\"",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Naughty Child\"",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Gate Keeper\"",
+      "reason": "no template"
+    },
+    {
+      "page": "Aurora Bastion",
+      "reason": "no template"
+    },
+    {
+      "page": "Aurora Guardian",
+      "reason": "no template"
+    },
+    {
+      "page": "Abyss Angel",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Sea Fairy\"",
+      "reason": "no template"
+    },
+    {
+      "page": "Basilisk",
+      "reason": "no template"
+    },
+    {
+      "page": "Executor",
+      "reason": "no template"
+    },
+    {
+      "page": "Envoy",
+      "reason": "no template"
+    },
+    {
+      "page": "Deconstructor",
+      "reason": "no template"
+    },
+    {
+      "page": "Explorer",
+      "reason": "no template"
+    },
+    {
+      "page": "Excavator",
+      "reason": "no template"
+    },
+    {
+      "page": "Construct",
+      "reason": "no template"
+    },
+    {
+      "page": "Cathy",
+      "reason": "no template"
+    },
+    {
+      "page": "Deep Sea Ambusher",
+      "reason": "no template"
+    },
+    {
+      "page": "Chomper",
+      "reason": "no template"
+    },
+    {
+      "page": "Corrupted Construct",
+      "reason": "no template"
+    },
+    {
+      "page": "Buthus",
+      "reason": "no template"
+    },
+    {
+      "page": "DB02-Sanitizer",
+      "reason": "no template"
+    },
+    {
+      "page": "Construct Captain (Female)",
+      "reason": "no template"
+    },
+    {
+      "page": "Construct Soldier (Female)",
+      "reason": "no template"
+    },
+    {
+      "page": "Dragon",
+      "reason": "no template"
+    },
+    {
+      "page": "Demon Bane",
+      "reason": "no template"
+    },
+    {
+      "page": "Combined Auto Cannon",
+      "reason": "no template"
+    },
+    {
+      "page": "Courier-M",
+      "reason": "no template"
+    },
+    {
+      "page": "Deporter-R",
+      "reason": "no template"
+    },
+    {
+      "page": "Chela Host",
+      "reason": "no template"
+    },
+    {
+      "page": "Elite Construct",
+      "reason": "no template"
+    },
+    {
+      "page": "Conscioucness Test Subject 1",
+      "reason": "no template"
+    },
+    {
+      "page": "Conscioucness Test Subject 2",
+      "reason": "no template"
+    },
+    {
+      "page": "Cognitive Grimace",
+      "reason": "no template"
+    },
+    {
+      "page": "Candlestick",
+      "reason": "no template"
+    },
+    {
+      "page": "Chariot II",
+      "reason": "no template"
+    },
+    {
+      "page": "Ground Monitor",
+      "reason": "no template"
+    },
+    {
+      "page": "Gardener",
+      "reason": "no template"
+    },
+    {
+      "page": "Heteromer Sentry Gun",
+      "reason": "no template"
+    },
+    {
+      "page": "Heteromer Aerial Monitor",
+      "reason": "no template"
+    },
+    {
+      "page": "Heteromer Hydraulic",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero Deconstruct Unit",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero Fire Unit",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero Repair Unit",
+      "reason": "no template"
+    },
+    {
+      "page": "Hanged Man III",
+      "reason": "no template"
+    },
+    {
+      "page": "Firefighter",
+      "reason": "no template"
+    },
+    {
+      "page": "Heteromer Terminal",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero Explore Unit",
+      "reason": "no template"
+    },
+    {
+      "page": "Harvester",
+      "reason": "no template"
+    },
+    {
+      "page": "Ground 3 - Rabbit",
+      "reason": "no template"
+    },
+    {
+      "page": "Ground 1 - Polar Bear",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Core",
+      "reason": "no template"
+    },
+    {
+      "page": "Guardian I",
+      "reason": "no template"
+    },
+    {
+      "page": "Gear",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Sapien",
+      "reason": "no template"
+    },
+    {
+      "page": "Fairy",
+      "reason": "no template"
+    },
+    {
+      "page": "Gung-hoer",
+      "reason": "no template"
+    },
+    {
+      "page": "Heaven Breaker",
+      "reason": "no template"
+    },
+    {
+      "page": "God Slayer",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Consciousness Host",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Wolf",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Mammoth",
+      "reason": "no template"
+    },
+    {
+      "page": "Fortress Heavy Soldier",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Bee",
+      "reason": "no template"
+    },
+    {
+      "page": "Hetero-Mantis",
+      "reason": "no template"
+    },
+    {
+      "page": "Missionary",
+      "reason": "no template"
+    },
+    {
+      "page": "Hydraulic",
+      "reason": "no template"
+    },
+    {
+      "page": "Kuroro",
+      "reason": "no template"
+    },
+    {
+      "page": "Kemuri I",
+      "reason": "no template"
+    },
+    {
+      "page": "Jitterbomb",
+      "reason": "no template"
+    },
+    {
+      "page": "Musashi VI",
+      "reason": "no template"
+    },
+    {
+      "page": "Kowloong Crew - Yazi",
+      "reason": "no template"
+    },
+    {
+      "page": "Martyr",
+      "reason": "no template"
+    },
+    {
+      "page": "Mr.White",
+      "reason": "no template"
+    },
+    {
+      "page": "Martini",
+      "reason": "no template"
+    },
+    {
+      "page": "Moyuan",
+      "reason": "no template"
+    },
+    {
+      "page": "Jaspers",
+      "reason": "no template"
+    },
+    {
+      "page": "Monkfish",
+      "reason": "no template"
+    },
+    {
+      "page": "M4-Medic Bot",
+      "reason": "no template"
+    },
+    {
+      "page": "Moon Morpher",
+      "reason": "no template"
+    },
+    {
+      "page": "Mechanoid Moon Eater",
+      "reason": "no template"
+    },
+    {
+      "page": "Mental Image",
+      "reason": "no template"
+    },
+    {
+      "page": "Lighting Beehive",
+      "reason": "no template"
+    },
+    {
+      "page": "Lighting Bee",
+      "reason": "no template"
+    },
+    {
+      "page": "Mining Hopper",
+      "reason": "no template"
+    },
+    {
+      "page": "Hybird",
+      "reason": "no template"
+    },
+    {
+      "page": "Mirror Demon",
+      "reason": "no template"
+    },
+    {
+      "page": "Repairer",
+      "reason": "no template"
+    },
+    {
+      "page": "Protector",
+      "reason": "no template"
+    },
+    {
+      "page": "Pilgrim",
+      "reason": "no template"
+    },
+    {
+      "page": "Sentry Gun",
+      "reason": "no template"
+    },
+    {
+      "page": "Shieldbearer",
+      "reason": "no template"
+    },
+    {
+      "page": "Phecda X",
+      "reason": "no template"
+    },
+    {
+      "page": "Ronin IV",
+      "reason": "no template"
+    },
+    {
+      "page": "Royal Guard",
+      "reason": "no template"
+    },
+    {
+      "page": "Polar Soldier",
+      "reason": "no template"
+    },
+    {
+      "page": "Prime X",
+      "reason": "no template"
+    },
+    {
+      "page": "Osiris",
+      "reason": "no template"
+    },
+    {
+      "page": "Naval 5 - Squid",
+      "reason": "no template"
+    },
+    {
+      "page": "Rail Heterozygote",
+      "reason": "no template"
+    },
+    {
+      "page": "Polyphage",
+      "reason": "no template"
+    },
+    {
+      "page": "Popper",
+      "reason": "no template"
+    },
+    {
+      "page": "Octopus",
+      "reason": "no template"
+    },
+    {
+      "page": "Recycle Prisoner",
+      "reason": "no template"
+    },
+    {
+      "page": "PK-43 \"Sheriff\"",
+      "reason": "no template"
+    },
+    {
+      "page": "Sanctuary Guard",
+      "reason": "no template"
+    },
+    {
+      "page": "Redcoral Host",
+      "reason": "no template"
+    },
+    {
+      "page": "Seeker",
+      "reason": "no template"
+    },
+    {
+      "page": "Para-Protozoa",
+      "reason": "no template"
+    },
+    {
+      "page": "Rogue Assassin",
+      "reason": "no template"
+    },
+    {
+      "page": "Sea Anemone",
+      "reason": "no template"
+    },
+    {
+      "page": "Perfect Program",
+      "reason": "no template"
+    },
+    {
+      "page": "Tamer",
+      "reason": "no template"
+    },
+    {
+      "page": "Terrapod",
+      "reason": "no template"
+    },
+    {
+      "page": "Sister",
+      "reason": "no template"
+    },
+    {
+      "page": "Tai'E I",
+      "reason": "no template"
+    },
+    {
+      "page": "Xi",
+      "reason": "no template"
+    },
+    {
+      "page": "SSG-Meanderer",
+      "reason": "no template"
+    },
+    {
+      "page": "Trailblazing Surfer",
+      "reason": "no template"
+    },
+    {
+      "page": "Treant",
+      "reason": "no template"
+    },
+    {
+      "page": "Wheel of Fortune",
+      "reason": "no template"
+    },
+    {
+      "page": "Signal Light Phantom",
+      "reason": "no template"
+    },
+    {
+      "page": "Statue Guardian",
+      "reason": "no template"
+    },
+    {
+      "page": "Stone Lion VIII",
+      "reason": "no template"
+    },
+    {
+      "page": "Test Subject Pickman",
+      "reason": "no template"
+    },
+    {
+      "page": "Team Soldier",
+      "reason": "no template"
+    },
+    {
+      "page": "Soldier Type O",
+      "reason": "no template"
+    },
+    {
+      "page": "Viewing Program",
+      "reason": "no template"
+    },
+    {
+      "page": "Surge Mimicry",
+      "reason": "no template"
+    },
+    {
+      "reason": "Chinese name missing or contains unaudited template markup",
+      "record_keys": [
+        "punishing-gray-raven:page:1387",
+        "punishing-gray-raven:page:1388",
+        "punishing-gray-raven:page:1386",
+        "punishing-gray-raven:page:10903",
+        "punishing-gray-raven:page:6071",
+        "punishing-gray-raven:page:522",
+        "punishing-gray-raven:page:5264",
+        "punishing-gray-raven:page:6374",
+        "punishing-gray-raven:page:4902",
+        "punishing-gray-raven:page:9294",
+        "punishing-gray-raven:page:4726",
+        "punishing-gray-raven:page:513",
+        "punishing-gray-raven:page:105",
+        "punishing-gray-raven:page:6890",
+        "punishing-gray-raven:page:525",
+        "punishing-gray-raven:page:1305",
+        "punishing-gray-raven:page:521",
+        "punishing-gray-raven:page:1527",
+        "punishing-gray-raven:page:9048",
+        "punishing-gray-raven:page:9498",
+        "punishing-gray-raven:page:4308",
+        "punishing-gray-raven:page:6980",
+        "punishing-gray-raven:page:5628",
+        "punishing-gray-raven:page:10671",
+        "punishing-gray-raven:page:10368",
+        "punishing-gray-raven:page:8643",
+        "punishing-gray-raven:page:10361",
+        "punishing-gray-raven:page:518",
+        "punishing-gray-raven:page:519",
+        "punishing-gray-raven:page:515",
+        "punishing-gray-raven:page:10739",
+        "punishing-gray-raven:page:516",
+        "punishing-gray-raven:page:4469",
+        "punishing-gray-raven:page:10915",
+        "punishing-gray-raven:page:6239",
+        "punishing-gray-raven:page:512",
+        "punishing-gray-raven:page:5058",
+        "punishing-gray-raven:page:511",
+        "punishing-gray-raven:page:11092",
+        "punishing-gray-raven:page:8142",
+        "punishing-gray-raven:page:108",
+        "punishing-gray-raven:page:3513",
+        "punishing-gray-raven:page:9833",
+        "punishing-gray-raven:page:510",
+        "punishing-gray-raven:page:509",
+        "punishing-gray-raven:page:153",
+        "punishing-gray-raven:page:5404",
+        "punishing-gray-raven:page:131",
+        "punishing-gray-raven:page:10501",
+        "punishing-gray-raven:page:107",
+        "punishing-gray-raven:page:517",
+        "punishing-gray-raven:page:7214",
+        "punishing-gray-raven:page:1351",
+        "punishing-gray-raven:page:6755",
+        "punishing-gray-raven:page:514",
+        "punishing-gray-raven:page:4285",
+        "punishing-gray-raven:page:7576",
+        "punishing-gray-raven:page:110",
+        "punishing-gray-raven:page:10253",
+        "punishing-gray-raven:page:5756",
+        "punishing-gray-raven:page:1608",
+        "punishing-gray-raven:page:4625",
+        "punishing-gray-raven:page:5941",
+        "punishing-gray-raven:page:3962",
+        "punishing-gray-raven:page:1306",
+        "punishing-gray-raven:page:6502",
+        "punishing-gray-raven:page:2433",
+        "punishing-gray-raven:page:10115",
+        "punishing-gray-raven:page:1070",
+        "punishing-gray-raven:page:3627",
+        "punishing-gray-raven:page:8432",
+        "punishing-gray-raven:page:1390",
+        "punishing-gray-raven:page:520",
+        "punishing-gray-raven:page:6646",
+        "punishing-gray-raven:page:9974",
+        "punishing-gray-raven:page:1744",
+        "punishing-gray-raven:page:8779",
+        "punishing-gray-raven:page:526",
+        "punishing-gray-raven:page:9053",
+        "punishing-gray-raven:page:9584",
+        "punishing-gray-raven:page:1543",
+        "punishing-gray-raven:page:7108",
+        "punishing-gray-raven:page:524",
+        "punishing-gray-raven:page:6476",
+        "punishing-gray-raven:page:523",
+        "punishing-gray-raven:page:7327",
+        "punishing-gray-raven:page:9672",
+        "punishing-gray-raven:page:6701",
+        "punishing-gray-raven:page:10435",
+        "punishing-gray-raven:page:9325",
+        "punishing-gray-raven:page:8633",
+        "punishing-gray-raven:page:7162",
+        "punishing-gray-raven:page:8638",
+        "punishing-gray-raven:page:8102",
+        "punishing-gray-raven:page:10571",
+        "punishing-gray-raven:page:8372",
+        "punishing-gray-raven:page:6815",
+        "punishing-gray-raven:page:2346",
+        "punishing-gray-raven:page:5626",
+        "punishing-gray-raven:page:7915",
+        "punishing-gray-raven:page:2334",
+        "punishing-gray-raven:page:9061",
+        "punishing-gray-raven:page:9670",
+        "punishing-gray-raven:page:10046",
+        "punishing-gray-raven:page:8280",
+        "punishing-gray-raven:page:10141",
+        "punishing-gray-raven:page:7374",
+        "punishing-gray-raven:page:7617",
+        "punishing-gray-raven:page:2335",
+        "punishing-gray-raven:page:7377",
+        "punishing-gray-raven:page:9322",
+        "punishing-gray-raven:page:9329",
+        "punishing-gray-raven:page:10001",
+        "punishing-gray-raven:page:10437",
+        "punishing-gray-raven:page:8898",
+        "punishing-gray-raven:page:10010",
+        "punishing-gray-raven:page:8100",
+        "punishing-gray-raven:page:6940",
+        "punishing-gray-raven:page:2347",
+        "punishing-gray-raven:page:10848",
+        "punishing-gray-raven:page:9997",
+        "punishing-gray-raven:page:6661",
+        "punishing-gray-raven:page:7051",
+        "punishing-gray-raven:page:9804",
+        "punishing-gray-raven:page:2345",
+        "punishing-gray-raven:page:6605",
+        "punishing-gray-raven:page:2958",
+        "punishing-gray-raven:page:6813",
+        "punishing-gray-raven:page:6942",
+        "punishing-gray-raven:page:9327",
+        "punishing-gray-raven:page:2351",
+        "punishing-gray-raven:page:5882",
+        "punishing-gray-raven:page:2349",
+        "punishing-gray-raven:page:9107",
+        "punishing-gray-raven:page:10119",
+        "punishing-gray-raven:page:10850",
+        "punishing-gray-raven:page:10318",
+        "punishing-gray-raven:page:9913",
+        "punishing-gray-raven:page:10231",
+        "punishing-gray-raven:page:9479",
+        "punishing-gray-raven:page:6199",
+        "punishing-gray-raven:page:2342",
+        "punishing-gray-raven:page:6524",
+        "punishing-gray-raven:page:10126",
+        "punishing-gray-raven:page:7913",
+        "punishing-gray-raven:page:2343",
+        "punishing-gray-raven:page:9778",
+        "punishing-gray-raven:page:10012",
+        "punishing-gray-raven:page:6607",
+        "punishing-gray-raven:page:10014",
+        "punishing-gray-raven:page:2350",
+        "punishing-gray-raven:page:2315",
+        "punishing-gray-raven:page:2316",
+        "punishing-gray-raven:page:2352",
+        "punishing-gray-raven:page:10987",
+        "punishing-gray-raven:page:8370",
+        "punishing-gray-raven:page:2348",
+        "punishing-gray-raven:page:10118",
+        "punishing-gray-raven:page:3035",
+        "punishing-gray-raven:page:8476",
+        "punishing-gray-raven:page:10022",
+        "punishing-gray-raven:page:10740",
+        "punishing-gray-raven:page:10047",
+        "punishing-gray-raven:page:10056",
+        "punishing-gray-raven:page:10645",
+        "punishing-gray-raven:page:2288",
+        "punishing-gray-raven:page:6147",
+        "punishing-gray-raven:page:9999",
+        "punishing-gray-raven:page:7044",
+        "punishing-gray-raven:page:5526",
+        "punishing-gray-raven:page:2344",
+        "punishing-gray-raven:page:2317",
+        "punishing-gray-raven:page:8635",
+        "punishing-gray-raven:page:10024",
+        "punishing-gray-raven:page:8837",
+        "punishing-gray-raven:page:5117",
+        "punishing-gray-raven:page:9677",
+        "punishing-gray-raven:page:8847",
+        "punishing-gray-raven:page:10201"
+      ]
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

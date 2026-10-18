@@ -55,6 +55,10 @@ public sealed class AppSettings
     public bool start_at_login { get; set; } = true;
     public bool notify_exceptions { get; set; } = true;
     public bool setup_completed { get; set; }
+
+    /// <summary>上次归档用的根目录与子目录（映射记忆，下次默认带上）。</summary>
+    public string archive_root { get; set; } = "";
+    public string archive_sub { get; set; } = "";
 }
 
 public sealed class AppPaths

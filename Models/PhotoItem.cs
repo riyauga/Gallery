@@ -1,6 +1,4 @@
-using Microsoft.UI.Xaml.Media.Imaging;
-
-namespace Gallery.Models;
+﻿namespace Gallery.Models;
 
 public sealed class PhotoItem
 {
@@ -20,31 +18,18 @@ public sealed class PhotoItem
     public double? CreatedAtUnix { get; init; }    // 文件创建时间
     public double? ModifiedAtUnix { get; init; }   // 文件修改时间
     public int Rating { get; init; }
-    public string? Nsfw { get; init; }
+    public string? Nsfw { get; set; }
     public long FileSize { get; init; }
     public string? PageUrl { get; init; }      // 来源页（详情面板）
     public string? SourceUrl { get; init; }    // 原图地址
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];
+    // Gallery_Old/store.py:_mark_nsfw + ui/grid.py:_needs_protection：以人工可见的分级标签为准。
+    public bool IsSfw => Tags.Any(t => t.Category == "rating" && t.Name == "SFW");
+    public bool NeedsProtection => !IsSfw;
     public bool Missing { get; init; }
 
     public string Name => System.IO.Path.GetFileNameWithoutExtension(File);
     public string Extension => System.IO.Path.GetExtension(File).TrimStart('.').ToUpperInvariant();
     public double AspectRatio => PixelHeight <= 0 ? 1.0 : (double)PixelWidth / PixelHeight;
 
-    private BitmapImage? _thumb;
-    public BitmapImage Thumbnail
-    {
-        get
-        {
-            if (_thumb is null)
-            {
-                _thumb = new BitmapImage
-                {
-                    DecodePixelWidth = 560,
-                    UriSource = new Uri(FullPath)
-                };
-            }
-            return _thumb;
-        }
-    }
 }

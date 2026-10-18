@@ -1,0 +1,32 @@
+{
+  "source": {
+    "id": "cn-infinity_nikki",
+    "url": "https://wiki.biligame.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Chinese MediaWiki category snapshot; page title as Chinese name"
+  },
+  "games": [
+    {
+      "key": "infinity_nikki",
+      "zh": "无限暖暖",
+      "en": "Infinity Nikki",
+      "source_url": "https://wiki.biligame.com/wxnn/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "角色",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "category": "NPC",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "reason": "仅取分类直接成员；0 条里 0 条带外文名，其余只有中文名，合并时按中文名匹配。"
+    }
+  ],
+  "quarantine": []
+}

@@ -26,6 +26,7 @@ public sealed partial class PreviewOverlay : Grid
     private int _index;
 
     public event Action<string>? ToastRequested;
+    public event Action<Gallery.Models.PhotoItem>? TagsEdited;
     public event Action? ReturnFocusRequested;
 
     /// <summary>宿主注入菜单构建器（GalleryPage.BuildContextMenu 不含「打开」变体）。</summary>
@@ -38,10 +39,13 @@ public sealed partial class PreviewOverlay : Grid
         InitializeComponent();
         // ImageViewer 平移时会吃掉 PointerMoved（Handled=true），边缘唤醒必须用 handledEventsToo 订阅
         AddHandler(PointerMovedEvent, new PointerEventHandler(OnOverlayPointerMoved), true);
+        // 详情面板的贴纸显示中文名（词库补出来的），点开/编辑仍然用原名
+        Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
+        Detail.RatingTooltip = BuildRatingTooltip;
         Viewer.ZoomChanged += SyncZoomControls;
         Viewer.LoadingChanged += loading =>
         {
-            LoadingText.Text = "正在加载原图…";
+            LoadingText.Text = "正在加载图片…";
             LoadingText.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
         };
         Viewer.LoadFailed += message =>
@@ -50,7 +54,15 @@ public sealed partial class PreviewOverlay : Grid
             LoadingText.Visibility = Visibility.Visible;
             ToastRequested?.Invoke("图片加载失败：" + message);
         };
-        Detail.EditTagsRequested += _ => ToastRequested?.Invoke("标签编辑将在批次 3 提供");
+        Detail.EditTagsRequested += async item =>
+        {
+            if (XamlRoot is null) return;
+            var saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, [item]);
+            if (!saved || AppService.Store is null) return;
+            ToastRequested?.Invoke("标签已保存");
+            Detail.SetTags(LoadTagPairs(item.ImageId));
+            TagsEdited?.Invoke(item);
+        };
         Detail.OpenExternalRequested += item =>
             FileActions.OpenImage(item.FullPath,
                 AppService.Settings.Settings.open_mode,
@@ -371,6 +383,7 @@ public sealed partial class PreviewOverlay : Grid
     {
         _animation?.Stop();
         _closing = false;
+        RefreshTagDisplay();
         RestoreChrome();
         Viewer.IsAnimating = true;
         FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
@@ -386,7 +399,7 @@ public sealed partial class PreviewOverlay : Grid
         Relayout();
         UpdateLayout();
 
-        ShowCurrent();
+        ShowCurrent(request.Thumbnail);
         Focus(FocusState.Programmatic);
 
         // 动画统一飞入（用户裁决：抛弃淡入淡出）；遮罩同步渐入 300ms
@@ -457,13 +470,45 @@ public sealed partial class PreviewOverlay : Grid
         }
     }
 
-    private void ShowCurrent()
+    /// <summary>分级标签的悬停说明：有分级依据就给四级+来源+概率，否则明确说不知道。</summary>
+    private string? BuildRatingTooltip(string tagName)
+    {
+        var item = _items.Count == 0 ? null : _items[Math.Clamp(_index, 0, _items.Count - 1)];
+        if (item is null || Services.AppService.Store is not { } store) return null;
+        var score = store.NsfwScoreFor(item.ImageId);
+        if (score is null)
+            return $"{tagName} · 只有手动标记，没有模型或来源页给出的分级依据";
+
+        var level = score.Rating switch
+        {
+            "g" => "g 普通",
+            "s" => "s 性感",
+            "q" => "q 暗示",
+            "e" => "e 露骨",
+            _ => score.Rating,
+        };
+        var source = score.Source switch
+        {
+            "danbooru" => "来源页（danbooru）",
+            "model" => "本地模型" + (score.ModelName.Length > 0 ? $"（{score.ModelName}）" : ""),
+            "manual" => "手动标记",
+            _ => score.Source,
+        };
+        var parts = new List<string> { $"{tagName} · {level}", source };
+        if (score.Source == "model")
+        {
+            parts.Add($"q+e={score.NsfwProb:0.00}");
+            parts.Add($"置信度 {score.Confidence:0.00}");
+        }
+        return string.Join(" · ", parts);
+    }
+
+    private void ShowCurrent(Microsoft.UI.Xaml.Media.ImageSource? thumbnail = null)
     {
         var item = _items[_index];
         Detail.SetItem(item);
         TopFileName.Text = System.IO.Path.GetFileName(item.FullPath);
-        Viewer.Clear();
-        LoadOriginal(item);
+        Viewer.SetSource(item, thumbnail);
         if (_fullscreen)
         {
             ShowEdgeArrows(_pointerX);
@@ -473,12 +518,6 @@ public sealed partial class PreviewOverlay : Grid
             PrevButton.Visibility = _index > 0 ? Visibility.Visible : Visibility.Collapsed;
             NextButton.Visibility = _index < _items.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
         }
-    }
-
-    /// <summary>点开即原图（用户要求）：直接解码原文件，不走缩略图缓存。</summary>
-    private void LoadOriginal(PhotoItem item)
-    {
-        Viewer.SetSource(item.FullPath, item.PixelWidth, item.PixelHeight);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -499,6 +538,12 @@ public sealed partial class PreviewOverlay : Grid
     public bool IsOpen => Visibility == Visibility.Visible;
 
     /// <summary>文件操作或查询更新后按图片 ID 保持当前位置；删末图时退至前一张。</summary>
+    /// <summary>标签改完后重新读库刷新详情面板（页面刷新会用旧 PhotoItem.Tags 覆盖，所以要在之后调用）。</summary>
+    public void RefreshCurrentTags()
+    {
+        if (!IsOpen || _items.Count == 0) return;
+        Detail.SetTags(LoadTagPairs(_items[_index].ImageId));
+    }
     public void RefreshItems(IReadOnlyList<PhotoItem> items)
     {
         if (!IsOpen || _items.Count == 0) return;
@@ -622,5 +667,39 @@ public sealed partial class PreviewOverlay : Grid
         };
         _animation = sb;
         sb.Begin();
+    }
+    /// <summary>标签保存后重新读一次，让详情面板立刻显示新集合。</summary>
+    private readonly Dictionary<string, string> _tagDisplay = new(StringComparer.Ordinal);
+
+    /// <summary>把标签原名 → 展示名（有中文名用中文）缓存下来，供详情面板贴纸用。</summary>
+    private void RefreshTagDisplay()
+    {
+        if (AppService.Store is not { } store) return;
+        try
+        {
+            foreach (var tag in store.AllTags())
+                if (tag.Display != tag.Name) _tagDisplay[tag.Name] = tag.Display;
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("tag display cache failed: " + ex.Message);
+        }
+    }
+
+    private static List<(string Category, string Name)> LoadTagPairs(int imageId)
+    {
+        var pairs = new List<(string, string)>();
+        if (AppService.Store is null || imageId <= 0) return pairs;
+        lock (AppService.DbLock)
+        {
+            try
+            {
+                var details = AppService.Store.TagDetailsForImages([imageId]);
+                if (details.TryGetValue(imageId, out var list))
+                    pairs.AddRange(list.Select(t => (t.Category, t.Name)));
+            }
+            catch { }
+        }
+        return pairs;
     }
 }

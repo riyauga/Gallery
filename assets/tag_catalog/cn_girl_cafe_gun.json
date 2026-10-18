@@ -1,0 +1,36 @@
+{
+  "source": {
+    "id": "cn-girl_cafe_gun",
+    "url": "https://wiki.biligame.com/sssj/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Chinese MediaWiki category snapshot; page title as Chinese name"
+  },
+  "games": [
+    {
+      "key": "girl_cafe_gun",
+      "zh": "双生视界",
+      "en": "Girl Cafe Gun",
+      "source_url": "https://wiki.biligame.com/sssj/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "角色",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "category": "人物",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "category": "敌人",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "reason": "仅取分类直接成员；0 条里 0 条带外文名，其余只有中文名，缺失字段待补；禁止凭同名合并身份。"
+    }
+  ],
+  "quarantine": []
+}

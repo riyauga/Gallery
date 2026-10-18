@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 
@@ -16,6 +17,14 @@ public sealed class ThumbnailService
 
     private readonly string _dir;
     private readonly int _quality;
+    private static readonly Configuration ThumbnailConfiguration = CreateConfiguration();
+
+    private static Configuration CreateConfiguration()
+    {
+        var configuration = Configuration.Default.Clone();
+        configuration.MaxDegreeOfParallelism = 1;
+        return configuration;
+    }
 
     public ThumbnailService(string cacheDir, int quality = 82)
     {
@@ -24,16 +33,16 @@ public sealed class ThumbnailService
         Directory.CreateDirectory(_dir);
     }
 
-    public string Key(string src, double mtime, long size)
+    public string Key(string src, double mtime, long size, int edge = CacheEdge)
     {
         // Python: f"{os.path.normcase(str(src))}|{mtime:.9f}|{size}|{edge}"
-        var raw = $"{FileIdentity.PathKey(src)}|{StoreService.Fmt(mtime)}|{size}|{CacheEdge}";
+        var raw = $"{FileIdentity.PathKey(src)}|{StoreService.Fmt(mtime)}|{size}|{edge}";
         return Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 
-    public string CachePath(string src, double mtime, long size)
+    public string CachePath(string src, double mtime, long size, int edge = CacheEdge)
     {
-        var key = Key(src, mtime, size);
+        var key = Key(src, mtime, size, edge);
         return Path.Combine(_dir, key[..2], $"{key}.webp");
     }
 
@@ -44,12 +53,12 @@ public sealed class ThumbnailService
     }
 
     /// <summary>取缓存；缺失则生成。失败返回 null。</summary>
-    public string? GetOrBuild(string src, double mtime, long size)
+    public string? GetOrBuild(string src, double mtime, long size, int edge = CacheEdge)
     {
-        var dest = CachePath(src, mtime, size);
+        var dest = CachePath(src, mtime, size, edge);
         if (File.Exists(dest)) return dest;
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-        var data = BuildThumbBytes(src, CacheEdge, _quality);
+        var data = BuildThumbBytes(src, edge, _quality);
         if (data is null) return null;
         var tmp = dest + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -87,7 +96,12 @@ public sealed class ThumbnailService
     {
         try
         {
-            using var image = SixLabors.ImageSharp.Image.Load(src);
+            using var image = SixLabors.ImageSharp.Image.Load(new DecoderOptions
+            {
+                Configuration = ThumbnailConfiguration,
+                TargetSize = new Size(edge * 2, edge * 2),
+                MaxFrames = 1,
+            }, src);
             image.Mutate(ctx => ctx.AutoOrient());
             if (image.Width > edge || image.Height > edge)
             {
@@ -97,7 +111,10 @@ public sealed class ThumbnailService
                 image.Mutate(ctx => ctx.Resize(w, h, KnownResamplers.Lanczos3));
             }
             using var ms = new MemoryStream();
-            image.SaveAsWebp(ms, new WebpEncoder { FileFormat = WebpFileFormatType.Lossy, Quality = quality });
+            image.SaveAsWebp(ms, new WebpEncoder
+            {
+                FileFormat = WebpFileFormatType.Lossy, Quality = quality, Method = WebpEncodingMethod.Level0,
+            });
             return ms.ToArray();
         }
         catch (Exception ex) when (ex is IOException or SixLabors.ImageSharp.UnknownImageFormatException

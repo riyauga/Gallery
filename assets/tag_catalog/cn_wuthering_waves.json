@@ -1,0 +1,2018 @@
+{
+  "source": {
+    "id": "cn-wuthering_waves",
+    "url": "https://wiki.biligame.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Chinese MediaWiki category snapshot; page title as Chinese name"
+  },
+  "games": [
+    {
+      "key": "wuthering_waves",
+      "zh": "鸣潮",
+      "en": "Wuthering Waves",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/"
+    }
+  ],
+  "records": [
+    {
+      "key": "wiki.biligame.com:page:1783",
+      "game": "wuthering_waves",
+      "zh": "丹瑾",
+      "en": "danjin",
+      "aliases": [
+        "共鸣者/丹瑾"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%B8%B9%E7%91%BE",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/丹瑾"
+    },
+    {
+      "key": "wiki.biligame.com:page:3978",
+      "game": "wuthering_waves",
+      "zh": "丽贝卡",
+      "en": "Rebecca",
+      "aliases": [
+        "共鸣者/丽贝卡"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%B8%BD%E8%B4%9D%E5%8D%A1",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/丽贝卡"
+    },
+    {
+      "key": "wiki.biligame.com:page:3421",
+      "game": "wuthering_waves",
+      "zh": "仇远",
+      "en": "",
+      "aliases": [
+        "共鸣者/仇远"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%BB%87%E8%BF%9C",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/仇远"
+    },
+    {
+      "key": "wiki.biligame.com:page:2199",
+      "game": "wuthering_waves",
+      "zh": "今汐",
+      "en": "jinxi",
+      "aliases": [
+        "共鸣者/今汐"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%BB%8A%E6%B1%90",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/今汐"
+    },
+    {
+      "key": "wiki.biligame.com:page:1899",
+      "game": "wuthering_waves",
+      "zh": "凌阳",
+      "en": "lingyang",
+      "aliases": [
+        "共鸣者/凌阳"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%87%8C%E9%98%B3",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/凌阳"
+    },
+    {
+      "key": "wiki.biligame.com:page:3473",
+      "game": "wuthering_waves",
+      "zh": "千咲",
+      "en": "",
+      "aliases": [
+        "共鸣者/千咲"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%83%E5%92%B2",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/千咲"
+    },
+    {
+      "key": "wiki.biligame.com:page:3474",
+      "game": "wuthering_waves",
+      "zh": "卜灵",
+      "en": "",
+      "aliases": [
+        "共鸣者/卜灵"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%9C%E7%81%B5",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/卜灵"
+    },
+    {
+      "key": "wiki.biligame.com:page:1897",
+      "game": "wuthering_waves",
+      "zh": "卡卡罗",
+      "en": "calcharo",
+      "aliases": [
+        "共鸣者/卡卡罗"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%A1%E5%8D%A1%E7%BD%97",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/卡卡罗"
+    },
+    {
+      "key": "wiki.biligame.com:page:3033",
+      "game": "wuthering_waves",
+      "zh": "卡提希娅",
+      "en": "",
+      "aliases": [
+        "共鸣者/卡提希娅"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%A1%E6%8F%90%E5%B8%8C%E5%A8%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/卡提希娅"
+    },
+    {
+      "key": "wiki.biligame.com:page:3420",
+      "game": "wuthering_waves",
+      "zh": "嘉贝莉娜",
+      "en": "",
+      "aliases": [
+        "共鸣者/嘉贝莉娜"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%98%89%E8%B4%9D%E8%8E%89%E5%A8%9C",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/嘉贝莉娜"
+    },
+    {
+      "key": "wiki.biligame.com:page:2988",
+      "game": "wuthering_waves",
+      "zh": "坎特蕾拉",
+      "en": "",
+      "aliases": [
+        "共鸣者/坎特蕾拉"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%9D%8E%E7%89%B9%E8%95%BE%E6%8B%89",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/坎特蕾拉"
+    },
+    {
+      "key": "wiki.biligame.com:page:3326",
+      "game": "wuthering_waves",
+      "zh": "奥古斯塔",
+      "en": "",
+      "aliases": [
+        "共鸣者/奥古斯塔"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A5%A5%E5%8F%A4%E6%96%AF%E5%A1%94",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/奥古斯塔"
+    },
+    {
+      "key": "wiki.biligame.com:page:1782",
+      "game": "wuthering_waves",
+      "zh": "安可",
+      "en": "encore",
+      "aliases": [
+        "共鸣者/安可"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%AE%89%E5%8F%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/安可"
+    },
+    {
+      "key": "wiki.biligame.com:page:2850",
+      "game": "wuthering_waves",
+      "zh": "布兰特",
+      "en": "",
+      "aliases": [
+        "共鸣者/布兰特"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%B8%83%E5%85%B0%E7%89%B9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/布兰特"
+    },
+    {
+      "key": "wiki.biligame.com:page:3253",
+      "game": "wuthering_waves",
+      "zh": "弗洛洛",
+      "en": "",
+      "aliases": [
+        "共鸣者/弗洛洛"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%BC%97%E6%B4%9B%E6%B4%9B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/弗洛洛"
+    },
+    {
+      "key": "wiki.biligame.com:page:1895",
+      "game": "wuthering_waves",
+      "zh": "忌炎",
+      "en": "jiyan",
+      "aliases": [
+        "共鸣者/忌炎"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%BF%8C%E7%82%8E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/忌炎"
+    },
+    {
+      "key": "wiki.biligame.com:page:6206",
+      "game": "wuthering_waves",
+      "zh": "景燃",
+      "en": "",
+      "aliases": [
+        "共鸣者/景燃"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%99%AF%E7%87%83",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/景燃"
+    },
+    {
+      "key": "wiki.biligame.com:page:2517",
+      "game": "wuthering_waves",
+      "zh": "椿",
+      "en": "",
+      "aliases": [
+        "共鸣者/椿"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%A4%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/椿"
+    },
+    {
+      "key": "wiki.biligame.com:page:2530",
+      "game": "wuthering_waves",
+      "zh": "洛可可",
+      "en": "",
+      "aliases": [
+        "共鸣者/洛可可"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B4%9B%E5%8F%AF%E5%8F%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/洛可可"
+    },
+    {
+      "key": "wiki.biligame.com:page:3979",
+      "game": "wuthering_waves",
+      "zh": "洛瑟菈",
+      "en": "",
+      "aliases": [
+        "共鸣者/洛瑟菈"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B4%9B%E7%91%9F%E8%8F%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/洛瑟菈"
+    },
+    {
+      "key": "wiki.biligame.com:page:6205",
+      "game": "wuthering_waves",
+      "zh": "清宵",
+      "en": "",
+      "aliases": [
+        "共鸣者/清宵"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B8%85%E5%AE%B5",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/清宵"
+    },
+    {
+      "key": "wiki.biligame.com:page:4146",
+      "game": "wuthering_waves",
+      "zh": "漂泊者·导电",
+      "en": "",
+      "aliases": [
+        "共鸣者/漂泊者·导电"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%BC%82%E6%B3%8A%E8%80%85%C2%B7%E5%AF%BC%E7%94%B5",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/漂泊者·导电"
+    },
+    {
+      "key": "wiki.biligame.com:page:2990",
+      "game": "wuthering_waves",
+      "zh": "漂泊者·气动",
+      "en": "rover",
+      "aliases": [
+        "共鸣者/漂泊者·气动"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%BC%82%E6%B3%8A%E8%80%85%C2%B7%E6%B0%94%E5%8A%A8",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/漂泊者·气动"
+    },
+    {
+      "key": "wiki.biligame.com:page:1827",
+      "game": "wuthering_waves",
+      "zh": "漂泊者·湮灭",
+      "en": "rover",
+      "aliases": [
+        "共鸣者/漂泊者·湮灭"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%BC%82%E6%B3%8A%E8%80%85%C2%B7%E6%B9%AE%E7%81%AD",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/漂泊者·湮灭"
+    },
+    {
+      "key": "wiki.biligame.com:page:812",
+      "game": "wuthering_waves",
+      "zh": "漂泊者·衍射",
+      "en": "rover",
+      "aliases": [
+        "共鸣者/漂泊者·衍射"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%BC%82%E6%B3%8A%E8%80%85%C2%B7%E8%A1%8D%E5%B0%84",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/漂泊者·衍射"
+    },
+    {
+      "key": "wiki.biligame.com:page:2516",
+      "game": "wuthering_waves",
+      "zh": "灯灯",
+      "en": "",
+      "aliases": [
+        "共鸣者/灯灯"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%81%AF%E7%81%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/灯灯"
+    },
+    {
+      "key": "wiki.biligame.com:page:1716",
+      "game": "wuthering_waves",
+      "zh": "炽霞",
+      "en": "chixia",
+      "aliases": [
+        "共鸣者/炽霞"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%82%BD%E9%9C%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/炽霞"
+    },
+    {
+      "key": "wiki.biligame.com:page:3847",
+      "game": "wuthering_waves",
+      "zh": "爱弥斯",
+      "en": "",
+      "aliases": [
+        "共鸣者/爱弥斯"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%88%B1%E5%BC%A5%E6%96%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/爱弥斯"
+    },
+    {
+      "key": "wiki.biligame.com:page:2529",
+      "game": "wuthering_waves",
+      "zh": "珂莱塔",
+      "en": "",
+      "aliases": [
+        "共鸣者/珂莱塔"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%8F%82%E8%8E%B1%E5%A1%94",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/珂莱塔"
+    },
+    {
+      "key": "wiki.biligame.com:page:3842",
+      "game": "wuthering_waves",
+      "zh": "琳奈",
+      "en": "",
+      "aliases": [
+        "共鸣者/琳奈"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%90%B3%E5%A5%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/琳奈"
+    },
+    {
+      "key": "wiki.biligame.com:page:1639",
+      "game": "wuthering_waves",
+      "zh": "白芷",
+      "en": "baizhi",
+      "aliases": [
+        "共鸣者/白芷"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%99%BD%E8%8A%B7",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/白芷"
+    },
+    {
+      "key": "wiki.biligame.com:page:3633",
+      "game": "wuthering_waves",
+      "zh": "绯雪",
+      "en": "feixue",
+      "aliases": [
+        "共鸣者/绯雪"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%BB%AF%E9%9B%AA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/绯雪"
+    },
+    {
+      "key": "wiki.biligame.com:page:3843",
+      "game": "wuthering_waves",
+      "zh": "莫宁",
+      "en": "",
+      "aliases": [
+        "共鸣者/莫宁"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8E%AB%E5%AE%81",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/莫宁"
+    },
+    {
+      "key": "wiki.biligame.com:page:1896",
+      "game": "wuthering_waves",
+      "zh": "莫特斐",
+      "en": "mortefi",
+      "aliases": [
+        "共鸣者/莫特斐"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8E%AB%E7%89%B9%E6%96%90",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/莫特斐"
+    },
+    {
+      "key": "wiki.biligame.com:page:2767",
+      "game": "wuthering_waves",
+      "zh": "菲比",
+      "en": "phoebe",
+      "aliases": [
+        "共鸣者/菲比"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8F%B2%E6%AF%94",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/菲比"
+    },
+    {
+      "key": "wiki.biligame.com:page:3848",
+      "game": "wuthering_waves",
+      "zh": "达妮娅",
+      "en": "",
+      "aliases": [
+        "共鸣者/达妮娅"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%BE%BE%E5%A6%AE%E5%A8%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/达妮娅"
+    },
+    {
+      "key": "wiki.biligame.com:page:1729",
+      "game": "wuthering_waves",
+      "zh": "鉴心",
+      "en": "jianixn",
+      "aliases": [
+        "共鸣者/鉴心"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%89%B4%E5%BF%83",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/鉴心"
+    },
+    {
+      "key": "wiki.biligame.com:page:3844",
+      "game": "wuthering_waves",
+      "zh": "陆·赫斯",
+      "en": "",
+      "aliases": [
+        "共鸣者/陆·赫斯"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%99%86%C2%B7%E8%B5%AB%E6%96%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/陆·赫斯"
+    },
+    {
+      "key": "wiki.biligame.com:page:3032",
+      "game": "wuthering_waves",
+      "zh": "露帕",
+      "en": "",
+      "aliases": [
+        "共鸣者/露帕"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E5%B8%95",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/露帕"
+    },
+    {
+      "key": "wiki.biligame.com:page:3825",
+      "game": "wuthering_waves",
+      "zh": "露西",
+      "en": "LUCY",
+      "aliases": [
+        "共鸣者/露西"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E8%A5%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/露西"
+    },
+    {
+      "key": "wiki.biligame.com:page:1898",
+      "game": "wuthering_waves",
+      "zh": "吟霖",
+      "en": "yinlin",
+      "aliases": [
+        "共鸣者/吟霖"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%90%9F%E9%9C%96",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/吟霖"
+    },
+    {
+      "key": "wiki.biligame.com:page:3005",
+      "game": "wuthering_waves",
+      "zh": "夏空",
+      "en": "",
+      "aliases": [
+        "共鸣者/夏空"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A4%8F%E7%A9%BA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/夏空"
+    },
+    {
+      "key": "wiki.biligame.com:page:2233",
+      "game": "wuthering_waves",
+      "zh": "守岸人",
+      "en": "shorekeeper",
+      "aliases": [
+        "共鸣者/守岸人"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%AE%88%E5%B2%B8%E4%BA%BA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/守岸人"
+    },
+    {
+      "key": "wiki.biligame.com:page:3328",
+      "game": "wuthering_waves",
+      "zh": "尤诺",
+      "en": "",
+      "aliases": [
+        "共鸣者/尤诺"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%B0%A4%E8%AF%BA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/尤诺"
+    },
+    {
+      "key": "wiki.biligame.com:page:2232",
+      "game": "wuthering_waves",
+      "zh": "折枝",
+      "en": "zhezhi",
+      "aliases": [
+        "共鸣者/折枝"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%8A%98%E6%9E%9D",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/折枝"
+    },
+    {
+      "key": "wiki.biligame.com:page:1781",
+      "game": "wuthering_waves",
+      "zh": "散华",
+      "en": "sanhua",
+      "aliases": [
+        "共鸣者/散华"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%95%A3%E5%8D%8E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/散华"
+    },
+    {
+      "key": "wiki.biligame.com:page:1763",
+      "game": "wuthering_waves",
+      "zh": "桃祈",
+      "en": "taoqi",
+      "aliases": [
+        "共鸣者/桃祈"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%A1%83%E7%A5%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/桃祈"
+    },
+    {
+      "key": "wiki.biligame.com:page:1885",
+      "game": "wuthering_waves",
+      "zh": "渊武",
+      "en": "yuanwu",
+      "aliases": [
+        "共鸣者/渊武"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B8%8A%E6%AD%A6",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/渊武"
+    },
+    {
+      "key": "wiki.biligame.com:page:2231",
+      "game": "wuthering_waves",
+      "zh": "相里要",
+      "en": "xiangliyao",
+      "aliases": [
+        "共鸣者/相里要"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%9B%B8%E9%87%8C%E8%A6%81",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/相里要"
+    },
+    {
+      "key": "wiki.biligame.com:page:1784",
+      "game": "wuthering_waves",
+      "zh": "秋水",
+      "en": "aalto",
+      "aliases": [
+        "共鸣者/秋水"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%8B%E6%B0%B4",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/秋水"
+    },
+    {
+      "key": "wiki.biligame.com:page:1628",
+      "game": "wuthering_waves",
+      "zh": "秧秧",
+      "en": "yangyang",
+      "aliases": [
+        "共鸣者/秧秧"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%A7%E7%A7%A7",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/秧秧"
+    },
+    {
+      "key": "wiki.biligame.com:page:3992",
+      "game": "wuthering_waves",
+      "zh": "秧秧·玄翎",
+      "en": "",
+      "aliases": [
+        "共鸣者/秧秧·玄翎"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%A7%E7%A7%A7%C2%B7%E7%8E%84%E7%BF%8E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/秧秧·玄翎"
+    },
+    {
+      "key": "wiki.biligame.com:page:4147",
+      "game": "wuthering_waves",
+      "zh": "穗穗",
+      "en": "",
+      "aliases": [
+        "共鸣者/穗穗"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A9%97%E7%A9%97",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/穗穗"
+    },
+    {
+      "key": "wiki.biligame.com:page:1780",
+      "game": "wuthering_waves",
+      "zh": "维里奈",
+      "en": "verina",
+      "aliases": [
+        "共鸣者/维里奈"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%BB%B4%E9%87%8C%E5%A5%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/维里奈"
+    },
+    {
+      "key": "wiki.biligame.com:page:3683",
+      "game": "wuthering_waves",
+      "zh": "西格莉卡",
+      "en": "sigrika",
+      "aliases": [
+        "共鸣者/西格莉卡"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%A5%BF%E6%A0%BC%E8%8E%89%E5%8D%A1",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/西格莉卡"
+    },
+    {
+      "key": "wiki.biligame.com:page:3004",
+      "game": "wuthering_waves",
+      "zh": "赞妮",
+      "en": "zani",
+      "aliases": [
+        "共鸣者/赞妮"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%B5%9E%E5%A6%AE",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/赞妮"
+    },
+    {
+      "key": "wiki.biligame.com:page:2234",
+      "game": "wuthering_waves",
+      "zh": "釉瑚",
+      "en": "",
+      "aliases": [
+        "共鸣者/釉瑚"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%87%89%E7%91%9A",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/釉瑚"
+    },
+    {
+      "key": "wiki.biligame.com:page:2200",
+      "game": "wuthering_waves",
+      "zh": "长离",
+      "en": "changli",
+      "aliases": [
+        "共鸣者/长离"
+      ],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%95%BF%E7%A6%BB",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "共鸣者/长离"
+    },
+    {
+      "key": "wiki.biligame.com:page:2863",
+      "game": "wuthering_waves",
+      "zh": "哀声鸷",
+      "en": "",
+      "aliases": [
+        "敌人/哀声鸷"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%93%80%E5%A3%B0%E9%B8%B7",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/哀声鸷"
+    },
+    {
+      "key": "wiki.biligame.com:page:4428",
+      "game": "wuthering_waves",
+      "zh": "帮派打手",
+      "en": "",
+      "aliases": [
+        "敌人/帮派打手"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%B8%AE%E6%B4%BE%E6%89%93%E6%89%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/帮派打手"
+    },
+    {
+      "key": "wiki.biligame.com:page:6517",
+      "game": "wuthering_waves",
+      "zh": "芬莱克",
+      "en": "",
+      "aliases": [
+        "敌人/芬莱克"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%8A%AC%E8%8E%B1%E5%85%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/芬莱克"
+    },
+    {
+      "key": "wiki.biligame.com:page:2862",
+      "game": "wuthering_waves",
+      "zh": "飞廉之猩",
+      "en": "",
+      "aliases": [
+        "敌人/飞廉之猩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%A3%9E%E5%BB%89%E4%B9%8B%E7%8C%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/飞廉之猩"
+    },
+    {
+      "key": "wiki.biligame.com:page:4347",
+      "game": "wuthering_waves",
+      "zh": "角色/丽贝卡",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E4%B8%BD%E8%B4%9D%E5%8D%A1",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/丽贝卡"
+    },
+    {
+      "key": "wiki.biligame.com:page:5526",
+      "game": "wuthering_waves",
+      "zh": "角色/千咲",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%8D%83%E5%92%B2",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/千咲"
+    },
+    {
+      "key": "wiki.biligame.com:page:6085",
+      "game": "wuthering_waves",
+      "zh": "角色/卡提希娅",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%8D%A1%E6%8F%90%E5%B8%8C%E5%A8%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/卡提希娅"
+    },
+    {
+      "key": "wiki.biligame.com:page:4422",
+      "game": "wuthering_waves",
+      "zh": "角色/守岸人",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%AE%88%E5%B2%B8%E4%BA%BA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/守岸人"
+    },
+    {
+      "key": "wiki.biligame.com:page:4754",
+      "game": "wuthering_waves",
+      "zh": "角色/尤诺",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%B0%A4%E8%AF%BA",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/尤诺"
+    },
+    {
+      "key": "wiki.biligame.com:page:4154",
+      "game": "wuthering_waves",
+      "zh": "角色/弗洛洛",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%BC%97%E6%B4%9B%E6%B4%9B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/弗洛洛"
+    },
+    {
+      "key": "wiki.biligame.com:page:5506",
+      "game": "wuthering_waves",
+      "zh": "角色/景燃",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%99%AF%E7%87%83",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/景燃"
+    },
+    {
+      "key": "wiki.biligame.com:page:5509",
+      "game": "wuthering_waves",
+      "zh": "角色/椿",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%A4%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/椿"
+    },
+    {
+      "key": "wiki.biligame.com:page:4096",
+      "game": "wuthering_waves",
+      "zh": "角色/洛瑟菈",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%B4%9B%E7%91%9F%E8%8F%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/洛瑟菈"
+    },
+    {
+      "key": "wiki.biligame.com:page:6139",
+      "game": "wuthering_waves",
+      "zh": "角色/清宵",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%B8%85%E5%AE%B5",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/清宵"
+    },
+    {
+      "key": "wiki.biligame.com:page:4022",
+      "game": "wuthering_waves",
+      "zh": "角色/漂泊者",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%BC%82%E6%B3%8A%E8%80%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/漂泊者"
+    },
+    {
+      "key": "wiki.biligame.com:page:5517",
+      "game": "wuthering_waves",
+      "zh": "角色/爱弥斯",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%88%B1%E5%BC%A5%E6%96%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/爱弥斯"
+    },
+    {
+      "key": "wiki.biligame.com:page:5512",
+      "game": "wuthering_waves",
+      "zh": "角色/琳奈",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%90%B3%E5%A5%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/琳奈"
+    },
+    {
+      "key": "wiki.biligame.com:page:3991",
+      "game": "wuthering_waves",
+      "zh": "角色/秧秧",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%A7%A7%E7%A7%A7",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/秧秧"
+    },
+    {
+      "key": "wiki.biligame.com:page:5523",
+      "game": "wuthering_waves",
+      "zh": "角色/莫宁",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E8%8E%AB%E5%AE%81",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/莫宁"
+    },
+    {
+      "key": "wiki.biligame.com:page:4349",
+      "game": "wuthering_waves",
+      "zh": "角色/达妮娅",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E8%BE%BE%E5%A6%AE%E5%A8%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/达妮娅"
+    },
+    {
+      "key": "wiki.biligame.com:page:5515",
+      "game": "wuthering_waves",
+      "zh": "角色/陆·赫斯",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E9%99%86%C2%B7%E8%B5%AB%E6%96%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/陆·赫斯"
+    },
+    {
+      "key": "wiki.biligame.com:page:4159",
+      "game": "wuthering_waves",
+      "zh": "角色/露西",
+      "en": "",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E9%9C%B2%E8%A5%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "角色/露西"
+    },
+    {
+      "key": "wiki.biligame.com:page:2854",
+      "game": "wuthering_waves",
+      "zh": "伤痕",
+      "en": "",
+      "aliases": [
+        "敌人/伤痕"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E4%BC%A4%E7%97%95",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/伤痕"
+    },
+    {
+      "key": "wiki.biligame.com:page:2864",
+      "game": "wuthering_waves",
+      "zh": "伤痕（人型）",
+      "en": "",
+      "aliases": [
+        "敌人/伤痕（人型）"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E4%BC%A4%E7%97%95%EF%BC%88%E4%BA%BA%E5%9E%8B%EF%BC%89",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/伤痕（人型）"
+    },
+    {
+      "key": "wiki.biligame.com:page:6519",
+      "game": "wuthering_waves",
+      "zh": "伪作的神王",
+      "en": "",
+      "aliases": [
+        "敌人/伪作的神王"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E4%BC%AA%E4%BD%9C%E7%9A%84%E7%A5%9E%E7%8E%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/伪作的神王"
+    },
+    {
+      "key": "wiki.biligame.com:page:6082",
+      "game": "wuthering_waves",
+      "zh": "千傀重楼",
+      "en": "",
+      "aliases": [
+        "敌人/千傀重楼"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%8D%83%E5%82%80%E9%87%8D%E6%A5%BC",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/千傀重楼"
+    },
+    {
+      "key": "wiki.biligame.com:page:6576",
+      "game": "wuthering_waves",
+      "zh": "双极·渊陨重锋",
+      "en": "",
+      "aliases": [
+        "敌人/双极·渊陨重锋"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%8F%8C%E6%9E%81%C2%B7%E6%B8%8A%E9%99%A8%E9%87%8D%E9%94%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/双极·渊陨重锋"
+    },
+    {
+      "key": "wiki.biligame.com:page:2867",
+      "game": "wuthering_waves",
+      "zh": "叹息古龙",
+      "en": "",
+      "aliases": [
+        "敌人/叹息古龙"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%8F%B9%E6%81%AF%E5%8F%A4%E9%BE%99",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/叹息古龙"
+    },
+    {
+      "key": "wiki.biligame.com:page:2871",
+      "game": "wuthering_waves",
+      "zh": "坚岩斗士",
+      "en": "",
+      "aliases": [
+        "敌人/坚岩斗士"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%9D%9A%E5%B2%A9%E6%96%97%E5%A3%AB",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/坚岩斗士"
+    },
+    {
+      "key": "wiki.biligame.com:page:6515",
+      "game": "wuthering_waves",
+      "zh": "天傀劫煞",
+      "en": "",
+      "aliases": [
+        "敌人/天傀劫煞"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%A4%A9%E5%82%80%E5%8A%AB%E7%85%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/天傀劫煞"
+    },
+    {
+      "key": "wiki.biligame.com:page:5415",
+      "game": "wuthering_waves",
+      "zh": "惊蛰猎手",
+      "en": "",
+      "aliases": [
+        "敌人/惊蛰猎手"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%83%8A%E8%9B%B0%E7%8C%8E%E6%89%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/惊蛰猎手"
+    },
+    {
+      "key": "wiki.biligame.com:page:2858",
+      "game": "wuthering_waves",
+      "zh": "朔雷之鳞",
+      "en": "",
+      "aliases": [
+        "敌人/朔雷之鳞"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%9C%94%E9%9B%B7%E4%B9%8B%E9%B3%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/朔雷之鳞"
+    },
+    {
+      "key": "wiki.biligame.com:page:6188",
+      "game": "wuthering_waves",
+      "zh": "梦魇·云闪之鳞",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·云闪之鳞"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E4%BA%91%E9%97%AA%E4%B9%8B%E9%B3%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·云闪之鳞"
+    },
+    {
+      "key": "wiki.biligame.com:page:6192",
+      "game": "wuthering_waves",
+      "zh": "梦魇·凯尔匹",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·凯尔匹"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E5%87%AF%E5%B0%94%E5%8C%B9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·凯尔匹"
+    },
+    {
+      "key": "wiki.biligame.com:page:6186",
+      "game": "wuthering_waves",
+      "zh": "梦魇·哀声鸷",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·哀声鸷"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E5%93%80%E5%A3%B0%E9%B8%B7",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·哀声鸷"
+    },
+    {
+      "key": "wiki.biligame.com:page:6185",
+      "game": "wuthering_waves",
+      "zh": "梦魇·无冠者",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·无冠者"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E6%97%A0%E5%86%A0%E8%80%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·无冠者"
+    },
+    {
+      "key": "wiki.biligame.com:page:6184",
+      "game": "wuthering_waves",
+      "zh": "梦魇·无常凶鹭",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·无常凶鹭"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E6%97%A0%E5%B8%B8%E5%87%B6%E9%B9%AD",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·无常凶鹭"
+    },
+    {
+      "key": "wiki.biligame.com:page:6189",
+      "game": "wuthering_waves",
+      "zh": "梦魇·朔雷之鳞",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·朔雷之鳞"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E6%9C%94%E9%9B%B7%E4%B9%8B%E9%B3%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·朔雷之鳞"
+    },
+    {
+      "key": "wiki.biligame.com:page:6187",
+      "game": "wuthering_waves",
+      "zh": "梦魇·燎照之骑",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·燎照之骑"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E7%87%8E%E7%85%A7%E4%B9%8B%E9%AA%91",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·燎照之骑"
+    },
+    {
+      "key": "wiki.biligame.com:page:6181",
+      "game": "wuthering_waves",
+      "zh": "梦魇·赫卡忒",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·赫卡忒"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E8%B5%AB%E5%8D%A1%E5%BF%92",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·赫卡忒"
+    },
+    {
+      "key": "wiki.biligame.com:page:6191",
+      "game": "wuthering_waves",
+      "zh": "梦魇·辉萤军势",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·辉萤军势"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E8%BE%89%E8%90%A4%E5%86%9B%E5%8A%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·辉萤军势"
+    },
+    {
+      "key": "wiki.biligame.com:page:6190",
+      "game": "wuthering_waves",
+      "zh": "梦魇·飞廉之猩",
+      "en": "",
+      "aliases": [
+        "敌人/梦魇·飞廉之猩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%A2%A6%E9%AD%87%C2%B7%E9%A3%9E%E5%BB%89%E4%B9%8B%E7%8C%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/梦魇·飞廉之猩"
+    },
+    {
+      "key": "wiki.biligame.com:page:2933",
+      "game": "wuthering_waves",
+      "zh": "气动棱镜",
+      "en": "",
+      "aliases": [
+        "敌人/气动棱镜"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%B0%94%E5%8A%A8%E6%A3%B1%E9%95%9C",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/气动棱镜"
+    },
+    {
+      "key": "wiki.biligame.com:page:6520",
+      "game": "wuthering_waves",
+      "zh": "海之女",
+      "en": "",
+      "aliases": [
+        "敌人/海之女"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%B5%B7%E4%B9%8B%E5%A5%B3",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/海之女"
+    },
+    {
+      "key": "wiki.biligame.com:page:6516",
+      "game": "wuthering_waves",
+      "zh": "海维夏",
+      "en": "",
+      "aliases": [
+        "敌人/海维夏"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%B5%B7%E7%BB%B4%E5%A4%8F",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/海维夏"
+    },
+    {
+      "key": "wiki.biligame.com:page:6521",
+      "game": "wuthering_waves",
+      "zh": "炉芯机骸",
+      "en": "",
+      "aliases": [
+        "敌人/炉芯机骸"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%82%89%E8%8A%AF%E6%9C%BA%E9%AA%B8",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/炉芯机骸"
+    },
+    {
+      "key": "wiki.biligame.com:page:2859",
+      "game": "wuthering_waves",
+      "zh": "燎照之骑",
+      "en": "",
+      "aliases": [
+        "敌人/燎照之骑"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%87%8E%E7%85%A7%E4%B9%8B%E9%AA%91",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/燎照之骑"
+    },
+    {
+      "key": "wiki.biligame.com:page:5416",
+      "game": "wuthering_waves",
+      "zh": "破霜猎手",
+      "en": "",
+      "aliases": [
+        "敌人/破霜猎手"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%A0%B4%E9%9C%9C%E7%8C%8E%E6%89%8B",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/破霜猎手"
+    },
+    {
+      "key": "wiki.biligame.com:page:6535",
+      "game": "wuthering_waves",
+      "zh": "绿熔蜥",
+      "en": "",
+      "aliases": [
+        "敌人/绿熔蜥"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%BB%BF%E7%86%94%E8%9C%A5",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/绿熔蜥"
+    },
+    {
+      "key": "wiki.biligame.com:page:2865",
+      "game": "wuthering_waves",
+      "zh": "罗蕾莱",
+      "en": "",
+      "aliases": [
+        "敌人/罗蕾莱"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%BD%97%E8%95%BE%E8%8E%B1",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/罗蕾莱"
+    },
+    {
+      "key": "wiki.biligame.com:page:2869",
+      "game": "wuthering_waves",
+      "zh": "聚械机偶",
+      "en": "",
+      "aliases": [
+        "敌人/聚械机偶"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%81%9A%E6%A2%B0%E6%9C%BA%E5%81%B6",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/聚械机偶"
+    },
+    {
+      "key": "wiki.biligame.com:page:6182",
+      "game": "wuthering_waves",
+      "zh": "芙露德莉斯",
+      "en": "",
+      "aliases": [
+        "敌人/芙露德莉斯"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%8A%99%E9%9C%B2%E5%BE%B7%E8%8E%89%E6%96%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/芙露德莉斯"
+    },
+    {
+      "key": "wiki.biligame.com:page:6183",
+      "game": "wuthering_waves",
+      "zh": "荣耀狮像",
+      "en": "",
+      "aliases": [
+        "敌人/荣耀狮像"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%8D%A3%E8%80%80%E7%8B%AE%E5%83%8F",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/荣耀狮像"
+    },
+    {
+      "key": "wiki.biligame.com:page:5414",
+      "game": "wuthering_waves",
+      "zh": "裂变幼岩",
+      "en": "",
+      "aliases": [
+        "敌人/裂变幼岩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%A3%82%E5%8F%98%E5%B9%BC%E5%B2%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/裂变幼岩"
+    },
+    {
+      "key": "wiki.biligame.com:page:2856",
+      "game": "wuthering_waves",
+      "zh": "角",
+      "en": "",
+      "aliases": [
+        "敌人/角"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%A7%92",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/角"
+    },
+    {
+      "key": "wiki.biligame.com:page:2857",
+      "game": "wuthering_waves",
+      "zh": "赫卡忒",
+      "en": "",
+      "aliases": [
+        "敌人/赫卡忒"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%B5%AB%E5%8D%A1%E5%BF%92",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/赫卡忒"
+    },
+    {
+      "key": "wiki.biligame.com:page:2861",
+      "game": "wuthering_waves",
+      "zh": "辉萤军势",
+      "en": "",
+      "aliases": [
+        "敌人/辉萤军势"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%BE%89%E8%90%A4%E5%86%9B%E5%8A%BF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/辉萤军势"
+    },
+    {
+      "key": "wiki.biligame.com:page:6536",
+      "game": "wuthering_waves",
+      "zh": "霜鳞蜃甲",
+      "en": "",
+      "aliases": [
+        "敌人/霜鳞蜃甲"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%9C%9C%E9%B3%9E%E8%9C%83%E7%94%B2",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/霜鳞蜃甲"
+    },
+    {
+      "key": "wiki.biligame.com:page:2873",
+      "game": "wuthering_waves",
+      "zh": "青羽鹭",
+      "en": "",
+      "aliases": [
+        "敌人/青羽鹭"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%9D%92%E7%BE%BD%E9%B9%AD",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/青羽鹭"
+    },
+    {
+      "key": "wiki.biligame.com:page:2936",
+      "game": "wuthering_waves",
+      "zh": "飓力熊",
+      "en": "",
+      "aliases": [
+        "敌人/飓力熊"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%A3%93%E5%8A%9B%E7%86%8A",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/飓力熊"
+    },
+    {
+      "key": "wiki.biligame.com:page:6138",
+      "game": "wuthering_waves",
+      "zh": "鸣式·利维亚坦",
+      "en": "",
+      "aliases": [
+        "敌人/鸣式·利维亚坦"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%B8%A3%E5%BC%8F%C2%B7%E5%88%A9%E7%BB%B4%E4%BA%9A%E5%9D%A6",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/鸣式·利维亚坦"
+    },
+    {
+      "key": "wiki.biligame.com:page:2853",
+      "game": "wuthering_waves",
+      "zh": "鸣钟之龟",
+      "en": "",
+      "aliases": [
+        "敌人/鸣钟之龟"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%B8%A3%E9%92%9F%E4%B9%8B%E9%BE%9F",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/鸣钟之龟"
+    },
+    {
+      "key": "wiki.biligame.com:page:2870",
+      "game": "wuthering_waves",
+      "zh": "云闪之鳞",
+      "en": "",
+      "aliases": [
+        "敌人/云闪之鳞"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E4%BA%91%E9%97%AA%E4%B9%8B%E9%B3%9E",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/云闪之鳞"
+    },
+    {
+      "key": "wiki.biligame.com:page:4430",
+      "game": "wuthering_waves",
+      "zh": "先锋幼岩",
+      "en": "",
+      "aliases": [
+        "敌人/先锋幼岩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%85%88%E9%94%8B%E5%B9%BC%E5%B2%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/先锋幼岩"
+    },
+    {
+      "key": "wiki.biligame.com:page:2874",
+      "game": "wuthering_waves",
+      "zh": "奏谕乐师",
+      "en": "",
+      "aliases": [
+        "敌人/奏谕乐师"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%A5%8F%E8%B0%95%E4%B9%90%E5%B8%88",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/奏谕乐师"
+    },
+    {
+      "key": "wiki.biligame.com:page:2866",
+      "game": "wuthering_waves",
+      "zh": "异构武装",
+      "en": "",
+      "aliases": [
+        "敌人/异构武装"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E5%BC%82%E6%9E%84%E6%AD%A6%E8%A3%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/异构武装"
+    },
+    {
+      "key": "wiki.biligame.com:page:2934",
+      "game": "wuthering_waves",
+      "zh": "愚金幼岩",
+      "en": "",
+      "aliases": [
+        "敌人/愚金幼岩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%84%9A%E9%87%91%E5%B9%BC%E5%B2%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/愚金幼岩"
+    },
+    {
+      "key": "wiki.biligame.com:page:2868",
+      "game": "wuthering_waves",
+      "zh": "无冠者",
+      "en": "",
+      "aliases": [
+        "敌人/无冠者"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%97%A0%E5%86%A0%E8%80%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/无冠者"
+    },
+    {
+      "key": "wiki.biligame.com:page:2855",
+      "game": "wuthering_waves",
+      "zh": "无妄者",
+      "en": "",
+      "aliases": [
+        "敌人/无妄者"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%97%A0%E5%A6%84%E8%80%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/无妄者"
+    },
+    {
+      "key": "wiki.biligame.com:page:2860",
+      "game": "wuthering_waves",
+      "zh": "无常凶鹭",
+      "en": "",
+      "aliases": [
+        "敌人/无常凶鹭"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%97%A0%E5%B8%B8%E5%87%B6%E9%B9%AD",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/无常凶鹭"
+    },
+    {
+      "key": "wiki.biligame.com:page:2511",
+      "game": "wuthering_waves",
+      "zh": "无归的谬误",
+      "en": "",
+      "aliases": [
+        "敌人/无归的谬误"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%97%A0%E5%BD%92%E7%9A%84%E8%B0%AC%E8%AF%AF",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/无归的谬误"
+    },
+    {
+      "key": "wiki.biligame.com:page:6518",
+      "game": "wuthering_waves",
+      "zh": "无铭探索者",
+      "en": "",
+      "aliases": [
+        "敌人/无铭探索者"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E6%97%A0%E9%93%AD%E6%8E%A2%E7%B4%A2%E8%80%85",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/无铭探索者"
+    },
+    {
+      "key": "wiki.biligame.com:page:2872",
+      "game": "wuthering_waves",
+      "zh": "紫羽鹭",
+      "en": "",
+      "aliases": [
+        "敌人/紫羽鹭"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E7%B4%AB%E7%BE%BD%E9%B9%AD",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/紫羽鹭"
+    },
+    {
+      "key": "wiki.biligame.com:page:6083",
+      "game": "wuthering_waves",
+      "zh": "辛吉勒姆",
+      "en": "",
+      "aliases": [
+        "敌人/辛吉勒姆"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E8%BE%9B%E5%90%89%E5%8B%92%E5%A7%86",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/辛吉勒姆"
+    },
+    {
+      "key": "wiki.biligame.com:page:2935",
+      "game": "wuthering_waves",
+      "zh": "釉变幼岩",
+      "en": "",
+      "aliases": [
+        "敌人/釉变幼岩"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%87%89%E5%8F%98%E5%B9%BC%E5%B2%A9",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/釉变幼岩"
+    },
+    {
+      "key": "wiki.biligame.com:page:2937",
+      "game": "wuthering_waves",
+      "zh": "重塑雕像的拳砾",
+      "en": "",
+      "aliases": [
+        "敌人/重塑雕像的拳砾"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%87%8D%E5%A1%91%E9%9B%95%E5%83%8F%E7%9A%84%E6%8B%B3%E7%A0%BE",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/重塑雕像的拳砾"
+    },
+    {
+      "key": "wiki.biligame.com:page:6537",
+      "game": "wuthering_waves",
+      "zh": "隐迹铁影",
+      "en": "",
+      "aliases": [
+        "敌人/隐迹铁影"
+      ],
+      "kind": "enemy",
+      "source_url": "https://wiki.biligame.com/wutheringwaves/%E6%95%8C%E4%BA%BA/%E9%9A%90%E8%BF%B9%E9%93%81%E5%BD%B1",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": null,
+      "source_title": "敌人/隐迹铁影"
+    }
+  ],
+  "gaps": [
+    {
+      "category": "角色",
+      "reason": "空分类或名称不对"
+    },
+    {
+      "reason": "仅取分类直接成员；135 条里 30 条带外文名，其余只有中文名，合并时按中文名匹配。"
+    }
+  ],
+  "quarantine": []
+}

@@ -8,6 +8,12 @@ public partial class App : Application
 {
     private Window? _window;
 
+    /// <summary>同步进度：CLI 验收要「第 N 次回调立刻取消」，Progress&lt;T&gt; 是异步投递来不及。</summary>
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
+
     public App()
     {
         InitializeComponent();
@@ -59,16 +65,257 @@ public partial class App : Application
                 {
                     Search = "2026-0", Sort = "name", Limit = 5,
                 });
-                q.AppendLine($"search=2026-0 命中 {hits.Count}（LIMIT5: {string.Join(" | ", hits.Select(r => r.Name))}）");
+                q.AppendLine($"search=2026-0 命中 {hits.Count}（LIMIT5: {string.Join(" | ", hits.Take(5).Select(r => r.Name))}）");
                 var byName = store2.Query(new StoreService.QuerySpec
                     { Search = "zenless", Sort = "name" });
-                q.AppendLine($"search=zenless（标签名路径）命中 {byName.Count}（LIMIT5: {string.Join(" | ", byName.Select(r => r.Name))}）");
+                q.AppendLine($"search=zenless（标签名路径）命中 {byName.Count}（LIMIT5: {string.Join(" | ", byName.Take(5).Select(r => r.Name))}）");
+
+                // 词库中文名也应该能搜到图（tag_profiles.zh/en）
+                var byZh = store2.Query(new StoreService.QuerySpec
+                    { Search = "伊埃斯", Sort = "name" });
+                q.AppendLine($"search=伊埃斯（中文名）命中 {byZh.Count}；LIMIT3: {string.Join(" | ", byZh.Take(3).Select(r => r.Name))}");
             }
             catch (Exception ex) { q.AppendLine("ERROR: " + ex.Message); }
             var outDir3 = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
             Directory.CreateDirectory(outDir3);
             File.WriteAllText(Path.Combine(outDir3, "verify_query.txt"), q.ToString());
+            Exit();
+            return;
+        }
+
+        // --verify-tags：阶段 C 词库 + 分类筛选验收（写报告后退出）
+        if (cli.Contains("--verify-tags"))
+        {
+            var sb = new StringBuilder();
+            try
+            {
+                var store3 = new StoreService(AppPaths.DbPath);
+                var catalog = new TagCatalogService(store3);
+                var reports = catalog.ImportAll(log: line => sb.AppendLine("IMPORT " + line));
+                sb.AppendLine($"导入来源 {reports.Count} 个；示例：{string.Join(", ", reports.Take(3).Select(r => $"{r.SourceId}={r.Records}"))}");
+                var (games, entities, names, sourceTags, memberships, imports) = catalog.Summary();
+                sb.AppendLine($"词库计数 games={games} entities={entities} names={names} source_tags={sourceTags} memberships={memberships} imports={imports}");
+
+                foreach (var needle in new[] { "genshin", "刻晴", "qingque", "wuthering", "伊埃斯", "Eous" })
+                {
+                    var hits = store3.SearchTags(needle, 5);
+                    sb.AppendLine($"search_tags('{needle}') → {hits.Count}: " +
+                        string.Join(" | ", hits.Select(t => $"{t.Category}/{t.Name}({t.Display})×{t.Count}")));
+                }
+
+                var all = store3.AllTags();
+                var enriched = catalog.Enrich(all);
+                sb.AppendLine($"标签总数 {all.Count}；词库补出中文名 {enriched.Count(t => t.ZhName.Length > 0)}；" +
+                              $"分类分布 " + string.Join(", ", all.GroupBy(t => t.Category)
+                                  .OrderByDescending(g => g.Count()).Take(8)
+                                  .Select(g => $"{g.Key}={g.Count()}")));
+                foreach (var t in enriched.Where(t => t.ZhName.Length > 0).Take(5))
+                    sb.AppendLine($"  enrich {t.Category}/{t.Name} → {t.ZhName} / {t.EnName} @{t.EntityKey}");
+
+                foreach (var needle in new[] { "刻晴", "qingque", "爱弥斯" })
+                {
+                    var hits = catalog.SearchEntities(needle, 3);
+                    sb.AppendLine($"catalog_search('{needle}') → " +
+                        string.Join(" | ", hits.Select(h => $"{h.Zh}/{h.En}({h.Kind}@{h.GameKey})")));
+                }
+
+                var lookupNames = all.Where(t => t.Aliases.Count > 0).Take(5).Select(t => t.Name).ToList();
+                var profiles = catalog.Lookup(lookupNames);
+                foreach (var (name, value) in profiles)
+                    sb.AppendLine($"lookup('{name}') → zh='{value.Zh}' en='{value.En}' key='{value.EntityKey}'");
+
+                // 分类筛选：OR / AND / 排除 / 未打标签
+                var sample = store3.SearchTags("", 6);
+                if (sample.Count >= 2)
+                {
+                    var a = sample[0].Id;
+                    var b = sample[1].Id;
+                    var orCount = store3.Query(new StoreService.QuerySpec { TagIds = [a, b], TagMode = "or" }).Count;
+                    var andCount = store3.Query(new StoreService.QuerySpec { TagIds = [a, b], TagMode = "and" }).Count;
+                    var excluded = store3.Query(new StoreService.QuerySpec { ExcludedTagIds = [a] }).Count;
+                    var baseline = store3.Query(new StoreService.QuerySpec()).Count;
+                    sb.AppendLine($"筛选 baseline={baseline} OR({sample[0].Name},{sample[1].Name})={orCount} AND={andCount} 排除{sample[0].Name}={excluded}");
+                    var grouped = store3.Query(new StoreService.QuerySpec
+                    {
+                        TagGroups = new Dictionary<string, IReadOnlyList<int>> { ["work"] = [a] },
+                        GroupModes = new Dictionary<string, string> { ["work"] = "all" },
+                    }).Count;
+                    sb.AppendLine($"分组筛选 work=all({sample[0].Name}) = {grouped}");
+                }
+                var untagged = store3.Query(new StoreService.QuerySpec { Untagged = true }).Count;
+                sb.AppendLine($"未打标签图片 = {untagged}");
+                store3.Dispose();
+            }
+            catch (Exception ex) { sb.AppendLine("ERROR: " + ex); }
+            var outDir4 = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(outDir4);
+            File.WriteAllText(Path.Combine(outDir4, "verify_tags.txt"), sb.ToString());
+            Exit();
+            return;
+        }
+
+        // --verify-nsfw：阶段 E 判定流水线验收（没有真模型时用替身打分器，验证写库/筛选/显示联动）
+        if (cli.Contains("--verify-nsfw"))
+        {
+            var sbN = new StringBuilder();
+            try
+            {
+                var storeN = new StoreService(AppPaths.DbPath);
+                var deterministic = new NsfwService(storeN)
+                {
+                    // 按文件名散列造四类概率：偶数名偏 sfw，奇数名偏 explicit
+                    OverrideScorer = (path, _) =>
+                    {
+                        var hash = Math.Abs(path.GetHashCode());
+                        var bias = hash % 2 == 0;
+                        return bias
+                            ? new NsfwProbs(0.86, 0.08, 0.04, 0.02)
+                            : new NsfwProbs(0.05, 0.10, 0.15, 0.70);
+                    },
+                };
+
+                var run1 = deterministic.RunAsync(onlyStale: true).GetAwaiter().GetResult();
+                sbN.AppendLine("第一次扫描：" + NsfwService.Describe(run1));
+                sbN.AppendLine($"模型名={("(替身)")} 汇总前={storeN.NsfwSummary()}");
+
+                var run2 = deterministic.RunAsync(onlyStale: true).GetAwaiter().GetResult();
+                sbN.AppendLine("幂等复跑：" + NsfwService.Describe(run2));
+
+                var run3 = deterministic.RunAsync(onlyStale: false).GetAwaiter().GetResult();
+                sbN.AppendLine("强制全量：" + NsfwService.Describe(run3));
+
+                var (scored, nsfw, unknown) = storeN.NsfwSummary();
+                sbN.AppendLine($"汇总 scored={scored} nsfw={nsfw} unknown={unknown}");
+                sbN.AppendLine("全部=" + storeN.Query(new StoreService.QuerySpec()).Count +
+                               " 隐藏敏感=" + storeN.Query(new StoreService.QuerySpec { HideNsfw = true }).Count);
+
+                var anyScore = storeN.NsfwScoreFor(
+                    storeN.Query(new StoreService.QuerySpec()).FirstOrDefault()?.Id ?? 0);
+                sbN.AppendLine(anyScore is null
+                    ? "第一条没有分数"
+                    : $"样本 id={anyScore.ImageId} source={anyScore.Source} rating={anyScore.Rating} " +
+                      $"p={anyScore.NsfwProb:F2} conf={anyScore.Confidence:F2} margin={anyScore.Margin:F2} detail={anyScore.Detail}");
+                storeN.Dispose();
+            }
+            catch (Exception ex) { sbN.AppendLine("ERROR: " + ex); }
+
+            var outDirN = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(outDirN);
+            File.WriteAllText(Path.Combine(outDirN, "verify_nsfw.txt"), sbN.ToString());
+            Exit();
+            return;
+        }
+
+        // --verify-nsfw-cancel：验证「扫描可取消」——进度回调里取消，检查部分结果已落库、异常是取消
+        if (cli.Contains("--verify-nsfw-cancel"))
+        {
+            var sbC = new StringBuilder();
+            try
+            {
+                var storeC = new StoreService(AppPaths.DbPath);
+                // 先清空评分，保证本轮确实要扫
+                storeC.Exec("DELETE FROM nsfw_scores");
+                storeC.Exec("UPDATE images SET nsfw=NULL");
+                storeC.Commit();
+
+                var svc = new NsfwService(storeC)
+                {
+                    OverrideScorer = (path, token) =>
+                    {
+                        System.Threading.Thread.Sleep(15);
+                        token.ThrowIfCancellationRequested();
+                        return new NsfwProbs(0.2, 0.2, 0.3, 0.3);
+                    },
+                };
+
+                using var cts = new System.Threading.CancellationTokenSource();
+                var seen = 0;
+                var progress = new SyncProgress<(int Done, int Total)>(p2 =>
+                {
+                    if (++seen >= 3) cts.Cancel();
+                });
+
+                string outcome;
+                try
+                {
+                    var r = svc.RunAsync(progress, onlyStale: false, cts.Token).GetAwaiter().GetResult();
+                    outcome = "没有抛异常：" + NsfwService.Describe(r);
+                }
+                catch (OperationCanceledException)
+                {
+                    outcome = "按预期抛出 OperationCanceledException";
+                }
+
+                var (scoredC, nsfwC, _) = storeC.NsfwSummary();
+                sbC.AppendLine("取消结果：" + outcome);
+                sbC.AppendLine($"进度回调次数={seen} 已落库 scored={scoredC} nsfw={nsfwC}");
+                sbC.AppendLine(scoredC > 0 ? "部分结果已保留 ✓" : "没有保留任何结果 ✗");
+                storeC.Dispose();
+            }
+            catch (Exception ex) { sbC.AppendLine("ERROR: " + ex); }
+
+            var outDirC = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(outDirC);
+            File.WriteAllText(Path.Combine(outDirC, "verify_nsfw_cancel.txt"), sbC.ToString());
+            Exit();
+            return;
+        }
+
+        // --verify-nsfw-preview：验证「重判定预览」——先用替身打一轮（旧结果），再用反向替身预览并应用
+        if (cli.Contains("--verify-nsfw-preview"))
+        {
+            var sbP = new StringBuilder();
+            try
+            {
+                var storeP = new StoreService(AppPaths.DbPath);
+
+                // 旧结果：偶数名 sfw / 奇数名 explicit
+                var first = new NsfwService(storeP)
+                {
+                    OverrideScorer = (path, _) => Math.Abs(path.GetHashCode()) % 2 == 0
+                        ? new NsfwProbs(0.86, 0.08, 0.04, 0.02)
+                        : new NsfwProbs(0.05, 0.10, 0.15, 0.70),
+                };
+                var runOld = first.RunAsync(onlyStale: false).GetAwaiter().GetResult();
+                sbP.AppendLine("旧结果扫描：" + NsfwService.Describe(runOld));
+
+                // 预览：全部反转（sfw <-> explicit），应当每张都变
+                var flipped = new NsfwService(storeP)
+                {
+                    OverrideScorer = (path, _) => Math.Abs(path.GetHashCode()) % 2 == 0
+                        ? new NsfwProbs(0.05, 0.10, 0.15, 0.70)
+                        : new NsfwProbs(0.86, 0.08, 0.04, 0.02),
+                };
+
+                var (err1, rows1) = flipped.PreviewAsync(500).GetAwaiter().GetResult();
+                sbP.AppendLine($"预览错误=[{err1}] 行数={rows1.Count} 会变={rows1.Count(r => r.Changed)} " +
+                               $"变敏感={rows1.Count(r => r.Changed && r.IsNsfw)} 变普通={rows1.Count(r => r.Changed && !r.IsNsfw)}");
+                foreach (var row in rows1.Take(3))
+                    sbP.AppendLine($"  例：id={row.ImageId} {row.OldRating} -> {row.Rating} " +
+                                   $"nsfw={row.Probs.NsfwProb:F2} conf={row.Confidence:F2}");
+
+                // 预览不该写库：此时库里的分级应当还是旧的
+                sbP.AppendLine("应用前汇总：" + storeP.NsfwSummary());
+
+                var applied = flipped.ApplyRows(rows1, tagIt: false);
+                sbP.AppendLine($"应用 {applied} 行；应用后汇总：{storeP.NsfwSummary()}");
+
+                var (_, rows2) = flipped.PreviewAsync(500).GetAwaiter().GetResult();
+                sbP.AppendLine($"复跑预览：行数={rows2.Count} 会变={rows2.Count(r => r.Changed)}（应为 0）");
+            }
+            catch (Exception ex)
+            {
+                sbP.AppendLine("失败：" + ex);
+            }
+
+            var outDirP = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+            Directory.CreateDirectory(outDirP);
+            File.WriteAllText(Path.Combine(outDirP, "verify_nsfw_preview.txt"), sbP.ToString());
             Exit();
             return;
         }
@@ -97,6 +344,82 @@ public partial class App : Application
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
             Directory.CreateDirectory(outDir2);
             File.WriteAllText(Path.Combine(outDir2, "verify_thumb.txt"), report2);
+            Exit();
+            return;
+        }
+
+        // --verify-kind-whitelist：类型白名单（默认值 / 命中 / 自定义文件往返）
+        if (cli.Contains("--verify-kind-whitelist"))
+        {
+            var lines = new List<string>();
+            var cases = new (string Label, string[] Tags)[]
+            {
+                ("solo", ["solo"]),
+                ("solo+depth", ["solo", "depth_of_field", "weapon"]),
+                ("multiple", ["2girls", "multiple_girls", "solo"]),
+                ("scenery", ["scenery", "no_humans"]),
+                ("none-hit", ["long_hair", "smile"]),
+            };
+            foreach (var (label, tags) in cases)
+                lines.Add($"{label,-12} -> [{string.Join(", ", Services.Taxonomy.KindTagsFrom(tags))}]");
+
+            var custom = new Dictionary<string, string[]>
+            {
+                ["自定义类型"] = ["solo", "custom_tag"],
+            };
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "kind_whitelist_test.json");
+            Services.Taxonomy.SaveKindWhitelist(path, custom);
+            var loaded = Services.Taxonomy.LoadKindWhitelist(path);
+            lines.Add($"custom file -> {string.Join(", ", loaded.Keys)} / " +
+                $"[{string.Join(", ", Services.Taxonomy.KindTagsFrom(["custom_tag", "solo"], loaded))}]");
+            var restored = Services.Taxonomy.LoadKindWhitelist("/nonexistent/kind_whitelist.json");
+            lines.Add($"missing file -> fallback groups={restored.Count}");
+
+            var report = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_kind.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(report)!);
+            System.IO.File.WriteAllLines(report, lines);
+            Exit();
+            return;
+        }
+
+        // --verify-drag-guard：验证「模糊保护时拒绝拖出」的判定（纯逻辑，不弹窗）
+        if (cli.Contains("--verify-drag-guard"))
+        {
+            var lines = new List<string>();
+            Gallery.Models.PhotoItem Make(string name, string? nsfw) => new()
+            {
+                File = name,
+                FullPath = name,
+                PixelWidth = 1,
+                PixelHeight = 1,
+                Date = DateTime.MinValue,
+                Nsfw = nsfw,
+            };
+
+            var safe = Make("safe.png", "g");
+            var bold = Make("bold.png", "e");
+            var unknown = Make("unknown.png", null);
+
+            foreach (var mode in new[] { "normal", "blur", "hide" })
+            {
+                Services.AppService.Settings.Settings.nsfw_display = mode;
+                lines.Add($"mode={mode}");
+                foreach (var (label, list) in new (string, List<Gallery.Models.PhotoItem>)[]
+                {
+                    ("safe", new() { safe }),
+                    ("bold", new() { bold }),
+                    ("mixed", new() { safe, bold }),
+                    ("unknown", new() { unknown }),
+                })
+                {
+                    var blocked = Gallery.Views.GalleryPage.IsBlurBlocked(list, out var message);
+                    lines.Add($"  {label,-8} blocked={blocked} message={(message.Length == 0 ? "-" : message)}");
+                }
+            }
+
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_drag.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+            System.IO.File.WriteAllLines(path, lines);
             Exit();
             return;
         }
@@ -142,6 +465,14 @@ public partial class App : Application
             return;
         }
 
+        // --verify-archive：阶段 D 归档流水线验收（沙箱内造文件→归档→校验，写报告后退出）
+        if (cli.Contains("--verify-archive"))
+        {
+            RunVerifyArchive();
+            Exit();
+            return;
+        }
+
         // --addroot <path>：非交互添加根目录 + 扫描（自动化测试用）
         var idx = Array.IndexOf(cli, "--addroot");
         if (idx >= 0 && idx + 1 < cli.Length)
@@ -151,9 +482,26 @@ public partial class App : Application
             return;
         }
 
+        // 单实例：同一份数据只允许一个进程；再启动时把已运行的那个唤到前面（名字按数据根散列，沙箱之间互不影响）
+        var instanceScope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(instanceScope))
+        {
+            SingleInstance.SignalExisting(instanceScope);
+            Exit();
+            return;
+        }
+
+        AppService.FakeNsfwScorer = cli.Contains("--nsfw-fake-scorer");
         AppService.Init();
-        _window = new MainWindow();
-        _window.Activate();
+        AutoStart.SyncFromSettings();
+        AppService.DebugLog("started scope=" + instanceScope);
+
+        var window = new MainWindow();
+        _window = window;
+        window.Activate();
+
+        SingleInstance.ListenForActivation(() =>
+            window.DispatcherQueue.TryEnqueue(window.BringToFront));
     }
 
     private static void RunVerification()
@@ -193,6 +541,141 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "verify_db.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// 阶段 D 归档验收：在沙箱里造一个 inbox 文件与一条 ingest 记录，
+    /// 归档到根目录下的子目录，校验「源已删 / 目标在 / 状态 done / 作业落库 / images 有记录」。
+    /// </summary>
+    private static void RunVerifyArchive()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "archive");
+        var libRoot = Path.Combine(sandbox, "lib");
+        var inboxRoot = Path.Combine(sandbox, "inbox");
+        try
+        {
+            SettingsStore settings = new();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var scanner = new ScannerService(store, settings.Settings);
+            var folders = new FolderService(store, settings);
+            var archiver = new ArchiveService(store);
+
+            Directory.CreateDirectory(libRoot);
+            Directory.CreateDirectory(inboxRoot);
+            Directory.CreateDirectory(Path.Combine(libRoot, "分类A"));
+
+            report.AppendLine($"sandbox = {sandbox}");
+            report.AppendLine($"dataroot db = {AppPaths.DbPath}");
+
+            var roots = store.Roots();
+            var root = roots.FirstOrDefault(r => string.Equals(r.Path, libRoot, StringComparison.OrdinalIgnoreCase));
+            if (root is null)
+            {
+                var (added, scan) = folders.AddRootAndScan(libRoot);
+                root = added;
+                report.AppendLine($"add root[{added.Id}] scan={scan.Summary()}");
+            }
+            else
+            {
+                report.AppendLine($"reuse root[{root.Id}] {root.Path}");
+            }
+
+            // 造一个 1x1 PNG 当作下载完成的文件
+            var source = Path.Combine(inboxRoot, "verify_archive_pixel.png");
+            File.WriteAllBytes(source, Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
+            var bytes = new FileInfo(source).Length;
+
+            var payload = "{\"site\":\"danbooru\",\"source\":\"danbooru\"," +
+                          "\"page_url\":\"https://danbooru.donmai.us/posts/999001\",\"rating\":\"e\"," +
+                          "\"tags\":{\"artist\":[\"verify_artist\"],\"copyright\":[\"verify_work\"]," +
+                          "\"character\":[],\"general\":[\"verify_general\"],\"meta\":[]}}";
+            var ingest = store.IngestPush(payload, Path.GetFileName(source), source,
+                "https://danbooru.donmai.us/posts/999001", "", "999001", "",
+                "g", "danbooru", "verify-archive-1");
+            report.AppendLine($"ingest queued = #{ingest.QueueId} duplicate={ingest.Duplicate} size={bytes}");
+
+            // 1) 目标不在图库根里 → 应当拒绝
+            var outside = archiver.Archive(ingest.QueueId, Path.Combine(sandbox, "outside"));
+            report.AppendLine($"outside → ok={outside.Ok} msg={outside.Message}");
+
+            // 2) 源文件不存在 → 应当拒绝
+            File.Move(source, source + ".tmp");
+            var missing = archiver.Archive(ingest.QueueId, Path.Combine(libRoot, "分类A"));
+            report.AppendLine($"missing source → ok={missing.Ok} msg={missing.Message}");
+            File.Move(source + ".tmp", source);
+
+            // 3) 正常归档
+            var destination = Path.Combine(libRoot, "分类A");
+            var result = archiver.Archive(ingest.QueueId, destination);
+            report.AppendLine($"archive → ok={result.Ok} msg={result.Message}");
+            report.AppendLine($"  dest = {result.Destination}");
+            report.AppendLine($"  source exists = {File.Exists(source)}");
+            report.AppendLine($"  dest exists = {File.Exists(result.Destination)} size={SafeLength(result.Destination)}");
+
+            var row = store.IngestRow(ingest.QueueId);
+            report.AppendLine($"  ingest state = {row?.State} note={row?.InboxPath}");
+            var job = store.ArchiveJob(result.Destination);
+            report.AppendLine($"  archive_jobs = {(job is null ? "（没有）" : $"phase={job.Value.Phase} error='{job.Value.Error}'")}");
+
+            var rel = Path.GetFileName(result.Destination);
+            var image = store.QueryOne("SELECT * FROM images WHERE root_id=$r AND rel_path=$p",
+                ("$r", root.Id), ("$p", rel));
+            report.AppendLine($"  images row = {(image is null ? "（没有）" : $"id={image.Id} dir={image.DirRel} size={image.Size}")}");
+
+            if (image is not null)
+            {
+                var tags = store.CategorizedTags(image.Id);
+                report.AppendLine("  tags = " + string.Join(" | ", tags.Select(t => $"{t.Category}/{t.Name}")));
+
+                var score = store.NsfwScoreFor(image.Id);
+                report.AppendLine($"  nsfw = {image.Nsfw ?? "(空)"} · score = " +
+                    (score is null ? "（没有）" : $"source={score.Source} rating={score.Rating}"));
+                report.AppendLine("  blur 模式可见 = " + store.Query(
+                    new StoreService.QuerySpec { HideNsfw = true }).Count);
+            }
+
+            // 4) 同一队列项重复归档 → 应拒绝（状态已 done）
+            var again = archiver.Archive(ingest.QueueId, destination);
+            report.AppendLine($"re-archive → ok={again.Ok} msg={again.Message}");
+
+            // 5) 同名文件再归档一次 → 应得到带后缀的新文件，不覆盖旧的
+            var source2 = Path.Combine(inboxRoot, "verify_archive_pixel.png");
+            File.WriteAllBytes(source2, Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
+            var ingest2 = store.IngestPush(payload.Replace("999001", "999002"), Path.GetFileName(source2), source2,
+                "https://danbooru.donmai.us/posts/999002", "", "999002", "", "g", "danbooru", "verify-archive-2");
+            var second = archiver.Archive(ingest2.QueueId, destination);
+            report.AppendLine($"same-name → ok={second.Ok} dest={Path.GetFileName(second.Destination)} msg={second.Message}");
+            report.AppendLine($"  both exist = {File.Exists(result.Destination)} / {File.Exists(second.Destination)}");
+
+            report.AppendLine($"  pending now = {store.PendingIngestCount()}");
+            foreach (var note in store.TrackingNotes) report.AppendLine("note: " + note);
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        WriteVerifyReport("verify_archive.txt", report);
+    }
+
+    private static long SafeLength(string path)
+    {
+        try { return File.Exists(path) ? new FileInfo(path).Length : -1; }
+        catch (IOException) { return -1; }
+    }
+
+    private static void WriteVerifyReport(string fileName, StringBuilder report)
+    {
+        var outDir = Path.Combine(Path.GetTempPath(), "ptv");
+        Directory.CreateDirectory(outDir);
+        var outPath = Path.Combine(outDir, fileName);
+        File.WriteAllText(outPath, report.ToString());
+        System.Diagnostics.Debug.WriteLine(outPath);
     }
 
     private static void RunAddRoot(string path)

@@ -87,6 +87,20 @@ public sealed class DetailPanel : Grid
         _directoryText.Text = $"目录：{(item.DirRel.Length > 0 ? item.DirRel : "图库根目录")}";
         _source.Text = item.PageUrl ?? item.SourceUrl ?? "未记录";
 
+        RenderTags(item.Tags);
+    }
+
+    /// <summary>标签改完后只重画标签区（PhotoItem.Tags 是 init-only，不能回写）。</summary>
+    public void SetTags(IReadOnlyList<(string Category, string Name)> tags) => RenderTags(tags);
+
+    /// <summary>标签 → 展示名（词库补出的中文名）；没配就用原名。</summary>
+    public Func<string, string>? DisplayName { get; set; }
+
+    /// <summary>分级标签的悬停说明：四级依据/来源/概率；没有依据时给「未知」。</summary>
+    public Func<string, string?>? RatingTooltip { get; set; }
+
+    private void RenderTags(IReadOnlyList<(string Category, string Name)> itemTags)
+    {
         // 七类分组贴纸（顺序照 taxonomy）
         _tagsHost.Children.Clear();
         string[] cats = ["work", "character", "artist", "kind", "rating", "resolution", "custom"];
@@ -94,21 +108,26 @@ public sealed class DetailPanel : Grid
         for (var c = 0; c < cats.Length; c++)
         {
             var cat = cats[c];
-            var tags = item.Tags.Where(t => t.Category == cat).ToList();
+            var tags = itemTags.Where(t => t.Category == cat).ToList();
             if (tags.Count == 0) continue;
             var group = new StackPanel { Spacing = 4 };
             group.Children.Add(new TextBlock { Text = titles[c], FontSize = 12, Opacity = 0.55 });
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             foreach (var (category, name) in tags)
             {
-                var chip = new Tags.TagChip(category, name);
+                var label = DisplayName?.Invoke(name) ?? name;
+                var chip = new Tags.TagChip(category, label);
+                var tip = category == "rating" && RatingTooltip?.Invoke(name) is { Length: > 0 } ratingTip
+                    ? ratingTip
+                    : label == name ? name : $"{label} · {name}";
+                ToolTipService.SetToolTip(chip, tip);
                 chip.HorizontalAlignment = HorizontalAlignment.Left;
                 row.Children.Add(chip);
             }
             group.Children.Add(row);
             _tagsHost.Children.Add(group);
         }
-        if (item.Tags.Count == 0)
+        if (itemTags.Count == 0)
             _tagsHost.Children.Add(new TextBlock { Text = "未打标签", FontSize = 13, Opacity = 0.5 });
     }
 

@@ -19,7 +19,7 @@ public static class ImageInfo
     {
         try
         {
-            using var image = Image.Load(path); // 不解码像素到托管内存也行：仅元数据
+            var image = Image.Identify(path);
             int w = image.Width, h = image.Height;
             double? takenAt = null;
             int orientation = 1;

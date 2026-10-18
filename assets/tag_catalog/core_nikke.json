@@ -1,0 +1,53 @@
+{
+  "source": {
+    "id": "nikke-goddess-of-victory-wiki",
+    "url": "https://nikke-goddess-of-victory.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Nikkes": 0,
+      "Characters": 0,
+      "Enemies": 0
+    }
+  },
+  "games": [
+    {
+      "key": "nikke",
+      "zh": "胜利女神：妮姬",
+      "en": "Goddess of Victory: Nikke",
+      "source_url": "https://nikke-goddess-of-victory.fandom.com/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "Nikkes",
+      "reason": "404 Client Error: Not Found for url: https://nikke-goddess-of-victory.fandom.com/api.php?action=query&list=categorymembers&cmtitle=Category%3ANikkes&cmlimit=500&format=json"
+    },
+    {
+      "category": "Nikkes",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Characters",
+      "reason": "404 Client Error: Not Found for url: https://nikke-goddess-of-victory.fandom.com/api.php?action=query&list=categorymembers&cmtitle=Category%3ACharacters&cmlimit=500&format=json"
+    },
+    {
+      "category": "Characters",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Enemies",
+      "reason": "404 Client Error: Not Found for url: https://nikke-goddess-of-victory.fandom.com/api.php?action=query&list=categorymembers&cmtitle=Category%3AEnemies&cmlimit=500&format=json"
+    },
+    {
+      "category": "Enemies",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

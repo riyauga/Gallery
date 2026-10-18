@@ -150,6 +150,18 @@ public sealed class WatcherService : IDisposable
         }
     }
 
+    public async Task StopAsync()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            _pending.Clear();
+            foreach (var watcher in _watchers.Values) watcher.Dispose();
+            _watchers.Clear();
+        }
+        await _timer.DisposeAsync();
+    }
+
     public void Dispose()
     {
         lock (_gate)

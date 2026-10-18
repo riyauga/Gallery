@@ -1,6 +1,10 @@
+﻿using Gallery.Models;
+using Gallery.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Gallery.Models;
+using System.Collections;
+using System.Collections.Specialized;
+using System.Diagnostics;
 using Windows.Foundation;
 
 namespace Gallery.Controls;
@@ -8,270 +12,159 @@ namespace Gallery.Controls;
 public enum GalleryLayoutMode { River, Grid }
 public enum ThumbnailSize { Small, Medium, Large }
 
-/// <summary>
-/// 图库网格。两套算法与 Photos 的 VirtualGridLayoutAlgorithm / VirtualRiverLayoutAlgorithm 对齐：
-/// 方格：n = floor((net+g)/(minH+g))，边长 floor(clamp(...))，末行左对齐，总高含尾部 gutter。
-/// 河流：按 aspect(clamp 0.56..3.0) 凑行，再整体缩放；末行不放大。
-///
-/// 双模式：
-/// - 普通模式：Children 即全部瓦片（小数据量，行为与此前一致）。
-/// - 虚拟模式（SetVirtualSource）：Rects 由数据侧宽高比驱动（万级无压力），
-///   Children 只保留视口内的瓦片（PlaceTile 放入 / 回收），Arrange 按挂接索引定位。
-/// </summary>
-public sealed class PhotoGalleryPanel : Panel
+/// <summary>图库虚拟化宿主：ItemsRepeater 管控件回收，后台快照管行位置；对外保留时间线和飞入动画所需的几何接口。</summary>
+public sealed class PhotoGalleryPanel : Grid
 {
-    private readonly List<Rect> _rects = new();
-    private double _totalHeight;
-    private IReadOnlyList<double>? _virtualAspects;
-    private readonly Dictionary<PhotoTile, int> _virtualIndex = new();
+    private readonly ItemsRepeater _repeater = new() { HorizontalCacheLength = 0, VerticalCacheLength = 0 };
+    private readonly GalleryItems _source = new();
+    private readonly HashSet<PhotoTile> _realized = new();
+    private readonly GalleryVirtualLayout _layout;
+    private GalleryLayoutIndex _index = GalleryLayoutIndex.Build([], GalleryLayoutMode.River, ThumbnailSize.Medium, 0);
+    private GalleryLayoutMode _mode;
+    private ThumbnailSize _size = ThumbnailSize.Medium;
+    private long _revision, _requestedRevision = -1;
+    private double _requestedWidth = -1;
+    private (double[] Aspects, GalleryLayoutMode Mode, ThumbnailSize Size, double Width, long Revision)? _pending;
+    private bool _building;
+    public long LayoutBuildCount { get; private set; }
+    public long LayoutMilliseconds { get; private set; }
+    public bool IsBuilding => _building;
+    public event Action<PhotoTile>? TilePrepared;
+    public event Action? LayoutReady;
+    public event Action? ViewportInvalidated;
+    public DataTemplate TileTemplate { set => _repeater.ItemTemplate = value; }
+    public new ICollection<PhotoTile> Children => _realized;
+    public IReadOnlyList<Rect> Rects => _index.Rects;
+    public bool IsVirtual => true;
+    public GalleryLayoutMode Mode { get => _mode; set { if (_mode == value) return; _mode = value; Changed(); } }
+    public ThumbnailSize Size { get => _size; set { if (_size == value) return; _size = value; Changed(); } }
+    public double Gutter => _index.Mode == Mode && _index.Size == Size ? _index.Gutter : GalleryLayoutIndex.Build([], Mode, Size, 0).Gutter;
+    public (double Min, double Target, double Max) SizeRange => GalleryLayoutIndex.Build([], Mode, Size, 0).SizeRange;
 
-    public GalleryLayoutMode Mode { get; set; } = GalleryLayoutMode.River;
-    public ThumbnailSize Size { get; set; } = ThumbnailSize.Medium;
-
-    public double Gutter => Size switch
+    public PhotoGalleryPanel()
     {
-        ThumbnailSize.Small => 12,
-        ThumbnailSize.Medium => 14,
-        _ => 16
-    };
-
-    public (double Min, double Target, double Max) SizeRange => Mode == GalleryLayoutMode.Grid
-        ? Size switch
+        _layout = new GalleryVirtualLayout(this);
+        _repeater.Layout = _layout;
+        _repeater.ItemsSource = _source;
+        _repeater.ElementPrepared += (_, args) =>
         {
-            ThumbnailSize.Small => (120, 135, 150),
-            ThumbnailSize.Medium => (240, 270, 300),
-            _ => (330, 390, 450)
-        }
-        : Size switch
-        {
-            ThumbnailSize.Small => (100.0, 142, 240),
-            ThumbnailSize.Medium => (112.0, 280, 800),
-            _ => (154.0, 440, 980)
+            var tile = (PhotoTile)args.Element;
+            tile.Bind(_source[args.Index]);
+            _realized.Add(tile);
+            TilePrepared?.Invoke(tile);
+            ViewportInvalidated?.Invoke();
         };
-
-    public IReadOnlyList<Rect> Rects => _rects;
-    public bool IsVirtual => _virtualAspects is not null;
-
-    /// <summary>进入虚拟模式：传入每项的宽高比（与数据列表同序）。</summary>
-    public void SetVirtualSource(IReadOnlyList<double> aspects)
-    {
-        _virtualAspects = aspects;
-        _virtualIndex.Clear();
-        Children.Clear();
-    }
-
-    public void ClearVirtualSource()
-    {
-        _virtualAspects = null;
-        _virtualIndex.Clear();
-    }
-
-    /// <summary>虚拟模式：把一张瓦片放进面板并登记其数据索引。</summary>
-    public void PlaceTile(PhotoTile tile, int index)
-    {
-        if (_virtualAspects is null) return;
-        if (_virtualIndex.ContainsKey(tile)) return;
-        _virtualIndex[tile] = index;
-        Children.Add(tile);
-        var r = index < _rects.Count ? _rects[index] : new Rect();
-        tile.Measure(new Size(r.Width, r.Height));
-    }
-
-    public void RemoveTile(PhotoTile tile)
-    {
-        _virtualIndex.Remove(tile);
-        Children.Remove(tile);
-    }
-
-    public int IndexOfTile(PhotoTile tile)
-        => _virtualIndex.TryGetValue(tile, out var i) ? i : -1;
-
-    private int Count => _virtualAspects?.Count ?? Children.Count;
-
-    protected override Size MeasureOverride(Size availableSize)
-    {
-        double width = double.IsInfinity(availableSize.Width) ? 900 : availableSize.Width;
-        _rects.Clear();
-        _totalHeight = 0;
-
-        if (Count == 0 || width <= 0)
-            return new Size(width, 0);
-
-        if (Mode == GalleryLayoutMode.Grid) LayoutGrid(width);
-        else LayoutRiver(width);
-
-        if (_virtualAspects is null)
+        _repeater.ElementClearing += (_, args) =>
         {
-            for (int i = 0; i < Children.Count; i++)
+            var tile = (PhotoTile)args.Element;
+            _realized.Remove(tile);
+            tile.Recycle();
+        };
+        _repeater.ElementIndexChanged += (_, args) =>
+        {
+            var tile = (PhotoTile)args.Element;
+            tile.Bind(_source[args.NewIndex]);
+            _realized.Add(tile);
+            TilePrepared?.Invoke(tile);
+        };
+        base.Children.Add(_repeater);
+    }
+
+    public void SetItems(IReadOnlyList<PhotoItem> items)
+    {
+        bool geometryChanged = _source.Count != items.Count || !_source.Select(i => i.AspectRatio).SequenceEqual(items.Select(i => i.AspectRatio));
+        if (!_source.SequenceEqual(items)) _source.Replace(items);
+        // Reset 通过稳定键保留控件时仍须刷新模型引用，不能继续读旧标签和收藏状态。
+        foreach (var tile in _realized.ToArray())
+        {
+            int index = _source.IndexFromKey(GalleryItems.Key(tile.Item));
+            if (index < 0) continue;
+            tile.Bind(_source[index]);
+            TilePrepared?.Invoke(tile);
+        }
+        if (geometryChanged) Changed();
+        else if (!_building) LayoutReady?.Invoke();
+    }
+    public int IndexOfTile(PhotoTile tile) => _repeater.GetElementIndex(tile);
+    public int FirstVisibleIndex(double offset) => _index.FirstVisibleIndex(offset);
+    public double TopOfIndex(int index) => _index.TopOfIndex(index);
+    public (int First, int Last) VisibleRange(double offset, double height, double buffer) => _index.VisibleRange(offset, height, buffer);
+    private void Changed() { _revision++; _layout.Refresh(); }
+
+    private void EnsureLayout(double width)
+    {
+        if (!double.IsFinite(width) || width <= 0 || (_requestedRevision == _revision && Math.Abs(width - _requestedWidth) < .5)) return;
+        _requestedRevision = _revision; _requestedWidth = width;
+        _pending = (_source.Select(i => i.AspectRatio).ToArray(), Mode, Size, width, _revision);
+        ImageLoader.SetResizing(true);
+        if (!_building) _ = BuildAsync();
+    }
+    private async Task BuildAsync()
+    {
+        _building = true;
+        try
+        {
+            while (_pending is { } request)
             {
-                var r = i < _rects.Count ? _rects[i] : new Rect();
-                Children[i].Measure(new Size(r.Width, r.Height));
+                _pending = null;
+                var watch = Stopwatch.StartNew();
+                var snapshot = await Task.Run(() => GalleryLayoutIndex.Build(request.Aspects, request.Mode, request.Size, request.Width));
+                LayoutBuildCount++; LayoutMilliseconds += watch.ElapsedMilliseconds;
+                if (request.Revision != _revision || request.Width != _requestedWidth) continue;
+                _index = snapshot;
+                _layout.Refresh();
+                LayoutReady?.Invoke();
             }
         }
-        else
-        {
-            foreach (var child in Children)
-            {
-                var idx = child is PhotoTile t ? IndexOfTile(t) : -1;
-                var r = idx >= 0 && idx < _rects.Count ? _rects[idx] : new Rect();
-                child.Measure(new Size(r.Width, r.Height));
-            }
-        }
-        return new Size(width, _totalHeight);
+        finally { _building = false; ImageLoader.SetResizing(false); ViewportInvalidated?.Invoke(); }
     }
 
-    protected override Size ArrangeOverride(Size finalSize)
+    /// <summary>只实现视口及上下各一屏的控件，滚动测量不运行整表布局算法。</summary>
+    private sealed class GalleryVirtualLayout(PhotoGalleryPanel owner) : VirtualizingLayout
     {
-        if (_virtualAspects is null)
+        private int _first, _last = -1;
+        public void Refresh() => InvalidateMeasure();
+        protected override Size MeasureOverride(VirtualizingLayoutContext context, Size availableSize)
         {
-            for (int i = 0; i < Children.Count; i++)
+            owner.EnsureLayout(availableSize.Width);
+            var viewport = context.RealizationRect;
+            double height = double.IsFinite(viewport.Height) ? viewport.Height : 700;
+            (_first, _last) = owner._index.VisibleRange(viewport.Y, height, height);
+            _last = Math.Min(_last, context.ItemCount - 1);
+            for (int i = _first; i <= _last; i++)
             {
-                var r = i < _rects.Count ? _rects[i] : new Rect();
-                Children[i].Arrange(r);
+                var rect = owner._index.Rects[i];
+                context.GetOrCreateElementAt(i).Measure(new Size(rect.Width, rect.Height));
             }
+            return new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, owner._index.TotalHeight);
         }
-        else
+        protected override Size ArrangeOverride(VirtualizingLayoutContext context, Size finalSize)
         {
-            foreach (var child in Children)
-            {
-                if (child is PhotoTile t && _virtualIndex.TryGetValue(t, out var idx))
-                    child.Arrange(idx < _rects.Count ? _rects[idx] : new Rect());
-            }
+            for (int i = _first; i <= _last && i < owner._index.Rects.Count && i < context.ItemCount; i++)
+                context.GetOrCreateElementAt(i).Arrange(owner._index.Rects[i]);
+            return finalSize;
         }
-        return finalSize;
     }
 
-    private void LayoutGrid(double net)
+    /// <summary>稳定键让重排和数据更新保留仍有效的瓦片，避免 Reset 后整屏重新创建。</summary>
+    private sealed class GalleryItems : IReadOnlyList<PhotoItem>, INotifyCollectionChanged, IKeyIndexMapping
     {
-        var (minH, _, maxH) = SizeRange;
-        double g = Gutter;
-        int n = (int)Math.Max(1, Math.Floor((net + g) / (Math.Max(1, minH) + g)));
-        double s = Math.Floor(Math.Clamp((net - (n - 1) * g) / n, minH, maxH));
-        double pitch = s + g;
-
-        double y = 0;
-        for (int i = 0; i < Count; i += n)
+        private PhotoItem[] _items = [];
+        private Dictionary<string, int> _indices = new(StringComparer.Ordinal);
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+        public int Count => _items.Length;
+        public PhotoItem this[int index] => _items[index];
+        public static string Key(PhotoItem item) => item.ImageId > 0 ? $"id:{item.ImageId}" : ImageLoader.Identity(item);
+        public string KeyFromIndex(int index) => Key(_items[index]);
+        public int IndexFromKey(string key) => _indices.TryGetValue(key, out int index) ? index : -1;
+        public void Replace(IReadOnlyList<PhotoItem> items)
         {
-            int k = Math.Min(n, Count - i);
-            double x = 0;
-            for (int j = 0; j < k; j++)
-            {
-                _rects.Add(new Rect(x, y, s, s));
-                x += pitch;
-            }
-            y += pitch;
+            bool sameKeys = _items.Select(Key).SequenceEqual(items.Select(Key));
+            _items = items.ToArray();
+            _indices = _items.Select((item, index) => (Key: Key(item), index)).ToDictionary(p => p.Key, p => p.index, StringComparer.Ordinal);
+            if (!sameKeys) CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
-        _totalHeight = Math.Ceiling((double)Count / n) * pitch;
-    }
-
-    private void LayoutRiver(double net)
-    {
-        var (minH, target, maxH) = SizeRange;
-        double g = Gutter;
-        double targetH = Math.Floor(target);
-        double y = 0;
-        int index = 0;
-
-        while (index < Count)
-        {
-            // 1) 凑行
-            var widths = new List<double>();
-            double acc = 0;
-            int i = index;
-            while (i < Count && acc < net)
-            {
-                double aspect = Math.Clamp(GetAspect(i), 0.56, 3.0);
-                double w = aspect * targetH;
-                widths.Add(w);
-                acc += w + g;
-                i++;
-            }
-
-            int k = widths.Count;
-            bool isLastRow = index + k >= Count;
-            double gutterW = g * (k - 1);
-            double rowRight = widths.Sum() + gutterW;
-            double netRow = rowRight - gutterW;
-            double avail = net - gutterW;
-            double scale;
-
-            if (rowRight > net)
-            {
-                if (k > 1)
-                {
-                    double down = Math.Max(avail / netRow, minH / targetH);
-                    double overflow = rowRight - net;
-                    double lastW = widths[^1];
-                    if (overflow > (lastW - overflow) || down * netRow > avail)
-                    {
-                        // 丢掉最后一张，改为放大
-                        widths.RemoveAt(widths.Count - 1);
-                        k--;
-                        isLastRow = index + k >= Count;
-                        gutterW = g * (k - 1);
-                        netRow = widths.Sum();
-                        avail = net - gutterW;
-                        scale = isLastRow ? Math.Min(avail / netRow, 1.0) : Math.Min(avail / netRow, maxH / targetH);
-                    }
-                    else
-                    {
-                        scale = down;
-                    }
-                }
-                else
-                {
-                    scale = Math.Max(avail / netRow, minH / targetH);
-                }
-            }
-            else
-            {
-                scale = isLastRow ? Math.Min(avail / netRow, 1.0) : Math.Min(avail / netRow, maxH / targetH);
-            }
-
-            double itemH = Math.Floor(targetH * scale);
-            double x = 0;
-            for (int j = 0; j < widths.Count; j++)
-            {
-                double itemW = widths[j] * scale;
-                _rects.Add(new Rect(x, y, itemW, itemH));
-                x += itemW + g;
-            }
-            y += itemH + g;
-            index += widths.Count;
-        }
-
-        _totalHeight = y;
-    }
-
-    private double GetAspect(int index)
-        => _virtualAspects is not null
-            ? (_virtualAspects[index])
-            : Children[index] is PhotoTile tile ? tile.Item.AspectRatio : 1.0;
-
-    public int FirstVisibleIndex(double offset)
-    {
-        for (int i = 0; i < _rects.Count; i++)
-            if (_rects[i].Bottom > offset) return i;
-        return Math.Max(0, _rects.Count - 1);
-    }
-
-    public double TopOfIndex(int index)
-        => index >= 0 && index < _rects.Count ? _rects[index].Top : 0;
-
-    /// <summary>虚拟模式：视口 ± buffer 内的数据索引区间（按 Rects 线性扫描，原型足够）。</summary>
-    public (int First, int Last) VisibleRange(double offset, double viewportHeight, double buffer)
-    {
-        if (_rects.Count == 0) return (0, -1);
-        double top = Math.Max(0, offset - buffer);
-        double bottom = offset + viewportHeight + buffer;
-        int first = -1, last = -1;
-        for (int i = 0; i < _rects.Count; i++)
-        {
-            if (_rects[i].Bottom < top) continue;
-            if (_rects[i].Top > bottom) break;
-            if (first < 0) first = i;
-            last = i;
-        }
-        return first < 0 ? (0, -1) : (first, last);
+        public IEnumerator<PhotoItem> GetEnumerator() => ((IEnumerable<PhotoItem>)_items).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

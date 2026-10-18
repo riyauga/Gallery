@@ -1,4 +1,4 @@
-using Microsoft.UI.Input;
+﻿using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -31,6 +31,7 @@ public sealed partial class GalleryPage : UserControl
     private string _sortKey = "taken";                   // 真实数据路径（galleryold 键）
     private bool _ascending = false;
     private FilterKind _filter = FilterKind.All;
+    private Controls.FilterPanel _filterPanel = null!;
     private string _query = string.Empty;
     private int? _dirRootId;                             // 目录树选择（null=全部）
     private string? _dirRel;
@@ -41,6 +42,7 @@ public sealed partial class GalleryPage : UserControl
     private double _anchorDelta;
     private bool? _lastTimelineVisible;
     private bool? _lastDefaultBar;
+    private bool _rebuildPending = true;
 
     public event Action<string>? ToastRequested;
     public event Action<string, Gallery.Controls.ToastKind, string?>? ToastKindRequested = null!;
@@ -51,9 +53,14 @@ public sealed partial class GalleryPage : UserControl
     public sealed record PreviewRequest(
         PhotoItem Item, IReadOnlyList<PhotoItem> Items,
         Windows.Foundation.Rect SourceRect, bool FullyVisible,
-        Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect);
+        Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect,
+        Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null);
     public event Action<PreviewRequest>? PreviewRequested;
     public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
+    public event Action? TagsEdited;
+
+    /// <summary>当前结果集快照（查看器翻页/标签刷新共用）。</summary>
+    public IReadOnlyList<PhotoItem> CurrentItems => _items;
     public UIElement FocusAnchor => Root;
 
     public GalleryPage(Library library)
@@ -75,6 +82,21 @@ public sealed partial class GalleryPage : UserControl
             _ => SortKey.DateTaken,
         };
         InitializeComponent();
+        Panel.TileTemplate = (DataTemplate)Resources["PhotoTileTemplate"];
+        Panel.TilePrepared += tile => WireTile(tile, tile.Item);
+        Panel.ViewportInvalidated += ScheduleViewport;
+        Panel.LayoutReady += OnLayoutReady;
+        ImageLoader.WorkCompleted += ScheduleViewport;
+        _filterPanel = new Controls.FilterPanel();
+        if (FilterButton.Flyout is Flyout filterFlyout) filterFlyout.Content = _filterPanel.Root;
+        _filterPanel.Media = _filter switch
+        {
+            FilterKind.Photos => Controls.FilterPanel.MediaKind.Photos,
+            FilterKind.Videos => Controls.FilterPanel.MediaKind.Videos,
+            _ => Controls.FilterPanel.MediaKind.All,
+        };
+        _filterPanel.SyncSubfolder(AppService.Settings.Settings.recursive, true);
+        _filterPanel.Changed += ApplyFilterPanel;
 
         // 布局与尺寸从配置恢复（galleryold 键：gallery_mode = justified|square，thumbbar_size = 目标行高）
         Panel.Mode = AppService.Settings.Settings.gallery_mode == "square"
@@ -88,7 +110,7 @@ public sealed partial class GalleryPage : UserControl
             _anchorIndex = Panel.FirstVisibleIndex(Scroller.VerticalOffset);
             _anchorDelta = Panel.TopOfIndex(_anchorIndex) - Scroller.VerticalOffset;
             UpdateDateHeader();
-            if (Panel.IsVirtual) ReconcileViewport();
+            ScheduleViewport();
         };
 
         Scroller.SizeChanged += (_, e) =>
@@ -97,20 +119,14 @@ public sealed partial class GalleryPage : UserControl
             if (_items.Count == 0) return;
             if (Math.Abs(e.NewSize.Width - _lastWidth) < 0.5) return;
             _lastWidth = e.NewSize.Width;
-            int index = _anchorIndex;
-            double delta = _anchorDelta;
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                Panel.InvalidateMeasure();
-                Scroller.UpdateLayout();
-                Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
-            });
+            SaveAnchor();
+            Panel.InvalidateMeasure();
         };
 
         Loaded += (_, _) =>
         {
             _lastWidth = Scroller.ActualWidth;
-            Rebuild();
+            if (_rebuildPending) RebuildKeepScroll();
         };
 
         Panel.SizeChanged += (_, _) =>
@@ -183,14 +199,16 @@ public sealed partial class GalleryPage : UserControl
     public void SetSearch(string query)
     {
         _query = (query ?? string.Empty).Trim();
+        _rebuildPending = true;
         _searchTimer.Stop();
         _searchTimer.Start();
     }
 
     public void SetMode(bool favorites)
     {
-        if (_favoritesMode == favorites && _items.Count > 0) return;
+        if (_favoritesMode == favorites) return;
         _favoritesMode = favorites;
+        _rebuildPending = true;
         _selected.Clear();
         if (!IsLoaded) return;
         _ = FadeSwapAsync();
@@ -243,74 +261,88 @@ public sealed partial class GalleryPage : UserControl
         return src;
     }
 
+    private long _queryVersion;
+    private readonly SemaphoreSlim _queryGate = new(1, 1);
+    public long QueryCount { get; private set; }
+    public Task QueryCompletion { get; private set; } = Task.CompletedTask;
+
     private void Rebuild()
     {
-        _items.Clear();
-        _items.AddRange(BuildSource());
-        _selected.Clear();
-
-        // 批次 1：真实数据（库就绪）走虚拟化 + Query；manifest 示例图保持原路径
-        bool virtualMode = AppService.DbReady && AppService.Store is not null;
+        _rebuildPending = false;
         SyncSortMenuChecks();
-        if (virtualMode)
+        long version = ++_queryVersion;
+        if (!AppService.DbReady || AppService.Store is null)
         {
-            _items.Clear();
-            _items.AddRange(LoadRealItems());
+            ApplyItems(BuildSource().ToList());
+            return;
         }
+        var spec = new StoreService.QuerySpec
+        {
+            RootId = _dirRootId, DirRel = _dirRel,
+            Recursive = AppService.Settings.Settings.recursive,
+            FavoritesOnly = _favoritesMode, Search = _query, Sort = _sortKey, Desc = !_ascending,
+            TagIds = _filterPanel.Include.Select(x => x.Id).ToList(),
+            ExcludedTagIds = _filterPanel.Exclude.Select(x => x.Id).ToList(),
+            TagMode = _filterPanel.Mode, Untagged = _filterPanel.UntaggedOnly,
+            HideNsfw = AppService.Settings.Settings.nsfw_display == "hide",
+        };
+        QueryCompletion = QueryAsync(AppService.Store.DbPath, spec, _sortKey, _filter == FilterKind.Videos, version);
+    }
 
-        _selected.Clear();
-        if (virtualMode)
+    // 每次后台查询独占自己的只读连接；排队的旧版本在打开连接前退出。
+    private async Task QueryAsync(string path, StoreService.QuerySpec spec, string sortKey, bool videos, long version)
+    {
+        await _queryGate.WaitAsync();
+        try
         {
-            Panel.SetVirtualSource(_items.Select(i => i.AspectRatio).ToList());
-            Panel.InvalidateMeasure();
-            Scroller.UpdateLayout();
-            Scroller.ChangeView(null, 0, null, true);
-            ReconcileViewport();
-        }
-        else
-        {
-            Panel.ClearVirtualSource();
-            Panel.Children.Clear();
-            foreach (var item in _items)
+            if (version != _queryVersion) return;
+            QueryCount++;
+            var items = await Task.Run(() =>
             {
-                var tile = new PhotoTile(item);
-                WireTile(tile, item);
-                Panel.Children.Add(tile);
-            }
-            Panel.InvalidateMeasure();
-            Scroller.UpdateLayout();
-            Scroller.ChangeView(null, 0, null, true);
+                using var store = new StoreService(path, readOnly: true);
+                return videos ? new List<PhotoItem>() : MapRows(store.Query(spec), store.FavoriteIds(), sortKey);
+            });
+            if (version != _queryVersion) return;
+            if (!_active) { _rebuildPending = true; return; }
+            ApplyItems(items);
         }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or InvalidDataException)
+        {
+            if (version == _queryVersion) SendToast("图库读取失败", ToastKind.Pending, ex.Message);
+        }
+        finally { _queryGate.Release(); }
+    }
 
+    private static bool SameItem(PhotoItem a, PhotoItem b) =>
+        (a.ImageId, a.FullPath, a.PixelWidth, a.PixelHeight, a.Date, a.ModifiedAtUnix, a.FileSize, a.Favorite,
+         a.RootId, a.DirRel, a.RelPath, a.TakenAtUnix, a.CreatedAtUnix, a.Rating, a.Nsfw, a.PageUrl, a.SourceUrl, a.Missing) ==
+        (b.ImageId, b.FullPath, b.PixelWidth, b.PixelHeight, b.Date, b.ModifiedAtUnix, b.FileSize, b.Favorite,
+         b.RootId, b.DirRel, b.RelPath, b.TakenAtUnix, b.CreatedAtUnix, b.Rating, b.Nsfw, b.PageUrl, b.SourceUrl, b.Missing)
+        && a.Tags.SequenceEqual(b.Tags);
+    private static string ItemKey(PhotoItem item) => item.ImageId > 0 ? $"id:{item.ImageId}" : ImageLoader.Identity(item);
+    private void ApplyItems(List<PhotoItem> items)
+    {
+        var previous = _items.ToDictionary(ItemKey);
+        for (int i = 0; i < items.Count; i++)
+            if (previous.TryGetValue(ItemKey(items[i]), out var old) && SameItem(old, items[i])) items[i] = old;
+        SaveAnchor();
+        _items.Clear(); _items.AddRange(items);
+        _selected.IntersectWith(_items.Select(SelectionId));
+        Panel.SetItems(_items);
+        if (_items.Count == 0) ImageLoader.SetViewport([], []);
+        ScheduleViewport();
         Timeline.IsAscending = _ascending;
-        UpdateScrollbarType();
-        Timeline.Attach(Scroller, _items, Panel);
-        UpdateDateHeader();
-        UpdateHeader();
-        UpdateEmptyState();
+        UpdateScrollbarType(); Timeline.Attach(Scroller, _items, Panel);
+        UpdateDateHeader(); UpdateHeader(); UpdateEmptyState();
         ItemsChanged?.Invoke(_items.ToArray());
     }
 
-    /// <summary>批次 1：真实数据走 StoreService.Query（目录/收藏/搜索/8 键排序）。</summary>
-    private IEnumerable<PhotoItem> LoadRealItems()
+    private static List<PhotoItem> MapRows(IEnumerable<ImageRow> rows, HashSet<int> favorites, string sortKey)
     {
-        var store = AppService.Store;
-        if (store is null) yield break;
-        var rows = store.Query(new StoreService.QuerySpec
-        {
-            RootId = _dirRootId,
-            DirRel = _dirRel,
-            Recursive = AppService.Settings.Settings.recursive,
-            FavoritesOnly = _favoritesMode,
-            Search = _query,
-            Sort = _sortKey,
-            Desc = !_ascending,
-        });
-        var favorites = store.FavoriteIds();
+        var result = new List<PhotoItem>();
         foreach (var row in rows)
         {
-            if (_filter == FilterKind.Videos) yield break;
-            double timestamp = _sortKey switch
+            double timestamp = sortKey switch
             {
                 "modified" => row.Mtime,
                 "created" => row.Ctime ?? row.Mtime,
@@ -318,7 +350,7 @@ public sealed partial class GalleryPage : UserControl
                 _ => row.TakenAt ?? row.Mtime,
             };
             DateTime date = DateTime.UnixEpoch.AddSeconds(timestamp).ToLocalTime();
-            yield return new PhotoItem
+            result.Add(new PhotoItem
             {
                 File = row.Name,
                 FullPath = row.AbsPath,
@@ -338,16 +370,20 @@ public sealed partial class GalleryPage : UserControl
                 FileSize = row.Size,
                 PageUrl = row.PageUrl,
                 SourceUrl = row.SourceUrl,
+                Missing = row.Missing,
                 Tags = row.Tags,
-            };
+            });
         }
+        return result;
     }
 
     /// <summary>目录树选择（null = 全部图库）。</summary>
     public void SetDirectory(int? rootId, string? dirRel)
     {
+        if (_dirRootId == rootId && string.Equals(_dirRel ?? "", dirRel ?? "", StringComparison.Ordinal)) return;
         _dirRootId = rootId;
         _dirRel = dirRel;
+        _rebuildPending = true;
         // photos 的页头标题就是当前集合名：根目录 = 根文件夹名，子目录 = 最后一段目录名
         _dirTitle = ResolveDirectoryTitle(rootId, dirRel);
         if (IsLoaded) Rebuild();
@@ -373,11 +409,13 @@ public sealed partial class GalleryPage : UserControl
 
     private void WireTile(PhotoTile tile, PhotoItem item)
     {
-        tile.Tapped += OnTileTapped;
-        tile.RightTapped += OnTileRightTapped;
-        FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(item));
         tile.SelectMode = _selectMode;
         tile.Selected = _selected.Contains(SelectionId(item));
+        if (tile.EventsWired) return;
+        tile.EventsWired = true;
+        tile.ThumbnailInvalidated += ScheduleViewport;
+        tile.Tapped += OnTileTapped;
+        tile.RightTapped += OnTileRightTapped;
 
         // 拖拽外发（galleryold drag_out）：按下起手、位移超阈值发起；
         // 拖已选中图 = 拖整个选区；Windows 标记复制语义（不搬移）。
@@ -397,6 +435,27 @@ public sealed partial class GalleryPage : UserControl
             await StartDragOutAsync(tile, e.GetCurrentPoint(tile));
         };
         tile.PointerReleased += (_, _) => dragStart = null;
+        tile.PointerCanceled += (_, _) => dragStart = null;
+        tile.PointerCaptureLost += (_, _) => dragStart = null;
+        tile.Unloaded += (_, _) => dragStart = null;
+    }
+
+    /// <summary>
+    /// 模糊保护模式下，含敏感分级的图不允许拖出（拖到资源管理器就等于绕过遮罩）。
+    /// 抽成静态方法便于 --verify-drag-guard 直接验逻辑。
+    /// </summary>
+    internal static bool IsBlurBlocked(IReadOnlyList<PhotoItem> items, out string message)
+    {
+        message = "";
+        if (AppService.Settings?.Settings.nsfw_display != "blur") return false;
+        var blocked = items
+            .Where(it => it.NeedsProtection)
+            .Select(it => it.Name)
+            .ToList();
+        if (blocked.Count == 0) return false;
+        message = $"敏感内容已模糊，不能拖出：{blocked[0]}" +
+            (blocked.Count > 1 ? $" 等 {blocked.Count} 张" : "");
+        return true;
     }
 
     /// <summary>拖拽外发：文件 URI 交给系统（CF_HDROP），复制语义防同盘搬移。</summary>
@@ -425,8 +484,14 @@ public sealed partial class GalleryPage : UserControl
 
         var dp = new Windows.ApplicationModel.DataTransfer.DataPackage
         { RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy };
+        // 模糊保护中拒绝拖出：拖出到资源管理器等于绕过遮罩看到原图
+        if (IsBlurBlocked(items, out var blockedMessage))
+        {
+            SendToast(blockedMessage, Gallery.Controls.ToastKind.Pending);
+            return;
+        }
+
         dp.SetStorageItems(storageFiles);
-        // NSFW 模糊保护中拒绝拖出：nsfw 分级数据在批次 3 接入后补判断（nsfw_display=blur 时）
         await tile.StartDragAsync(start);
     }
 
@@ -434,37 +499,76 @@ public sealed partial class GalleryPage : UserControl
     /// 虚拟化视口对账：视口 ± 缓冲区内的索引才有瓦片，其余回收。
     /// 选中/事件按数据索引走，不依赖控件实例存活。
     /// </summary>
+    private bool _viewportQueued;
+    private string? _restoreAnchor;
+    private double _restoreDelta;
+    private bool _active = true;
+
+    private void ScheduleViewport()
+    {
+        if (_viewportQueued || !_active) return;
+        _viewportQueued = true;
+        DispatcherQueue.TryEnqueue(() => { _viewportQueued = false; if (_active) ReconcileViewport(); });
+    }
+    private void OnLayoutReady()
+    {
+        if (_restoreAnchor is not null)
+        {
+            int index = _items.FindIndex(i => ItemKey(i) == _restoreAnchor);
+            if (index >= 0)
+            {
+                double offset = Math.Max(0, Panel.TopOfIndex(index) - _restoreDelta);
+                DispatcherQueue.TryEnqueue(() => { Scroller.UpdateLayout(); Scroller.ChangeView(null, offset, null, true); });
+            }
+            _restoreAnchor = null;
+        }
+        Timeline.Refresh();
+        UpdateScrollbarType();
+        ScheduleViewport();
+    }
+    private void SaveAnchor()
+    {
+        if (_items.Count == 0) return;
+        int index = Math.Clamp(Panel.FirstVisibleIndex(Scroller.VerticalOffset), 0, _items.Count - 1);
+        _restoreAnchor = ItemKey(_items[index]);
+        _restoreDelta = Panel.TopOfIndex(index) - Scroller.VerticalOffset;
+    }
+    public void SetActive(bool active)
+    {
+        _active = active;
+        ImageLoader.SetGalleryActive(active);
+        if (!active) return;
+        RefreshTileBindings();
+        if (_rebuildPending) RebuildKeepScroll();
+        else ScheduleViewport();
+    }
+    private void RefreshTileBindings()
+    {
+        foreach (var tile in Panel.Children)
+        {
+            tile.Bind(tile.Item);
+            WireTile(tile, tile.Item);
+        }
+        ScheduleViewport();
+    }
     private void ReconcileViewport()
     {
-        if (!Panel.IsVirtual) return;
-        double vh = Scroller.ViewportHeight;
-        if (vh <= 0) vh = Scroller.ActualHeight;
-        if (vh <= 0) return;
-        var (first, last) = Panel.VisibleRange(Scroller.VerticalOffset, vh, 800);
-        var byIndex = new Dictionary<int, PhotoTile>();
-        foreach (var child in Panel.Children.OfType<PhotoTile>())
+        if (!_active || _items.Count == 0) return;
+        double height = Scroller.ViewportHeight > 0 ? Scroller.ViewportHeight : Scroller.ActualHeight;
+        if (height <= 0) return;
+        var visible = Panel.VisibleRange(Scroller.VerticalOffset, height, 0);
+        var nearby = Panel.VisibleRange(Scroller.VerticalOffset, height, height);
+        var current = _items.Skip(visible.First).Take(Math.Max(0, visible.Last - visible.First + 1));
+        var desired = _items.Skip(nearby.First).Take(Math.Max(0, nearby.Last - nearby.First + 1));
+        ImageLoader.SetViewport(current, desired);
+        double dpi = XamlRoot?.RasterizationScale ?? 1;
+        foreach (var tile in Panel.Children)
         {
-            var idx = Panel.IndexOfTile(child);
-            if (idx >= 0) byIndex[idx] = child;
-        }
-
-        for (int i = first; i <= last && i < _items.Count; i++)
-        {
-            if (byIndex.TryGetValue(i, out var existing))
-            {
-                byIndex.Remove(i);
-                continue;
-            }
-            var tile = new PhotoTile(_items[i]);
-            WireTile(tile, _items[i]);
-            Panel.PlaceTile(tile, i);
-        }
-
-        // 视口外的回收：置 Detached（取消在途异步贴图）后移出面板
-        foreach (var stale in byIndex.Values)
-        {
-            stale.Detached = true;
-            Panel.RemoveTile(stale);
+            int index = Panel.IndexOfTile(tile);
+            if (index < 0 || index >= Panel.Rects.Count) continue;
+            var rect = Panel.Rects[index];
+            tile.RequestThumbnail(Math.Max(rect.Width, rect.Height) * dpi,
+                index >= visible.First && index <= visible.Last ? ImagePriority.Visible : ImagePriority.Prefetch);
         }
     }
 
@@ -526,7 +630,9 @@ public sealed partial class GalleryPage : UserControl
     /// <summary>扫描或监听完成后重取当前查询，保留仍在结果中的图片 ID 选区。</summary>
     public void RefreshFromStore()
     {
-        if (!IsLoaded) return;
+        _rebuildPending = true;
+        RefreshTileBindings();
+        if (!IsLoaded || !_active) return;
         var selection = _selected.ToArray();
         RebuildKeepScroll();
         _selected.UnionWith(selection);
@@ -604,11 +710,24 @@ public sealed partial class GalleryPage : UserControl
         return TransparentBrush;
     }
 
+    /// <summary>筛选面板变化：媒体类型/标签全部立刻生效（Photos 即时筛选）。</summary>
+    private void ApplyFilterPanel()
+    {
+        _filter = _filterPanel.Media switch
+        {
+            Controls.FilterPanel.MediaKind.Photos => FilterKind.Photos,
+            Controls.FilterPanel.MediaKind.Videos => FilterKind.Videos,
+            _ => FilterKind.All,
+        };
+        if (AppService.Settings.Settings.recursive != _filterPanel.Subfolder)
+        {
+            AppService.Settings.Settings.recursive = _filterPanel.Subfolder;
+            AppService.Settings.Save();
+        }
+        Rebuild();
+    }
     private void SyncFilterMenuChecks()
     {
-        FilterAll.IsChecked = _filter == FilterKind.All;
-        FilterPhotos.IsChecked = _filter == FilterKind.Photos;
-        FilterVideos.IsChecked = _filter == FilterKind.Videos;
     }
 
     private void SyncLayoutMenuChecks()
@@ -627,13 +746,7 @@ public sealed partial class GalleryPage : UserControl
     private void SyncSubfolderMenuChecks()
     {
         bool inFolder = _dirRootId is not null || !string.IsNullOrEmpty(_dirRel);
-        var vis = inFolder ? Visibility.Visible : Visibility.Collapsed;
-        SubfolderContentSeparator.Visibility = vis;
-        ShowSubfolderContentItem.Visibility = vis;
-        HideSubfolderContentItem.Visibility = vis;
-        bool recursive = AppService.Settings.Settings.recursive;
-        ShowSubfolderContentItem.IsChecked = recursive;
-        HideSubfolderContentItem.IsChecked = !recursive;
+        _filterPanel.SyncSubfolder(AppService.Settings.Settings.recursive, inFolder);
     }
 
     private static bool IsCtrlDown()
@@ -642,7 +755,7 @@ public sealed partial class GalleryPage : UserControl
 
     /// <summary>
     /// 文件操作快捷键（galleryold）：Delete 删除 / F2 重命名 / F3 资源管理器 /
-    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Ctrl+E 编辑标签（批次 3）/ Enter 打开详情。
+    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Ctrl+E 编辑标签 / Enter 打开详情。
     /// </summary>
     private async void FileOps_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -679,7 +792,25 @@ public sealed partial class GalleryPage : UserControl
                 e.Handled = true;
                 await CopyImageToClipboardAsync(first);
                 break;
+            case VirtualKey.E when ctrl:
+                e.Handled = true;
+                await EditTagsAsync(SelectedItems().ToList());
+                break;
         }
+    }
+
+    /// <summary>标签编辑器（批次 3）：Photos 弹窗形态，单图/多图共用；保存后刷新标签与卡片徽章。</summary>
+    public async System.Threading.Tasks.Task EditTagsAsync(IReadOnlyList<PhotoItem> items)
+    {
+        if (items.Count == 0 || XamlRoot is null) return;
+        if (AppService.Store is null) { SendToast("数据库未就绪", Gallery.Controls.ToastKind.Pending, null); return; }
+
+        bool saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, items);
+        if (!saved) return;
+
+        SendToast(items.Count == 1 ? "标签已保存" : $"已保存 {items.Count} 张的标签", Gallery.Controls.ToastKind.Success);
+        RefreshFromStore();
+        TagsEdited?.Invoke();
     }
 
     private List<string> SelectedPaths()
@@ -722,10 +853,35 @@ public sealed partial class GalleryPage : UserControl
         return (rect, fully);
     }
 
+    /// <summary>
+    /// 外部按绝对路径定位并打开查看器（浏览器扩展的「在图库中查看」走这里）。
+    /// 命中返回 true；文件还没被收录返回 false。
+    /// </summary>
+    public bool RevealPath(string absPath)
+    {
+        if (absPath.Length == 0 || _items.Count == 0) return false;
+        var target = absPath.Replace('/', '\\');
+        var index = -1;
+        for (var i = 0; i < _items.Count; i++)
+        {
+            if (string.Equals(_items[i].FullPath.Replace('/', '\\'), target, StringComparison.OrdinalIgnoreCase))
+            {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) return false;
+
+        var item = _items[index];
+        PreviewRequested?.Invoke(new PreviewRequest(
+            item, _items.ToArray(), default, true, ResolveSourceRect));
+        return true;
+    }
+
     private void OpenPreview(PhotoTile tile)
     {
         var (rect, fully) = TileFlightRect(tile) ?? (default, false);
-        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, ResolveSourceRect));
+        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, ResolveSourceRect, tile.PreviewThumbnail));
     }
 
     private Windows.Foundation.Rect? ResolveSourceRect(PhotoItem item)
@@ -754,6 +910,7 @@ public sealed partial class GalleryPage : UserControl
 
         // photos/galleryold：右键菜单在鼠标指针处弹出（ShowAttachedFlyout 会锚到整个瓦片）
         var position = e.GetPosition(tile);
+        FlyoutBase.SetAttachedFlyout(tile, BuildContextMenu(tile.Item));
         DispatcherQueue.TryEnqueue(() =>
         {
             if (FlyoutBase.GetAttachedFlyout(tile) is MenuFlyout flyout)
@@ -782,6 +939,8 @@ public sealed partial class GalleryPage : UserControl
                 Gallery.Controls.ToastKind.Success, null);
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(Item("编辑标签", "\uE8EC", () => _ = EditTagsAsync(new[] { item })));
+        menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
         menu.Items.Add(Item("复制为路径", "\uE71B", () =>
         {
@@ -797,6 +956,30 @@ public sealed partial class GalleryPage : UserControl
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
         }));
         menu.Items.Add(Item("重命名", "\uE8AC", () => _ = RenameAsync(item)));
+        menu.Items.Add(new MenuFlyoutSeparator());
+
+        // 手动标分级：模型接入前的兜底（g/s/q/e 对齐 danbooru 四级，q/e 算敏感）
+        var ratingMenu = new MenuFlyoutSubItem { Text = "标记分级" };
+        foreach (var pair in new[]
+                 {
+                     ("g", "安全 g"), ("s", "敏感 s"), ("q", "可疑 q"), ("e", "露骨 e"),
+                 })
+        {
+            var rating = pair.Item1;
+            var mark = new MenuFlyoutItem { Text = pair.Item2 };
+            mark.Click += (_, _) =>
+            {
+                if (item.ImageId <= 0) return;
+                lock (AppService.DbLock)
+                    AppService.Store!.SetNsfwScore(item.ImageId, "manual", rating, tagIt: true);
+                item.Nsfw = rating;
+                Rebuild();
+                ToastKindRequested?.Invoke($"已标记为 {rating}",
+                    Gallery.Controls.ToastKind.Success, null);
+            };
+            ratingMenu.Items.Add(mark);
+        }
+        menu.Items.Add(ratingMenu);
         menu.Items.Add(new MenuFlyoutSeparator());
         var delete = Item("删除", "\uE74D", () => _ = DeleteAsync(
             includeOpen && _selected.Contains(SelectionId(item)) ? SelectedIds() : new[] { item.ImageId }));
@@ -846,7 +1029,7 @@ public sealed partial class GalleryPage : UserControl
             new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4));
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
 
-        var (done, errors) = await System.Threading.Tasks.Task.Run(() =>
+        var (done, errors) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)
                 return FileActions.DeleteImages(AppService.Store!, ids);
@@ -875,7 +1058,7 @@ public sealed partial class GalleryPage : UserControl
         if (result != ContentDialogResult.Primary) return;
         var newName = input.Text.Trim();
         if (newName.Length == 0 || newName == stem) return;
-        var (ok, error) = await System.Threading.Tasks.Task.Run(() =>
+        var (ok, error) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)
                 return FileActions.RenameImage(AppService.Store!, item.ImageId, newName);
@@ -930,7 +1113,7 @@ public sealed partial class GalleryPage : UserControl
             if (result == ContentDialogResult.None) return;
             move = result == ContentDialogResult.Primary;
         }
-        var (count, firstError) = await System.Threading.Tasks.Task.Run(() =>
+        var (count, firstError) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)
             {
@@ -1144,9 +1327,6 @@ public sealed partial class GalleryPage : UserControl
         SortDesc.IsChecked = !_ascending;
     }
 
-    private void FilterAll_Click(object sender, RoutedEventArgs e) => ApplyFilter(FilterKind.All);
-    private void FilterPhotos_Click(object sender, RoutedEventArgs e) => ApplyFilter(FilterKind.Photos);
-    private void FilterVideos_Click(object sender, RoutedEventArgs e) => ApplyFilter(FilterKind.Videos);
 
     private void ApplyFilter(FilterKind kind)
     {
@@ -1191,36 +1371,34 @@ public sealed partial class GalleryPage : UserControl
 
     private void ApplyLayout(GalleryLayoutMode mode)
     {
-        int index = _anchorIndex;
-        double delta = _anchorDelta;
+        SaveAnchor();
         Panel.Mode = mode;
         LayoutIcon.Glyph = mode == GalleryLayoutMode.Grid ? "\uE8A9" : "\uECA5";
         PersistLayout();
         Panel.InvalidateMeasure();
-        Scroller.UpdateLayout();
-        Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
         Timeline.Refresh();
         SyncLayoutMenuChecks();
     }
 
     private void ApplySize(ThumbnailSize size)
     {
-        int index = _anchorIndex;
-        double delta = _anchorDelta;
+        SaveAnchor();
         Panel.Size = size;
         PersistLayout();
         Panel.InvalidateMeasure();
-        Scroller.UpdateLayout();
-        Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
         SyncLayoutMenuChecks();
     }
 
-    private void RebuildKeepScroll()
+    private void RebuildKeepScroll() => Rebuild();
+    private readonly HashSet<Task> _fileOperations = [];
+
+    private async Task<T> RunFileOperationAsync<T>(Func<T> operation)
     {
-        int index = _anchorIndex;
-        double delta = _anchorDelta;
-        Rebuild();
-        Scroller.UpdateLayout();
-        Scroller.ChangeView(null, Math.Max(0, Panel.TopOfIndex(index) - delta), null, true);
+        var task = Task.Run(operation);
+        _fileOperations.Add(task);
+        try { return await task; }
+        finally { _fileOperations.Remove(task); }
     }
+
+    public Task DrainFileOperationsAsync() => Task.WhenAll(_fileOperations.ToArray());
 }

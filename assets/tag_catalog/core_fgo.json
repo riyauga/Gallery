@@ -1,0 +1,1037 @@
+{
+  "source": {
+    "id": "fategrandorder-wiki",
+    "url": "https://fategrandorder.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Servants": 10,
+      "Characters": 100,
+      "Enemies": 0
+    }
+  },
+  "games": [
+    {
+      "key": "fgo",
+      "zh": "Fate/Grand Order",
+      "en": "Fate/Grand Order",
+      "source_url": "https://fategrandorder.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "fategrandorder:page:344416",
+      "game": "fgo",
+      "zh": "",
+      "en": "Akuta Hinako",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Akuta_Hinako",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629998,
+      "source_title": "Akuta Hinako"
+    },
+    {
+      "key": "fategrandorder:page:41606",
+      "game": "fgo",
+      "zh": "",
+      "en": "Alignments",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Alignments",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1607953,
+      "source_title": "Alignments"
+    },
+    {
+      "key": "fategrandorder:page:591814",
+      "game": "fgo",
+      "zh": "",
+      "en": "Alternate Names",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Alternate_Names",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1394061,
+      "source_title": "Alternate Names"
+    },
+    {
+      "key": "fategrandorder:page:489204",
+      "game": "fgo",
+      "zh": "",
+      "en": "Archer of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Archer_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574327,
+      "source_title": "Archer of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:492248",
+      "game": "fgo",
+      "zh": "",
+      "en": "Ares",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Ares",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629678,
+      "source_title": "Ares"
+    },
+    {
+      "key": "fategrandorder:page:836",
+      "game": "fgo",
+      "zh": "",
+      "en": "Ascension",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Ascension",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1348563,
+      "source_title": "Ascension"
+    },
+    {
+      "key": "fategrandorder:page:489064",
+      "game": "fgo",
+      "zh": "",
+      "en": "Assassin of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Assassin_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574328,
+      "source_title": "Assassin of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:1266",
+      "game": "fgo",
+      "zh": "",
+      "en": "Attributes",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Attributes",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1607165,
+      "source_title": "Attributes"
+    },
+    {
+      "key": "fategrandorder:page:488994",
+      "game": "fgo",
+      "zh": "",
+      "en": "Berserker of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Berserker_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574323,
+      "source_title": "Berserker of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:566616",
+      "game": "fgo",
+      "zh": "",
+      "en": "Beryl Gut",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Beryl_Gut",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629663,
+      "source_title": "Beryl Gut"
+    },
+    {
+      "key": "fategrandorder:page:489226",
+      "game": "fgo",
+      "zh": "",
+      "en": "Caster of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Caster_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574330,
+      "source_title": "Caster of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:635260",
+      "game": "fgo",
+      "zh": "",
+      "en": "Cerejeira Elron",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Cerejeira_Elron",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629258,
+      "source_title": "Cerejeira Elron"
+    },
+    {
+      "key": "fategrandorder:page:617935",
+      "game": "fgo",
+      "zh": "",
+      "en": "Class Score",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Class_Score",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1600966,
+      "source_title": "Class Score"
+    },
+    {
+      "key": "fategrandorder:page:420066",
+      "game": "fgo",
+      "zh": "",
+      "en": "Command Card Strengthening",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Command_Card_Strengthening",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1594750,
+      "source_title": "Command Card Strengthening"
+    },
+    {
+      "key": "fategrandorder:page:3136",
+      "game": "fgo",
+      "zh": "",
+      "en": "Command Cards",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Command_Cards",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1601969,
+      "source_title": "Command Cards"
+    },
+    {
+      "key": "fategrandorder:page:297028",
+      "game": "fgo",
+      "zh": "",
+      "en": "Command Code",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Command_Code",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1634373,
+      "source_title": "Command Code"
+    },
+    {
+      "key": "fategrandorder:page:1023",
+      "game": "fgo",
+      "zh": "",
+      "en": "Cost",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Cost",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1636793,
+      "source_title": "Cost"
+    },
+    {
+      "key": "fategrandorder:page:127589",
+      "game": "fgo",
+      "zh": "",
+      "en": "Costume Dress",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Costume_Dress",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1302250,
+      "source_title": "Costume Dress"
+    },
+    {
+      "key": "fategrandorder:page:585857",
+      "game": "fgo",
+      "zh": "",
+      "en": "Daybit Sem Void",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Daybit_Sem_Void",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1630000,
+      "source_title": "Daybit Sem Void"
+    },
+    {
+      "key": "fategrandorder:page:622716",
+      "game": "fgo",
+      "zh": "",
+      "en": "Dumuzid",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Dumuzid",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1638370,
+      "source_title": "Dumuzid"
+    },
+    {
+      "key": "fategrandorder:page:160879",
+      "game": "fgo",
+      "zh": "",
+      "en": "Event Reward",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Event_Reward",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1634412,
+      "source_title": "Event Reward"
+    },
+    {
+      "key": "fategrandorder:page:621949",
+      "game": "fgo",
+      "zh": "",
+      "en": "Evocation Festival",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Evocation_Festival",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1620823,
+      "source_title": "Evocation Festival"
+    },
+    {
+      "key": "fategrandorder:page:614481",
+      "game": "fgo",
+      "zh": "",
+      "en": "Evocation Leaf",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Evocation_Leaf",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1354544,
+      "source_title": "Evocation Leaf"
+    },
+    {
+      "key": "fategrandorder:page:66172",
+      "game": "fgo",
+      "zh": "",
+      "en": "Fou",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Fou",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1655523,
+      "source_title": "Fou"
+    },
+    {
+      "key": "fategrandorder:page:66165",
+      "game": "fgo",
+      "zh": "",
+      "en": "Fujimaru Ritsuka",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Fujimaru_Ritsuka",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1651836,
+      "source_title": "Fujimaru Ritsuka"
+    },
+    {
+      "key": "fategrandorder:page:621979",
+      "game": "fgo",
+      "zh": "",
+      "en": "Goredolf Musik",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Goredolf_Musik",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1653989,
+      "source_title": "Goredolf Musik"
+    },
+    {
+      "key": "fategrandorder:page:659639",
+      "game": "fgo",
+      "zh": "",
+      "en": "Grand Graph System",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Grand_Graph_System",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1625332,
+      "source_title": "Grand Graph System"
+    },
+    {
+      "key": "fategrandorder:page:550436",
+      "game": "fgo",
+      "zh": "",
+      "en": "Ibuki Dōji",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Ibuki_D%C5%8Dji",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1642428,
+      "source_title": "Ibuki Dōji"
+    },
+    {
+      "key": "fategrandorder:page:213",
+      "game": "fgo",
+      "zh": "",
+      "en": "Interlude: Chaldea Gate",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Interlude%3A_Chaldea_Gate",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1591494,
+      "source_title": "Interlude: Chaldea Gate"
+    },
+    {
+      "key": "fategrandorder:page:622577",
+      "game": "fgo",
+      "zh": "",
+      "en": "Jingle Abel Meuniere",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Jingle_Abel_Meuniere",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629257,
+      "source_title": "Jingle Abel Meuniere"
+    },
+    {
+      "key": "fategrandorder:page:403638",
+      "game": "fgo",
+      "zh": "",
+      "en": "Kadoc Zemlupus",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Kadoc_Zemlupus",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1653990,
+      "source_title": "Kadoc Zemlupus"
+    },
+    {
+      "key": "fategrandorder:page:465246",
+      "game": "fgo",
+      "zh": "",
+      "en": "Kirschtaria Wodime",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Kirschtaria_Wodime",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629999,
+      "source_title": "Kirschtaria Wodime"
+    },
+    {
+      "key": "fategrandorder:page:489197",
+      "game": "fgo",
+      "zh": "",
+      "en": "Lancer of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Lancer_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574324,
+      "source_title": "Lancer of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:77909",
+      "game": "fgo",
+      "zh": "",
+      "en": "Lev Lainur Flauros",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Lev_Lainur_Flauros",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1645621,
+      "source_title": "Lev Lainur Flauros"
+    },
+    {
+      "key": "fategrandorder:page:3183",
+      "game": "fgo",
+      "zh": "",
+      "en": "Leveling",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Leveling",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1598529,
+      "source_title": "Leveling"
+    },
+    {
+      "key": "fategrandorder:page:447634",
+      "game": "fgo",
+      "zh": "",
+      "en": "Marisbury Animusphere",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Marisbury_Animusphere",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629116,
+      "source_title": "Marisbury Animusphere"
+    },
+    {
+      "key": "fategrandorder:page:670494",
+      "game": "fgo",
+      "zh": "",
+      "en": "Mystic Eyes Symphony (US)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Mystic_Eyes_Symphony_%28US%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1592032,
+      "source_title": "Mystic Eyes Symphony (US)"
+    },
+    {
+      "key": "fategrandorder:page:1443",
+      "game": "fgo",
+      "zh": "",
+      "en": "Noble Phantasm",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Noble_Phantasm",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1397074,
+      "source_title": "Noble Phantasm"
+    },
+    {
+      "key": "fategrandorder:page:560186",
+      "game": "fgo",
+      "zh": "",
+      "en": "Noble Phantasm List",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Noble_Phantasm_List",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1028277,
+      "source_title": "Noble Phantasm List"
+    },
+    {
+      "key": "fategrandorder:page:559845",
+      "game": "fgo",
+      "zh": "",
+      "en": "Noble Phantasms",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Noble_Phantasms",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1601962,
+      "source_title": "Noble Phantasms"
+    },
+    {
+      "key": "fategrandorder:page:77907",
+      "game": "fgo",
+      "zh": "",
+      "en": "Olga Marie Animusphere",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Olga_Marie_Animusphere",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1654865,
+      "source_title": "Olga Marie Animusphere"
+    },
+    {
+      "key": "fategrandorder:page:403668",
+      "game": "fgo",
+      "zh": "",
+      "en": "Ophelia Phamrsolone",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Ophelia_Phamrsolone",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629659,
+      "source_title": "Ophelia Phamrsolone"
+    },
+    {
+      "key": "fategrandorder:page:42492",
+      "game": "fgo",
+      "zh": "",
+      "en": "Palingenesis",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Palingenesis",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1585261,
+      "source_title": "Palingenesis"
+    },
+    {
+      "key": "fategrandorder:page:489043",
+      "game": "fgo",
+      "zh": "",
+      "en": "Rider of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Rider_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574329,
+      "source_title": "Rider of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:77908",
+      "game": "fgo",
+      "zh": "",
+      "en": "Romani Archaman",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Romani_Archaman",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1643009,
+      "source_title": "Romani Archaman"
+    },
+    {
+      "key": "fategrandorder:page:14978",
+      "game": "fgo",
+      "zh": "",
+      "en": "Ryōgi Shiki (Saber)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Ry%C5%8Dgi_Shiki_%28Saber%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1645293,
+      "source_title": "Ryōgi Shiki (Saber)"
+    },
+    {
+      "key": "fategrandorder:page:489230",
+      "game": "fgo",
+      "zh": "",
+      "en": "Saber of Learning with Manga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Saber_of_Learning_with_Manga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1574326,
+      "source_title": "Saber of Learning with Manga"
+    },
+    {
+      "key": "fategrandorder:page:409497",
+      "game": "fgo",
+      "zh": "",
+      "en": "Scandinavia Peperoncino",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Scandinavia_Peperoncino",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1629661,
+      "source_title": "Scandinavia Peperoncino"
+    },
+    {
+      "key": "fategrandorder:page:565944",
+      "game": "fgo",
+      "zh": "",
+      "en": "Servant Coin",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Servant_Coin",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1644331,
+      "source_title": "Servant Coin"
+    },
+    {
+      "key": "fategrandorder:page:1294",
+      "game": "fgo",
+      "zh": "",
+      "en": "Servant List",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Servant_List",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1600727,
+      "source_title": "Servant List"
+    },
+    {
+      "key": "fategrandorder:page:279803",
+      "game": "fgo",
+      "zh": "",
+      "en": "Servant List by ID",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Servant_List_by_ID",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1298219,
+      "source_title": "Servant List by ID"
+    },
+    {
+      "key": "fategrandorder:page:270184",
+      "game": "fgo",
+      "zh": "",
+      "en": "Servant's Battle Animation Update List",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Servant%27s_Battle_Animation_Update_List",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1602799,
+      "source_title": "Servant's Battle Animation Update List"
+    },
+    {
+      "key": "fategrandorder:page:155",
+      "game": "fgo",
+      "zh": "",
+      "en": "Servants",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Servants",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1643212,
+      "source_title": "Servants"
+    },
+    {
+      "key": "fategrandorder:page:442310",
+      "game": "fgo",
+      "zh": "",
+      "en": "Siduri",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Siduri",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1638371,
+      "source_title": "Siduri"
+    },
+    {
+      "key": "fategrandorder:page:621986",
+      "game": "fgo",
+      "zh": "",
+      "en": "Sion Eltnam Sokaris",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Sion_Eltnam_Sokaris",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1654015,
+      "source_title": "Sion Eltnam Sokaris"
+    },
+    {
+      "key": "fategrandorder:page:419643",
+      "game": "fgo",
+      "zh": "",
+      "en": "Special Ascension",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Special_Ascension",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1651108,
+      "source_title": "Special Ascension"
+    },
+    {
+      "key": "fategrandorder:page:988",
+      "game": "fgo",
+      "zh": "",
+      "en": "Summoning",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Summoning",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1633323,
+      "source_title": "Summoning"
+    },
+    {
+      "key": "fategrandorder:page:225244",
+      "game": "fgo",
+      "zh": "",
+      "en": "The Garden of Sinners Collaboration Event (US)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/The_Garden_of_Sinners_Collaboration_Event_%28US%29",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1365394,
+      "source_title": "The Garden of Sinners Collaboration Event (US)"
+    },
+    {
+      "key": "fategrandorder:page:11300",
+      "game": "fgo",
+      "zh": "",
+      "en": "Traits",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://fategrandorder.fandom.com/wiki/Traits",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 1650189,
+      "source_title": "Traits"
+    }
+  ],
+  "gaps": [
+    {
+      "category": "Enemies",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "page": "Wings of Lacrimation/Main Quest",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Main Quests",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Misc Quests",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Foliage Quest",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Traverse Quest/Tower 1",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Traverse Quest/Tower 2",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mystic Eyes Symphony (US)/Traverse Quest/Tower 4",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Balanced",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Bride",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Leveling/Growth Curves",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Servant Attributes/Man",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Servant Attributes/Earth",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Servant Attributes/Sky",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Servant Attributes/Star",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Servant Attributes/Beast",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Lawful",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Neutral",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Chaotic",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Master Missions/2019",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Good",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Evil",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Insane",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Good & Evil",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Alignments/Summer",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Fundamentals",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Lifeless Ones",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Human",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Demi-Human",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Dragonkind",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Artificial Ones",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Phantasmal Beasts",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Transcendent Ones",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Notable Character",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "The Garden of Sinners Collaboration Event (US)/Free Quests",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Wild Beasts",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Crypters",
+      "reason": "no template"
+    },
+    {
+      "page": "Attributes/Enemy/Man",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Enemy/Earth",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Enemy/Sky",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/GUDAGUDA",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Enemy/Star",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Attributes/Enemy/Beast",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Enemies/Plants",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "reason": "Chinese name missing or contains unaudited template markup",
+      "record_keys": [
+        "fategrandorder:page:344416",
+        "fategrandorder:page:41606",
+        "fategrandorder:page:591814",
+        "fategrandorder:page:489204",
+        "fategrandorder:page:492248",
+        "fategrandorder:page:836",
+        "fategrandorder:page:489064",
+        "fategrandorder:page:1266",
+        "fategrandorder:page:488994",
+        "fategrandorder:page:566616",
+        "fategrandorder:page:489226",
+        "fategrandorder:page:635260",
+        "fategrandorder:page:617935",
+        "fategrandorder:page:420066",
+        "fategrandorder:page:3136",
+        "fategrandorder:page:297028",
+        "fategrandorder:page:1023",
+        "fategrandorder:page:127589",
+        "fategrandorder:page:585857",
+        "fategrandorder:page:622716",
+        "fategrandorder:page:160879",
+        "fategrandorder:page:621949",
+        "fategrandorder:page:614481",
+        "fategrandorder:page:66172",
+        "fategrandorder:page:66165",
+        "fategrandorder:page:621979",
+        "fategrandorder:page:659639",
+        "fategrandorder:page:550436",
+        "fategrandorder:page:213",
+        "fategrandorder:page:622577",
+        "fategrandorder:page:403638",
+        "fategrandorder:page:465246",
+        "fategrandorder:page:489197",
+        "fategrandorder:page:77909",
+        "fategrandorder:page:3183",
+        "fategrandorder:page:447634",
+        "fategrandorder:page:670494",
+        "fategrandorder:page:1443",
+        "fategrandorder:page:560186",
+        "fategrandorder:page:559845",
+        "fategrandorder:page:77907",
+        "fategrandorder:page:403668",
+        "fategrandorder:page:42492",
+        "fategrandorder:page:489043",
+        "fategrandorder:page:77908",
+        "fategrandorder:page:14978",
+        "fategrandorder:page:489230",
+        "fategrandorder:page:409497",
+        "fategrandorder:page:565944",
+        "fategrandorder:page:1294",
+        "fategrandorder:page:279803",
+        "fategrandorder:page:270184",
+        "fategrandorder:page:155",
+        "fategrandorder:page:442310",
+        "fategrandorder:page:621986",
+        "fategrandorder:page:419643",
+        "fategrandorder:page:988",
+        "fategrandorder:page:225244",
+        "fategrandorder:page:11300"
+      ]
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

@@ -1,0 +1,99 @@
+{
+  "source": {
+    "id": "path-to-nowhere-wiki",
+    "url": "https://path-to-nowhere.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Sinners": 0,
+      "Characters": 0,
+      "Enemies": 4
+    }
+  },
+  "games": [
+    {
+      "key": "path_to_nowhere",
+      "zh": "无期迷途",
+      "en": "Path to Nowhere",
+      "source_url": "https://path-to-nowhere.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "path-to-nowhere:page:2436",
+      "game": "path_to_nowhere",
+      "zh": "",
+      "en": "Brand - Deteriorated",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Brand_-_Deteriorated",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 4910,
+      "source_title": "Brand - Deteriorated"
+    },
+    {
+      "key": "path-to-nowhere:page:2438",
+      "game": "path_to_nowhere",
+      "zh": "",
+      "en": "Gang Thug",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gang_Thug",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 4933,
+      "source_title": "Gang Thug"
+    },
+    {
+      "key": "path-to-nowhere:page:2439",
+      "game": "path_to_nowhere",
+      "zh": "",
+      "en": "Gang Thug - Elite",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gang_Thug_-_Elite",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 4935,
+      "source_title": "Gang Thug - Elite"
+    },
+    {
+      "key": "path-to-nowhere:page:2437",
+      "game": "path_to_nowhere",
+      "zh": "",
+      "en": "Gonzales",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gonzales",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 4916,
+      "source_title": "Gonzales"
+    }
+  ],
+  "gaps": [
+    {
+      "category": "Sinners",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Characters",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Chinese name missing or contains unaudited template markup",
+      "record_keys": [
+        "path-to-nowhere:page:2436",
+        "path-to-nowhere:page:2438",
+        "path-to-nowhere:page:2439",
+        "path-to-nowhere:page:2437"
+      ]
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

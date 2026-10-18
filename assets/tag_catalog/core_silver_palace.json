@@ -1,0 +1,190 @@
+{
+  "source": {
+    "id": "silver-palace-official-web",
+    "url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+    "kind": "official",
+    "retrieved_at": "2026-10-15",
+    "version": "Official website locale arrays; paired array positions; includes official test/preview roster"
+  },
+  "games": [
+    {
+      "key": "silver_palace",
+      "zh": "白银之城",
+      "en": "Silver Palace",
+      "source_url": "https://www.silverpalace.cn/zh-cn/entrance"
+    }
+  ],
+  "records": [
+    {
+      "key": "silver-official:web-character:0",
+      "game": "silver_palace",
+      "zh": "侦探",
+      "en": "Detective",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:1",
+      "game": "silver_palace",
+      "zh": "侦探",
+      "en": "Detective",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:2",
+      "game": "silver_palace",
+      "zh": "阿芙·女仆",
+      "en": "Alf (Maid)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:3",
+      "game": "silver_palace",
+      "zh": "尔阁·酒保",
+      "en": "Argos (Bartender)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:4",
+      "game": "silver_palace",
+      "zh": "厄什栗",
+      "en": "Cinderella",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:5",
+      "game": "silver_palace",
+      "zh": "馨西亚",
+      "en": "Cynthia II (Luna's Scion)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:6",
+      "game": "silver_palace",
+      "zh": "法索",
+      "en": "Firtho (Doctor)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:7",
+      "game": "silver_palace",
+      "zh": "劳伦",
+      "en": "Lorin (Chief Inspector)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:8",
+      "game": "silver_palace",
+      "zh": "红蔷薇·舞者",
+      "en": "Red Rose (Dancer)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:9",
+      "game": "silver_palace",
+      "zh": "库拉蒂·骑士",
+      "en": "Gratia (Knight)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:10",
+      "game": "silver_palace",
+      "zh": "雷可司·督察",
+      "en": "Rex (Superintendent)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:11",
+      "game": "silver_palace",
+      "zh": "边沁·秘书",
+      "en": "Bentham (Secretary)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:12",
+      "game": "silver_palace",
+      "zh": "格林·记者",
+      "en": "Grimm (Journalist)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:13",
+      "game": "silver_palace",
+      "zh": "咯噔队长·维修工",
+      "en": "Captain Kaboom (Technician)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    },
+    {
+      "key": "silver-official:web-character:14",
+      "game": "silver_palace",
+      "zh": "古科·学徒",
+      "en": "Gucia (Apprentice)",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "source_tags": [],
+      "status": "announced"
+    }
+  ],
+  "gaps": [
+    {
+      "reason": "Only published website character cards; no exhaustive named NPC/pet/enemy list. Positional source IDs require comparison on later website reorder. Two Detective rows preserved as source variants; no guessed identity merge."
+    }
+  ],
+  "quarantine": []
+}

@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gallery 设置</title><link rel="stylesheet" href="ui.css"></head><body>
+<div class="options"><aside><h1>Gallery</h1><nav aria-label="设置分类"><button class="active" data-page="general">常规</button><button data-page="sites">接收网站</button><button data-page="connection">桌面连接</button></nav><div class="grow"></div><small>Windows 图片归档与标签图库</small></aside>
+<main><section id="general"><h2>常规</h2><p class="muted">命中接收网站的图片，下载完成后交给桌面端自动归档；归档不了的会在桌面端浮层提醒你处理。下载位置用浏览器原生的「另存为」对话框自己选。</p><label class="check"><input type="checkbox" id="enabled">启用图片接收</label>
+<label class="field">外观<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label></section>
+<section id="sites" hidden><h2>接收网站</h2><p class="muted">Danbooru 支持帖子原图链接和下载按钮。其他网站下载可以接收，标签需要在桌面端确认。</p><div id="rules"></div>
+<button id="add-rule">添加网站规则</button><div class="field"><label for="test-url">测试规则</label><input id="test-url" placeholder="粘贴网站或图片地址"><button id="test-rule">检查匹配</button><span class="muted" id="test-result" role="status"></span></div></section>
+<section id="connection" hidden><h2>桌面连接</h2><p class="muted">从 Gallery 桌面端「设置 → 浏览器连接」复制配对码。</p>
+<label class="field">配对码<input id="bridgeToken" type="password" autocomplete="off" placeholder="粘贴桌面端配对码"></label><div class="row"><button id="test-bridge">测试连接</button><button id="retry-queue">重新推送队列</button></div><p id="bridge-result" class="feedback muted" role="status"></p>
+<details><summary>高级连接设置</summary><label class="field">本地端口<input id="bridgePort" type="number" min="1024" max="65535"></label></details><p class="muted">桌面离线时不会丢弃队列。取消或失败的下载不会归档。</p></section>
+<div class="savebar"><span class="feedback" id="feedback" role="status" aria-live="polite">正在读取设置…</span><button class="primary" id="save">保存设置</button></div></main></div><script type="module" src="options.js"></script></body></html>

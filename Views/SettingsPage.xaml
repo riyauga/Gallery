@@ -102,6 +102,195 @@
                             </DropDownButton.Flyout>
                         </DropDownButton>
                     </ctc:SettingsCard>
+
+                    <!--  浏览器桥接  -->
+                    <TextBlock
+                        Margin="1,24,0,6"
+                        AutomationProperties.HeadingLevel="Level2"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="浏览器桥接" />
+
+                    <ctc:SettingsCard
+                        x:Name="BridgeStatusCard"
+                        Description="浏览器扩展把下载记录通过本地端口送进来"
+                        Header="桥接状态">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE774;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <TextBlock VerticalAlignment="Center" x:Name="BridgeStatusText" Style="{StaticResource CaptionTextBlockStyle}" Text="未启动" />
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="把这段令牌粘到扩展的设置页；端口不一致时以这里的地址为准。插件在仓库 extension/ 目录（Chrome「加载已解压的扩展程序」选中它）"
+                        Header="地址与令牌">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8D7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox
+                                x:Name="BridgeTokenBox"
+                                Width="360"
+                                IsReadOnly="True"
+                                FontFamily="Consolas" />
+                            <Button x:Name="BridgeCopyButton" Click="BridgeCopy_Click" Content="复制令牌" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="收到但还没归档/入库的记录条数"
+                        Header="待处理记录">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B5;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="PendingText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button x:Name="BridgeRefreshButton" Click="BridgeRefresh_Click" Content="刷新" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+                    <!--  敏感内容  -->
+                    <TextBlock
+                        Margin="1,24,0,6"
+                        AutomationProperties.HeadingLevel="Level2"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="敏感内容" />
+
+                    <ctc:SettingsCard
+                        Description="按分级标签保护 NSFW 和未分级缩略图；完全隐藏仅保留明确 SFW。"
+                        Header="显示方式">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <RadioButton x:Name="NsfwNormalRadio" Content="正常显示" Tag="normal" Checked="NsfwDisplay_Checked" />
+                            <RadioButton x:Name="NsfwBlurRadio" Content="模糊" Tag="blur" Checked="NsfwDisplay_Checked" />
+                            <RadioButton x:Name="NsfwHideRadio" Content="隐藏" Tag="hide" Checked="NsfwDisplay_Checked" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        x:Name="NsfwStrengthCard"
+                        Header="模糊强度"
+                        Description="0 显示清晰原图，数值越大毛玻璃模糊越强。"
+                        Visibility="Collapsed">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <Grid Width="260" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="NsfwStrengthSlider" Minimum="0" Maximum="100"
+                                    StepFrequency="1" TickFrequency="1" SnapsTo="StepValues"
+                                    VerticalAlignment="Center" AutomationProperties.Name="模糊强度"
+                                    ValueChanged="NsfwStrength_ValueChanged" />
+                            <TextBlock x:Name="NsfwStrengthValue" Grid.Column="1" MinWidth="30"
+                                       TextAlignment="Right" VerticalAlignment="Center" Text="100" />
+                        </Grid>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="已打分 / 判定敏感 / 还没判定的张数；模型接入前可以右键「标记分级」手动兜底"
+                        Header="判定覆盖">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE9D9;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <TextBlock VerticalAlignment="Center" x:Name="NsfwSummaryText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="文件夹里放 model.onnx 与 selected_tags.csv（任意 WD tagger v3 变体）"
+                        Header="判定模型">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <Grid ColumnSpacing="8" MaxWidth="420">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="NsfwModelText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Text="未配置" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=NsfwModelText}" />
+                            <Button Grid.Column="1" x:Name="NsfwPickButton" VerticalAlignment="Center" Click="NsfwPickFolder_Click" Content="选择文件夹" />
+                        </Grid>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="逐张跑模型并写入分级；换模型后只重跑旧结果"
+                        Header="重新判定">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE895;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <Grid ColumnSpacing="8" MaxWidth="420">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="NsfwScanText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Text="" MaxWidth="320" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="1" x:Name="NsfwPreviewButton" VerticalAlignment="Center" Click="NsfwPreview_Click" Content="预览" />
+                            <Button Grid.Column="2" x:Name="NsfwScanButton" VerticalAlignment="Center" Click="NsfwScan_Click" Content="开始扫描" />
+                            <Button
+                                Grid.Column="3"
+                                VerticalAlignment="Center"
+                                x:Name="NsfwCancelButton"
+                                Click="NsfwCancel_Click"
+                                Content="取消"
+                                Visibility="Collapsed" />
+                        </Grid>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="归档、桥接失败时留的底；重启后还能看到最近 50 条"
+                        Header="最近错误">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="SyncErrorText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button Click="SyncErrorView_Click" Content="查看" />
+                            <Button Click="SyncErrorClear_Click" Content="清空" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <!--  类型白名单  -->
+                    <ctc:SettingsCard
+                        Description="danbooru 的 general 标签很多，这里只挑「构图 / 画面性质」那几个映射成中文类型；文件是可编辑的 JSON"
+                        Header="类型白名单">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8FD;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="KindWhitelistText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                            <Button Click="KindWhitelistOpen_Click" Content="打开文件" />
+                            <Button Click="KindWhitelistReset_Click" Content="恢复默认" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <!--  系统集成  -->
+                    <TextBlock
+                        Margin="1,24,0,6"
+                        AutomationProperties.HeadingLevel="Level2"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="系统集成" />
+
+                    <ctc:SettingsCard
+                        Description="关窗口时不退出，缩到托盘；托盘右键可显示或退出"
+                        Header="关闭时最小化到托盘">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8A7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="TrayToggle" Toggled="TrayToggle_Toggled" />
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="登录 Windows 后自动启动 Gallery（写 HKCU 的 Run 项）"
+                        Header="开机自启">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7E8;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled" />
+                    </ctc:SettingsCard>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

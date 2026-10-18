@@ -6,6 +6,9 @@
     xmlns:controls="using:Gallery.Controls"
     Background="Transparent">
 
+    <UserControl.Resources>
+        <DataTemplate x:Key="PhotoTileTemplate"><controls:PhotoTile /></DataTemplate>
+    </UserControl.Resources>
     <Grid x:Name="Root" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="FileOps_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -324,61 +327,9 @@
                         <FontIcon FontSize="16" Glyph="&#xE71C;" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
-                        <MenuFlyout x:Name="FilterMenu" Placement="Bottom">
-                            <!--  媒体类型组 + 子文件夹内容组（原版 CommandBar_MediaTypeFilter_TypeGroup / CommandBar_SubfolderContentButton_TypeGroup）
-                                  子文件夹两项只在目录页出现（原版 IsSubfolderOptionVisible(CurrentPageInfo)），
-                                  切换的是 settings.recursive（= galleryold 递归浏览开关，QuerySpec.Recursive 的输入）。  -->
-                            <RadioMenuFlyoutItem
-                                x:Name="FilterAll"
-                                Click="FilterAll_Click"
-                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
-                                Text="所有媒体">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF0B1;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                            <RadioMenuFlyoutItem
-                                x:Name="FilterPhotos"
-                                Click="FilterPhotos_Click"
-                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
-                                Text="照片">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE91B;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                            <RadioMenuFlyoutItem
-                                x:Name="FilterVideos"
-                                Click="FilterVideos_Click"
-                                GroupName="CommandBar_MediaTypeFilter_TypeGroup"
-                                Text="视频">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF411;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                            <MenuFlyoutSeparator
-                                x:Name="SubfolderContentSeparator"
-                                Visibility="Collapsed" />
-                            <RadioMenuFlyoutItem
-                                x:Name="ShowSubfolderContentItem"
-                                Click="ShowSubfolderContent_Click"
-                                GroupName="CommandBar_SubfolderContentButton_TypeGroup"
-                                Text="显示子文件夹内容"
-                                Visibility="Collapsed">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE73;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                            <RadioMenuFlyoutItem
-                                x:Name="HideSubfolderContentItem"
-                                Click="HideSubfolderContent_Click"
-                                GroupName="CommandBar_SubfolderContentButton_TypeGroup"
-                                Text="隐藏子文件夹内容"
-                                Visibility="Collapsed">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE8B7;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                        </MenuFlyout>
+                        <Flyout x:Name="FilterFlyout" Placement="BottomEdgeAlignedRight">
+                            <ContentControl x:Name="FilterHost" />
+                        </Flyout>
                     </AppBarButton.Flyout>
                 </AppBarButton>
 

@@ -1,0 +1,44 @@
+{
+  "source": {
+    "id": "uma-musume-wiki",
+    "url": "https://uma-musume.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Characters": 0,
+      "NPCs": 0
+    }
+  },
+  "games": [
+    {
+      "key": "uma_musume",
+      "zh": "赛马娘",
+      "en": "Uma Musume Pretty Derby",
+      "source_url": "https://uma-musume.fandom.com/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "Characters",
+      "reason": "404 Client Error: Not Found for url: https://uma-musume.fandom.com/api.php?action=query&list=categorymembers&cmtitle=Category%3ACharacters&cmlimit=500&format=json"
+    },
+    {
+      "category": "Characters",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "NPCs",
+      "reason": "404 Client Error: Not Found for url: https://uma-musume.fandom.com/api.php?action=query&list=categorymembers&cmtitle=Category%3ANPCs&cmlimit=500&format=json"
+    },
+    {
+      "category": "NPCs",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

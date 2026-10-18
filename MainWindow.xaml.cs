@@ -1,4 +1,4 @@
-using Microsoft.UI;
+﻿using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -34,6 +34,187 @@ public sealed partial class MainWindow : Window
         Tag = "settings", Content = "设置", Visibility = Visibility.Collapsed,
     };
     private readonly SettingsPage _settingsPage = new();
+    /// <summary>建待审核页并挂上角标刷新。</summary>
+    private Controls.Review.ReviewPage CreateReviewPage()
+    {
+        var page = new Controls.Review.ReviewPage();
+        page.Changed += UpdateReviewBadge;
+        return page;
+    }
+
+    /// <summary>侧栏「待审核」显示待处理条数（0 时隐藏）。</summary>
+    private void UpdateReviewBadge()
+    {
+        var store = Services.AppService.Store;
+        if (store is null) return;
+
+        var pending = store.IngestStats().TryGetValue("pending", out var n) ? n : 0;
+        if (_reviewBadge is null)
+        {
+            _reviewBadge = new InfoBadge();
+            ReviewNavItem.InfoBadge = _reviewBadge;
+        }
+
+        _reviewBadge.Value = pending;
+        _reviewBadge.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // 待审核数量保留为文字和侧栏 InfoBadge，不改写系统图标。
+        ReviewChipButton.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ReviewChipText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
+        UpdateTitleBarRegions();
+        // 刚切完可见性还没排版，等一轮低优先级再算一次（否则角标拿不到 ActualWidth）
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateTitleBarRegions);
+    }
+
+    /// <summary>
+    /// 标题栏整条被 SetTitleBar 当成拖动区，按钮默认收不到鼠标。
+    /// 把「待审核」角标和设置按钮登记成 passthrough 区域，鼠标点得到、也能拖动别处。
+    /// </summary>
+    private void UpdateTitleBarRegions()
+    {
+        if (AppWindowInstance is not { } window) return;
+        var scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+        var rects = new List<Windows.Graphics.RectInt32>();
+
+        void Add(FrameworkElement element)
+        {
+            if (element.Visibility != Visibility.Visible) return;
+            if (element.ActualWidth <= 0 || element.ActualHeight <= 0) return;
+            var bounds = element.TransformToVisual(null)
+                .TransformBounds(new Windows.Foundation.Rect(0, 0, element.ActualWidth, element.ActualHeight));
+            // 实测：SetRegionRects 收的是 DIP（不是物理像素），乘 RasterizationScale 会偏到窗口外
+            rects.Add(new Windows.Graphics.RectInt32(
+                (int)Math.Round(bounds.X),
+                (int)Math.Round(bounds.Y),
+                (int)Math.Round(bounds.Width),
+                (int)Math.Round(bounds.Height)));
+        }
+
+        Add(ReviewChipButton);
+        Add(SettingsButton);
+
+        if (rects.Count == 0) return;
+        try
+        {
+            var source = Microsoft.UI.Input.InputNonClientPointerSource.GetForWindowId(window.Id);
+            source.SetRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough, rects.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Services.AppService.DebugLog("titlebar passthrough failed: " + ex.Message);
+        }
+    }
+
+    private void ReviewChip_Click(object sender, RoutedEventArgs e)
+    {
+        ActivateWindow();
+        Nav.SelectedItem = ReviewNavItem;
+    }
+
+    /// <summary>启动后刷新一次角标，并挂在桥接事件上（新记录进来就加一）。</summary>
+    private void HookDisplayMode()
+    {
+        Services.AppService.DisplayModeChanged += () =>
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _page.RefreshFromStore();
+                if (_reviewPage is { IsLoaded: true }) _reviewPage.RefreshPreview();
+            });
+    }
+
+    private void HookReviewBadge()
+    {
+        UpdateReviewBadge();
+        if (Services.AppService.Bridge is { } bridge)
+        {
+            bridge.Ingested += (_, _) => DispatcherQueue.TryEnqueue(UpdateReviewBadge);
+            bridge.UiRequested += (view, path) => DispatcherQueue.TryEnqueue(async () => await HandleUiRequestAsync(view, path));
+        }
+    }
+
+    private Controls.Catalog.CatalogPage? _catalogPage;
+    private Services.TrayIcon? _tray;
+    private TrayMenuHost? _trayMenu;
+    private bool _quitting;
+
+    /// <summary>主窗口的 AppWindow（托盘唤回、关窗收托盘都要用）。</summary>
+    public Microsoft.UI.Windowing.AppWindow? AppWindowInstance { get; private set; }
+
+    /// <summary>从托盘唤回：窗口可能是隐藏状态，先 Show 再 Activate。</summary>
+    public void BringToFront()
+    {
+        if (AppWindowInstance is { } window)
+        {
+            window.Show();
+            if (window.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter &&
+                presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
+                presenter.Restore();
+        }
+
+        Activate();
+        Services.AppService.DebugLog("brought to front");
+    }
+
+    /// <summary>建托盘图标：左键唤回、右键菜单（显示 / 待审核数 / 退出）。</summary>
+    private void SetupTray()
+    {
+        _tray = new Services.TrayIcon();
+        _tray.ActivateRequested += () => DispatcherQueue.TryEnqueue(BringToFront);
+        _tray.MenuRequested += (x, y) =>
+        {
+            var queued = DispatcherQueue.TryEnqueue(() =>
+            {
+                AppService.DebugLog($"tray menu UI quitting={_quitting}");
+                if (_quitting) return;
+                _trayMenu?.Dismiss();
+                var menu = new TrayMenuHost(RootGrid.ActualTheme, x, y,
+                    AppService.Store?.PendingIngestCount() ?? 0,
+                    BringToFront,
+                    () => { BringToFront(); Nav.SelectedItem = ReviewNavItem; },
+                    () => _ = QuitAsync());
+                _trayMenu = menu;
+                menu.Closed += (_, _) => { if (ReferenceEquals(_trayMenu, menu)) _trayMenu = null; };
+                menu.Activate();
+            });
+            if (!queued) AppService.DebugLog("tray menu UI enqueue failed");
+        };
+        _tray.Start();
+        Services.AppService.DebugLog("tray start requested");
+    }
+
+    private async Task QuitAsync()
+    {
+        if (_quitting) return;
+        _quitting = true;
+        RootGrid.IsHitTestVisible = false;
+        _tray?.UpdateTip("Gallery · 正在完成保存并退出");
+        try
+        {
+            await _settingsPage.StopBackgroundWorkAsync();
+            await _page.DrainFileOperationsAsync();
+            await AppService.ShutdownAsync();
+            _tray?.Dispose();
+            _tray = null;
+            Close();
+            Application.Current.Exit();
+        }
+        catch (Exception ex)
+        {
+            _quitting = false;
+            RootGrid.IsHitTestVisible = true;
+            BringToFront();
+            ShowToast("退出失败：" + ex.Message);
+        }
+    }
+
+    private void UpdateTrayTip()
+    {
+        var pending = Services.AppService.Store?.PendingIngestCount() ?? 0;
+        _tray?.UpdateTip(pending > 0 ? $"Gallery · 待审核 {pending} 条" : "Gallery");
+    }
+    private Controls.Review.ReviewPage? _reviewPage;
+    private InfoBadge? _reviewBadge;
 
     /// <summary>当前窗口实例（查看器进全屏时需要暂时隐藏应用标题栏）。</summary>
     public static MainWindow? Instance { get; private set; }
@@ -63,9 +244,25 @@ public sealed partial class MainWindow : Window
                 ? Microsoft.UI.Windowing.AppWindow.GetFromWindowId(
                     Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd))
                 : null;
+        AppWindowInstance = appWindow;
         if (appWindow is not null)
+        {
             appWindow.TitleBar.PreferredHeightOption =
                 Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
+
+            // 关窗行为对齐 galleryold：minimize_to_tray 时收进托盘而不是退出
+            appWindow.Closing += (sender, e) =>
+            {
+                if (_quitting) return;
+                e.Cancel = true;
+                if (AppService.Settings.Settings.minimize_to_tray && _tray is { IsCreated: true })
+                {
+                    appWindow.Hide();
+                    AppService.DebugLog("window hidden to tray");
+                }
+                else _ = QuitAsync();
+            };
+        }
 
         try
         {
@@ -99,6 +296,12 @@ public sealed partial class MainWindow : Window
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
         _page.ItemsChanged += Preview.RefreshItems;
+        _page.TagsEdited += () =>
+        {
+            Preview.RefreshItems(_page.CurrentItems);
+            Preview.RefreshCurrentTags();
+        };
+        Preview.TagsEdited += _ => _page.RefreshFromStore();
         Preview.ToastRequested += ShowToast;
         Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
         Preview.DeleteRequested = _page.DeleteAsync;
@@ -122,6 +325,12 @@ public sealed partial class MainWindow : Window
         {
             Nav.IsPaneOpen = true;
             Nav.SelectedItem = Nav.MenuItems[0];
+            HookReviewBadge();
+            HookDisplayMode();
+            SetupTray();
+            UpdateTitleBarRegions();
+            RootGrid.SizeChanged += (_, _) => UpdateTitleBarRegions();
+            UpdateTrayTip();
         };
 
         // 照搬 photos 的 Gripper：把手在 Content 区左缘（= pane 右缘），
@@ -188,17 +397,31 @@ public sealed partial class MainWindow : Window
         if (tag == "settings")
         {
             SearchBox.DefaultFocusAnchor = ContentHost;
-            ContentHost.Children.Clear();
-            ContentHost.Children.Add(_settingsPage);
+            ShowContent(_settingsPage);
             return;
         }
-        if (ContentHost.Children.Count > 0 && ContentHost.Children[^1] == _settingsPage)
+        if (tag == "review")
         {
-            // 从设置页切回内容页
-            SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
-            ContentHost.Children.Clear();
-            ContentHost.Children.Add(_page);
+            SearchBox.DefaultFocusAnchor = ContentHost;
+            _reviewPage ??= CreateReviewPage();
+            _reviewPage.Reload();
+            ShowContent(_reviewPage);
+            return;
         }
+        if (tag == "catalog")
+        {
+            if (Services.AppService.Catalog is null)
+            {
+                Nav.SelectedItem = Nav.MenuItems[0];
+                return;
+            }
+            SearchBox.DefaultFocusAnchor = ContentHost;
+            _catalogPage ??= new Controls.Catalog.CatalogPage(Services.AppService.Catalog);
+            ShowContent(_catalogPage);
+            return;
+        }
+        SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
+        ShowContent(_page);
         switch (tag)
         {
             case "fav":
@@ -221,6 +444,69 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 浏览器扩展的 /ui/open：把窗口唤到前台并切到对应视图；
+    /// 带 path 时定位到文件所在目录并直接打开查看器。
+    /// </summary>
+    private async System.Threading.Tasks.Task HandleUiRequestAsync(string view, string path)
+    {
+        ActivateWindow();
+
+        if (view is "pending" or "review")
+        {
+            Nav.SelectedItem = ReviewNavItem;
+            return;
+        }
+
+        Nav.SelectedItem = Nav.MenuItems[0];
+        if (path.Length == 0) return;
+
+        var store = Services.AppService.Store;
+        if (store is null) return;
+
+        if (store.RootContaining(path) is not { } hit)
+        {
+            ShowToast("这个文件不在已登记的图库目录里：" + Path.GetFileName(path));
+            return;
+        }
+
+        var dirRel = hit.Rel.Contains('/')
+            ? hit.Rel[..hit.Rel.LastIndexOf('/')]
+            : "";
+        _page.SetMode(false);
+        _page.SetDirectory(hit.RootId, dirRel);
+
+        // SetDirectory 是异步重新查询的，等结果集装载完再定位，否则会误报「还没收录」
+        var target = Path.GetFullPath(path);
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            if (_page.RevealPath(target)) return;
+            await System.Threading.Tasks.Task.Delay(50);
+        }
+
+        ShowToast("图库还没收录这个文件：" + Path.GetFileName(path));
+    }
+
+    /// <summary>窗口最小化时先还原，再抢前台（浏览器点「在图库中查看」的感觉）。</summary>
+    private void ActivateWindow()
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var id = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+        var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(id);
+        if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter
+            { State: Microsoft.UI.Windowing.OverlappedPresenterState.Minimized } presenter)
+        {
+            presenter.Restore();
+        }
+
+        Activate();
+        SetForegroundWindow(hwnd);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
     /// <summary>离开设置页（供设置页内的返回类交互使用，批次 4 收口）。</summary>
     public void LeaveSettings()
     {
@@ -234,17 +520,26 @@ public sealed partial class MainWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
         => Nav.SelectedItem = _settingsNavigationItem;
 
+    // 页面留在同一棵可视树中，往返不触发图库卸载和图片重建。
+    private void ShowContent(UIElement page)
+    {
+        _page.SetActive(ReferenceEquals(page, _page));
+        _reviewPage?.SetActive(ReferenceEquals(page, _reviewPage));
+        if (!ContentHost.Children.Contains(page)) ContentHost.Children.Add(page);
+        foreach (var child in ContentHost.Children)
+            child.Visibility = ReferenceEquals(child, page) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void ShowPage(int navIndex)
     {
         // 在卸载旧页前更新锚点；图库锚点位于快捷键路由内部。
         SearchBox.DefaultFocusAnchor = navIndex < 0 ? ContentHost : _page.FocusAnchor;
-        ContentHost.Children.Clear();
         if (navIndex < 0)
         {
-            ContentHost.Children.Add(_settingsPage);
+            ShowContent(_settingsPage);
             return;
         }
-        ContentHost.Children.Add(_page);
+        ShowContent(_page);
         _page.SetMode(navIndex == 1);
         // 离开设置页时同步导航选中态（photos 进设置页会清掉导航选中高亮）
         if (!ReferenceEquals(Nav.SelectedItem, Nav.MenuItems[navIndex]))

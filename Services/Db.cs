@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 
 namespace Gallery.Services;
 
@@ -13,13 +13,13 @@ public sealed class Db : IDisposable
     public SqliteConnection Connection { get; }
     public string DbPath { get; }
 
-    public Db(string dbPath)
+    public Db(string dbPath, bool readOnly = false)
     {
         DbPath = dbPath;
         Connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = dbPath,
-            Mode = SqliteOpenMode.ReadWriteCreate,
+            Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Private,
             Pooling = false, // collation 按连接注册；池化会换连接，禁用
         }.ToString());
@@ -28,6 +28,7 @@ public sealed class Db : IDisposable
         {
             Connection.CreateCollation("GALLERY_NATURAL", (a, b) => NaturalSort.CompareNames(a ?? "", b ?? ""));
             Exec("PRAGMA busy_timeout=10000");
+            if (readOnly) return;
             EnsureSchema();
             Exec("PRAGMA journal_mode=WAL");
             Exec("PRAGMA synchronous=NORMAL");

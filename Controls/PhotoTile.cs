@@ -1,11 +1,10 @@
-using Microsoft.UI;
+﻿using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.UI;
 using Gallery.Models;
@@ -34,46 +33,92 @@ public sealed class PhotoTile : Grid
     private SolidColorBrush _hoverBrush = new(Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF));
     private SolidColorBrush _pressedBrush = new(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
 
-    public PhotoItem Item { get; }
+    internal PhotoItem Item { get; private set; } = null!;
+    internal bool EventsWired { get; set; }
+    public event Action? ThumbnailInvalidated;
+    private (string Path, double? Mtime, long Size, int Blur, bool Hidden)? _binding;
+    public ImageSource? PreviewThumbnail => _image.Source;
 
     /// <summary>瓦片被虚拟化回收后置位；异步加载完成时不再回贴 UI。</summary>
     public volatile bool Detached;
+    private int _requestedEdge;
+    private int _loadedEdge;
+    private int _thumbnailToken;
+    private CancellationTokenSource? _thumbnailCancellation;
+    private XamlRoot? _thumbnailRoot;
 
-    private async Task LoadThumbnailAsync()
+    private async Task LoadThumbnailAsync(int edge, int token, ImagePriority priority)
     {
-        // 后台：读磁盘缓存（缺失则按 512 边生成，key 与 galleryold 逐字节一致）
-        string path = await Task.Run(() =>
+        _thumbnailCancellation?.Cancel();
+        _thumbnailCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _thumbnailCancellation = cancellation;
+        try
         {
-            try
-            {
-                var thumbs = AppService.Scanner?.Thumbs;
-                if (thumbs is null) return Item.FullPath;
-                var mtime = Item.ModifiedAtUnix
-                    ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(Item.FullPath));
-                return thumbs.GetOrBuild(Item.FullPath, mtime, Item.FileSize)
-                    ?? Item.FullPath;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Item.FullPath;
-            }
-        });
-        if (Detached) return;
-        DispatcherQueue.TryEnqueue(() =>
+            var item = Item;
+            var bitmap = await ImageLoader.LoadThumbnailAsync(item, edge, ImageLoader.BlurStrength(item), cancellation.Token, priority);
+            if (Detached || token != _thumbnailToken) return;
+            _image.Source = bitmap;
+            _loadedEdge = edge;
+        }
+        catch (OperationCanceledException) { if (token == _thumbnailToken) _requestedEdge = _loadedEdge; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or UriFormatException
+            or SixLabors.ImageSharp.UnknownImageFormatException
+            or SixLabors.ImageSharp.InvalidImageContentException or System.Runtime.InteropServices.COMException)
         {
-            if (Detached) return;
-            try
-            {
-                var bmp = new BitmapImage(new Uri(path));
-                _image.Source = bmp;
-            }
-            catch (Exception ex) when (ex is IOException or System.UriFormatException)
-            {
-                // 解码失败保持空白
-            }
-        });
+            // 保护处理失败保持空白，绝不回退到未模糊原图。
+            AppService.DebugLog("thumbnail failed: " + ex.Message);
+        }
     }
 
+    private void RefreshThumbnail()
+    {
+        if (IsLoaded && !Detached && Item is not null) ThumbnailInvalidated?.Invoke();
+    }
+
+    /// <summary>由图库统一按可见性提交，瓦片自身不启动后台生成任务。</summary>
+    public void RequestThumbnail(double pixels, ImagePriority priority)
+    {
+        if (Detached || Item is null) return;
+        int edge = ImageLoader.ThumbnailEdge(Item, pixels);
+        if (edge == 0) { _image.Source = null; return; }
+        if (edge <= _requestedEdge) return;
+        _image.Source ??= ImageLoader.FindThumbnail(Item, edge, ImageLoader.BlurStrength(Item));
+        _requestedEdge = edge;
+        _ = LoadThumbnailAsync(edge, ++_thumbnailToken, priority);
+    }
+
+    public void Bind(PhotoItem item)
+    {
+        var binding = (ImageLoader.Identity(item), item.ModifiedAtUnix, item.FileSize, ImageLoader.BlurStrength(item), ImageLoader.IsHidden(item));
+        if (_binding != binding)
+        {
+            // 解除遮挡或调节强度时保留已有模糊画面；新增遮挡时不能保留清晰图。
+            var retained = _binding is { } old && old.Path == binding.Item1 && old.Mtime == binding.ModifiedAtUnix
+                && old.Size == binding.FileSize && old.Blur > 0 && !binding.Item5 ? _image.Source : null;
+            Recycle();
+            _image.Source = retained;
+            _binding = binding;
+            _selectIn.Stop(); _selectOut.Stop();
+            _selected = false; _selectMode = false; _check.IsChecked = false;
+            _selectionBorder.Opacity = 0; _check.Opacity = 0;
+        }
+        Item = item; Detached = false;
+    }
+    public void Recycle()
+    {
+        Detached = true;
+        ++_thumbnailToken;
+        _thumbnailCancellation?.Cancel(); _thumbnailCancellation?.Dispose(); _thumbnailCancellation = null;
+        _requestedEdge = _loadedEdge = 0;
+        _image.Source = null; _binding = null;
+        _hover.Opacity = 0; _hover.Fill = _hoverBrush;
+        var visual = ElementCompositionPreview.GetElementVisual(this);
+        visual.StopAnimation("Scale"); visual.Scale = System.Numerics.Vector3.One;
+        ReleasePointerCaptures();
+    }
+
+    private void OnThumbnailRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => RefreshThumbnail();
     private bool _selectMode;
     /// <summary>photos 选择模式：勾选框常显（单击=切换选中，而非打开）。</summary>
     public bool SelectMode
@@ -100,9 +145,10 @@ public sealed class PhotoTile : Grid
         }
     }
 
-    public PhotoTile(PhotoItem item)
+    public PhotoTile(PhotoItem item) : this() => Bind(item);
+
+    public PhotoTile()
     {
-        Item = item;
         Background = new SolidColorBrush(Colors.Transparent);
         UseSystemFocusVisuals = false;
 
@@ -113,12 +159,22 @@ public sealed class PhotoTile : Grid
             VerticalAlignment = VerticalAlignment.Stretch
         };
 
-        // 批次 1：真实数据异步缩略图（后台读缓存/生成，UI 线程只贴位图）；
-        // manifest 示例图（无库）保持同步路径。
-        if (item.ImageId > 0)
-            _ = LoadThumbnailAsync();
-        else
-            _image.Source = item.Thumbnail;
+        Loaded += (_, _) =>
+        {
+            _thumbnailRoot = XamlRoot;
+            if (_thumbnailRoot is not null) _thumbnailRoot.Changed += OnThumbnailRootChanged;
+            RefreshThumbnail();
+        };
+        Unloaded += (_, _) =>
+        {
+            if (_thumbnailRoot is not null) _thumbnailRoot.Changed -= OnThumbnailRootChanged;
+            _thumbnailRoot = null;
+            ++_thumbnailToken;
+            _thumbnailCancellation?.Cancel();
+            _thumbnailCancellation?.Dispose();
+            _thumbnailCancellation = null;
+            _requestedEdge = _loadedEdge;
+        };
 
         _frame = new Border
         {
@@ -222,6 +278,7 @@ public sealed class PhotoTile : Grid
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        RefreshThumbnail();
         // 圆角裁剪由 Border 负责；这里只更新按压缩放的中心点。
         var visual = ElementCompositionPreview.GetElementVisual(this);
         visual.CenterPoint = new System.Numerics.Vector3((float)ActualWidth / 2, (float)ActualHeight / 2, 0);

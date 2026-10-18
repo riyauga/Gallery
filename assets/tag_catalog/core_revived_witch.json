@@ -1,0 +1,36 @@
+{
+  "source": {
+    "id": "revived-witch-wiki",
+    "url": "https://revived-witch.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Characters": 0,
+      "Enemies": 0
+    }
+  },
+  "games": [
+    {
+      "key": "revived_witch",
+      "zh": "复苏的魔女",
+      "en": "Revived Witch",
+      "source_url": "https://revived-witch.fandom.com/"
+    }
+  ],
+  "records": [],
+  "gaps": [
+    {
+      "category": "Characters",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "category": "Enemies",
+      "reason": "No direct entity pages; category may use another name or subcategories."
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

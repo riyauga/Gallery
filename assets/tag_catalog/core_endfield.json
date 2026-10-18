@@ -1,0 +1,1463 @@
+{
+  "source": {
+    "id": "endfield-wiki",
+    "url": "https://endfield.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-15",
+    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
+    "category_counts": {
+      "Characters": 200,
+      "NPCs": 144,
+      "Enemies": 30
+    }
+  },
+  "games": [
+    {
+      "key": "endfield",
+      "zh": "明日方舟：终末地",
+      "en": "Arknights: Endfield",
+      "source_url": "https://endfield.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "endfield:page:1884",
+      "game": "endfield",
+      "zh": "",
+      "en": "Ah Tu",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Ah_Tu",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2993,
+      "source_title": "Ah Tu"
+    },
+    {
+      "key": "endfield:page:684",
+      "game": "endfield",
+      "zh": "",
+      "en": "Aleeza Collins",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Aleeza_Collins",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2330,
+      "source_title": "Aleeza Collins"
+    },
+    {
+      "key": "endfield:page:1563",
+      "game": "endfield",
+      "zh": "",
+      "en": "Alia",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Alia",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2418,
+      "source_title": "Alia"
+    },
+    {
+      "key": "endfield:page:686",
+      "game": "endfield",
+      "zh": "",
+      "en": "Andre",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Andre",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6932,
+      "source_title": "Andre"
+    },
+    {
+      "key": "endfield:page:282",
+      "game": "endfield",
+      "zh": "",
+      "en": "Antal",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Antal",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 862,
+      "source_title": "Antal"
+    },
+    {
+      "key": "endfield:page:187",
+      "game": "endfield",
+      "zh": "",
+      "en": "Arclight",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Arclight",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3494,
+      "source_title": "Arclight"
+    },
+    {
+      "key": "endfield:page:807",
+      "game": "endfield",
+      "zh": "",
+      "en": "Ardashir",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Ardashir",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6916,
+      "source_title": "Ardashir"
+    },
+    {
+      "key": "endfield:page:197",
+      "game": "endfield",
+      "zh": "",
+      "en": "Avywenna",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Avywenna",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": 6520,
+      "source_title": "Avywenna"
+    },
+    {
+      "key": "endfield:page:1876",
+      "game": "endfield",
+      "zh": "",
+      "en": "Bao",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Bao",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3076,
+      "source_title": "Bao"
+    },
+    {
+      "key": "endfield:page:166",
+      "game": "endfield",
+      "zh": "",
+      "en": "Chen Qianyu",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Chen_Qianyu",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3493,
+      "source_title": "Chen Qianyu"
+    },
+    {
+      "key": "endfield:page:986",
+      "game": "endfield",
+      "zh": "",
+      "en": "Da Jiang",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Da_Jiang",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2989,
+      "source_title": "Da Jiang"
+    },
+    {
+      "key": "endfield:page:172",
+      "game": "endfield",
+      "zh": "",
+      "en": "Da Pan",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Da_Pan",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 857,
+      "source_title": "Da Pan"
+    },
+    {
+      "key": "endfield:page:178",
+      "game": "endfield",
+      "zh": "",
+      "en": "Ember",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Ember",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 5020,
+      "source_title": "Ember"
+    },
+    {
+      "key": "endfield:page:160",
+      "game": "endfield",
+      "zh": "",
+      "en": "Endministrator",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Endministrator",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": 7134,
+      "source_title": "Endministrator"
+    },
+    {
+      "key": "endfield:page:1243",
+      "game": "endfield",
+      "zh": "",
+      "en": "Estella",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Estella",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6825,
+      "source_title": "Estella"
+    },
+    {
+      "key": "endfield:page:685",
+      "game": "endfield",
+      "zh": "",
+      "en": "Fabian Collins",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Fabian_Collins",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2949,
+      "source_title": "Fabian Collins"
+    },
+    {
+      "key": "endfield:page:195",
+      "game": "endfield",
+      "zh": "",
+      "en": "Gilberta",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Gilberta",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 864,
+      "source_title": "Gilberta"
+    },
+    {
+      "key": "endfield:page:1002",
+      "game": "endfield",
+      "zh": "",
+      "en": "He Lao",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/He_Lao",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2991,
+      "source_title": "He Lao"
+    },
+    {
+      "key": "endfield:page:1870",
+      "game": "endfield",
+      "zh": "",
+      "en": "Hong Ni",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Hong_Ni",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3073,
+      "source_title": "Hong Ni"
+    },
+    {
+      "key": "endfield:page:1850",
+      "game": "endfield",
+      "zh": "",
+      "en": "Ingol",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Ingol",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2967,
+      "source_title": "Ingol"
+    },
+    {
+      "key": "endfield:page:1403",
+      "game": "endfield",
+      "zh": "",
+      "en": "Kitt",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Kitt",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2335,
+      "source_title": "Kitt"
+    },
+    {
+      "key": "endfield:page:1576",
+      "game": "endfield",
+      "zh": "",
+      "en": "Kuzminichna",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Kuzminichna",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3681,
+      "source_title": "Kuzminichna"
+    },
+    {
+      "key": "endfield:page:189",
+      "game": "endfield",
+      "zh": "",
+      "en": "Laevatain",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Laevatain",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6903,
+      "source_title": "Laevatain"
+    },
+    {
+      "key": "endfield:page:1890",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lao Yaofeng",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lao_Yaofeng",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3005,
+      "source_title": "Lao Yaofeng"
+    },
+    {
+      "key": "endfield:page:1868",
+      "game": "endfield",
+      "zh": "",
+      "en": "Li Zhui",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Li_Zhui",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3072,
+      "source_title": "Li Zhui"
+    },
+    {
+      "key": "endfield:page:174",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lifeng",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lifeng",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 7071,
+      "source_title": "Lifeng"
+    },
+    {
+      "key": "endfield:page:3830",
+      "game": "endfield",
+      "zh": "",
+      "en": "Liino",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Liino",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": 7125,
+      "source_title": "Liino"
+    },
+    {
+      "key": "endfield:page:1572",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lilica",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lilica",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2421,
+      "source_title": "Lilica"
+    },
+    {
+      "key": "endfield:page:1888",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lin Ke",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lin_Ke",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3002,
+      "source_title": "Lin Ke"
+    },
+    {
+      "key": "endfield:page:1511",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lonnard",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lonnard",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2876,
+      "source_title": "Lonnard"
+    },
+    {
+      "key": "endfield:page:1236",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lu Yan",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lu_Yan",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2386,
+      "source_title": "Lu Yan"
+    },
+    {
+      "key": "endfield:page:1891",
+      "game": "endfield",
+      "zh": "",
+      "en": "Lu Yaofeng",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Lu_Yaofeng",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3008,
+      "source_title": "Lu Yaofeng"
+    },
+    {
+      "key": "endfield:page:1504",
+      "game": "endfield",
+      "zh": "",
+      "en": "Mila",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Mila",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2338,
+      "source_title": "Mila"
+    },
+    {
+      "key": "endfield:page:1567",
+      "game": "endfield",
+      "zh": "",
+      "en": "Molly",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Molly",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6831,
+      "source_title": "Molly"
+    },
+    {
+      "key": "endfield:page:298",
+      "game": "endfield",
+      "zh": "",
+      "en": "NPC",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/NPC",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6986,
+      "source_title": "NPC"
+    },
+    {
+      "key": "endfield:page:1200",
+      "game": "endfield",
+      "zh": "",
+      "en": "Noffman",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Noffman",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2342,
+      "source_title": "Noffman"
+    },
+    {
+      "key": "endfield:page:1874",
+      "game": "endfield",
+      "zh": "",
+      "en": "Old Tianshi",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Old_Tianshi",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3075,
+      "source_title": "Old Tianshi"
+    },
+    {
+      "key": "endfield:page:1529",
+      "game": "endfield",
+      "zh": "",
+      "en": "Oleg",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Oleg",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2294,
+      "source_title": "Oleg"
+    },
+    {
+      "key": "endfield:page:1524",
+      "game": "endfield",
+      "zh": "",
+      "en": "Olga",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Olga",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2287,
+      "source_title": "Olga"
+    },
+    {
+      "key": "endfield:page:1519",
+      "game": "endfield",
+      "zh": "",
+      "en": "Pavel",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Pavel",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2344,
+      "source_title": "Pavel"
+    },
+    {
+      "key": "endfield:page:1510",
+      "game": "endfield",
+      "zh": "",
+      "en": "Penny",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Penny",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2272,
+      "source_title": "Penny"
+    },
+    {
+      "key": "endfield:page:164",
+      "game": "endfield",
+      "zh": "",
+      "en": "Perlica",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Perlica",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": 7124,
+      "source_title": "Perlica"
+    },
+    {
+      "key": "endfield:page:1508",
+      "game": "endfield",
+      "zh": "",
+      "en": "Phyllis",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Phyllis",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2345,
+      "source_title": "Phyllis"
+    },
+    {
+      "key": "endfield:page:1526",
+      "game": "endfield",
+      "zh": "",
+      "en": "Rameld",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Rameld",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2347,
+      "source_title": "Rameld"
+    },
+    {
+      "key": "endfield:page:3776",
+      "game": "endfield",
+      "zh": "",
+      "en": "Reconveners",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Reconveners",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6888,
+      "source_title": "Reconveners"
+    },
+    {
+      "key": "endfield:page:1398",
+      "game": "endfield",
+      "zh": "",
+      "en": "Sivka",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Sivka",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2371,
+      "source_title": "Sivka"
+    },
+    {
+      "key": "endfield:page:193",
+      "game": "endfield",
+      "zh": "",
+      "en": "Snowshine",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Snowshine",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 858,
+      "source_title": "Snowshine"
+    },
+    {
+      "key": "endfield:page:1553",
+      "game": "endfield",
+      "zh": "",
+      "en": "TA-TA",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/TA-TA",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3041,
+      "source_title": "TA-TA"
+    },
+    {
+      "key": "endfield:page:949",
+      "game": "endfield",
+      "zh": "",
+      "en": "Tangtang",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Tangtang",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6769,
+      "source_title": "Tangtang"
+    },
+    {
+      "key": "endfield:page:3836",
+      "game": "endfield",
+      "zh": "",
+      "en": "Typhoeus",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Typhoeus",
+      "source_tags": [],
+      "status": "released",
+      "source_revision": 7145,
+      "source_title": "Typhoeus"
+    },
+    {
+      "key": "endfield:page:1531",
+      "game": "endfield",
+      "zh": "",
+      "en": "Vera",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Vera",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2350,
+      "source_title": "Vera"
+    },
+    {
+      "key": "endfield:page:1528",
+      "game": "endfield",
+      "zh": "",
+      "en": "Wellmorin",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Wellmorin",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2351,
+      "source_title": "Wellmorin"
+    },
+    {
+      "key": "endfield:page:170",
+      "game": "endfield",
+      "zh": "",
+      "en": "Wulfgard",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Wulfgard",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 865,
+      "source_title": "Wulfgard"
+    },
+    {
+      "key": "endfield:page:176",
+      "game": "endfield",
+      "zh": "",
+      "en": "Xaihi",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Xaihi",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 867,
+      "source_title": "Xaihi"
+    },
+    {
+      "key": "endfield:page:1866",
+      "game": "endfield",
+      "zh": "",
+      "en": "Yan Lin",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Yan_Lin",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2975,
+      "source_title": "Yan Lin"
+    },
+    {
+      "key": "endfield:page:1886",
+      "game": "endfield",
+      "zh": "",
+      "en": "Yongning",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Yongning",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 2995,
+      "source_title": "Yongning"
+    },
+    {
+      "key": "endfield:page:1872",
+      "game": "endfield",
+      "zh": "",
+      "en": "Yuxuan",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Yuxuan",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3074,
+      "source_title": "Yuxuan"
+    },
+    {
+      "key": "endfield:page:191",
+      "game": "endfield",
+      "zh": "",
+      "en": "Yvonne",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://endfield.fandom.com/wiki/Yvonne",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 7022,
+      "source_title": "Yvonne"
+    },
+    {
+      "key": "endfield:page:560",
+      "game": "endfield",
+      "zh": "",
+      "en": "Falsewings α",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Falsewings_%CE%B1",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 4002,
+      "source_title": "Falsewings α"
+    },
+    {
+      "key": "endfield:page:556",
+      "game": "endfield",
+      "zh": "",
+      "en": "Heavy Ram α",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Heavy_Ram_%CE%B1",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3981,
+      "source_title": "Heavy Ram α"
+    },
+    {
+      "key": "endfield:page:557",
+      "game": "endfield",
+      "zh": "",
+      "en": "Heavy Sting α",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Heavy_Sting_%CE%B1",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3994,
+      "source_title": "Heavy Sting α"
+    },
+    {
+      "key": "endfield:page:593",
+      "game": "endfield",
+      "zh": "",
+      "en": "Landbreaker",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Landbreaker",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 6876,
+      "source_title": "Landbreaker"
+    },
+    {
+      "key": "endfield:page:554",
+      "game": "endfield",
+      "zh": "",
+      "en": "Ram α",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Ram_%CE%B1",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3978,
+      "source_title": "Ram α"
+    },
+    {
+      "key": "endfield:page:555",
+      "game": "endfield",
+      "zh": "",
+      "en": "Sting α",
+      "aliases": [],
+      "kind": "enemy",
+      "source_url": "https://endfield.fandom.com/wiki/Sting_%CE%B1",
+      "source_tags": [],
+      "status": "unknown",
+      "source_revision": 3989,
+      "source_title": "Sting α"
+    }
+  ],
+  "gaps": [
+    {
+      "page": "Dewey",
+      "reason": "no template"
+    },
+    {
+      "page": "AIC Steward",
+      "reason": "no template"
+    },
+    {
+      "page": "Daniel",
+      "reason": "no template"
+    },
+    {
+      "page": "Ah Zai",
+      "reason": "no template"
+    },
+    {
+      "page": "Clavell",
+      "reason": "no template"
+    },
+    {
+      "page": "Dean",
+      "reason": "no template"
+    },
+    {
+      "page": "Crowe",
+      "reason": "no template"
+    },
+    {
+      "page": "Aleksandr Kondratyuk",
+      "reason": "no template"
+    },
+    {
+      "page": "Anton",
+      "reason": "no template"
+    },
+    {
+      "page": "Ada",
+      "reason": "no template"
+    },
+    {
+      "page": "Amino",
+      "reason": "no template"
+    },
+    {
+      "page": "Aquito",
+      "reason": "no template"
+    },
+    {
+      "page": "Anthony",
+      "reason": "no template"
+    },
+    {
+      "page": "Aburrey",
+      "reason": "no template"
+    },
+    {
+      "page": "Angro",
+      "reason": "no template"
+    },
+    {
+      "page": "Copper",
+      "reason": "no template"
+    },
+    {
+      "page": "Bronzer",
+      "reason": "no template"
+    },
+    {
+      "page": "Dmitry",
+      "reason": "no template"
+    },
+    {
+      "page": "Artyom",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Shadow\" Brenna",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Guillotine\" Gabbi",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Will-o-Wisp\" Vichir",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Bloodeye\" Sazaro",
+      "reason": "no template"
+    },
+    {
+      "page": "\"Volcano\" Chacha",
+      "reason": "no template"
+    },
+    {
+      "page": "Aleksandr",
+      "reason": "no template"
+    },
+    {
+      "page": "Dr. Raman Harrent",
+      "reason": "no template"
+    },
+    {
+      "page": "Character",
+      "reason": "no template"
+    },
+    {
+      "page": "Bobo",
+      "reason": "no template"
+    },
+    {
+      "page": "Jing Hong",
+      "reason": "no template"
+    },
+    {
+      "page": "Ge Yipu",
+      "reason": "no template"
+    },
+    {
+      "page": "Hermann",
+      "reason": "no template"
+    },
+    {
+      "page": "Leon",
+      "reason": "no template"
+    },
+    {
+      "page": "Hartmann",
+      "reason": "no template"
+    },
+    {
+      "page": "Eric",
+      "reason": "no template"
+    },
+    {
+      "page": "Eston",
+      "reason": "no template"
+    },
+    {
+      "page": "Jouster",
+      "reason": "no template"
+    },
+    {
+      "page": "Laeya",
+      "reason": "no template"
+    },
+    {
+      "page": "Karja",
+      "reason": "no template"
+    },
+    {
+      "page": "Ginny",
+      "reason": "no template"
+    },
+    {
+      "page": "Hughes",
+      "reason": "no template"
+    },
+    {
+      "page": "Hock the Miner",
+      "reason": "no template"
+    },
+    {
+      "page": "Kuhn",
+      "reason": "no template"
+    },
+    {
+      "page": "Jeremy",
+      "reason": "no template"
+    },
+    {
+      "page": "Georgi",
+      "reason": "no template"
+    },
+    {
+      "page": "Fiona",
+      "reason": "no template"
+    },
+    {
+      "page": "Hans",
+      "reason": "no template"
+    },
+    {
+      "page": "Joan",
+      "reason": "no template"
+    },
+    {
+      "page": "Gorion",
+      "reason": "no template"
+    },
+    {
+      "page": "Granny Jenner",
+      "reason": "no template"
+    },
+    {
+      "page": "Giovanni",
+      "reason": "no template"
+    },
+    {
+      "page": "Dudu",
+      "reason": "no template"
+    },
+    {
+      "page": "Ju Mei",
+      "reason": "no template"
+    },
+    {
+      "page": "Hong Bo",
+      "reason": "no template"
+    },
+    {
+      "page": "Lang Tou",
+      "reason": "no template"
+    },
+    {
+      "page": "Du Qusheng",
+      "reason": "no template"
+    },
+    {
+      "page": "Nefarith",
+      "reason": "no template"
+    },
+    {
+      "page": "M3",
+      "reason": "no template"
+    },
+    {
+      "page": "Medical Officer Yue",
+      "reason": "no template"
+    },
+    {
+      "page": "Lu Gang",
+      "reason": "no template"
+    },
+    {
+      "page": "Lian Xiaowu",
+      "reason": "no template"
+    },
+    {
+      "page": "Lucky Carrot",
+      "reason": "no template"
+    },
+    {
+      "page": "Pei Shu",
+      "reason": "no template"
+    },
+    {
+      "page": "Maggie",
+      "reason": "no template"
+    },
+    {
+      "page": "Lou",
+      "reason": "no template"
+    },
+    {
+      "page": "Miguel",
+      "reason": "no template"
+    },
+    {
+      "page": "Maymay",
+      "reason": "no template"
+    },
+    {
+      "page": "Melvin",
+      "reason": "no template"
+    },
+    {
+      "page": "Malwen",
+      "reason": "no template"
+    },
+    {
+      "page": "Mark",
+      "reason": "no template"
+    },
+    {
+      "page": "Loang the Miner",
+      "reason": "no template"
+    },
+    {
+      "page": "Luke",
+      "reason": "no template"
+    },
+    {
+      "page": "Linnaeus",
+      "reason": "no template"
+    },
+    {
+      "page": "Matvei",
+      "reason": "no template"
+    },
+    {
+      "page": "Old John",
+      "reason": "no template"
+    },
+    {
+      "page": "Mia",
+      "reason": "no template"
+    },
+    {
+      "page": "Mr. Ouyang the Freedom Lover",
+      "reason": "no template"
+    },
+    {
+      "page": "Ms. An the Little Stitious",
+      "reason": "no template"
+    },
+    {
+      "page": "Little Wu",
+      "reason": "no template"
+    },
+    {
+      "page": "Mo Yu",
+      "reason": "no template"
+    },
+    {
+      "page": "Soth",
+      "reason": "no template"
+    },
+    {
+      "page": "Thurston",
+      "reason": "no template"
+    },
+    {
+      "page": "Staub",
+      "reason": "no template"
+    },
+    {
+      "page": "Qingwu",
+      "reason": "no template"
+    },
+    {
+      "page": "Tin Ingot",
+      "reason": "no template"
+    },
+    {
+      "page": "Wu Jingwei",
+      "reason": "no template"
+    },
+    {
+      "page": "Scott",
+      "reason": "no template"
+    },
+    {
+      "page": "Qin Jiangchi",
+      "reason": "no template"
+    },
+    {
+      "page": "Salman",
+      "reason": "no template"
+    },
+    {
+      "page": "Roman",
+      "reason": "no template"
+    },
+    {
+      "page": "Semyon",
+      "reason": "no template"
+    },
+    {
+      "page": "Vannikov",
+      "reason": "no template"
+    },
+    {
+      "page": "Ylla",
+      "reason": "no template"
+    },
+    {
+      "page": "Rick",
+      "reason": "no template"
+    },
+    {
+      "page": "Ramon",
+      "reason": "no template"
+    },
+    {
+      "page": "Rossi",
+      "reason": "no template"
+    },
+    {
+      "page": "Shawna",
+      "reason": "no template"
+    },
+    {
+      "page": "Riska",
+      "reason": "no template"
+    },
+    {
+      "page": "Uncle Ronan",
+      "reason": "no template"
+    },
+    {
+      "page": "Tarman",
+      "reason": "no template"
+    },
+    {
+      "page": "Simma",
+      "reason": "no template"
+    },
+    {
+      "page": "Raquel Jones",
+      "reason": "no template"
+    },
+    {
+      "page": "Tommaso",
+      "reason": "no template"
+    },
+    {
+      "page": "Yuley",
+      "reason": "no template"
+    },
+    {
+      "page": "Shang Jin",
+      "reason": "no template"
+    },
+    {
+      "page": "Ram",
+      "reason": "no template"
+    },
+    {
+      "page": "Heavy Ram",
+      "reason": "no template"
+    },
+    {
+      "page": "Sting",
+      "reason": "no template"
+    },
+    {
+      "page": "Heavy Sting",
+      "reason": "no template"
+    },
+    {
+      "page": "Effigy",
+      "reason": "no template"
+    },
+    {
+      "page": "Falsewings",
+      "reason": "no template"
+    },
+    {
+      "page": "Walking Chrysopolis",
+      "reason": "no template"
+    },
+    {
+      "page": "Triaggelos",
+      "reason": "no template"
+    },
+    {
+      "page": "Marble Aggelomoirai",
+      "reason": "no template"
+    },
+    {
+      "page": "Mudflow",
+      "reason": "no template"
+    },
+    {
+      "page": "Hedron",
+      "reason": "no template"
+    },
+    {
+      "page": "Prism",
+      "reason": "no template"
+    },
+    {
+      "page": "Enemy",
+      "reason": "no template"
+    },
+    {
+      "page": "Common Enemy",
+      "reason": "no template"
+    },
+    {
+      "page": "Advanced Enemy",
+      "reason": "no template"
+    },
+    {
+      "page": "Elite Enemy",
+      "reason": "no template"
+    },
+    {
+      "page": "Alpha Enemy",
+      "reason": "no template"
+    },
+    {
+      "page": "Boss",
+      "reason": "no template"
+    },
+    {
+      "page": "Tidewalker",
+      "reason": "no template"
+    },
+    {
+      "page": "Jakub Meissen",
+      "reason": "no template"
+    },
+    {
+      "page": "Originium Slug",
+      "reason": "no template"
+    },
+    {
+      "page": "Ereignis",
+      "reason": "no template"
+    },
+    {
+      "page": "Yulia",
+      "reason": "no template"
+    },
+    {
+      "page": "Sentinel",
+      "reason": "no template"
+    },
+    {
+      "page": "Zach",
+      "reason": "no template"
+    },
+    {
+      "page": "NPC/List",
+      "reason": "non-identity or subpage"
+    },
+    {
+      "page": "Mudflow δ",
+      "reason": "no template"
+    },
+    {
+      "page": "Hedron δ",
+      "reason": "no template"
+    },
+    {
+      "page": "Tidewalker δ",
+      "reason": "no template"
+    },
+    {
+      "reason": "Chinese name missing or contains unaudited template markup",
+      "record_keys": [
+        "endfield:page:1884",
+        "endfield:page:684",
+        "endfield:page:1563",
+        "endfield:page:686",
+        "endfield:page:282",
+        "endfield:page:187",
+        "endfield:page:807",
+        "endfield:page:197",
+        "endfield:page:1876",
+        "endfield:page:166",
+        "endfield:page:986",
+        "endfield:page:172",
+        "endfield:page:178",
+        "endfield:page:160",
+        "endfield:page:1243",
+        "endfield:page:685",
+        "endfield:page:195",
+        "endfield:page:1002",
+        "endfield:page:1870",
+        "endfield:page:1850",
+        "endfield:page:1403",
+        "endfield:page:1576",
+        "endfield:page:189",
+        "endfield:page:1890",
+        "endfield:page:1868",
+        "endfield:page:174",
+        "endfield:page:3830",
+        "endfield:page:1572",
+        "endfield:page:1888",
+        "endfield:page:1511",
+        "endfield:page:1236",
+        "endfield:page:1891",
+        "endfield:page:1504",
+        "endfield:page:1567",
+        "endfield:page:298",
+        "endfield:page:1200",
+        "endfield:page:1874",
+        "endfield:page:1529",
+        "endfield:page:1524",
+        "endfield:page:1519",
+        "endfield:page:1510",
+        "endfield:page:164",
+        "endfield:page:1508",
+        "endfield:page:1526",
+        "endfield:page:3776",
+        "endfield:page:1398",
+        "endfield:page:193",
+        "endfield:page:1553",
+        "endfield:page:949",
+        "endfield:page:3836",
+        "endfield:page:1531",
+        "endfield:page:1528",
+        "endfield:page:170",
+        "endfield:page:176",
+        "endfield:page:1866",
+        "endfield:page:1886",
+        "endfield:page:1872",
+        "endfield:page:191",
+        "endfield:page:560",
+        "endfield:page:556",
+        "endfield:page:557",
+        "endfield:page:593",
+        "endfield:page:554",
+        "endfield:page:555"
+      ]
+    },
+    {
+      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
+    }
+  ],
+  "quarantine": []
+}

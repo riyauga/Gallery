@@ -1,0 +1,6 @@
+{
+  "name": "gallery-autoclassify-extension",
+  "private": true,
+  "type": "module",
+  "description": "仅为 Node 单测提供 ESM 解析（Chrome 会忽略此文件）。"
+}

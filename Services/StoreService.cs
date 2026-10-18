@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
 
@@ -45,10 +45,10 @@ public sealed class StoreService : IDisposable
     public HashSet<(int RootId, string DirRel)> TrackingDirty { get; } = [];
     public string LastSidecarError { get; set; } = "";
 
-    public StoreService(string dbPath)
+    public StoreService(string dbPath, bool readOnly = false)
     {
         DbPath = dbPath;
-        var db = new Db(dbPath);
+        var db = new Db(dbPath, readOnly);
         _conn = db.Connection;
     }
 
@@ -560,6 +560,17 @@ public sealed class StoreService : IDisposable
         public string Sort { get; init; } = "taken";
         public bool Desc { get; init; }
         public int? Limit { get; init; }
+        // ---- 阶段 C：分类筛选（照搬 store.py query_images 的标签参数） ----
+        public IReadOnlyList<int> TagIds { get; init; } = [];
+        public string TagMode { get; init; } = "or";   // or | and
+        public IReadOnlyDictionary<string, IReadOnlyList<int>> TagGroups { get; init; } =
+            new Dictionary<string, IReadOnlyList<int>>();
+        public IReadOnlyDictionary<string, string> GroupModes { get; init; } =
+            new Dictionary<string, string>();
+        public IReadOnlyList<int> ExcludedTagIds { get; init; } = [];
+        public bool Untagged { get; init; }
+        /// <summary>「隐藏」时仅保留明确 SFW 标签，与旧版查询和保护策略一致。</summary>
+        public bool HideNsfw { get; init; }
     }
 
     private static string LikeEscape(string s)
@@ -607,6 +618,72 @@ public sealed class StoreService : IDisposable
         {
             where.Add("EXISTS(SELECT 1 FROM favorites f WHERE f.image_id=i.id)");
         }
+
+        // 标签 IN 列表：顺序占位符，参数按出现顺序追加
+        string InList(IReadOnlyList<int> ids)
+        {
+            var parts = new List<string>(ids.Count);
+            foreach (var id in ids)
+            {
+                parts.Add($"$p{args.Count}");
+                args.Add(id);
+            }
+            return string.Join(",", parts);
+        }
+
+        if (spec.HideNsfw)
+        {
+            // Gallery_Old：完全隐藏仅保留明确 SFW；与模糊及拖出保护共用标签口径。
+            where.Add("EXISTS(SELECT 1 FROM image_tags safe_it JOIN tags safe_t ON safe_t.id=safe_it.tag_id " +
+                      "WHERE safe_it.image_id=i.id AND safe_t.category='rating' AND safe_t.name='SFW')");
+        }
+
+        if (spec.Untagged)
+        {
+            where.Add("NOT EXISTS(SELECT 1 FROM image_tags it WHERE it.image_id=i.id)");
+        }
+        else if (spec.TagIds.Count > 0)
+        {
+            var tagIds = spec.TagIds.Distinct().ToList();
+            var marks = InList(tagIds);
+            if (spec.TagMode == "and")
+            {
+                var ph = $"$p{args.Count}";
+                args.Add(tagIds.Count);
+                where.Add("(SELECT COUNT(DISTINCT it.tag_id) FROM image_tags it " +
+                          $"WHERE it.image_id=i.id AND it.tag_id IN ({marks})) = {ph}");
+            }
+            else
+            {
+                where.Add("EXISTS(SELECT 1 FROM image_tags it " +
+                          $"WHERE it.image_id=i.id AND it.tag_id IN ({marks}))");
+            }
+        }
+        foreach (var (category, group) in spec.TagGroups)
+        {
+            var ids = group.Distinct().ToList();
+            if (ids.Count == 0) continue;
+            var marks = InList(ids);
+            if (spec.GroupModes.TryGetValue(category, out var mode) && mode == "all")
+            {
+                var ph = $"$p{args.Count}";
+                args.Add(ids.Count);
+                where.Add("(SELECT COUNT(*) FROM image_tags it " +
+                          $"WHERE it.image_id=i.id AND it.tag_id IN ({marks}))={ph}");
+            }
+            else
+            {
+                where.Add("EXISTS(SELECT 1 FROM image_tags it " +
+                          $"WHERE it.image_id=i.id AND it.tag_id IN ({marks}))");
+            }
+        }
+        if (spec.ExcludedTagIds.Count > 0)
+        {
+            var marks = InList(spec.ExcludedTagIds.Distinct().ToList());
+            where.Add("NOT EXISTS(SELECT 1 FROM image_tags it " +
+                      $"WHERE it.image_id=i.id AND it.tag_id IN ({marks}))");
+        }
+
         var search = spec.Search.Trim();
         if (search.Length > 0)
         {
@@ -616,7 +693,9 @@ public sealed class StoreService : IDisposable
             where.Add(
                 $"(i.name LIKE {ph} ESCAPE '\\' OR EXISTS(" +
                 "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
+                "LEFT JOIN tag_profiles tp ON tp.tag_id=t.id " +
                 $"WHERE it.image_id=i.id AND (t.name LIKE {ph} ESCAPE '\\' " +
+                $"OR tp.zh LIKE {ph} ESCAPE '\\' OR tp.en LIKE {ph} ESCAPE '\\' " +
                 $"OR EXISTS(SELECT 1 FROM tag_aliases ta WHERE ta.tag_id=t.id AND ta.alias LIKE {ph} ESCAPE '\\'))))");
         }
 
@@ -861,6 +940,684 @@ public sealed class StoreService : IDisposable
         while (r.Read()) list.Add((r.IsDBNull(0) ? "custom" : r.GetString(0), r.GetString(1)));
         return list;
     }
+
+    /// <summary>待判定的图片：返回 (image_id, 绝对路径)。onlyStale 时跳过已经用同一模型跑过的。</summary>
+    public List<KeyValuePair<int, string>> ImageFilesForScan(string modelHash, bool onlyStale)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = onlyStale
+                ? "SELECT i.id, r.path, i.rel_path FROM images i JOIN roots r ON r.id=i.root_id " +
+                  "LEFT JOIN nsfw_scores s ON s.image_id=i.id " +
+                  "WHERE i.missing=0 AND (s.image_id IS NULL OR s.model_hash<>$h) ORDER BY i.id"
+                : "SELECT i.id, r.path, i.rel_path FROM images i JOIN roots r ON r.id=i.root_id " +
+                  "WHERE i.missing=0 ORDER BY i.id";
+            if (onlyStale) cmd.Parameters.AddWithValue("$h", modelHash);
+
+            var list = new List<KeyValuePair<int, string>>();
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var root = r.GetString(1);
+                var rel = r.GetString(2);
+                list.Add(new KeyValuePair<int, string>(
+                    r.GetInt32(0), Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar))));
+            }
+            return list;
+        }
+    }
+
+    // ---------------------------------------------------------------- 敏感判定
+
+    /// <summary>批量取现有分级（images.nsfw），给「重判定预览」对比新旧用。</summary>
+    public Dictionary<int, string> NsfwRatings(IEnumerable<int> imageIds)
+    {
+        var map = new Dictionary<int, string>();
+        var ids = imageIds.ToList();
+        lock (SyncRoot)
+        {
+            for (var offset = 0; offset < ids.Count; offset += 900)
+            {
+                var chunk = ids.Skip(offset).Take(900).ToList();
+                using var cmd = _conn.CreateCommand();
+                cmd.CommandText =
+                    "SELECT id, nsfw FROM images WHERE id IN (" +
+                    string.Join(",", chunk.Select((_, i) => "$p" + i)) + ")";
+                for (var i = 0; i < chunk.Count; i++) cmd.Parameters.AddWithValue("$p" + i, chunk[i]);
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) map[r.GetInt32(0)] = r.IsDBNull(1) ? "" : r.GetString(1);
+            }
+        }
+        return map;
+    }
+
+    public sealed record NsfwScore(
+        int ImageId, string Source, string Rating, string Value, double NsfwProb,
+        double Confidence, double Margin, string ModelName, string ModelHash,
+        string Detail, double CheckedAt)
+    {
+        /// <summary>danbooru 四级里 g/s 算 SFW，q/e 算 NSFW。</summary>
+        public bool IsNsfw => Rating is "q" or "e";
+    }
+
+    /// <summary>写一条判定：nsfw_scores 落档 + images.nsfw 同步；tagIt 时顺手打 NSFW/SFW 标签。</summary>
+    public void SetNsfwScore(int imageId, string source, string rating, string value = "",
+        double nsfwProb = 0, double confidence = 0, double margin = 0,
+        string modelName = "", string modelHash = "", string detail = "", bool tagIt = false)
+    {
+        lock (SyncRoot)
+        {
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText =
+                    "INSERT INTO nsfw_scores(image_id,source,rating,value,nsfw_prob,confidence,margin," +
+                    "model_name,model_hash,detail,checked_at) VALUES($i,$s,$r,$v,$p,$c,$m,$n,$h,$d,$t) " +
+                    "ON CONFLICT(image_id) DO UPDATE SET source=$s,rating=$r,value=$v,nsfw_prob=$p," +
+                    "confidence=$c,margin=$m,model_name=$n,model_hash=$h,detail=$d,checked_at=$t";
+                cmd.Parameters.AddWithValue("$i", imageId);
+                cmd.Parameters.AddWithValue("$s", source);
+                cmd.Parameters.AddWithValue("$r", rating);
+                cmd.Parameters.AddWithValue("$v", value);
+                cmd.Parameters.AddWithValue("$p", nsfwProb);
+                cmd.Parameters.AddWithValue("$c", confidence);
+                cmd.Parameters.AddWithValue("$m", margin);
+                cmd.Parameters.AddWithValue("$n", modelName);
+                cmd.Parameters.AddWithValue("$h", modelHash);
+                cmd.Parameters.AddWithValue("$d", detail);
+                cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "UPDATE images SET nsfw=$r WHERE id=$i";
+                cmd.Parameters.AddWithValue("$r", rating);
+                cmd.Parameters.AddWithValue("$i", imageId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        if (tagIt) TagNsfw(imageId, rating is "q" or "e");
+    }
+
+    /// <summary>NSFW/SFW 标签互斥写入。</summary>
+    /// <summary>
+    /// 修历史漂移：① images.nsfw 和 nsfw_scores.rating 不一致时以评分表为准；
+    /// ② 分辨率标签被误删的图（老版本「整批替换」的受害者）补回来。
+    /// 只补不改别的，重复跑是幂等的。
+    /// </summary>
+    public (int NsfwFixed, int ResolutionFixed) RepairDerived()
+    {
+        lock (SyncRoot)
+        {
+            int nsfwFixed;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText =
+                    "UPDATE images SET nsfw=(SELECT s.rating FROM nsfw_scores s WHERE s.image_id=images.id) " +
+                    "WHERE EXISTS(SELECT 1 FROM nsfw_scores s WHERE s.image_id=images.id) " +
+                    "AND COALESCE(nsfw,'')<>COALESCE((SELECT s.rating FROM nsfw_scores s WHERE s.image_id=images.id),'')";
+                nsfwFixed = cmd.ExecuteNonQuery();
+            }
+
+            var rows = new List<(int Id, int? W, int? H)>();
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText =
+                    "SELECT i.id,i.width,i.height FROM images i " +
+                    "WHERE i.missing=0 AND i.width>0 AND i.height>0 AND NOT EXISTS(" +
+                    "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
+                    "WHERE it.image_id=i.id AND t.category='resolution')";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    rows.Add((r.GetInt32(0), r.IsDBNull(1) ? null : r.GetInt32(1),
+                        r.IsDBNull(2) ? null : r.GetInt32(2)));
+            }
+
+            foreach (var (id, w, h) in rows)
+            {
+                var pairs = CategorizedTags(id).Where(p => p.Category != "resolution").ToList();
+                pairs.AddRange(Taxonomy.ResolutionTags(w, h).Select(t => ("resolution", t)));
+                SetCategorizedTags([id], pairs);
+            }
+
+            Commit();
+            return (nsfwFixed, rows.Count);
+        }
+    }
+
+    public void TagNsfw(int imageId, bool nsfw)
+    {
+        var keep = nsfw ? "NSFW" : "SFW";
+        var drop = nsfw ? "SFW" : "NSFW";
+
+        // SetCategorizedTags 是「整张图整批替换」，所以要把除 rating 之外的标签原样带上，
+        // 否则标个分级会把画师/作品/角色全冲掉。
+        var pairs = CategorizedTags(imageId)
+            .Where(t => t.Category != "rating" && t.Name != keep && t.Name != drop)
+            .Select(t => (t.Category, t.Name))
+            .ToList();
+        pairs.Add(("rating", keep));
+        SetCategorizedTags([imageId], pairs);
+    }
+
+    public NsfwScore? NsfwScoreFor(int imageId)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT image_id,source,rating,value,nsfw_prob,confidence,margin,model_name," +
+                "model_hash,detail,checked_at FROM nsfw_scores WHERE image_id=$i";
+            cmd.Parameters.AddWithValue("$i", imageId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            return new NsfwScore(r.GetInt32(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                r.GetDouble(4), r.GetDouble(5), r.GetDouble(6), r.GetString(7), r.GetString(8),
+                r.GetString(9), r.GetDouble(10));
+        }
+    }
+
+    /// <summary>已分级 / 已判敏感 / 仍未知 三个计数（设置页与状态行共用）。</summary>
+    public (int Scored, int Nsfw, int Unknown) NsfwSummary()
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT COUNT(*) FILTER (WHERE nsfw IS NOT NULL AND nsfw<>'')," +
+                "COUNT(*) FILTER (WHERE nsfw IN ('q','e'))," +
+                "COUNT(*) FILTER (WHERE nsfw IS NULL OR nsfw='') FROM images";
+            using var r = cmd.ExecuteReader();
+            return r.Read() ? (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2)) : (0, 0, 0);
+        }
+    }
+
+    // ---------------------------------------------------------------- 浏览器桥接
+    /// <summary>桥接写入结果；Duplicate 表示 ingest_id 已经收过（幂等）。</summary>
+    public sealed record IngestResult(int QueueId, bool Duplicate);
+
+    private bool _bridgeSchemaReady;
+
+    /// <summary>桥接运行期建表（不改旧库既有结构，只加自己的幂等表）。</summary>
+    public void EnsureBridgeSchema()
+    {
+        lock (SyncRoot)
+        {
+            if (_bridgeSchemaReady) return;
+            var conn = _conn;
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "CREATE TABLE IF NOT EXISTS bridge_ingest(" +
+                "ingest_id TEXT PRIMARY KEY, queue_id INTEGER NOT NULL, received_at REAL NOT NULL)";
+            cmd.ExecuteNonQuery();
+            _bridgeSchemaReady = true;
+        }
+    }
+
+    /// <summary>
+    /// 把扩展送来的一条下载记录写进 ingest_queue（同步落库后才返回，插件据此决定重试）。
+    /// ingest_id 非空时按它做幂等。
+    /// </summary>
+    public IngestResult IngestPush(string payloadJson, string inboxName, string inboxPath,
+        string pageUrl, string imageUrl, string postId, string md5, string rating, string source,
+        string ingestId)
+    {
+        EnsureBridgeSchema();
+
+        lock (SyncRoot)
+        {
+            var conn = _conn;
+            using var tx = conn.BeginTransaction();
+
+            if (ingestId.Length > 0)
+            {
+                using var dup = conn.CreateCommand();
+                dup.Transaction = tx;
+                dup.CommandText = "SELECT queue_id FROM bridge_ingest WHERE ingest_id=$i";
+                dup.Parameters.AddWithValue("$i", ingestId);
+                var found = dup.ExecuteScalar();
+                if (found is not null and not DBNull)
+                    return new IngestResult(Convert.ToInt32(found), true);
+            }
+
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "INSERT INTO ingest_queue(received_at,state,inbox_path,inbox_name,page_url,image_url," +
+                "post_id,md5,rating,source,payload,note) VALUES($t,'pending',$p,$n,$u,$i,$pid,$md5,$r,$s,$j,'')";
+            cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+            cmd.Parameters.AddWithValue("$p", inboxPath);
+            cmd.Parameters.AddWithValue("$n", inboxName);
+            cmd.Parameters.AddWithValue("$u", pageUrl);
+            cmd.Parameters.AddWithValue("$i", imageUrl);
+            cmd.Parameters.AddWithValue("$pid", postId);
+            cmd.Parameters.AddWithValue("$md5", md5);
+            cmd.Parameters.AddWithValue("$r", rating);
+            cmd.Parameters.AddWithValue("$s", source);
+            cmd.Parameters.AddWithValue("$j", payloadJson);
+            cmd.ExecuteNonQuery();
+
+            using var idCmd = conn.CreateCommand();
+            idCmd.Transaction = tx;
+            idCmd.CommandText = "SELECT last_insert_rowid()";
+            var id = Convert.ToInt32(idCmd.ExecuteScalar() ?? 0);
+
+            if (ingestId.Length > 0)
+            {
+                using var seen = conn.CreateCommand();
+                seen.Transaction = tx;
+                seen.CommandText =
+                    "INSERT OR REPLACE INTO bridge_ingest(ingest_id,queue_id,received_at) VALUES($i,$q,$t)";
+                seen.Parameters.AddWithValue("$i", ingestId);
+                seen.Parameters.AddWithValue("$q", id);
+                seen.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+                seen.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+            return new IngestResult(id, false);
+        }
+    }
+
+    /// <summary>待处理（pending）条数，供 /ping 与侧栏指示使用。</summary>
+    public int PendingIngestCount()
+    {
+        lock (SyncRoot)
+        {
+            var conn = _conn;
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM ingest_queue WHERE state='pending'";
+            return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+    }
+
+    /// <summary>审核面板用的一条待处理记录（payload 原文保留给详情显示）。</summary>
+    public sealed record PendingIngestRow(
+        int Id, double ReceivedAt, string State, string InboxPath, string InboxName,
+        string PageUrl, string ImageUrl, string PostId, string Md5, string Rating,
+        string Source, string Payload, string Note);
+
+    /// <summary>按状态取记录；state 为空表示只看 pending。</summary>
+    public List<PendingIngestRow> IngestRows(string state = "pending", int limit = 500)
+    {
+        var list = new List<PendingIngestRow>();
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            var where = state.Length > 0 ? "WHERE state=$s " : "";
+            cmd.CommandText =
+                "SELECT id,received_at,state,COALESCE(inbox_path,''),COALESCE(inbox_name,'')," +
+                "COALESCE(page_url,''),COALESCE(image_url,''),COALESCE(post_id,''),COALESCE(md5,'')," +
+                "COALESCE(rating,''),COALESCE(source,''),payload,COALESCE(note,'') FROM ingest_queue " + where +
+                "ORDER BY received_at DESC LIMIT $n";
+            if (state.Length > 0) cmd.Parameters.AddWithValue("$s", state);
+            cmd.Parameters.AddWithValue("$n", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                list.Add(new PendingIngestRow(
+                    r.GetInt32(0), r.GetDouble(1), r.GetString(2), r.GetString(3), r.GetString(4),
+                    r.GetString(5), r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
+                    r.GetString(10), r.GetString(11), r.GetString(12)));
+            }
+        }
+        return list;
+    }
+
+    /// <summary>按 id 取一条记录（归档用）。</summary>
+    public PendingIngestRow? IngestRow(int id)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT id,received_at,state,COALESCE(inbox_path,''),COALESCE(inbox_name,'')," +
+                "COALESCE(page_url,''),COALESCE(image_url,''),COALESCE(post_id,''),COALESCE(md5,'')," +
+                "COALESCE(rating,''),COALESCE(source,''),payload,COALESCE(note,'') FROM ingest_queue WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            return new PendingIngestRow(
+                r.GetInt32(0), r.GetDouble(1), r.GetString(2), r.GetString(3), r.GetString(4),
+                r.GetString(5), r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
+                r.GetString(10), r.GetString(11), r.GetString(12));
+        }
+    }
+
+    /// <summary>读某条归档作业（按目标路径），用于界面显示阶段与错误。</summary>
+    public (string Phase, string Error)? ArchiveJob(string destination)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT phase,error FROM archive_jobs WHERE destination=$d ORDER BY updated_at DESC LIMIT 1";
+            cmd.Parameters.AddWithValue("$d", destination);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            return (r.GetString(0), r.GetString(1));
+        }
+    }
+
+    /// <summary>写一条归档作业记录（对齐 archive_jobs 表）。</summary>
+    public void SaveArchiveJob(string id, string source, string destination, string phase,
+        string payload, string error)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "INSERT INTO archive_jobs(id,source,destination,phase,payload,error,updated_at) " +
+                "VALUES($id,$s,$d,$p,$j,$e,$t) " +
+                "ON CONFLICT(id) DO UPDATE SET phase=excluded.phase,error=excluded.error," +
+                "updated_at=excluded.updated_at";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$s", source);
+            cmd.Parameters.AddWithValue("$d", destination);
+            cmd.Parameters.AddWithValue("$p", phase);
+            cmd.Parameters.AddWithValue("$j", payload);
+            cmd.Parameters.AddWithValue("$e", error);
+            cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>改记录状态（pending / done / ignored），note 存归档目标或忽略原因。</summary>
+    public void SetIngestState(int id, string state, string note)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE ingest_queue SET state=$s, note=$n WHERE id=$id";
+            cmd.Parameters.AddWithValue("$s", state);
+            cmd.Parameters.AddWithValue("$n", note);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>彻底删掉一条记录（不动磁盘文件）。</summary>
+    public void DeleteIngest(int id)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM ingest_queue WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>各状态条数（侧栏角标用）。</summary>
+    public Dictionary<string, int> IngestStats()
+    {
+        var map = new Dictionary<string, int>(StringComparer.Ordinal);
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT state, COUNT(*) FROM ingest_queue GROUP BY state";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var key = r.IsDBNull(0) ? "" : r.GetString(0);
+                map[key] = r.GetInt32(1);
+            }
+        }
+        return map;
+    }
+
+    /// <summary>一条可恢复的同步/归档失败记录（path 去重，重复失败只更新消息与时间）。</summary>
+    public sealed record SyncError(string Path, string Message, double UpdatedAt);
+
+    /// <summary>记一条失败。归档/桥接出错时调用，设置页「最近错误」读这里。</summary>
+    public void RecordSyncError(string path, string message)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO sync_errors(path, message, updated_at) VALUES($p, $m, $t)
+                ON CONFLICT(path) DO UPDATE SET message = excluded.message, updated_at = excluded.updated_at
+                """;
+            cmd.Parameters.AddWithValue("$p", path);
+            cmd.Parameters.AddWithValue("$m", message);
+            cmd.Parameters.AddWithValue("$t", (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public List<SyncError> SyncErrors(int limit = 50)
+    {
+        var list = new List<SyncError>();
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT path, message, updated_at FROM sync_errors ORDER BY updated_at DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                list.Add(new SyncError(r.GetString(0), r.GetString(1), r.GetDouble(2)));
+        }
+        return list;
+    }
+
+    public void ClearSyncError(string path)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM sync_errors WHERE path = $p";
+            cmd.Parameters.AddWithValue("$p", path);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public int SyncErrorCount()
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM sync_errors";
+            return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+    }
+
+    public void ClearSyncErrors()
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM sync_errors";
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>最近收到的 N 条（调试与审核面板用）。</summary>
+    public List<(int Id, string Name, string State, double ReceivedAt)> RecentIngest(int limit = 20)
+    {
+        var list = new List<(int, string, string, double)>();
+        lock (SyncRoot)
+        {
+            var conn = _conn;
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT id,COALESCE(inbox_name,''),state,received_at FROM ingest_queue " +
+                "ORDER BY received_at DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add((r.GetInt32(0), r.GetString(1), r.GetString(2), r.GetDouble(3)));
+        }
+        return list;
+    }
+
+    /// <summary>标签视图（词库补齐的中文/英文名 + 别名 + 使用数），对应 store.py TagInfo。</summary>
+    public sealed record TagInfo
+    {
+        public required int Id { get; init; }
+        public required string Name { get; init; }
+        public string? Color { get; init; }
+        public int Count { get; init; }
+        public string Category { get; init; } = "custom";
+        public IReadOnlyList<string> Aliases { get; init; } = [];
+        public string ZhName { get; init; } = "";
+        public string EnName { get; init; } = "";
+        public string EntityKey { get; init; } = "";
+        /// <summary>贴片显示名：有中文名用中文，否则用标签名。</summary>
+        public string Display => ZhName.Length > 0 ? ZhName : Name;
+
+        /// <summary>搜索用的全部可命中写法：标签名 + 别名 + 词库补出的中/英文名。</summary>
+        public IReadOnlyList<string> SearchTerms
+        {
+            get
+            {
+                var list = new List<string>(Aliases.Count + 3) { Name };
+                list.AddRange(Aliases);
+                if (ZhName.Length > 0) list.Add(ZhName);
+                if (EnName.Length > 0) list.Add(EnName);
+                return list;
+            }
+        }
+    }
+
+    private static string FoldForMatch(string s)
+        => s.Trim().ToLowerInvariant().Replace(' ', '_');
+
+    /// <summary>照搬 store.py all_tags：全量标签 + 别名 + 词库补充（tag_profiles）。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public List<TagInfo> AllTags()
+    {
+        var aliases = new Dictionary<int, List<string>>();
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT tag_id,alias FROM tag_aliases ORDER BY alias";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetInt32(0);
+                if (!aliases.TryGetValue(id, out var list)) aliases[id] = list = [];
+                list.Add(r.GetString(1));
+            }
+        }
+
+        var tags = new List<TagInfo>();
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT t.id,t.name,t.color,COALESCE(t.category,'custom')," +
+                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) AS c," +
+                "COALESCE(p.zh,''),COALESCE(p.en,''),COALESCE(p.entity_key,'') " +
+                "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
+                "ORDER BY t.name COLLATE NOCASE";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetInt32(0);
+                tags.Add(new TagInfo
+                {
+                    Id = id,
+                    Name = r.GetString(1),
+                    Color = r.IsDBNull(2) ? null : r.GetString(2),
+                    Category = r.IsDBNull(3) ? "custom" : r.GetString(3),
+                    Count = r.GetInt32(4),
+                    ZhName = r.GetString(5),
+                    EnName = r.GetString(6),
+                    EntityKey = r.GetString(7),
+                    Aliases = aliases.TryGetValue(id, out var al) ? al : [],
+                });
+            }
+        }
+        return tags;
+    }
+
+    /// <summary>
+    /// 照搬 store.py search_tags：空格折叠成下划线后做包含匹配（名或别名），
+    /// 排序 = 全等优先 → 使用数降序 → 分类 → 名称。
+    /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public List<TagInfo> SearchTags(string text, int limit = 30)
+    {
+        var needle = FoldForMatch(text ?? "");
+        var exact = (text ?? "").Trim();
+        IEnumerable<TagInfo> seq = AllTags();
+        if (needle.Length > 0)
+        {
+            seq = seq.Where(t => t.SearchTerms.Any(s => FoldForMatch(s).Contains(needle, StringComparison.Ordinal)));
+        }
+        return seq
+            .OrderBy(t => t.SearchTerms
+                .Any(s => string.Equals(s.Trim(), exact, StringComparison.OrdinalIgnoreCase)) ? 0 : 1)
+            .ThenByDescending(t => t.Count)
+            .ThenBy(t => t.Category, StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(limit)
+            .ToList();
+    }
+
+    /// <summary>批量取图片的标签明细，对应 tag_details_for_images（按图分块，避免逐图查询）。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public Dictionary<int, List<TagInfo>> TagDetailsForImages(IReadOnlyCollection<int> imageIds)
+    {
+        var result = new Dictionary<int, List<TagInfo>>();
+        if (imageIds.Count == 0) return result;
+        var byId = AllTags().ToDictionary(t => t.Id);
+        var ids = imageIds.Distinct().ToList();
+        const int chunk = 900;
+        for (var off = 0; off < ids.Count; off += chunk)
+        {
+            var part = ids.Skip(off).Take(chunk).ToList();
+            var marks = string.Join(",", part.Select((_, i) => $"$c{i}"));
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT it.image_id,it.tag_id FROM image_tags it " +
+                              $"WHERE it.image_id IN ({marks}) ORDER BY it.image_id,it.tag_id";
+            for (var i = 0; i < part.Count; i++) cmd.Parameters.AddWithValue($"$c{i}", part[i]);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var imageId = r.GetInt32(0);
+                if (!byId.TryGetValue(r.GetInt32(1), out var info)) continue;
+                if (!result.TryGetValue(imageId, out var list)) result[imageId] = list = [];
+                if (list.All(x => x.Id != info.Id)) list.Add(info);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>批量移除若干标签名，返回删除的连接数，对应 remove_tags。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public int RemoveTags(IReadOnlyCollection<int> imageIds, IEnumerable<string> names)
+    {
+        var cleaned = names.Select(n => (n ?? "").Trim())
+            .Where(n => n.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (imageIds.Count == 0 || cleaned.Count == 0) return 0;
+
+        var idList = imageIds.ToList();
+        var idMarks = string.Join(",", idList.Select((_, i) => $"$id{i}"));
+        var nameMarks = string.Join(",", cleaned.Select((_, i) => $"$nm{i}"));
+        int affected;
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                $"DELETE FROM image_tags WHERE image_id IN ({idMarks}) AND tag_id IN " +
+                $"(SELECT id FROM tags WHERE name COLLATE NOCASE IN ({nameMarks}))";
+            for (var i = 0; i < idList.Count; i++) cmd.Parameters.AddWithValue($"$id{i}", idList[i]);
+            for (var i = 0; i < cleaned.Count; i++) cmd.Parameters.AddWithValue($"$nm{i}", cleaned[i]);
+            affected = cmd.ExecuteNonQuery();
+        }
+        Commit();
+        if (affected > 0) SyncSidecars(imageIds);
+        return affected;
+    }
+
+    /// <summary>整体替换成给定标签集（全部 custom 分类），对应 set_tags。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public void SetTags(IReadOnlyCollection<int> imageIds, IEnumerable<string> names)
+        => SetCategorizedTags(imageIds, names.Select(n => ("custom", n)).ToList());
 
     [MethodImpl(MethodImplOptions.Synchronized)]
     public void SetFavorite(int imageId, bool favorite)
