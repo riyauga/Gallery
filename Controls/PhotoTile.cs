@@ -27,6 +27,7 @@ public sealed class PhotoTile : Grid
     private readonly Rectangle _hover;
     private readonly Rectangle _selectionBorder;
     private readonly CheckBox _check;
+    private readonly FavoriteButton _favorite;
     private readonly Storyboard _selectIn;
     private readonly Storyboard _selectOut;
 
@@ -36,6 +37,7 @@ public sealed class PhotoTile : Grid
     internal PhotoItem Item { get; private set; } = null!;
     internal bool EventsWired { get; set; }
     public event Action? ThumbnailInvalidated;
+    public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
     private (string Path, double? Mtime, long Size, int Blur, bool Hidden)? _binding;
     public ImageSource? PreviewThumbnail => _image.Source;
 
@@ -46,6 +48,7 @@ public sealed class PhotoTile : Grid
     private int _thumbnailToken;
     private CancellationTokenSource? _thumbnailCancellation;
     private XamlRoot? _thumbnailRoot;
+    private bool _pointerOver;
 
     private async Task LoadThumbnailAsync(int edge, int token, ImagePriority priority)
     {
@@ -104,6 +107,9 @@ public sealed class PhotoTile : Grid
             _selectionBorder.Opacity = 0; _check.Opacity = 0;
         }
         Item = item; Detached = false;
+        _favorite.Favorite = item.Favorite;
+        _favorite.Opacity = _pointerOver ? 1 : 0;
+        _favorite.IsHitTestVisible = _pointerOver;
     }
     public void Recycle()
     {
@@ -113,6 +119,9 @@ public sealed class PhotoTile : Grid
         _requestedEdge = _loadedEdge = 0;
         _image.Source = null; _binding = null;
         _hover.Opacity = 0; _hover.Fill = _hoverBrush;
+        _pointerOver = false;
+        _favorite.Opacity = 0;
+        _favorite.IsHitTestVisible = false;
         var visual = ElementCompositionPreview.GetElementVisual(this);
         visual.StopAnimation("Scale"); visual.Scale = System.Numerics.Vector3.One;
         ReleasePointerCaptures();
@@ -215,11 +224,22 @@ public sealed class PhotoTile : Grid
             VerticalAlignment = VerticalAlignment.Top,
             Opacity = 0
         };
+        _favorite = new FavoriteButton
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(6),
+            Opacity = 0,
+            IsHitTestVisible = false,
+        };
+        _favorite.ToggleRequested += favorite =>
+            FavoriteRequested is null ? Task.FromResult(Item.Favorite) : FavoriteRequested(Item, favorite);
 
         Children.Add(_frame);
         Children.Add(_hover);
         Children.Add(_selectionBorder);
         Children.Add(_check);
+        Children.Add(_favorite);
 
         _selectIn = BuildOpacityStoryboard(1);
         _selectOut = BuildOpacityStoryboard(0);
@@ -285,11 +305,19 @@ public sealed class PhotoTile : Grid
     }
 
     private void OnPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        => _hover.Opacity = 1;
+    {
+        _pointerOver = true;
+        _hover.Opacity = 1;
+        _favorite.Opacity = 1;
+        _favorite.IsHitTestVisible = true;
+    }
 
     private void OnPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
+        _pointerOver = false;
         _hover.Opacity = 0;
+        _favorite.Opacity = 0;
+        _favorite.IsHitTestVisible = false;
         AnimateScale(1.0, PressDurationMs);
     }
 

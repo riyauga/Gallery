@@ -48,6 +48,8 @@ public sealed class TagEditorDialog
     private readonly StackPanel _chipsHost = new() { Spacing = 8 };
     private readonly StackPanel _resultsHost = new() { Spacing = 2 };
     private readonly TextBox _search = new() { PlaceholderText = "搜索标签或词库，回车直接新建", Width = 420 };
+    private readonly TextBox _pageUrl = new() { PlaceholderText = "https://来源页面/帖子地址", Width = 420 };
+    private readonly TextBox _sourceUrl = new() { PlaceholderText = "https://原图地址", Width = 420 };
     private readonly TextBlock _hint = new() { FontSize = 12, Opacity = 0.6 };
     private readonly TextBlock _modelHint = new() { FontSize = 12, Opacity = 0.6, TextWrapping = TextWrapping.Wrap };
     private readonly RotateTransform _syncRotate = new();
@@ -131,7 +133,7 @@ public sealed class TagEditorDialog
             Content = _resultsHost,
         };
 
-        return new StackPanel
+        var body = new StackPanel
         {
             Spacing = 10,
             Width = 460,
@@ -150,6 +152,24 @@ public sealed class TagEditorDialog
                 _hint,
             },
         };
+        if (_items.Count == 1)
+        {
+            _pageUrl.Text = _items[0].PageUrl ?? "";
+            _sourceUrl.Text = _items[0].SourceUrl ?? "";
+            body.Children.Insert(0, new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    new TextBlock { Text = "图片来源", FontSize = 13, Opacity = 0.6 },
+                    new TextBlock { Text = "来源页面", FontSize = 12, Opacity = 0.55 },
+                    _pageUrl,
+                    new TextBlock { Text = "原始图片地址", FontSize = 12, Opacity = 0.55 },
+                    _sourceUrl,
+                },
+            });
+        }
+        return body;
     }
 
     private void LoadCurrent()
@@ -652,6 +672,9 @@ public sealed class TagEditorDialog
         var includePairs = include.Select(e => (e.Category, e.Name)).ToList();
         var excludeNames = exclude.Select(e => e.Name).ToList();
         var profiles = new Dictionary<string, string>(_profiles, StringComparer.OrdinalIgnoreCase);
+        var item = _items.Count == 1 ? _items[0] : null;
+        var pageUrl = item is null ? null : _pageUrl.Text.Trim();
+        var sourceUrl = item is null ? null : _sourceUrl.Text.Trim();
         try
         {
             lock (AppService.DbLock)
@@ -696,6 +719,14 @@ public sealed class TagEditorDialog
                         catalog.SetProfile(tag.Id, tag.ZhName, tag.EnName, entityKey);
                     }
                 }
+
+                if (item is not null)
+                    store.SetImageOrigins(item.ImageId, pageUrl, sourceUrl);
+            }
+            if (item is not null)
+            {
+                item.PageUrl = pageUrl;
+                item.SourceUrl = sourceUrl;
             }
             return true;
         }

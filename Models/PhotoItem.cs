@@ -20,8 +20,8 @@ public sealed class PhotoItem
     public int Rating { get; init; }
     public string? Nsfw { get; set; }
     public long FileSize { get; init; }
-    public string? PageUrl { get; init; }      // 来源页（详情面板）
-    public string? SourceUrl { get; init; }    // 原图地址
+    public string? PageUrl { get; set; }       // 来源页（详情面板）
+    public string? SourceUrl { get; set; }     // 原图地址
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];
     // Gallery_Old/store.py:_mark_nsfw + ui/grid.py:_needs_protection：以人工可见的分级标签为准。
     public bool IsSfw => Tags.Any(t => t.Category == "rating" && t.Name == "SFW");

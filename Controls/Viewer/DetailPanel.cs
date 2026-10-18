@@ -20,9 +20,11 @@ public sealed class DetailPanel : Grid
     private readonly TextBlock _directoryText;
     private readonly TextBlock _source;
     private readonly StackPanel _tagsHost;
+    private readonly FavoriteButton _favorite;
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
+    public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public DetailPanel()
     {
@@ -45,11 +47,30 @@ public sealed class DetailPanel : Grid
         _directoryText = InfoText();
         _tagsHost = new StackPanel { Spacing = 6 };
         _source = new TextBlock { FontSize = 13, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+        _favorite = new FavoriteButton { VerticalAlignment = VerticalAlignment.Center };
+        _favorite.ToggleRequested += favorite =>
+            _item is null || FavoriteRequested is null
+                ? Task.FromResult(_item?.Favorite ?? false)
+                : FavoriteRequested(_item, favorite);
 
         var editBtn = new Button { Content = "编辑分类标签", HorizontalAlignment = HorizontalAlignment.Stretch };
         editBtn.Click += (_, _) => { if (_item is not null) EditTagsRequested?.Invoke(_item); };
         var openBtn = new Button { Content = "用照片打开", HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 6, 0, 0) };
         openBtn.Click += (_, _) => { if (_item is not null) OpenExternalRequested?.Invoke(_item); };
+
+        var infoHeader = new Grid();
+        infoHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        infoHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var infoTitle = new TextBlock
+        {
+            Text = "图片信息",
+            FontSize = 13,
+            Opacity = 0.6,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        infoHeader.Children.Add(infoTitle);
+        Grid.SetColumn(_favorite, 1);
+        infoHeader.Children.Add(_favorite);
 
         var scroll = new ScrollViewer
         {
@@ -61,7 +82,7 @@ public sealed class DetailPanel : Grid
                 Padding = new Thickness(16, 14, 16, 16),
                 Children =
                 {
-                    new TextBlock { Text = "图片信息", FontSize = 13, Opacity = 0.6 },
+                    infoHeader,
                     _title,
                     BuildInfoRow(),
                     _directoryText,
@@ -85,13 +106,23 @@ public sealed class DetailPanel : Grid
         _dimensionText.Text = item.PixelWidth > 0 ? $"{item.PixelWidth} x {item.PixelHeight}" : "";
         _sizeText.Text = FormatSize(item.FileSize);
         _directoryText.Text = $"目录：{(item.DirRel.Length > 0 ? item.DirRel : "图库根目录")}";
-        _source.Text = item.PageUrl ?? item.SourceUrl ?? "未记录";
+        _source.Text = !string.IsNullOrWhiteSpace(item.PageUrl) ? item.PageUrl :
+            !string.IsNullOrWhiteSpace(item.SourceUrl) ? item.SourceUrl : "未记录";
+        _favorite.Favorite = item.Favorite;
 
         RenderTags(item.Tags);
     }
 
     /// <summary>标签改完后只重画标签区（PhotoItem.Tags 是 init-only，不能回写）。</summary>
     public void SetTags(IReadOnlyList<(string Category, string Name)> tags) => RenderTags(tags);
+
+    public void SetFavorite(bool favorite) => _favorite.Favorite = favorite;
+
+    public void SetSource(string? pageUrl, string? sourceUrl)
+    {
+        _source.Text = !string.IsNullOrWhiteSpace(pageUrl) ? pageUrl :
+            !string.IsNullOrWhiteSpace(sourceUrl) ? sourceUrl : "未记录";
+    }
 
     /// <summary>标签 → 展示名（词库补出的中文名）；没配就用原名。</summary>
     public Func<string, string>? DisplayName { get; set; }
@@ -124,7 +155,24 @@ public sealed class DetailPanel : Grid
                 chip.HorizontalAlignment = HorizontalAlignment.Left;
                 row.Children.Add(chip);
             }
-            group.Children.Add(row);
+            var scroll = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollMode = ScrollMode.Enabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollMode = ScrollMode.Disabled,
+                Content = row,
+            };
+            scroll.PointerWheelChanged += (_, e) =>
+            {
+                if (scroll.ScrollableWidth <= 0) return;
+                var delta = e.GetCurrentPoint(scroll).Properties.MouseWheelDelta;
+                scroll.ChangeView(
+                    Math.Clamp(scroll.HorizontalOffset - delta, 0, scroll.ScrollableWidth),
+                    null, null, true);
+                e.Handled = true;
+            };
+            group.Children.Add(scroll);
             _tagsHost.Children.Add(group);
         }
         if (itemTags.Count == 0)

@@ -104,6 +104,8 @@ public static class AppService
             // 修历史漂移（nsfw 列与评分表不一致、分辨率标签被旧版「整批替换」吃掉）
             try
             {
+                var originsFixed = Store.RestoreArchivedOrigins();
+                if (originsFixed > 0) DebugLog($"restored origins={originsFixed}");
                 var (nsfwFixed, resolutionFixed) = Store.RepairDerived();
                 if (nsfwFixed + resolutionFixed > 0)
                     DebugLog($"repaired nsfw={nsfwFixed} resolution={resolutionFixed}");

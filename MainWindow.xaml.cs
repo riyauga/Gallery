@@ -386,6 +386,7 @@ public sealed partial class MainWindow : Window
         Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
         Preview.DeleteRequested = _page.DeleteAsync;
         Preview.RenameRequested = _page.RenameAsync;
+        Preview.FavoriteRequested = _page.ToggleFavoriteAsync;
         Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         ContentHost.Children.Add(_page);
         if (AppService.Watcher is { } watcher)

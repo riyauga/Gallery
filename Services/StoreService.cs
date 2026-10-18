@@ -1162,6 +1162,55 @@ public sealed class StoreService : IDisposable
 
     private bool _bridgeSchemaReady;
 
+    /// <summary>把下载记录中的网页和原始出处补到图库；只填空值，保留用户已有来源。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public bool ApplyIngestOrigin(int imageId, string payload)
+    {
+        string? pageUrl, sourceUrl;
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return false;
+            string? Read(string key) => document.RootElement.TryGetProperty(key, out var value) &&
+                value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
+                    ? value.GetString()!.Trim() : null;
+            pageUrl = Read("page_url");
+            sourceUrl = Read("source");
+        }
+        catch (JsonException) { return false; }
+        if (pageUrl is null && sourceUrl is null) return false;
+        using var command = _conn.CreateCommand();
+        command.CommandText =
+            "UPDATE images SET page_url=COALESCE(NULLIF(TRIM(page_url),''),$page)," +
+            "source_url=COALESCE(NULLIF(TRIM(source_url),''),$source) WHERE id=$id AND " +
+            "((NULLIF(TRIM(page_url),'') IS NULL AND $page IS NOT NULL) OR " +
+            "(NULLIF(TRIM(source_url),'') IS NULL AND $source IS NOT NULL))";
+        command.Parameters.AddWithValue("$id", imageId);
+        command.Parameters.AddWithValue("$page", (object?)pageUrl ?? DBNull.Value);
+        command.Parameters.AddWithValue("$source", (object?)sourceUrl ?? DBNull.Value);
+        if (command.ExecuteNonQuery() == 0) return false;
+        SyncSidecars([imageId]);
+        return true;
+    }
+
+    /// <summary>从成功归档作业补回历史缺失来源；只匹配实际归档路径，不按文件名猜测。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public int RestoreArchivedOrigins()
+    {
+        var records = new List<(int Id, string Payload)>();
+        using (var command = _conn.CreateCommand())
+        {
+            command.CommandText =
+                "SELECT i.id,j.payload FROM images i JOIN archive_jobs j ON " +
+                "i.abs_path=j.destination COLLATE NOCASE WHERE j.phase='moved' AND " +
+                "(NULLIF(TRIM(i.page_url),'') IS NULL OR NULLIF(TRIM(i.source_url),'') IS NULL) " +
+                "ORDER BY j.updated_at";
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) records.Add((reader.GetInt32(0), reader.GetString(1)));
+        }
+        return records.Count(row => ApplyIngestOrigin(row.Id, row.Payload));
+    }
+
     /// <summary>桥接运行期建表（不改旧库既有结构，只加自己的幂等表）。</summary>
     public void EnsureBridgeSchema()
     {
@@ -1687,6 +1736,22 @@ public sealed class StoreService : IDisposable
                 cmd.CommandText = "DELETE FROM favorites WHERE image_id=$i";
                 cmd.Parameters.AddWithValue("$i", imageId);
             }
+            cmd.ExecuteNonQuery();
+        }
+        Commit();
+        SyncSidecars([imageId]);
+    }
+
+    /// <summary>手动修改单图来源；空字符串按“清除该字段”写入。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public void SetImageOrigins(int imageId, string? pageUrl, string? sourceUrl)
+    {
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText = "UPDATE images SET page_url=$p,source_url=$s WHERE id=$i";
+            cmd.Parameters.AddWithValue("$p", string.IsNullOrWhiteSpace(pageUrl) ? DBNull.Value : pageUrl.Trim());
+            cmd.Parameters.AddWithValue("$s", string.IsNullOrWhiteSpace(sourceUrl) ? DBNull.Value : sourceUrl.Trim());
+            cmd.Parameters.AddWithValue("$i", imageId);
             cmd.ExecuteNonQuery();
         }
         Commit();

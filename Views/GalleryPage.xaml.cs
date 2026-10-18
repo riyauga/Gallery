@@ -416,13 +416,16 @@ public sealed partial class GalleryPage : UserControl
         tile.ThumbnailInvalidated += ScheduleViewport;
         tile.Tapped += OnTileTapped;
         tile.RightTapped += OnTileRightTapped;
+        tile.FavoriteRequested = ToggleFavoriteAsync;
 
         // 拖拽外发（galleryold drag_out）：按下起手、位移超阈值发起；
         // 拖已选中图 = 拖整个选区；Windows 标记复制语义（不搬移）。
         Windows.Foundation.Point? dragStart = null;
         tile.PointerPressed += (_, e) =>
         {
-            if (e.GetCurrentPoint(tile).Properties.IsLeftButtonPressed)
+            var point = e.GetCurrentPoint(tile);
+            if (point.Properties.IsLeftButtonPressed &&
+                !(point.Position.X <= 44 && point.Position.Y <= 44))
                 dragStart = e.GetCurrentPoint(tile).Position;
         };
         tile.PointerMoved += async (_, e) =>
@@ -836,6 +839,29 @@ public sealed partial class GalleryPage : UserControl
             return;
         }
         OpenPreview(tile);
+    }
+
+    public Task<bool> ToggleFavoriteAsync(PhotoItem item)
+        => ToggleFavoriteAsync(item, !item.Favorite);
+
+    /// <summary>持久化成功后才返回新状态，按钮不会出现“只变色但没写库”。</summary>
+    public Task<bool> ToggleFavoriteAsync(PhotoItem item, bool favorite)
+    {
+        if (item.ImageId <= 0 || AppService.Store is null) return Task.FromResult(item.Favorite);
+        try
+        {
+            lock (AppService.DbLock)
+                AppService.Store.SetFavorite(item.ImageId, favorite);
+            item.Favorite = favorite;
+            AppService.Recount();
+            if (_favoritesMode) Rebuild(); else UpdateHeader();
+            return Task.FromResult(favorite);
+        }
+        catch (Exception ex)
+        {
+            SendToast("收藏状态保存失败", Gallery.Controls.ToastKind.Pending, ex.Message);
+            return Task.FromResult(item.Favorite);
+        }
     }
 
     /// <summary>算缩略图窗口 rect 与可见性（galleryold：完整可见→飞入，被遮挡→渐入）。</summary>

@@ -206,6 +206,7 @@ public sealed class ArchiveService(StoreService store)
                 height: meta?.Height,
                 takenAt: meta?.TakenAt);
             store.Commit();
+            store.ApplyIngestOrigin(imageId, payload);
             ApplyPayloadTags(imageId, payload);
             ApplyPayloadNsfw(imageId, payload);
             return "";

@@ -33,6 +33,7 @@ public sealed partial class PreviewOverlay : Grid
     public Func<PhotoItem, MenuFlyout>? ContextMenuBuilder { get; set; }
     public Func<IReadOnlyCollection<int>, Task>? DeleteRequested { get; set; }
     public Func<PhotoItem, Task>? RenameRequested { get; set; }
+    public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public PreviewOverlay()
     {
@@ -42,6 +43,14 @@ public sealed partial class PreviewOverlay : Grid
         // 详情面板的贴纸显示中文名（词库补出来的），点开/编辑仍然用原名
         Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
         Detail.RatingTooltip = BuildRatingTooltip;
+        Detail.FavoriteRequested = async (item, favorite) =>
+        {
+            var result = FavoriteRequested is null
+                ? item.Favorite
+                : await FavoriteRequested(item, favorite);
+            Detail.SetFavorite(result);
+            return result;
+        };
         Viewer.ZoomChanged += SyncZoomControls;
         Viewer.NavigateRequested += Move;
         Viewer.LoadingChanged += loading =>
@@ -63,6 +72,7 @@ public sealed partial class PreviewOverlay : Grid
             if (!saved || AppService.Store is null) return;
             ToastRequested?.Invoke("标签已保存");
             Detail.SetTags(LoadTagPairs(item.ImageId));
+            Detail.SetSource(item.PageUrl, item.SourceUrl);
             TagsEdited?.Invoke(item);
         };
         Detail.OpenExternalRequested += item =>
