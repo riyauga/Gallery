@@ -572,16 +572,18 @@ public sealed partial class GalleryPage : UserControl
         }
     }
 
+    private bool IsDateSort => _sortKey is "taken" or "created" or "modified" or "added";
+
     /// <summary>
     /// 对应 Photos 的 GalleryViewModel.EvaluateScrollbarType + ShouldShowDateRelatedUI：
-    /// 未加载 / 不可滚动 → 两个都不显示；名字排序（非日期维度）→ 系统默认滚动条；
+    /// 未加载 / 不可滚动 → 两个都不显示；名称、大小、星级、随机排序 → 系统默认滚动条；
     /// 日期排序且可滚动 → 时间线。
     /// </summary>
     private void UpdateScrollbarType()
     {
         bool loaded = _items.Count > 0 && IsLoaded;
         bool scrollable = loaded && Panel.ActualHeight > Scroller.ViewportHeight + 0.5;
-        bool dateSort = _sort != SortKey.Name;
+        bool dateSort = IsDateSort;
         bool timeline = scrollable && dateSort;
         bool defaultBar = scrollable && !dateSort;
 
@@ -599,7 +601,7 @@ public sealed partial class GalleryPage : UserControl
 
     private void UpdateDateHeader()
     {
-        if (_items.Count == 0 || _sort == SortKey.Name)
+        if (_items.Count == 0 || !IsDateSort)
         {
             DateHeader.Text = string.Empty;
             return;

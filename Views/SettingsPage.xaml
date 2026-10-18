@@ -147,6 +147,8 @@
                             <Button x:Name="BridgeRefreshButton" Click="BridgeRefresh_Click" Content="刷新" />
                         </StackPanel>
                     </ctc:SettingsCard>
+                    <ctc:SettingsCard Header="新图片归档提醒"
+                                      Description="前台显示应用内提示，后台显示屏幕右下角通知；点击后进入对应图片，悬停暂停十秒倒计时。" />
                     <!--  敏感内容  -->
                     <TextBlock
                         Margin="1,24,0,6"

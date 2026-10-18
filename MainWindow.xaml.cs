@@ -21,6 +21,9 @@ public sealed partial class MainWindow : Window
     private static extern uint GetDpiForWindow(IntPtr hwnd);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);
 
     [DllImport("user32.dll")]
@@ -37,7 +40,7 @@ public sealed partial class MainWindow : Window
     /// <summary>建待审核页并挂上角标刷新。</summary>
     private Controls.Review.ReviewPage CreateReviewPage()
     {
-        var page = new Controls.Review.ReviewPage();
+        var page = new Controls.Review.ReviewPage(this);
         page.Changed += UpdateReviewBadge;
         return page;
     }
@@ -69,7 +72,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// 标题栏整条被 SetTitleBar 当成拖动区，按钮默认收不到鼠标。
-    /// 把「待审核」角标和设置按钮登记成 passthrough 区域，鼠标点得到、也能拖动别处。
+    /// 把搜索框、「待审核」角标和设置按钮登记成 passthrough 区域，允许文本编辑与按钮交互。
     /// </summary>
     private void UpdateTitleBarRegions()
     {
@@ -91,6 +94,7 @@ public sealed partial class MainWindow : Window
                 (int)Math.Round(bounds.Height)));
         }
 
+        Add(SearchBox);
         Add(ReviewChipButton);
         Add(SettingsButton);
 
@@ -128,15 +132,65 @@ public sealed partial class MainWindow : Window
         UpdateReviewBadge();
         if (Services.AppService.Bridge is { } bridge)
         {
-            bridge.Ingested += (_, _) => DispatcherQueue.TryEnqueue(UpdateReviewBadge);
+            bridge.Ingested += (id, name) => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_quitting) return;
+                UpdateReviewBadge();
+                _reviewPage?.Reload();
+                NotifyIngest(id, name);
+            });
             bridge.UiRequested += (view, path) => DispatcherQueue.TryEnqueue(async () => await HandleUiRequestAsync(view, path));
         }
+    }
+
+    private Controls.Review.IngestNotificationWindow? _ingestWindow;
+    private Controls.Review.IngestNotificationCard? _ingestCard;
+    private int _notificationCount, _latestIngestId;
+
+    /// <summary>同一时段的新图片合并为一张提示；前台用应用内卡片，后台用无激活桌面浮层。</summary>
+    private void NotifyIngest(int id, string name)
+    {
+        var foreground = GetForegroundWindow() == WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var count = _notificationCount + 1;
+        if (_ingestCard is null || foreground != (_ingestWindow is null))
+        {
+            _ingestCard?.Dismiss();
+            var window = foreground ? null : new Controls.Review.IngestNotificationWindow(this);
+            var card = window?.Card ?? new Controls.Review.IngestNotificationCard
+            {
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, 18, 18),
+            };
+            _ingestWindow = window;
+            _ingestCard = card;
+            card.OpenRequested += () =>
+            {
+                BringToFront();
+                Nav.SelectedItem = ReviewNavItem;
+                _reviewPage ??= CreateReviewPage();
+                _reviewPage.OpenPending(_latestIngestId);
+            };
+            card.Dismissed += () =>
+            {
+                if (!ReferenceEquals(_ingestCard, card)) return;
+                if (window is null) RootGrid.Children.Remove(card);
+                _ingestCard = null;
+                _ingestWindow = null;
+                _notificationCount = 0;
+            };
+            if (foreground) { Grid.SetRowSpan(card, 2); Canvas.SetZIndex(card, 100); RootGrid.Children.Add(card); }
+            else window!.ShowWithoutActivation();
+        }
+        _notificationCount = count;
+        _latestIngestId = id;
+        _ingestCard.Update(count, name, "下载完成 · 点击查看并归档");
     }
 
     private Controls.Catalog.CatalogPage? _catalogPage;
     private Services.TrayIcon? _tray;
     private TrayMenuHost? _trayMenu;
     private bool _quitting;
+    private bool _restoreTitleBarAfterTrayHide;
 
     /// <summary>主窗口的 AppWindow（托盘唤回、关窗收托盘都要用）。</summary>
     public Microsoft.UI.Windowing.AppWindow? AppWindowInstance { get; private set; }
@@ -146,6 +200,7 @@ public sealed partial class MainWindow : Window
     {
         if (AppWindowInstance is { } window)
         {
+            RestoreTitleBarAfterTrayHide();
             window.Show();
             if (window.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter &&
                 presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
@@ -154,6 +209,17 @@ public sealed partial class MainWindow : Window
 
         Activate();
         Services.AppService.DebugLog("brought to front");
+    }
+
+    /// <summary>在窗口仍隐藏时重新启用自定义标题栏，避免沿用关闭按钮的红色交互状态。</summary>
+    private void RestoreTitleBarAfterTrayHide()
+    {
+        if (!_restoreTitleBarAfterTrayHide) return;
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(TitleBar);
+        AppWindowInstance!.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        UpdateTitleBarRegions();
+        _restoreTitleBarAfterTrayHide = false;
     }
 
     /// <summary>建托盘图标：左键唤回、右键菜单（显示 / 待审核数 / 退出）。</summary>
@@ -187,6 +253,7 @@ public sealed partial class MainWindow : Window
     {
         if (_quitting) return;
         _quitting = true;
+        _ingestCard?.Dismiss();
         RootGrid.IsHitTestVisible = false;
         _tray?.UpdateTip("Gallery · 正在完成保存并退出");
         try
@@ -258,6 +325,11 @@ public sealed partial class MainWindow : Window
                 if (AppService.Settings.Settings.minimize_to_tray && _tray is { IsCreated: true })
                 {
                     appWindow.Hide();
+                    // WinUI #12232：自定义标题栏在 Hide/Show 后可能保留关闭按钮高亮。
+                    // 隐藏期间退出自定义模式，唤回前重新启用；不改变可见时的标题栏外观。
+                    SetTitleBar(null);
+                    ExtendsContentIntoTitleBar = false;
+                    _restoreTitleBarAfterTrayHide = true;
                     AppService.DebugLog("window hidden to tray");
                 }
                 else _ = QuitAsync();
@@ -490,6 +562,7 @@ public sealed partial class MainWindow : Window
     /// <summary>窗口最小化时先还原，再抢前台（浏览器点「在图库中查看」的感觉）。</summary>
     private void ActivateWindow()
     {
+        RestoreTitleBarAfterTrayHide();
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var id = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(id);

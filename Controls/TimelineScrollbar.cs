@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Shapes;
 using Gallery.Models;
 using System.Numerics;
@@ -47,7 +48,6 @@ public sealed class TimelineScrollbar : Grid
     private const double ArrowGlyphWidth = 9;
 
     // SecondaryLabelPopup
-    private const double PopupHeight = 28;
     private const double PopupVerticalOffset = 14;
     private const double PopupStaticHorizontalOffset = 7;
 
@@ -63,7 +63,7 @@ public sealed class TimelineScrollbar : Grid
     private readonly Border _anchoredMarker;
     private readonly Border _hoveringMarker;
     private readonly Popup _popup = new();
-    private readonly Border _secondaryPopup;
+    private readonly Grid _secondaryPopup;
     private readonly TextBlock _secondaryText;
     private readonly TranslateTransform _markerTransform = new();
     private readonly Storyboard _markerStoryboard = new();
@@ -130,23 +130,16 @@ public sealed class TimelineScrollbar : Grid
 
         _area.Children.Add(_labelCanvas);
 
-        _secondaryText = new TextBlock
-        {
-            FontFamily = new FontFamily("Segoe UI Variable"),
-            FontSize = 12,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Margin = new Thickness(8, 0, 8, 0),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        _secondaryPopup = new Border
-        {
-            Height = PopupHeight,
-            CornerRadius = new CornerRadius(4),
-            Background = AnyBrush("AcrylicInAppFillColorDefaultBrush", Color.FromArgb(0xE6, 0x2B, 0x2B, 0x2B)),
-            IsHitTestVisible = false,
-            Child = _secondaryText
-        };
+        // Photos TimelineScrollbar.xaml：保留 ThemeResource 和默认文本主题，不在构造时固定颜色。
+        _secondaryPopup = (Grid)XamlReader.Load("""
+            <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  Height="28" Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+                  CornerRadius="4" IsHitTestVisible="False">
+                <TextBlock Margin="8,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontFamily="Segoe UI Variable" FontSize="12" FontWeight="SemiBold" />
+            </Grid>
+            """);
+        _secondaryText = (TextBlock)_secondaryPopup.Children[0];
         // 原版 SecondaryLabelPopup：真 Popup，VerticalOffset 14，横向 = -文本宽 + 7
         _popup.Child = _secondaryPopup;
         _popup.IsHitTestVisible = false;
@@ -182,12 +175,6 @@ public sealed class TimelineScrollbar : Grid
         };
         _markers.Children.Add(_anchoredMarker);
         _markers.Children.Add(_hoveringMarker);
-
-        // 原版 SecondaryLabelPopup 是 Popup（独立层、不随时间线淡出）。这里放在控件树内：
-        // Popup 打开会让指针命中短暂离开 TimelineArea，导致气泡刚开就被收起，且不便抓图核对。
-        _secondaryPopup.HorizontalAlignment = HorizontalAlignment.Left;
-        _secondaryPopup.VerticalAlignment = VerticalAlignment.Top;
-        _secondaryPopup.Visibility = Visibility.Collapsed;
 
         Storyboard.SetTarget(_markerAnimation, _markerTransform);
         Storyboard.SetTargetProperty(_markerAnimation, "Y");
@@ -434,17 +421,20 @@ public sealed class TimelineScrollbar : Grid
         {
             if (element.IsLabel)
             {
+                // Photos TimelineLabelTextBlockPool：文字前景由控件主题继承。
                 var tb = new TextBlock
                 {
                     Text = element.Text,
+                    Width = 40,
+                    Height = LabelHeight,
                     FontFamily = new FontFamily("Segoe UI"),
                     FontSize = LabelFontSize,
                     IsTextScaleFactorEnabled = false,
                     TextLineBounds = Microsoft.UI.Xaml.TextLineBounds.TrimToCapHeight,
-                    Foreground = AnyBrush("TextFillColorPrimaryBrush", Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A)),
                     IsHitTestVisible = false
                 };
                 tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                tb.Width = tb.DesiredSize.Width;
                 Canvas.SetLeft(tb, Math.Max(0, canvasWidth - tb.DesiredSize.Width));
                 Canvas.SetTop(tb, element.Top);
                 _labelCanvas.Children.Add(tb);
@@ -467,7 +457,10 @@ public sealed class TimelineScrollbar : Grid
         }
     }
 
-    private readonly record struct Element(int Top, string Text, bool IsLabel);
+    private readonly record struct Element(int Top, string Text, bool IsLabel)
+    {
+        public int Bottom => Top + (IsLabel ? (int)LabelHeight : (int)IndicatorDiameter);
+    }
 
     private static List<Element> GenerateElements(string[] primary, string[] secondary, int height, bool isAscending)
     {
@@ -503,28 +496,36 @@ public sealed class TimelineScrollbar : Grid
         return list;
     }
 
-    /// <summary>TimelineElementDistanceFilter：相邻元素至少间隔 12px。</summary>
+    /// <summary>移植 Photos TimelineElementDistanceFilter：预留末端刻度，相邻至少间隔 12px，年份优先于圆点。</summary>
     private static List<Element> FilterElements(List<Element> elements, bool isAscending)
     {
-        if (elements.Count < 2) return elements;
-        IEnumerable<Element> source = isAscending ? Enumerable.Reverse(elements) : elements;
+        var source = (isAscending ? Enumerable.Reverse(elements) : elements).ToList();
+        if (source.Count < 2) return source;
         var result = new List<Element>();
-        foreach (var element in source)
+        var first = source[0];
+        var last = source[^1];
+        if (Distance(last, first) >= MinimumSpaceBetweenTwoElements) result.Add(first);
+        foreach (var element in source.Skip(1))
         {
-            if (result.Count == 0)
+            if ((element == last || Distance(last, element) >= MinimumSpaceBetweenTwoElements)
+                && !TryAdd(element) && element.IsLabel && !result[^1].IsLabel)
             {
-                result.Add(element);
-                continue;
-            }
-            var previous = result[^1];
-            int previousBottom = previous.Top + (previous.IsLabel ? (int)LabelHeight : (int)IndicatorDiameter);
-            if (Math.Abs(previousBottom - element.Top) >= MinimumSpaceBetweenTwoElements)
-            {
-                result.Add(element);
+                result.RemoveAt(result.Count - 1);
+                TryAdd(element);
             }
         }
-        if (isAscending) result.Reverse();
         return result;
+
+        int Distance(Element lowest, Element highest) => isAscending
+            ? Math.Abs(lowest.Bottom - highest.Top)
+            : Math.Abs(lowest.Top - highest.Bottom);
+
+        bool TryAdd(Element element)
+        {
+            if (result.Count > 0 && Distance(element, result[^1]) < MinimumSpaceBetweenTwoElements) return false;
+            result.Add(element);
+            return true;
+        }
     }
 
     #endregion
@@ -541,14 +542,17 @@ public sealed class TimelineScrollbar : Grid
         CancelDirectManipulations();
         _hovering = true;
         var point = e.GetCurrentPoint(_area);
-        _secondaryText.Text = SecondaryLabel(_items[Math.Clamp(IndexFromPosition((int)point.Position.Y), 0, Math.Max(0, _items.Count - 1))]);
         ShowHover(point.Position.Y);
     }
 
     private void OnAreaPointerMoved(object sender, PointerRoutedEventArgs e)
     {
         var point = e.GetCurrentPoint(_area);
-        ShowHover(point.Position.Y);
+        // Photos HandleEnteredExitedTransition：捕获后仍按坐标判断是否真正悬停。
+        _hovering = point.Position.X >= 0 && point.Position.X < _area.ActualWidth
+            && point.Position.Y >= 0 && point.Position.Y < _areaHeight;
+        if (_hovering || _dragging) ShowHover(point.Position.Y);
+        else CloseHover();
         if (_dragging)
         {
             Seek(point.Position.Y);
@@ -559,14 +563,17 @@ public sealed class TimelineScrollbar : Grid
     {
         if (_items.Count == 0 || _areaHeight < 1) return;
         int position = (int)Math.Clamp(y, 0, Math.Max(0, _areaHeight - 1));
-        int index = Math.Clamp(IndexFromPosition(position), 0, _items.Count - 1);
+        // Photos PositionToLabels 使用该像素对应的首个条目；跳转索引另按上下半区选首/末条目。
+        int index = position == (int)_areaHeight - 1 ? _items.Count - 1
+            : Math.Clamp(IndexesFromPosition(position).Start, 0, _items.Count - 1);
         _secondaryText.Text = SecondaryLabel(_items[index]);
         _secondaryText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         // 原版 OnSecondaryLabelChanged：HorizontalOffset = -文本宽 + 7
         _popup.HorizontalOffset = 0.0 - _secondaryText.DesiredSize.Width + PopupStaticHorizontalOffset;
         // Popup 的垂直偏移由 PointerPositionAnimation 跟随指针；本实现按指针位置直接给值
-        _popup.VerticalOffset = AreaTop + Math.Clamp(position, 0, Math.Max(0, _areaHeight - PopupHeight))
-                                + PopupVerticalOffset;
+        _popup.VerticalOffset = AreaTop + position - (int)(MarkerHeight / 2) + PopupVerticalOffset;
+        _popup.XamlRoot = XamlRoot;
+        _secondaryPopup.RequestedTheme = ActualTheme;
         _popup.IsOpen = true;
 
         _hoveringMarker.Translation = new Vector3(0, (float)HoverTop(y), 0);
@@ -580,11 +587,16 @@ public sealed class TimelineScrollbar : Grid
     private void OnAreaPointerExited(object sender, PointerRoutedEventArgs e)
     {
         _hovering = false;
-        _secondaryPopup.Visibility = Visibility.Collapsed;
-        _popup.IsOpen = false;
-        _hoveringMarker.Visibility = Visibility.Collapsed;
+        if (!_dragging) CloseHover();
         _hideTimer.Stop();
         _hideTimer.Start();
+    }
+
+    /// <summary>原版 IsHoveringOrDragging 同时控制气泡和预览标记，不改变气泡内部内容的可见性。</summary>
+    private void CloseHover()
+    {
+        _popup.IsOpen = false;
+        _hoveringMarker.Visibility = Visibility.Collapsed;
     }
 
     private void OnAreaPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -622,7 +634,7 @@ public sealed class TimelineScrollbar : Grid
         _hoveringMarker.Background = Brush("SystemFillColorSolidNeutralBrush", Color.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
         _anchoredMarker.Visibility = Visibility.Visible;
         _animateMarkerOnScroll = true;
-        if (!_hovering) _popup.IsOpen = false;
+        if (!_hovering) CloseHover();
         UpdateAnchoredMarker(animate: false);
     }
 

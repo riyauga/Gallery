@@ -1360,6 +1360,20 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    /// <summary>保存待归档图片的人工标签；只更新尚未处理的记录，不改扩展的幂等身份。</summary>
+    public void UpdateIngestReview(int id, string payload, string rating)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE ingest_queue SET payload=$p,rating=$r WHERE id=$id AND state='pending'";
+            cmd.Parameters.AddWithValue("$p", payload);
+            cmd.Parameters.AddWithValue("$r", rating);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// <summary>彻底删掉一条记录（不动磁盘文件）。</summary>
     public void DeleteIngest(int id)
     {

@@ -59,7 +59,7 @@ public sealed class ArchiveService(StoreService store)
         if (row.State == "done") return ArchiveResult.Fail("这条记录已经归档过：" + row.Note);
         if (row.State == "ignored") return ArchiveResult.Fail("这条记录已被忽略，不会归档");
 
-        var source = row.InboxPath;
+        var source = IngestReview.LocalPath(row);
         if (source.Length == 0) return FailAndLog("记录里没有本地路径");
         if (!File.Exists(source)) return FailAndLog("源文件已不在原位（可能之前已归档或已手动改名）");
 
@@ -194,7 +194,7 @@ public sealed class ArchiveService(StoreService store)
             var meta = ImageInfo.ReadMeta(absPath);
             var (imageId, _) = store.UpsertImage(
                 rootId: rootId,
-                relPath: name,
+                relPath: dirRel.Length > 0 ? $"{dirRel}/{name}" : name,
                 absPath: absPath,
                 dirRel: dirRel,
                 name: name,
@@ -274,6 +274,19 @@ public sealed class ArchiveService(StoreService store)
         try
         {
             using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("review_tags", out var reviewed) && reviewed.ValueKind == JsonValueKind.Object)
+            {
+                var edited = IngestReview.Categories.Where(c => c != "rating")
+                    .SelectMany(category => ReadNames(reviewed, category).Select(name => (Category: category, Name: name)))
+                    .ToList();
+                if (edited.Count > 0)
+                {
+                    store.AddTags([imageId], edited.Select(t => t.Name).Distinct().ToList());
+                    store.SetCategorizedTags([imageId], edited);
+                    store.Commit();
+                }
+                return;
+            }
             if (!doc.RootElement.TryGetProperty("tags", out var tags) || tags.ValueKind != JsonValueKind.Object)
                 return;
 

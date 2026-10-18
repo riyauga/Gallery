@@ -30,5 +30,6 @@
     <Content Include="assets\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
     <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
+    <EmbeddedResource Include="Controls\Review\ReviewCarousel.html" LogicalName="Gallery.Controls.Review.ReviewCarousel.html" />
   </ItemGroup>
 </Project>

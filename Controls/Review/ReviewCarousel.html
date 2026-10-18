@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<style>
+:root{color-scheme:dark;--g-panel:light-dark(#fff,#292929);--g-text:light-dark(#202020,#f2f2f2);--g-line:light-dark(#ddd,#414141);--g-accent:light-dark(#006cbe,#9ad7ff)}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:var(--g-text);font:14px/1.5 'Segoe UI','Microsoft YaHei',sans-serif}
+button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel);padding:9px 13px;cursor:pointer}button:focus-visible{outline:3px solid var(--g-accent);outline-offset:3px}
+#deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:hidden}
+/* 画框、滤镜、阴影和投影参数沿用 archive-review-sketch.html。 */
+.g-photo{position:absolute;left:50%;top:50%;width:var(--g-frame-width,98%);height:var(--g-frame-height,330px);margin-top:calc(var(--g-frame-height,330px) / -2);padding:8px;border:1px solid light-dark(#ffffffa0,#ffffff35);border-radius:13px;background:var(--g-panel);display:flex;justify-content:center;align-items:center;box-shadow:0 3px 7px #0002,0 10px 24px #0002;transform:translateX(-50%);transform-origin:center;overflow:hidden;isolation:isolate;filter:brightness(var(--g-brightness,1)) blur(var(--g-defocus,0px))}
+.ready .g-photo{transition:transform .36s cubic-bezier(.22,1,.36,1),filter .36s cubic-bezier(.22,1,.36,1),box-shadow .36s,border-color .36s}
+.g-photo.g-selected{outline:1.5px solid var(--g-accent);outline-offset:3px;box-shadow:0 5px 12px #0002,0 20px 38px #0003;border-color:light-dark(#ffffffd0,#ffffff70)}
+.g-art,.g-fill{display:block;flex-shrink:0;pointer-events:none;object-fit:fill}
+.g-art{position:relative;z-index:2;border-radius:3px;box-shadow:0 2px 10px #0002}
+.g-fill{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(1.22);filter:blur(22px) saturate(.85);z-index:0}
+.g-photo::after{content:'';position:absolute;inset:0;z-index:1;background:light-dark(#ffffff20,#ffffff0d);pointer-events:none;box-shadow:inset 0 1px 0 #ffffff30}
+.message{position:absolute;z-index:3;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 4px #000a;font-size:12px}.message [data-reveal]{pointer-events:auto;padding:5px 10px;background:#292929aa;color:white;border:1px solid #ffffff50;border-radius:6px}
+img:not([src]),[hidden]{display:none!important}
+#tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;pointer-events:none;transition:opacity .16s}body:hover #tweak,#tweak:focus-within,#tweak[open]{opacity:1;pointer-events:auto}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input{display:block;width:100%;accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
+</style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
+<details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
+<label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
+<label>整组图片大小<output id="size-value"></output><input id="size" type="range" min="50" max="95" step="1"></label>
+<label>环面转角<output id="angle-value"></output><input id="angle" type="range" min="8" max="17" step="1"></label>
+<button id="reset">恢复确认参数</button></div></details>
+<script>
+(()=>{
+const deck=document.getElementById('deck'),cards=new Map();
+let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,angle:10};
+const send=value=>window.chrome.webview.postMessage(value);
+function settings(){for(const key of ['overlap','size','angle']){document.getElementById(key).value=design[key];document.getElementById(key+'-value').value=design[key]+(key==='angle'?'°':'%');}}
+function render(){
+ const angleStep=design.angle*Math.PI/180;
+ const radiusFactor=(0.5+(0.5-design.overlap/100)*Math.cos(angleStep))/Math.sin(angleStep);
+ const cameraFactor=3.5;
+ let extent=.5;
+ for(let level=1;level<=4;level++){
+  const theta=level*angleStep,z=radiusFactor*(Math.cos(theta)-1),y=radiusFactor*Math.sin(theta);
+  for(const edge of [-.5,.5]){const edgeY=y+edge*Math.cos(theta),edgeZ=z-edge*Math.sin(theta);extent=Math.max(extent,Math.abs(edgeY*cameraFactor/(cameraFactor-edgeZ)));}
+ }
+ const span=2*extent,frameHeight=Math.min(deck.clientWidth*.98/design.aspect,(deck.clientHeight-20)*design.size/100/span);
+ deck.style.setProperty('--g-frame-height',frameHeight+'px');deck.style.setProperty('--g-frame-width',frameHeight*design.aspect+'px');deck.style.setProperty('--g-perspective',frameHeight*cameraFactor+'px');
+ for(const {element:card,data} of cards.values()){
+  const d=data.index-current,a=Math.abs(d);card.setAttribute('aria-pressed',String(d===0));card.classList.toggle('g-selected',d===0);
+  card.style.setProperty('--g-brightness',[1,.78,.57,.4,.28][a]);card.style.setProperty('--g-defocus',[0,1.3,3.5,7,12][a]+'px');
+  const theta=d*angleStep,y=frameHeight*radiusFactor*Math.sin(theta),z=frameHeight*radiusFactor*(Math.cos(theta)-1);
+  card.style.transform='translate(-50%,'+y+'px) translateZ('+z+'px) rotateX('+(-d*design.angle)+'deg)';card.style.zIndex=String(8-a);
+  const art=card.querySelector('.g-art'),fill=card.querySelector('.g-fill'),w=frameHeight*design.aspect-18,h=frameHeight-18,ratio=data.ratio;
+  art.style.width=Math.min(w,h*ratio)+'px';art.style.height=Math.min(h,w/ratio)+'px';fill.style.width=Math.max(w,h*ratio)+'px';fill.style.height=Math.max(h,w/ratio)+'px';
+  const message=card.querySelector('.message');message.replaceChildren();
+  if(data.status){const status=document.createElement('span');status.textContent=data.status;message.append(status);}
+  if(data.blocked&&d===0){const text=document.createElement('span');text.textContent='NSFW / 未分级';const reveal=document.createElement('span');reveal.dataset.reveal='';reveal.setAttribute('role','button');reveal.tabIndex=0;reveal.textContent='显示预览';reveal.onclick=event=>{event.stopPropagation();send({type:'reveal',id:data.id});};reveal.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();send({type:'reveal',id:data.id});}};message.append(text,reveal);}
+ }
+}
+function context(data,x,y){if(data.index===current)send({type:'context',id:data.id,x,y});}
+window.chrome.webview.addEventListener('message',event=>{
+ const state=event.data;if(state.type!=='state')return;
+ current=state.index;count=state.count;if(!initialized){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;document.body.classList.toggle('ready',state.motion);
+ const ids=new Set(state.cards.map(card=>card.id));for(const [id,entry] of cards)if(!ids.has(id)){entry.element.remove();cards.delete(id);}
+ for(const data of state.cards){
+  let entry=cards.get(data.id);
+  if(!entry){
+   const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
+   const fill=document.createElement('img');fill.className='g-fill';fill.alt='';fill.setAttribute('aria-hidden','true');const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';card.append(fill,art,message);
+   entry={element:card,data};cards.set(data.id,entry);deck.append(card);
+   card.onclick=()=>send({type:'select',id:entry.data.id});card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
+   card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
+  }
+  entry.data=data;
+  if(data.src!==null)for(const img of entry.element.querySelectorAll('img')){if(data.src){if(img.getAttribute('src')!==data.src)img.src=data.src;}else img.removeAttribute('src');}
+ }
+ settings();render();
+});
+let lastWheel=0;deck.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)<3)return;const delta=Math.sign(event.deltaY);if((current===0&&delta<0)||(current===count-1&&delta>0))return;event.preventDefault();if(Date.now()-lastWheel>180){lastWheel=Date.now();send({type:'step',delta});}},{passive:false});
+deck.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();send({type:'step',delta:event.key==='ArrowDown'?1:-1});}});
+for(const key of ['overlap','size','angle']){const input=document.getElementById(key);input.oninput=()=>{design[key]=Number(input.value);settings();render();};input.onchange=()=>send({type:'configure',...design});}
+document.getElementById('reset').onclick=()=>{design={overlap:67,size:95,aspect:16/9,angle:10};settings();render();send({type:'configure',...design});};
+new ResizeObserver(render).observe(deck);settings();send({type:'ready'});
+})();
+</script></body></html>

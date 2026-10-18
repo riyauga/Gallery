@@ -16,7 +16,17 @@ public sealed class PhotosSearchBox : TextBox
 
     public UIElement? DefaultFocusAnchor { get; set; }
 
-    public PhotosSearchBox() => GettingFocus += SearchBox_GettingFocus;
+    public PhotosSearchBox()
+    {
+        GettingFocus += SearchBox_GettingFocus;
+        // Photos 原版也用 handledEventsToo，内部文本编辑器已处理的鼠标点击仍须识别。
+        AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) =>
+        {
+            _shouldFocusBeOnSearch = true;
+            if (FocusState == FocusState.Unfocused) Focus(FocusState.Pointer);
+            _shouldFocusBeOnSearch = false;
+        }), true);
+    }
 
     /// <summary>明确的搜索命令允许聚焦；不依赖之前恰好聚焦在哪个控件。</summary>
     public void FocusSearch()

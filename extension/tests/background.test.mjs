@@ -84,3 +84,36 @@ test('首次升级启用 X 规则，保留其他规则与连接配置',async()=>
  assert.equal(storage.rules.find(r=>r.id==='builtin-x-media').enabled,true);assert.deepEqual(storage.settings,settings);assert.equal(storage.xRulesVersion,1);
 });
 
+test('所有图片接收默认关闭，开启后仅接收已完成图片并保留浏览器路径',async()=>{
+ assert.equal(DEFAULT_SETTINGS.captureAllImages,false);
+ storage.rules=[];storage.settings={...DEFAULT_SETTINGS,bridgeToken:'fixture'};
+ const make=(id,mime='image/png')=>({id,startTime:'2026-10-18T01:00:'+id+'Z',url:'https://unlisted.test/file/'+id,filename:'D:/chosen/download-'+id+(mime==='image/png'?'.png':'.zip'),mime,referrer:'https://unlisted.test/article',state:'in_progress'});
+ const skipped=make(201);downloads.set(201,skipped);
+ downloadEvents.onCreated.listeners.at(-1)(skipped);
+ // 消息处理经过相同异步存储，等待一轮后检查未匹配的网站没有被绑定。
+ await message({type:'getState'});await new Promise(r=>setTimeout(r,20));
+ assert.equal(Object.keys(storage).some(k=>k.startsWith('download:201:')),false);
+ assert.equal((await message({type:'saveState',settings:{captureAllImages:true}})).ok,true);
+ const im=make(202);downloads.set(202,im);downloadEvents.onCreated.listeners.at(-1)(im);
+ await waitFor(()=>Object.keys(storage).some(k=>k.startsWith('download:202:')));
+ assert.equal(deliveries.some(p=>p.download_id===202),false);
+ im.state='complete';downloads.set(202,im);downloadEvents.onChanged.listeners.at(-1)({id:202,state:{current:'complete'}});
+ await waitFor(()=>deliveries.some(p=>p.download_id===202));
+ const payload=deliveries.find(p=>p.download_id===202);
+ assert.equal(payload.filename,im.filename);assert.equal(payload.page_url,im.referrer);
+ assert.deepEqual(payload.tags,{});assert.equal(payload.rating,'');assert.equal(payload.manual_review,true);
+ const zip=make(203,'application/zip');downloads.set(203,zip);downloadEvents.onCreated.listeners.at(-1)(zip);
+ zip.state='complete';downloads.set(203,zip);downloadEvents.onChanged.listeners.at(-1)({id:203,state:{current:'complete'}});
+ await message({type:'getState'});await new Promise(r=>setTimeout(r,20));
+ assert.equal(deliveries.some(p=>p.download_id===203),false);
+ const fast={...make(204),state:'complete'};downloads.set(204,fast);
+ downloadEvents.onChanged.listeners.at(-1)({id:204,state:{current:'complete'}});
+ await waitFor(()=>deliveries.some(p=>p.download_id===204));
+ assert.equal(deliveries.filter(p=>p.download_id===204).length,1);
+ await message({type:'saveState',settings:{enabled:false}});
+ const disabled={...make(205),state:'complete'};downloads.set(205,disabled);
+ downloadEvents.onChanged.listeners.at(-1)({id:205,state:{current:'complete'}});
+ await message({type:'getState'});await new Promise(r=>setTimeout(r,20));
+ assert.equal(deliveries.some(p=>p.download_id===205),false);
+});
+

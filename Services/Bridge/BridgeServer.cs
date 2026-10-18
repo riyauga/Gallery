@@ -325,12 +325,16 @@ public sealed partial class BridgeServer : IDisposable
 
         var downloadState = Str("download_state", 32);
         if (downloadState.Length == 0) downloadState = "complete";
+        var inboxPath = Str("inbox_path", 1024);
+        var downloadFilename = Str("filename", 1024);
+        if (inboxPath.Length == 0 && Path.IsPathFullyQualified(downloadFilename))
+            inboxPath = downloadFilename;
 
         return new NormalizedPayload(
             probe,
             downloadState.Equals("complete", StringComparison.OrdinalIgnoreCase),
             inboxName,
-            Str("inbox_path", 1024),
+            inboxPath,
             Str("page_url", 2048),
             Str("image_url", 2048),
             Str("post_id", 64),

@@ -75,7 +75,7 @@ async function bindDownload(item) {
   const page=x ? xMetadata(item,await xContexts()) : chooseMetadata(item,await snapshots());
   const enriched={...item,referrer:page?.page_url || item.referrer || ""};
   const rule=findRule(s.rules,enriched);
-  if (!rule) return null;
+  if (!rule && !s.settings.captureAllImages) return null;
   const key=downloadKey(item);
   return serial(async () => {
     const previous=(await chrome.storage.local.get(key))[key];
@@ -83,7 +83,7 @@ async function bindDownload(item) {
     const record={
       key,ingest_id:s.clientId + ":" + item.id + ":" + item.startTime,
       client_id:s.clientId,download_id:item.id,start_time:item.startTime,
-      state:"in_progress",rule_id:rule.rule.id,site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
+      state:"in_progress",rule_id:rule?.rule.id || "all-images",site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
     };
     await chrome.storage.local.set({[key]:record});
     return record;
@@ -100,10 +100,11 @@ async function findDownload(id) {
 }
 async function finishDownload(id) {
   let record=await findDownload(id);
-  if (!record) return;
-  if (record.state === "queued") return;
   const [item]=await chrome.downloads.search({id});
   if (!item) return;
+  // 极快的下载可能先完成，再写入 onCreated 的绑定记录；完成事件也可按同一规则绑定。
+  if (!record && item.state === "complete") record=await bindDownload(item);
+  if (!record || ["queued","delivered"].includes(record.state)) return;
   if (item.state === "interrupted") {
     await chrome.storage.local.set({[record.key]:{...record,state:"interrupted"}});
     return;
@@ -117,11 +118,11 @@ async function finishDownload(id) {
     version:2,ingest_id:record.ingest_id,client_id:record.client_id,download_id:id,
     download_state:"complete",download_key:record.key,
     filename,inbox_name:name,image_url:item.finalUrl || item.url,
-    page_url:page?.page_url || "",post_id:page?.post_id || "",site:page?.site || "",
+    page_url:page?.page_url || record.referrer || "",post_id:page?.post_id || "",site:page?.site || "",
     rule_id:record.rule_id || "",
     tags:page?.tags || {},rating:page?.rating || "",source:page?.source || "",
-    tag_string:page?.tag_string || "",metadata_complete:x ? false : completeMetadata(page),manual_review:x,
-    md5:x ? '' : MD5_RE.exec(name)?.[0]?.toLowerCase() || "",sent_at:Date.now()
+    tag_string:page?.tag_string || "",metadata_complete:x ? false : completeMetadata(page),manual_review:x || !page,
+    md5:x || !page ? '' : MD5_RE.exec(name)?.[0]?.toLowerCase() || "",sent_at:Date.now()
   };
   await queueAdd(payload);
   await chrome.storage.local.set({[record.key]:{...record,page,state:"queued"}});

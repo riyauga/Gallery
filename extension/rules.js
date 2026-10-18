@@ -20,6 +20,7 @@ export const IMAGE_EXT_RE =
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  captureAllImages: false,
   galleryRoot: "Gallery", // 相对浏览器“下载”目录
   defaultFolder: "{site}/{yyyy}-{mm}",
   unmatched: "skip", // skip = 不改动 | folder = 归到 _其他/{yyyy}-{mm}

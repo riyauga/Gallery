@@ -1,619 +1,617 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
+using System.Diagnostics;
 using Gallery.Services;
+using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Foundation;
 
 namespace Gallery.Controls.Review;
 
-/// <summary>
-/// 待审核页（对应 galleryold 的待处理队列）：左边列出浏览器扩展送进来、还没归档的记录，
-/// 右边看详情（站点 / 页面 / 标签 / 本地文件），可以打开来源页面、忽略或删除记录。
-/// 预览沿用旧版的后台解码、选中项令牌和敏感/未知分级显式揭示流程。
-/// </summary>
+/// <summary>归档审阅页：左侧九张圆环预览，右侧六类标签和单目录归档；批量操作使用当前全部待归档记录。</summary>
 public sealed class ReviewPage : Grid
 {
-    private readonly ListView _list = new();
-    private readonly TextBlock _summary = new();
-    private readonly TextBlock _title = new();
-    private readonly TextBlock _subtitle = new();
-    private readonly TextBlock _pageUrl = new();
-    private readonly TextBlock _imageUrl = new();
-    private readonly TextBlock _pathText = new();
-    private readonly TextBlock _tagsText = new();
-    private readonly TextBlock _status = new();
-    private readonly Image _preview = new() { Stretch = Stretch.Uniform, Height = 280 };
-    private readonly TextBlock _previewStatus = new()
-    {
-        Text = "选择图片查看", HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap,
-    };
-    private readonly Button _reveal = new() { Content = "显示预览", Visibility = Visibility.Collapsed };
-    private int _previewToken;
-    private readonly Button _openPage = new() { Content = "打开来源页面", IsEnabled = false };
-    private readonly Button _openFile = new() { Content = "打开本地文件", IsEnabled = false };
-    private readonly Button _ignore = new() { Content = "忽略", IsEnabled = false };
-    private readonly Button _delete = new() { Content = "删除记录", IsEnabled = false };
-    private readonly ComboBox _folder = new() { Width = 190 };
-    private readonly TextBox _subfolder = new() { Width = 120, PlaceholderText = "子目录（可空）" };
-    private readonly Button _archive = new() { Content = "归档到此处", IsEnabled = false, MinWidth = 96 };
-    private readonly Button _defer = new() { Content = "延期", IsEnabled = false };
-    private readonly Button _hide = new() { Content = "隐藏", IsEnabled = false };
-    private readonly Button _restore = new() { Content = "恢复待处理", IsEnabled = false, Visibility = Visibility.Collapsed };
-
-    private StackPanel? _archiveRow;
-
-    /// <summary>当前视图：pending / deferred / hidden / done。</summary>
-    private string _state = "pending";
-
+    private readonly Window _owner;
+    private readonly ReviewCarousel _carousel = new();
+    private readonly TextBlock _count = new() { FontSize = 28 };
+    private readonly TextBlock _summary = Caption();
+    private readonly TextBlock _position = Caption();
+    private readonly TextBlock _title = new() { FontSize = 21, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _time = Caption();
+    private readonly TextBlock _spec = Caption();
+    private readonly TextBlock _pageUrl = Caption();
+    private readonly TextBlock _path = Caption();
+    private readonly TextBlock _status = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
+    private readonly StackPanel _tagGroups = new() { Spacing = 15 };
+    private readonly TextBox _destination = new() { PlaceholderText = "选择图库内的归档目录", MinWidth = 0 };
+    private readonly Button _pickFolder = new() { Content = "选择文件夹…", Padding = new Thickness(10, 6, 10, 6) };
+    private readonly Button _archive = new() { Content = "归档此图，并查看下一张", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly Button _ignore = new() { Content = "忽略此图", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly Button _archiveAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly Button _ignoreAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly Button _previous = new() { Content = "↑", MinWidth = 36 };
+    private readonly Button _next = new() { Content = "↓", MinWidth = 36 };
+    private readonly Button _restore = new() { Content = "恢复待处理", Visibility = Visibility.Collapsed };
+    private readonly ComboBox _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
+    private readonly Grid _body = new() { ColumnSpacing = 24 };
+    private Tags.TagChip? _ratingBadge;
+    private readonly ScrollViewer _detailScroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private List<StoreService.PendingIngestRow> _rows = [];
     private StoreService.PendingIngestRow? _selected;
-
-    /// <summary>记录被处理掉一条时通知外面刷新角标。</summary>
+    private Dictionary<string, List<string>> _tags = [];
+    private readonly Dictionary<string, string> _imageSpecs = new(StringComparer.OrdinalIgnoreCase);
+    private string _state = "pending";
+    private int _index, _selectionGeneration;
+    private bool _busy, _active = true;
     public event Action? Changed;
 
-    public ReviewPage()
+    public ReviewPage(Window owner)
     {
-        RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-        BuildTabs();
-        Children.Add(BuildHeader());
-
-        var body = new Grid
+        _owner = owner;
+        _path.MaxLines = 2;
+        _path.TextTrimming = TextTrimming.CharacterEllipsis;
+        _pageUrl.MaxLines = 1;
+        _pageUrl.TextTrimming = TextTrimming.CharacterEllipsis;
+        Padding = new Thickness(28, 24, 28, 22);
+        _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(46, GridUnitType.Star) });
+        _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
+        _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54, GridUnitType.Star) });
+        _body.Children.Add(BuildQueue());
+        var divider = new Border { Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 28, 0, 28), IsHitTestVisible = false };
+        Grid.SetColumn(divider, 1);
+        _body.Children.Add(divider);
+        var details = BuildDetails();
+        Grid.SetColumn(details, 2);
+        _body.Children.Add(details);
+        Children.Add(_body);
+        _carousel.SelectionRequested += Select;
+        _carousel.OpenRequested += (row, source) => Open(source ? row.PageUrl : IngestReview.LocalPath(row), source);
+        _carousel.SelectedImageLoaded += item =>
         {
-            Margin = new Thickness(32, 8, 32, 24),
-            ColumnSpacing = 12,
+            var text = $"{item.PixelWidth} × {item.PixelHeight} · {item.Extension} · {item.FileSize / 1024.0 / 1024:0.##} MB";
+            _imageSpecs[item.FullPath] = text;
+            if (_selected is { } row && string.Equals(IngestReview.LocalPath(row), item.FullPath, StringComparison.OrdinalIgnoreCase))
+                _spec.Text = text;
         };
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(420) });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        body.Children.Add(BuildListPane());
-
-        var detail = BuildDetailPane();
-        Grid.SetColumn(detail, 1);
-        body.Children.Add(detail);
-
-        Grid.SetRow(body, 1);
-        Children.Add(body);
-
-        Loaded += (_, _) => Reload();
-        Unloaded += (_, _) => ClearPreview();
+        _previous.Click += (_, _) => Select(_index - 1);
+        _next.Click += (_, _) => Select(_index + 1);
+        _archive.Click += async (_, _) => await ArchiveAsync(false);
+        _archiveAll.Click += async (_, _) => await ArchiveAsync(true);
+        _ignore.Click += (_, _) => Ignore(false);
+        _ignoreAll.Click += (_, _) => Ignore(true);
+        _restore.Click += (_, _) => Restore();
+        _pickFolder.Click += async (_, _) => await PickFolderAsync();
+        Loaded += (_, _) => { _active = true; _carousel.SetActive(true); Reload(); };
+        Unloaded += (_, _) => SetActive(false);
+        ActualThemeChanged += (_, _) => ApplyColors();
+        SizeChanged += (_, _) =>
+        {
+            var narrow = ActualWidth < 850;
+            Padding = new Thickness(narrow ? 16 : 28, 20, narrow ? 16 : 28, 20);
+            _body.ColumnSpacing = narrow ? 16 : 28;
+            // 左栏跟随可容纳的画框宽度，不让较高窗口中的预览两边留下大片空白。
+            _body.ColumnDefinitions[0].Width = new GridLength(Math.Min(Math.Max(300, (ActualHeight - 220) * .67), Math.Max(300, (ActualWidth - 80) * .49)));
+        };
+        ApplyColors();
     }
 
-    private readonly StackPanel _tabs = new()
+    private Grid BuildQueue()
     {
-        Orientation = Orientation.Horizontal,
-        Spacing = 4,
-    };
-
-    private FrameworkElement BuildHeader()
-    {
-        var panel = new StackPanel
-        {
-            Margin = new Thickness(32, 28, 32, 18),
-            Spacing = 4,
-        };
-        panel.Children.Add(new TextBlock
-        {
-            Text = "待审核",
-            FontSize = 24,
-            FontWeight = FontWeights.SemiBold,
-        });
-        panel.Children.Add(_summary);
-        _summary.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-
-        _tabs.Margin = new Thickness(0, 8, 0, 0);
-        panel.Children.Add(_tabs);
+        var panel = new Grid { RowSpacing = 10 };
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var header = new StackPanel { Spacing = 5 };
+        var heading = new Grid();
+        heading.Children.Add(new TextBlock { Text = "归档审阅", FontSize = 25, FontWeight = FontWeights.SemiBold });
+        _count.HorizontalAlignment = HorizontalAlignment.Right;
+        heading.Children.Add(_count);
+        header.Children.Add(heading);
+        header.Children.Add(_summary);
+        panel.Children.Add(header);
+        Grid.SetRow(_carousel, 1);
+        panel.Children.Add(_carousel);
+        var footer = new StackPanel { Spacing = 10 };
+        var navigation = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Spacing = 14 };
+        _position.VerticalAlignment = VerticalAlignment.Center;
+        navigation.Children.Add(_previous);
+        navigation.Children.Add(_position);
+        navigation.Children.Add(_next);
+        footer.Children.Add(navigation);
+        var actions = new Grid { ColumnSpacing = 8 };
+        actions.ColumnDefinitions.Add(new ColumnDefinition());
+        actions.ColumnDefinitions.Add(new ColumnDefinition());
+        actions.Children.Add(_archiveAll);
+        Grid.SetColumn(_ignoreAll, 1);
+        actions.Children.Add(_ignoreAll);
+        footer.Children.Add(actions);
+        footer.Children.Add(new TextBlock { Text = "批量操作范围：全部待归档图片", FontSize = 11, Opacity = .65, HorizontalAlignment = HorizontalAlignment.Center });
+        Grid.SetRow(footer, 2);
+        panel.Children.Add(footer);
+        AutomationProperties.SetName(_previous, "上一张待归档图片");
+        AutomationProperties.SetName(_next, "下一张待归档图片");
         return panel;
     }
 
-    private void BuildTabs()
+    private Grid BuildDetails()
     {
-        var states = new (string Key, string Title)[]
+        var host = new Grid { RowSpacing = 20, MaxWidth = 620, HorizontalAlignment = HorizontalAlignment.Stretch };
+        host.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var panel = new StackPanel { Spacing = 12 };
+        var top = new Grid { MinHeight = 34 };
+        top.Children.Add(new TextBlock { Text = "图片详情", FontSize = 12, Opacity = .65, VerticalAlignment = VerticalAlignment.Center });
+        foreach (var (key, title) in new[] { ("pending", "待归档"), ("done", "已归档"), ("ignored", "已忽略"), ("deferred", "已延期"), ("hidden", "已隐藏") })
+            _states.Items.Add(new ComboBoxItem { Tag = key, Content = title });
+        _states.SelectedIndex = 0;
+        _states.SelectionChanged += (_, _) =>
         {
-            ("pending", "待处理"), ("deferred", "已延期"),
-            ("hidden", "已隐藏"), ("done", "已归档"),
-        };
-        var group = "ReviewStateGroup";
-        foreach (var (key, title) in states)
-        {
-            var radio = new RadioButton
+            if (_states.SelectedItem is ComboBoxItem { Tag: string state } && state != _state && !_busy)
             {
-                Content = title,
-                Tag = key,
-                GroupName = group,
-                IsChecked = key == _state,
-                MinWidth = 0,
-                Padding = new Thickness(10, 4, 10, 6),
-            };
-            radio.Checked += (sender, _) =>
-            {
-                if (sender is RadioButton { Tag: string next } && next != _state)
-                {
-                    _state = next;
-                    _selected = null;
-                    Reload();
-                }
-            };
-            _tabs.Children.Add(radio);
-        }
-    }
-
-    private FrameworkElement BuildListPane()
-    {
-        _list.SelectionMode = ListViewSelectionMode.Single;
-        _list.IsItemClickEnabled = false;
-        _list.SelectionChanged += (_, _) =>
-        {
-            _selected = (_list.SelectedItem as RowView)?.Row;
-            ShowSelection();
-        };
-        _list.ItemTemplate = BuildRowTemplate();
-        return _list;
-    }
-
-    private static DataTemplate BuildRowTemplate()
-    {
-        const string xaml = """
-            <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
-                <Grid Padding="4,6" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxLines="1" />
-                        <TextBlock Text="{Binding Subtitle}" Style="{StaticResource CaptionTextBlockStyle}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1" />
-                    </StackPanel>
-                    <TextBlock Grid.Column="1" Text="{Binding Badge}" VerticalAlignment="Center"
-                               Style="{StaticResource CaptionTextBlockStyle}" />
-                </Grid>
-            </DataTemplate>
-            """;
-        return (DataTemplate)XamlReader.Load(xaml);
-    }
-
-    private FrameworkElement BuildDetailPane()
-    {
-        var panel = new StackPanel { Spacing = 6 };
-        _title.Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"];
-        _title.TextWrapping = TextWrapping.Wrap;
-        _subtitle.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-
-        _pageUrl.TextWrapping = TextWrapping.Wrap;
-        _pageUrl.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-        _imageUrl.TextWrapping = TextWrapping.Wrap;
-        _imageUrl.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-        _pathText.TextWrapping = TextWrapping.Wrap;
-        _pathText.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-        _tagsText.TextWrapping = TextWrapping.Wrap;
-        _status.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
-
-        panel.Children.Add(_title);
-        panel.Children.Add(_subtitle);
-        var previewHost = new Grid { MinHeight = 180 };
-        previewHost.Children.Add(_preview);
-        previewHost.Children.Add(_previewStatus);
-        panel.Children.Add(previewHost);
-        _reveal.Click += (_, _) => _ = LoadPreviewAsync(reveal: true);
-        panel.Children.Add(_reveal);
-        panel.Children.Add(Section("来源页面"));
-        panel.Children.Add(_pageUrl);
-        panel.Children.Add(Section("图片地址"));
-        panel.Children.Add(_imageUrl);
-        panel.Children.Add(Section("本地文件"));
-        panel.Children.Add(_pathText);
-        panel.Children.Add(Section("标签"));
-        panel.Children.Add(_tagsText);
-
-        var actions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new Thickness(0, 12, 0, 0),
-        };
-        _openPage.Click += (_, _) => OpenUrl(_selected?.PageUrl ?? "");
-        _openFile.Click += (_, _) => OpenFile();
-        _ignore.Click += (_, _) => SetState("ignored", "手动忽略");
-        _delete.Click += (_, _) => DeleteRecord();
-        _defer.Click += (_, _) => SetState("deferred", "延期处理");
-        _hide.Click += (_, _) => SetState("hidden", "手动隐藏");
-        _restore.Click += (_, _) => SetState("pending", "");
-        actions.Children.Add(_openPage);
-        actions.Children.Add(_openFile);
-        actions.Children.Add(_ignore);
-        actions.Children.Add(_defer);
-        actions.Children.Add(_hide);
-        actions.Children.Add(_restore);
-        panel.Children.Add(actions);
-
-        // 删除是不可撤销的，单独一行放，避免和常用动作挤在一起被裁掉
-        var danger = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new Thickness(0, 6, 0, 0),
-        };
-        danger.Children.Add(_delete);
-        panel.Children.Add(danger);
-
-        _archiveRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new Thickness(0, 8, 0, 0),
-        };
-        _archive.Click += (_, _) => ArchiveSelected();
-        _archiveRow.Children.Add(_folder);
-        _archiveRow.Children.Add(_subfolder);
-        _archiveRow.Children.Add(_archive);
-        panel.Children.Add(_archiveRow);
-        panel.Children.Add(_status);
-
-        return new ScrollViewer
-        {
-            Content = panel,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(0, 4, 12, 0),
-        };
-    }
-
-    private static TextBlock Section(string text) => new()
-    {
-        Text = text,
-        Margin = new Thickness(0, 10, 0, 0),
-        Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-    };
-
-    /// <summary>目标文件夹下拉 = 已登记根目录（归档只允许落在图库里）。</summary>
-    private void RefreshFolders()
-    {
-        var store = AppService.Store;
-        if (store is null) return;
-
-        var roots = store.Roots().Where(r => r.Enabled).ToList();
-        var current = _folder.SelectedItem as string;
-        _folder.ItemsSource = roots.Select(r => r.Path).ToList();
-        var remembered = AppService.Settings?.Settings.archive_root ?? "";
-        _folder.SelectedItem = current is not null && roots.Any(r => r.Path == current)
-            ? current
-            : roots.FirstOrDefault(r => string.Equals(r.Path, remembered, StringComparison.OrdinalIgnoreCase))?.Path
-              ?? roots.FirstOrDefault()?.Path;
-
-        if (_subfolder.Text.Length == 0)
-            _subfolder.Text = AppService.Settings?.Settings.archive_sub ?? "";
-        _folder.IsEnabled = roots.Count > 0;
-    }
-
-    private void ArchiveSelected()
-    {
-        var row = _selected;
-        var archiver = AppService.Archiver;
-        if (row is null || archiver is null)
-        {
-            _status.Text = "归档服务没就绪。";
-            return;
-        }
-
-        var root = _folder.SelectedItem as string ?? "";
-        if (root.Length == 0)
-        {
-            _status.Text = "先选一个图库文件夹。";
-            return;
-        }
-
-        var sub = _subfolder.Text.Trim().Replace('\\', '/').Trim('/');
-        var destination = sub.Length == 0 ? root : Path.Combine(root, sub.Replace('/', '\\'));
-
-        _archive.IsEnabled = false;
-        try
-        {
-            var result = archiver.Archive(row.Id, destination);
-            _status.Text = result.Message;
-            if (result.Ok)
-            {
-                if (AppService.Settings is { } memory)
-                {
-                    memory.Settings.archive_root = root;
-                    memory.Settings.archive_sub = sub;
-                    memory.Save();
-                }
-
+                _state = state;
                 _selected = null;
+                _index = 0;
                 Reload();
-                Changed?.Invoke();
             }
-        }
-        finally
+        };
+        top.Children.Add(_states);
+        panel.Children.Add(top);
+        panel.Children.Add(_title);
+        var facts = new Grid { RowSpacing = 7, ColumnSpacing = 12 };
+        facts.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        facts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        AddFact("加入时间", _time);
+        AddFact("图片规格", _spec);
+        AddFact("来源页面", _pageUrl);
+        AddFact("本地文件", _path);
+        panel.Children.Add(facts);
+        panel.Children.Add(new Border { Height = 1, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 6, 0, 4) });
+        panel.Children.Add(new TextBlock { Text = "标签", FontSize = 18, FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(_tagGroups);
+        _detailScroll.Content = panel;
+        host.Children.Add(_detailScroll);
+        var archivePanel = new StackPanel { Spacing = 10 };
+        archivePanel.Children.Add(new Border { Height = 1, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 0, 0, 6) });
+        archivePanel.Children.Add(new TextBlock { Text = "归档目录", FontSize = 12, Opacity = .7 });
+        var folder = new Grid { ColumnSpacing = 8 };
+        folder.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        folder.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        folder.Children.Add(_destination);
+        Grid.SetColumn(_pickFolder, 1);
+        folder.Children.Add(_pickFolder);
+        archivePanel.Children.Add(folder);
+        var actions = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
+        _archive.MinHeight = _ignore.MinHeight = 40;
+        actions.Children.Add(_archive);
+        actions.Children.Add(_ignore);
+        archivePanel.Children.Add(actions);
+        archivePanel.Children.Add(_restore);
+        archivePanel.Children.Add(_status);
+        Grid.SetRow(archivePanel, 1);
+        host.Children.Add(archivePanel);
+        return host;
+
+        void AddFact(string title, TextBlock value)
         {
-            _archive.IsEnabled = true;
+            var row = facts.RowDefinitions.Count;
+            facts.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var label = new TextBlock { Text = title, FontSize = 12, Opacity = .6 };
+            Grid.SetRow(label, row);
+            Grid.SetRow(value, row);
+            Grid.SetColumn(value, 1);
+            facts.Children.Add(label);
+            facts.Children.Add(value);
         }
     }
 
     public void Reload()
     {
-        var store = AppService.Store;
-        if (store is null) return;
-
-        _rows = store.IngestRows(_state);
-        var stats = store.IngestStats();
-        int Count(string key) => stats.TryGetValue(key, out var v) ? v : 0;
-
-        _summary.Text =
-            $"待处理 {Count("pending")} 条 · 已延期 {Count("deferred")} · 已隐藏 {Count("hidden")} " +
-            $"· 已归档 {Count("done")} · 已忽略 {Count("ignored")}";
-
-        if (_archiveRow is not null)
-            _archiveRow.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _archive.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _ignore.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _defer.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _hide.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _restore.Visibility = _state == "pending" ? Visibility.Collapsed : Visibility.Visible;
-
-        RefreshFolders();
-
-        var items = _rows.Select(r => new RowView(r)).ToList();
-        var keep = _selected;
-        _list.ItemsSource = items;
-        if (keep is not null)
+        if (_busy || AppService.Store is not { } store) return;
+        var keep = _selected?.Id;
+        _rows = store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
+        var pending = store.PendingIngestCount();
+        _count.Text = $"{_rows.Count} 张";
+        _summary.Text = _state == "pending" ? "待归档" : "历史记录";
+        _archiveAll.Content = $"一键归档（{pending}）";
+        _ignoreAll.Content = $"一键忽略（{pending}）";
+        if (string.IsNullOrWhiteSpace(_destination.Text))
         {
-            var again = items.FirstOrDefault(x => x.Row.Id == keep.Id);
-            if (again is not null) _list.SelectedItem = again;
-            else if (items.Count > 0) _list.SelectedIndex = 0;
+            var settings = AppService.Settings.Settings;
+            _destination.Text = settings.archive_root.Length > 0
+                ? Path.Combine(settings.archive_root, settings.archive_sub)
+                : store.Roots().FirstOrDefault(r => r.Enabled)?.Path ?? "";
         }
-        else if (items.Count > 0)
-        {
-            _list.SelectedIndex = 0;
-        }
-
-        if (_rows.Count == 0)
-        {
-            _selected = null;
-            ClearPreview();
-            _title.Text = _state switch
-            {
-                "deferred" => "没有已延期的记录",
-                "hidden" => "没有已隐藏的记录",
-                "done" => "没有已归档的记录",
-                _ => "没有待处理记录",
-            };
-            _subtitle.Text = _state == "pending"
-                ? "浏览器扩展送来下载记录后会出现在这里。"
-                : "切回「待处理」可以继续处理新记录。";
-            _pageUrl.Text = "";
-            _imageUrl.Text = "";
-            _pathText.Text = "";
-            _tagsText.Text = "";
-            _openPage.IsEnabled = false;
-            _openFile.IsEnabled = false;
-            _ignore.IsEnabled = false;
-            _delete.IsEnabled = false;
-            _defer.IsEnabled = false;
-            _hide.IsEnabled = false;
-            _restore.IsEnabled = false;
-            _archive.IsEnabled = false;
-        }
+        var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
+        Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1));
+        UpdateButtons();
     }
 
-    private void ShowSelection()
+    private void Select(int index)
     {
-        var row = _selected;
-        if (row is null)
+        if (_busy) return;
+        _index = _rows.Count == 0 ? 0 : Math.Clamp(index, 0, _rows.Count - 1);
+        _selected = _rows.Count == 0 ? null : _rows[_index];
+        ++_selectionGeneration;
+        _carousel.SetItems(_rows, _index);
+        _position.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
+        _tagGroups.Children.Clear();
+        _ratingBadge = null;
+        if (_selected is not { } row)
         {
-            ClearPreview();
+            _title.Text = _state == "pending" ? "没有待归档图片" : "没有此类记录";
+            _time.Text = _spec.Text = _pageUrl.Text = _path.Text = "";
+            _tags = [];
+            UpdateButtons();
             return;
         }
-
-        _title.Text = row.InboxName.Length > 0 ? row.InboxName : $"记录 #{row.Id}";
-        var when = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime();
-        var site = row.Source.Length > 0 ? row.Source : "未知来源";
-        var rating = row.Rating.Length > 0 ? row.Rating : "—";
-        _subtitle.Text = $"{site} · 分级 {rating} · {when:MM-dd HH:mm}";
-
-        _pageUrl.Text = row.PageUrl.Length > 0 ? row.PageUrl : "（没有记录）";
-        _imageUrl.Text = row.ImageUrl.Length > 0 ? row.ImageUrl : "（没有记录）";
-
-        var localPath = PreviewPath(row);
-        var path = localPath.Length > 0 ? localPath : "（没有记录）";
-        var exists = localPath.Length > 0 && File.Exists(localPath);
-        _pathText.Text = exists ? path : path + (row.InboxPath.Length > 0 ? "（文件已不在原位）" : "");
-
-        _tagsText.Text = DescribeTags(row.Payload);
-
-        _openPage.IsEnabled = row.PageUrl.Length > 0;
-        _openFile.IsEnabled = exists;
-        _ignore.IsEnabled = true;
-        _delete.IsEnabled = true;
-        _defer.IsEnabled = true;
-        _hide.IsEnabled = true;
-        _restore.IsEnabled = true;
-        _archive.IsEnabled = _folder.SelectedItem is string;
-        _status.Text = "";
-        RefreshPreview();
+        _title.Text = row.InboxName.Length > 0 ? row.InboxName : Path.GetFileName(IngestReview.LocalPath(row));
+        _time.Text = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+        _spec.Text = _imageSpecs.GetValueOrDefault(IngestReview.LocalPath(row), "—");
+        _pageUrl.Text = row.PageUrl.Length == 0 ? "未记录" : row.PageUrl;
+        var local = IngestReview.LocalPath(row);
+        _path.Text = local.Length == 0 ? "记录没有本地路径" : local + (File.Exists(local) ? "" : "（不可用）");
+        ToolTipService.SetToolTip(_path, local);
+        ToolTipService.SetToolTip(_pageUrl, row.PageUrl);
+        _tags = IngestReview.Tags(row.Payload, row.Rating);
+        for (var i = 0; i < IngestReview.Categories.Length; i++)
+            BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+        UpdateButtons();
     }
 
-    private static string PreviewPath(StoreService.PendingIngestRow row)
-        => row.State == "done" && row.Note.Length > 0 ? row.Note : row.InboxPath;
-
-    private CancellationTokenSource? _previewCancellation;
-
-    private void ClearPreview()
+    /// <summary>通知点击后按队列记录定位，避免依赖列表排序或当前选中项。</summary>
+    public void OpenPending(int id)
     {
-        _previewCancellation?.Cancel();
-        ++_previewToken;
-        _preview.Source = null;
-        _previewStatus.Text = "选择图片查看";
-        _reveal.Visibility = Visibility.Collapsed;
+        if (_busy) { _pendingNotificationId = id; return; }
+        _state = "pending";
+        _states.SelectedIndex = 0;
+        Reload();
+        var index = _rows.FindIndex(row => row.Id == id);
+        if (index >= 0) Select(index);
+        else _status.Text = "这张图片已处理，不在待归档队列中。";
     }
 
-    public void SetActive(bool active) { if (!active) ClearPreview(); }
-    public void RefreshPreview() => _ = LoadPreviewAsync();
+    private int? _pendingNotificationId;
 
-    private async Task LoadPreviewAsync(bool reveal = false)
+    private void BuildTagGroup(string category, string title)
     {
-        _previewCancellation?.Cancel();
-        _previewCancellation?.Dispose();
-        var cancellation = _previewCancellation = new CancellationTokenSource();
-        var token = ++_previewToken;
-        var row = _selected;
-        _preview.Source = null;
-        _reveal.Visibility = Visibility.Collapsed;
-        if (row is null) { _previewStatus.Text = "选择图片查看"; return; }
-        var path = PreviewPath(row);
-        if (!File.Exists(path)) { _previewStatus.Text = "文件已不在原位，无法预览"; return; }
-        var rating = ArchiveService.NormalizeRating(row.Rating);
-        // Gallery_Old/app/ui/review_dialog.py: show_preview；未知分级也要显式揭示。
-        if (!reveal && AppService.Settings.Settings.blur_nsfw && rating is not ("g" or "s"))
+        var group = new Grid { ColumnSpacing = 12 };
+        group.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+        group.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        group.Children.Add(new TextBlock { Text = title, FontSize = 12, Opacity = .7, Margin = new Thickness(0, 5, 0, 0) });
+        var controls = new StackPanel { Spacing = 7 };
+        Grid.SetColumn(controls, 1);
+        group.Children.Add(controls);
+        var chips = new TagWrapPanel();
+        controls.Children.Add(chips);
+        Rebuild();
+        if (category != "rating")
         {
-            _previewStatus.Text = "NSFW / 未填分级预览已隐藏";
-            _reveal.Visibility = Visibility.Visible;
-            return;
-        }
-        _previewStatus.Text = "正在加载预览…";
-        try
-        {
-            var meta = await Task.Run(() => ImageInfo.ReadMeta(path), cancellation.Token);
-            if (token != _previewToken) return;
-            var file = new FileInfo(path);
-            var item = new Gallery.Models.PhotoItem
+            var search = new AutoSuggestBox { PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
+            AutomationProperties.SetName(search, $"搜索或添加{title}标签");
+            var generation = _selectionGeneration;
+            var searchVersion = 0;
+            search.TextChanged += async (_, args) =>
             {
-                File = file.Name, FullPath = path, PixelWidth = meta.Width ?? 0, PixelHeight = meta.Height ?? 0,
-                Date = file.LastWriteTime, FileSize = file.Length, ModifiedAtUnix = StoreService.ToUnixSeconds(file.LastWriteTimeUtc),
+                if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+                var version = ++searchVersion;
+                var query = search.Text.Trim();
+                if (query.Length == 0) { search.ItemsSource = null; return; }
+                await Task.Delay(160);
+                if (version != searchVersion || generation != _selectionGeneration || !_active) return;
+                try
+                {
+                    var hits = await Task.Run(() =>
+                    {
+                        lock (AppService.DbLock)
+                        {
+                            var tags = AppService.Store!.SearchTags(query, 200).Where(t => t.Category == category)
+                                .Select(t => new TagSuggestion(t.Name, t.Display));
+                            var entities = AppService.Catalog?.SearchEntities(query, 30).Where(e => e.Kind == category)
+                                .Select(e => new TagSuggestion(e.Zh.Length > 0 ? e.Zh : e.En, e.Zh.Length > 0 ? e.Zh : e.En)) ?? [];
+                            return tags.Concat(entities).DistinctBy(t => t.Name).Take(12).ToList();
+                        }
+                    });
+                    if (version == searchVersion && generation == _selectionGeneration && _active) search.ItemsSource = hits;
+                }
+                catch (Microsoft.Data.Sqlite.SqliteException ex) { _status.Text = "标签搜索失败：" + ex.Message; }
+                catch (ObjectDisposedException) when (!_active) { }
             };
-            var bitmap = await ImageLoader.LoadPreviewAsync(item, 2048, cancellation.Token);
-            if (token != _previewToken) return;
-            _preview.Source = bitmap;
-            _previewStatus.Text = "";
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or SixLabors.ImageSharp.UnknownImageFormatException
-            or SixLabors.ImageSharp.InvalidImageContentException or System.Runtime.InteropServices.COMException)
-        {
-            if (token == _previewToken) _previewStatus.Text = "图片无法读取：" + ex.Message;
-        }
-    }
-
-    /// <summary>把 payload 里的五类标签压成一行摘要。</summary>
-    private static string DescribeTags(string payload)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(payload);
-            if (!doc.RootElement.TryGetProperty("tags", out var tags) || tags.ValueKind != JsonValueKind.Object)
-                return "（没有标签）";
-
-            var parts = new List<string>();
-            foreach (var group in tags.EnumerateObject())
+            search.QuerySubmitted += (_, args) =>
             {
-                if (group.Value.ValueKind != JsonValueKind.Array) continue;
-                var names = group.Value.EnumerateArray()
-                    .Where(x => x.ValueKind == JsonValueKind.String)
-                    .Select(x => x.GetString() ?? "")
-                    .Where(x => x.Length > 0)
-                    .ToList();
-                if (names.Count == 0) continue;
-                var shown = names.Count <= 6 ? string.Join("、", names) : string.Join("、", names.Take(6)) + $"…（共 {names.Count}）";
-                // payload 里是 danbooru 的组名（artist/copyright/general/meta），
-                // 归档时会被折成七类，这里也用同一套中文标题，免得前后看到两套名字
-                var mapped = Services.Taxonomy.DanbooruCategoryMap.TryGetValue(group.Name, out var category)
-                    ? category
-                    : "custom";
-                var title = Array.IndexOf(Services.Taxonomy.Categories, mapped) is var index && index >= 0
-                    ? Services.Taxonomy.CategoryTitles[index]
-                    : group.Name;
-                parts.Add($"{title}：{shown}");
+                var name = args.ChosenSuggestion is TagSuggestion hit ? hit.Name : args.QueryText.Trim();
+                if (name.Length == 0 || _busy) return;
+                if (!_tags[category].Contains(name, StringComparer.OrdinalIgnoreCase)) _tags[category].Add(name);
+                SaveTags(category == "rating");
+                Rebuild();
+                search.Text = "";
+                search.ItemsSource = null;
+            };
+            controls.Children.Add(search);
+        }
+        _tagGroups.Children.Add(group);
+
+        void Rebuild()
+        {
+            chips.Children.Clear();
+            if (category == "rating")
+            {
+                var rating = _tags[category].FirstOrDefault();
+                var label = rating is "g" or "s" ? "SFW" : rating is "q" or "e" ? "NSFW" : "未分级";
+                _ratingBadge = new Tags.TagChip("rating", label) { IsHitTestVisible = false };
+                chips.Children.Add(_ratingBadge);
             }
-
-            return parts.Count == 0 ? "（没有标签）" : string.Join(Environment.NewLine, parts);
-        }
-        catch (JsonException)
-        {
-            return "（标签解析失败）";
+            var values = category == "rating" ? new[] { "g", "s", "q", "e" } : _tags[category].ToArray();
+            foreach (var name in values)
+            {
+                ButtonBase chip = category == "rating" ? new ToggleButton
+                {
+                    Content = name.ToUpperInvariant(),
+                    IsChecked = _tags[category].Contains(name, StringComparer.OrdinalIgnoreCase),
+                    Padding = new Thickness(9, 4, 9, 4), MinWidth = 0, MinHeight = 28, FontSize = 12,
+                    MaxWidth = 320,
+                    IsEnabled = _state == "pending",
+                } : new Button
+                {
+                    Content = new Tags.TagChip(category, name), Padding = new Thickness(0), MinWidth = 0, MinHeight = 28,
+                    Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0),
+                    IsEnabled = _state == "pending",
+                };
+                ToolTipService.SetToolTip(chip, category == "rating" ? $"{name.ToUpperInvariant()} · {(name is "g" or "s" ? "SFW" : "NSFW")}" : "点击移除此标签");
+                chip.Click += (_, _) =>
+                {
+                    if (_busy) return;
+                    if (category == "rating") { _tags[category].Clear(); _tags[category].Add(name); }
+                    else _tags[category].RemoveAll(t => string.Equals(t, name, StringComparison.OrdinalIgnoreCase));
+                    SaveTags(category == "rating");
+                    Rebuild();
+                };
+                chips.Children.Add(chip);
+            }
+            if (category == "rating")
+            {
+                var classify = new Button { Content = new FontIcon { Glyph = "\uE895", FontSize = 14 }, Padding = new Thickness(9, 5, 9, 5), IsEnabled = _state == "pending" };
+                ToolTipService.SetToolTip(classify, "用本地模型自动分级此图");
+                AutomationProperties.SetName(classify, "自动分级此图");
+                classify.Click += async (_, _) => { await ClassifyAsync(); Rebuild(); };
+                chips.Children.Add(classify);
+            }
         }
     }
 
-    private void SetState(string state, string note)
+    /// <summary>只判定当前待归档文件，后台推理期间锁定编辑，结果写回同一条队列记录。</summary>
+    private async Task ClassifyAsync()
     {
-        var row = _selected;
-        if (row is null || AppService.Store is null) return;
-        AppService.Store.SetIngestState(row.Id, state, note);
-        _status.Text = state == "ignored" ? "已忽略这条记录。" : "已更新。";
-        _selected = null;
+        if (_busy || _selected is not { State: "pending" } row) return;
+        _busy = true;
+        UpdateButtons();
+        _status.Text = "正在自动分级…";
+        try
+        {
+            var modelDir = AppService.Settings.Settings.nsfw_model_dir;
+            var result = await Task.Run(() =>
+            {
+                var scorer = NsfwScorer.TryCreate(modelDir, out var error);
+                return scorer is null ? (Rating: "", Error: error) : (Rating: scorer.Score(IngestReview.LocalPath(row)).Rating, Error: "");
+            });
+            if (result.Error.Length > 0) { _status.Text = "自动分级失败：" + result.Error; return; }
+            _tags["rating"].Clear();
+            _tags["rating"].Add(result.Rating);
+            SaveTags(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException
+            or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
+        { _status.Text = "自动分级失败：" + ex.Message; }
+        finally
+        {
+            _busy = false;
+            UpdateButtons();
+            OpenDeferredNotification();
+        }
+    }
+
+    private void OpenDeferredNotification()
+    {
+        if (_pendingNotificationId is not int id) return;
+        _pendingNotificationId = null;
+        OpenPending(id);
+    }
+
+    private void SaveTags(bool refreshProtection)
+    {
+        if (_selected is not { State: "pending" } row || AppService.Store is not { } store) return;
+        try
+        {
+            var rating = _tags["rating"].FirstOrDefault() ?? "";
+            var payload = IngestReview.UpdatePayload(row.Payload, _tags, rating);
+            store.UpdateIngestReview(row.Id, payload, rating);
+            _selected = row with { Payload = payload, Rating = rating };
+            _rows[_index] = _selected;
+            _status.Text = "标签已保存";
+            if (refreshProtection)
+            {
+                _carousel.RefreshPreview();
+                _carousel.SetItems(_rows, _index);
+            }
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            _status.Text = "标签保存失败：" + ex.Message;
+        }
+    }
+
+    private async Task PickFolderAsync()
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(_owner));
+            picker.FileTypeFilter.Add("*");
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+            if (AppService.Archiver?.ResolveRoot(folder.Path).RootId is not >= 0)
+            {
+                _status.Text = "请选择已登记图库内的目录；新图库请先在设置中添加。";
+                return;
+            }
+            _destination.Text = folder.Path;
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+        {
+            _status.Text = "无法选择目录：" + ex.Message;
+        }
+    }
+
+    private async Task ArchiveAsync(bool all)
+    {
+        if (_busy || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
+        var destination = _destination.Text.Trim();
+        try
+        {
+            if (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0)
+            {
+                _status.Text = "请选择已登记图库内的归档目录。";
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            _status.Text = "归档目录无效：" + ex.Message;
+            return;
+        }
+        var ids = all ? store.IngestRows("pending", int.MaxValue).Select(r => r.Id).ToArray()
+            : _selected is { State: "pending" } row ? [row.Id] : Array.Empty<int>();
+        if (ids.Length == 0) return;
+        _busy = true;
+        UpdateButtons();
+        var succeeded = 0;
+        var failures = new List<string>();
+        try
+        {
+            foreach (var id in ids)
+            {
+                _status.Text = $"正在归档 {succeeded + failures.Count + 1} / {ids.Length}…";
+                var result = await Task.Run(() => archiver.Archive(id, destination));
+                if (result.Ok) succeeded++; else failures.Add($"#{id}：{result.Message}");
+            }
+            if (succeeded > 0)
+            {
+                var (rootId, relative) = archiver.ResolveRoot(destination);
+                AppService.Settings.Settings.archive_root = store.Roots().First(r => r.Id == rootId).Path;
+                AppService.Settings.Settings.archive_sub = relative.Replace('/', Path.DirectorySeparatorChar);
+                AppService.Settings.Save();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            failures.Add(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+            Reload();
+            Changed?.Invoke();
+            OpenDeferredNotification();
+        }
+        _status.Text = failures.Count == 0 ? $"已归档 {succeeded} 张" : $"已归档 {succeeded} 张，失败 {failures.Count} 条。\n" + string.Join("\n", failures.Take(3));
+    }
+
+    private void Ignore(bool all)
+    {
+        if (_busy || AppService.Store is not { } store) return;
+        var rows = all ? store.IngestRows("pending", int.MaxValue) : _selected is { State: "pending" } row ? [row] : new List<StoreService.PendingIngestRow>();
+        foreach (var item in rows) store.SetIngestState(item.Id, "ignored", "手动忽略");
+        Reload();
+        Changed?.Invoke();
+        _status.Text = $"已忽略 {rows.Count} 张，磁盘文件保留";
+    }
+
+    private void Restore()
+    {
+        if (_busy || _selected is not { } row || AppService.Store is not { } store) return;
+        if (row.State == "done") { _status.Text = "已归档记录无需重复归档"; return; }
+        store.SetIngestState(row.Id, "pending", "");
         Reload();
         Changed?.Invoke();
     }
 
-    private void DeleteRecord()
+    private void UpdateButtons()
     {
-        var row = _selected;
-        if (row is null || AppService.Store is null) return;
-        AppService.Store.DeleteIngest(row.Id);
-        _status.Text = "记录已删除（磁盘文件没动）。";
-        _selected = null;
-        Reload();
-        Changed?.Invoke();
+        var pending = _selected is { State: "pending" };
+        _archive.IsEnabled = _ignore.IsEnabled = !_busy && pending;
+        _archive.Visibility = _ignore.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
+        _restore.Visibility = _state is "ignored" or "deferred" or "hidden" ? Visibility.Visible : Visibility.Collapsed;
+        _restore.IsEnabled = !_busy && _selected is not null;
+        _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
+        _previous.IsEnabled = !_busy && _index > 0;
+        _next.IsEnabled = !_busy && _index + 1 < _rows.Count;
+        _states.IsEnabled = _destination.IsEnabled = _pickFolder.IsEnabled = !_busy;
+        _tagGroups.IsHitTestVisible = !_busy;
     }
 
-    private void OpenFile()
+    public void SetActive(bool active)
     {
-        var path = _selected is { } row ? PreviewPath(row) : "";
-        if (path.Length == 0 || !File.Exists(path)) return;
-        try
+        _active = active;
+        ++_selectionGeneration;
+        _carousel.SetActive(active);
+        if (!active) _imageSpecs.Clear();
+    }
+
+    public void RefreshPreview() => _carousel.RefreshPreview();
+
+    private void Open(string target, bool source)
+    {
+        if (target.Length == 0) return;
+        if (source && (!Uri.TryCreate(target, UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https")))
+        { _status.Text = "来源页面不是有效的网页地址"; return; }
+        if (!source && !File.Exists(target)) { _status.Text = "本地文件不可用"; return; }
+        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        { _status.Text = "无法打开：" + ex.Message; }
+    }
+
+    private void ApplyColors()
+    {
+        _archive.Style = _archiveAll.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
+        _ignoreAll.Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 64, 55, 43) : Windows.UI.Color.FromArgb(255, 247, 237, 223));
+        _ignoreAll.Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 225, 194, 145) : Windows.UI.Color.FromArgb(255, 128, 85, 26));
+        _ignore.Opacity = .72;
+    }
+
+    private static Brush ResourceBrush(string key) => (Brush)Application.Current.Resources[key];
+    private static TextBlock Caption() => new() { FontSize = 12, Opacity = .75, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
+    private sealed record TagSuggestion(string Name, string Display) { public override string ToString() => Display; }
+
+    /// <summary>按可用宽度换行排列标签，不把长标签或窄窗口撑出右侧信息栏。</summary>
+    private sealed class TagWrapPanel : Panel
+    {
+        protected override Size MeasureOverride(Size availableSize)
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
+            double x = 0, y = 0, height = 0;
+            foreach (var child in Children)
             {
-                UseShellExecute = true
-            });
+                child.Measure(new Size(availableSize.Width, double.PositiveInfinity));
+                var size = child.DesiredSize;
+                if (x > 0 && x + size.Width > availableSize.Width) { y += height + 6; x = height = 0; }
+                x += size.Width + 6;
+                height = Math.Max(height, size.Height);
+            }
+            return new Size(double.IsInfinity(availableSize.Width) ? x : availableSize.Width, y + height);
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException
-            or System.ComponentModel.Win32Exception)
+        protected override Size ArrangeOverride(Size finalSize)
         {
-            _status.Text = "打不开文件：" + ex.Message;
-        }
-    }
-
-    private void OpenUrl(string url)
-    {
-        if (url.Length == 0) return;
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url)
+            double x = 0, y = 0, height = 0;
+            foreach (var child in Children)
             {
-                UseShellExecute = true
-            });
+                var size = child.DesiredSize;
+                if (x > 0 && x + size.Width > finalSize.Width) { y += height + 6; x = height = 0; }
+                child.Arrange(new Rect(x, y, Math.Min(size.Width, finalSize.Width), size.Height));
+                x += size.Width + 6;
+                height = Math.Max(height, size.Height);
+            }
+            return finalSize;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            _status.Text = "打不开链接：" + ex.Message;
-        }
-    }
-
-    /// <summary>列表行（DataTemplate 绑这三列）。</summary>
-    public sealed class RowView
-    {
-        public RowView(StoreService.PendingIngestRow row)
-        {
-            Row = row;
-            Title = row.InboxName.Length > 0 ? row.InboxName : $"记录 #{row.Id}";
-            var site = row.Source.Length > 0 ? row.Source : "未知来源";
-            var when = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime();
-            Subtitle = $"{site} · {(row.Rating.Length > 0 ? row.Rating : "—")} · {when:MM-dd HH:mm}";
-            Badge = "#" + row.Id;
-        }
-
-        public StoreService.PendingIngestRow Row { get; }
-        public string Title { get; }
-        public string Subtitle { get; }
-        public string Badge { get; }
     }
 }
