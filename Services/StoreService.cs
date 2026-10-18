@@ -1042,6 +1042,27 @@ public sealed class StoreService : IDisposable
         if (tagIt) TagNsfw(imageId, rating is "q" or "e");
     }
 
+    /// <summary>清掉一张图的判定：删 nsfw_scores 那一条 + images.nsfw 置空（用户主动删掉分级芯片后用）。</summary>
+    public void ClearNsfwScore(int imageId)
+    {
+        lock (SyncRoot)
+        {
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM nsfw_scores WHERE image_id=$i";
+                cmd.Parameters.AddWithValue("$i", imageId);
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "UPDATE images SET nsfw=NULL WHERE id=$i";
+                cmd.Parameters.AddWithValue("$i", imageId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
     /// <summary>NSFW/SFW 标签互斥写入。</summary>
     /// <summary>
     /// 修历史漂移：① images.nsfw 和 nsfw_scores.rating 不一致时以评分表为准；

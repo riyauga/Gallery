@@ -43,6 +43,7 @@ public sealed partial class PreviewOverlay : Grid
         Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
         Detail.RatingTooltip = BuildRatingTooltip;
         Viewer.ZoomChanged += SyncZoomControls;
+        Viewer.NavigateRequested += Move;
         Viewer.LoadingChanged += loading =>
         {
             LoadingText.Text = "正在加载图片…";
@@ -57,7 +58,8 @@ public sealed partial class PreviewOverlay : Grid
         Detail.EditTagsRequested += async item =>
         {
             if (XamlRoot is null) return;
-            var saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, [item]);
+            var saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, [item],
+                (message, _, _) => ToastRequested?.Invoke(message));
             if (!saved || AppService.Store is null) return;
             ToastRequested?.Invoke("标签已保存");
             Detail.SetTags(LoadTagPairs(item.ImageId));

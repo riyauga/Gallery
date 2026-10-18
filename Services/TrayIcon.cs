@@ -20,11 +20,16 @@ public sealed class TrayIcon : IDisposable
     private const uint NIM_ADD = 0, NIM_MODIFY = 1, NIM_DELETE = 2;
     private const uint NIF_MESSAGE = 0x1, NIF_ICON = 0x2, NIF_TIP = 0x4;
     private const uint IDI_APPLICATION = 32512;
+    private const uint IMAGE_ICON = 1;
+    private const uint LR_LOADFROMFILE = 0x10;
+    private const int SM_CXSMICON = 49;
 
     private readonly uint _id = (uint)Environment.ProcessId;
+    private readonly object _iconGate = new();
     private Thread? _thread;
     private WndProcDelegate? _wndProc;
     private IntPtr _hwnd;
+    private IntPtr _icon;
     private volatile bool _created;
     private string _tip = "Gallery";
 
@@ -69,6 +74,12 @@ public sealed class TrayIcon : IDisposable
         {
             // HWND 属于托盘线程，只能让所属线程销毁并结束其消息循环。
             PostMessage(_hwnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        if (_icon != IntPtr.Zero && _icon != SystemIcon)
+        {
+            DestroyIcon(_icon);
+            _icon = IntPtr.Zero;
         }
     }
 
@@ -134,10 +145,35 @@ public sealed class TrayIcon : IDisposable
             uID = _id,
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYICON,
-            hIcon = LoadIcon(IntPtr.Zero, (IntPtr)IDI_APPLICATION),
+            hIcon = IconHandle(),
             szTip = _tip,
         };
         return data;
+    }
+
+    /// <summary>
+    /// 托盘用应用自己的图标（<c>assets/Gallery.ico</c>，与 exe 图标同一份字形）。
+    /// LoadImage 不认 exe 文件，只能读图集文件；读不到才退回系统默认图标。
+    /// </summary>
+    private IntPtr IconHandle()
+    {
+        lock (_iconGate)
+        {
+            if (_icon != IntPtr.Zero) return _icon;
+
+            var path = Path.Combine(AppContext.BaseDirectory, "assets", "Gallery.ico");
+            var size = Math.Max(16, GetSystemMetrics(SM_CXSMICON));
+            if (File.Exists(path))
+                _icon = LoadImage(IntPtr.Zero, path, IMAGE_ICON, size, size, LR_LOADFROMFILE);
+
+            if (_icon == IntPtr.Zero)
+            {
+                AppService.DebugLog($"tray app icon unavailable ({path})，用系统默认图标");
+                _icon = SystemIcon;
+            }
+
+            return _icon;
+        }
     }
 
     private IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -167,6 +203,9 @@ public sealed class TrayIcon : IDisposable
     // ------------------------------------------------------------------ P/Invoke
 
     private static readonly IntPtr HWND_MESSAGE = new(-3);
+
+    /// <summary>系统默认应用图标：读不到自己的图标时兜底，同时它是共享句柄，不能 DestroyIcon。</summary>
+    private static readonly IntPtr SystemIcon = LoadIcon(IntPtr.Zero, (IntPtr)IDI_APPLICATION);
 
     private delegate IntPtr WndProcDelegate(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
@@ -269,6 +308,15 @@ public sealed class TrayIcon : IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr LoadIcon(IntPtr instance, IntPtr name);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr icon);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandle(string? name);

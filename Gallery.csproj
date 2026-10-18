@@ -5,6 +5,8 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Gallery</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 应用图标：tools/make_icon.py 从标题栏字形 E91B 生成 -->
+    <ApplicationIcon>assets\Gallery.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>

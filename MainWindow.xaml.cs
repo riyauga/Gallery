@@ -620,7 +620,11 @@ public sealed partial class MainWindow : Window
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Escape); args.Handled = true; }
+        // Esc 优先给查看器（退全屏/关闭），其次退出图库多选。
+        // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
+        // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
+        if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Escape); args.Handled = true; return; }
+        if (_page.ExitSelection()) args.Handled = true;
     }
 
     private void OnLeftInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

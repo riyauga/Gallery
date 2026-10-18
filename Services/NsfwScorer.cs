@@ -10,10 +10,11 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Transforms;
 
 namespace Gallery.Services;
 
-/// <summary>WD tagger v3 的四类概率（顺序对齐 selected_tags.csv 里 category==9 的四行）。</summary>
+/// <summary>WD tagger v3 的四类概率（顺序 = 标签表里 general / sensitive / questionable / explicit 四行）。</summary>
 public sealed record NsfwProbs(double G, double S, double Q, double E)
 {
     /// <summary>g/s 算安全，q/e 算敏感；敏感概率为 q+e。</summary>
@@ -37,6 +38,11 @@ public sealed record NsfwProbs(double G, double S, double Q, double E)
 /// <summary>
 /// ONNX 敏感判定模型。<c>model.onnx</c> + <c>selected_tags.csv</c> 由用户放进同一个文件夹，
 /// 通过设置里的「模型文件夹」指定；缺文件、装不起来、跑不动都安全降级为「没有模型」。
+/// <para>
+/// 读图按 wd tagger v3（SmilingWolf）的约定：透明合白底 → 补成正方形 → 448×448（Lanczos3）
+/// → <b>BGR</b>、0–255；输入形状照模型元数据（NHWC <c>[1,448,448,3]</c> 与 NCHW <c>[1,3,448,448]</c> 都支持）。
+/// 四类概率按 <c>selected_tags.csv</c> 里评级标签所在行取输出下标；输出本来就是 4 维的模型直接取前 4 个。
+/// </para>
 /// </summary>
 public sealed class NsfwScorer : IDisposable
 {
@@ -44,23 +50,31 @@ public sealed class NsfwScorer : IDisposable
     private const string ModelFile = "model.onnx";
     private const string LabelsFile = "selected_tags.csv";
 
+    /// <summary>评级标签名，顺序即返回值 G/S/Q/E 的顺序。</summary>
+    private static readonly string[] RatingTags = { "general", "sensitive", "questionable", "explicit" };
+    private static readonly Rgba32 White = new(255, 255, 255, 255);
+
     private static readonly ConcurrentDictionary<string, NsfwScorer> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object Gate = new();
 
     private readonly InferenceSession _session;
     private readonly string _inputName;
+    private readonly bool _nhwc;
+    private readonly int[] _ratingIndex;
 
     public string ModelHash { get; }
     public string ModelName { get; }
     public string ModelDir { get; }
 
-    private NsfwScorer(string dir, string modelPath, InferenceSession session, string modelHash)
+    private NsfwScorer(string dir, InferenceSession session, string modelHash, bool nhwc, int[] ratingIndex)
     {
         ModelDir = dir;
         ModelHash = modelHash;
         ModelName = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar)) + "/" + ModelFile;
         _session = session;
         _inputName = session.InputMetadata.Keys.First();
+        _nhwc = nhwc;
+        _ratingIndex = ratingIndex;
     }
 
     /// <summary>目录里有 <c>model.onnx</c> 才算配置了模型。</summary>
@@ -102,7 +116,27 @@ public sealed class NsfwScorer : IDisposable
                 var hash = Sha256Of(modelPath);
                 var options = new SessionOptions { IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2) };
                 var session = new InferenceSession(modelPath, options);
-                var scorer = new NsfwScorer(dir!, modelPath, session, hash);
+                var outputLength = session.OutputMetadata.Values.First().Dimensions is { Length: 2 } dims ? dims[1] : 0;
+                string labelError;
+                int[] ratingIndex;
+                if (outputLength == 4)
+                {
+                    ratingIndex = new[] { 0, 1, 2, 3 };    // 输出本身就是四类的模型：前 4 个就是 g/s/q/e
+                    labelError = "";
+                }
+                else
+                {
+                    ratingIndex = RatingIndices(dir!, out labelError);
+                }
+
+                if (ratingIndex.Length == 0)
+                {
+                    session.Dispose();
+                    error = labelError;
+                    return null;
+                }
+
+                var scorer = new NsfwScorer(dir!, session, hash, IsNhwc(session), ratingIndex);
                 Cache[key] = scorer;
                 return scorer;
             }
@@ -114,48 +148,104 @@ public sealed class NsfwScorer : IDisposable
         }
     }
 
-    /// <summary>逐张打分：短边缩到 448 后中心裁 448×448，RGB 归一化到 0–1。</summary>
+    /// <summary>逐张打分。</summary>
     public NsfwProbs Score(string imagePath, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
-        float[] input;
-        using (var image = Image.Load<Rgb24>(imagePath))
-        {
-            image.Mutate(x => x
-                .Resize(new ResizeOptions
-                {
-                    Mode = ResizeMode.Min,
-                    Size = new SixLabors.ImageSharp.Size(ImageSize, ImageSize),
-                })
-                .Crop(new Rectangle(
-                    Math.Max(0, (image.Width - ImageSize) / 2),
-                    Math.Max(0, (image.Height - ImageSize) / 2),
-                    Math.Min(ImageSize, image.Width),
-                    Math.Min(ImageSize, image.Height))));
+        var input = Preprocess(imagePath);
 
-            input = new float[3 * ImageSize * ImageSize];
-            var plane = ImageSize * ImageSize;
-            for (var y = 0; y < ImageSize; y++)
+        token.ThrowIfCancellationRequested();
+        var shape = _nhwc ? new[] { 1, ImageSize, ImageSize, 3 } : new[] { 1, 3, ImageSize, ImageSize };
+        using var results = _session.Run(new[]
+        {
+            NamedOnnxValue.CreateFromTensor(_inputName, new DenseTensor<float>(input, shape)),
+        });
+        var output = results.First().AsEnumerable<float>().ToArray();
+
+        foreach (var at in _ratingIndex)
+        {
+            if (at < 0 || at >= output.Length)
+                throw new InvalidOperationException($"模型输出只有 {output.Length} 维，取不到第 {at} 个评级标签");
+        }
+
+        return new NsfwProbs(output[_ratingIndex[0]], output[_ratingIndex[1]],
+            output[_ratingIndex[2]], output[_ratingIndex[3]]);
+    }
+
+    /// <summary>透明合白底 → 补成正方形 → 448×448（Lanczos3）→ BGR、0–255，按模型元数据排成 NHWC 或 NCHW。</summary>
+    private float[] Preprocess(string imagePath)
+    {
+        var data = new float[3 * ImageSize * ImageSize];
+        using var source = Image.Load<Rgba32>(imagePath);
+        using var flat = new Image<Rgba32>(source.Width, source.Height, White);
+        flat.Mutate(x => x.DrawImage(source, new Point(0, 0), 1f));
+
+        var side = Math.Max(flat.Width, flat.Height);
+        using var canvas = new Image<Rgba32>(side, side, White);
+        canvas.Mutate(x => x.DrawImage(flat, new Point((side - flat.Width) / 2, (side - flat.Height) / 2), 1f));
+        canvas.Mutate(x => x.Resize(ImageSize, ImageSize, KnownResamplers.Lanczos3));
+
+        var plane = ImageSize * ImageSize;
+        for (var y = 0; y < ImageSize; y++)
+        {
+            for (var x = 0; x < ImageSize; x++)
             {
-                for (var x = 0; x < ImageSize; x++)
+                var p = canvas[x, y];
+                var i = y * ImageSize + x;
+                if (_nhwc)
                 {
-                    var p = image[x, y];
-                    var i = y * ImageSize + x;
-                    input[i] = p.R / 255f;
-                    input[plane + i] = p.G / 255f;
-                    input[2 * plane + i] = p.B / 255f;
+                    var at = i * 3;
+                    data[at] = p.B;
+                    data[at + 1] = p.G;
+                    data[at + 2] = p.R;
+                }
+                else
+                {
+                    data[i] = p.B;
+                    data[plane + i] = p.G;
+                    data[2 * plane + i] = p.R;
                 }
             }
         }
 
-        token.ThrowIfCancellationRequested();
-        var tensor = new DenseTensor<float>(input, new[] { 1, 3, ImageSize, ImageSize });
-        using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_inputName, tensor) });
-        var output = results.First().AsEnumerable<float>().ToArray();
+        return data;
+    }
 
-        // 六种可能：4 类 / 优先级 4 类 + 2 / 只有 4 类但多一维 batch
-        if (output.Length < 4) throw new InvalidOperationException("模型输出维度不是 4 类");
-        return new NsfwProbs(output[0], output[1], output[2], output[3]);
+    /// <summary>输入是 <c>[1,448,448,3]</c> 就按 NHWC 喂，否则按 NCHW。</summary>
+    private static bool IsNhwc(InferenceSession session)
+    {
+        var dims = session.InputMetadata.Values.First().Dimensions;
+        return dims.Length == 4 && dims[3] == 3;
+    }
+
+    /// <summary>评级标签在标签表里的行号，也就是模型输出里的下标；缺任何一个都算没有可用标签表。</summary>
+    private static int[] RatingIndices(string dir, out string error)
+    {
+        error = "";
+        var found = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var index = -1;
+        foreach (var line in File.ReadLines(Path.Combine(dir, LabelsFile)))
+        {
+            if (index < 0 && line.StartsWith("tag_id", StringComparison.OrdinalIgnoreCase)) continue;   // 表头
+            index++;
+            var parts = line.Split(',');
+            if (parts.Length < 3) continue;
+            var name = parts[1].Trim().Trim('"').Trim('\uFEFF');
+            if (RatingTags.Contains(name, StringComparer.OrdinalIgnoreCase) && !found.ContainsKey(name))
+                found[name] = index;
+        }
+
+        var indices = new int[RatingTags.Length];
+        for (var i = 0; i < RatingTags.Length; i++)
+        {
+            if (!found.TryGetValue(RatingTags[i], out indices[i]))
+            {
+                error = $"{LabelsFile} 里找不到评级标签 {string.Join("/", RatingTags)}";
+                return Array.Empty<int>();
+            }
+        }
+
+        return indices;
     }
 
     private static string Sha256Of(string path)

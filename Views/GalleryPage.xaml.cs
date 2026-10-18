@@ -755,7 +755,7 @@ public sealed partial class GalleryPage : UserControl
 
     /// <summary>
     /// 文件操作快捷键（galleryold）：Delete 删除 / F2 重命名 / F3 资源管理器 /
-    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Ctrl+E 编辑标签 / Enter 打开详情。
+    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Enter 打开详情。
     /// </summary>
     private async void FileOps_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -792,10 +792,6 @@ public sealed partial class GalleryPage : UserControl
                 e.Handled = true;
                 await CopyImageToClipboardAsync(first);
                 break;
-            case VirtualKey.E when ctrl:
-                e.Handled = true;
-                await EditTagsAsync(SelectedItems().ToList());
-                break;
         }
     }
 
@@ -805,7 +801,7 @@ public sealed partial class GalleryPage : UserControl
         if (items.Count == 0 || XamlRoot is null) return;
         if (AppService.Store is null) { SendToast("数据库未就绪", Gallery.Controls.ToastKind.Pending, null); return; }
 
-        bool saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, items);
+        bool saved = await Gallery.Controls.Tags.TagEditorDialog.ShowAsync(XamlRoot, items, SendToast);
         if (!saved) return;
 
         SendToast(items.Count == 1 ? "标签已保存" : $"已保存 {items.Count} 张的标签", Gallery.Controls.ToastKind.Success);
@@ -922,41 +918,58 @@ public sealed partial class GalleryPage : UserControl
     public MenuFlyout BuildContextMenu(PhotoItem item, bool includeOpen = true)
     {
         var menu = new MenuFlyout();
-        if (includeOpen)
+        // 选择模式下右键只列可批量执行的命令（打开/重命名/复制路径这些单图操作不出现）；
+        // 非选择模式与查看器内（includeOpen=false）保持完整菜单，且只作用于当前这张。
+        bool batching = includeOpen && _selectMode;
+        var items = batching && _selected.Contains(SelectionId(item))
+            ? SelectedItems().ToList()
+            : new List<PhotoItem> { item };
+        var ids = items.Where(x => x.ImageId > 0).Select(x => x.ImageId).ToList();
+        if (includeOpen && !batching)
             menu.Items.Add(Item("打开", "\uE8E5", () =>
             {
                 var t = Panel.Children.OfType<PhotoTile>().FirstOrDefault(x => x.Item == item);
                 if (t is not null) OpenPreview(t);
             }));
-        menu.Items.Add(Item(item.Favorite ? "从收藏夹中移除" : "添加到收藏夹", item.Favorite ? "\uEB52" : "\uEB51", () =>
+        // 收藏夹：整批套用同一动作——全都没收藏（含混合）就全部收藏，已收藏的跳过；全都收藏了就全部移出
+        bool allFavorited = items.All(x => x.Favorite);
+        menu.Items.Add(Item(allFavorited ? "从收藏夹中移除" : "添加到收藏夹", allFavorited ? "\uEB52" : "\uEB51", () =>
         {
-            if (item.ImageId > 0)
-                lock (AppService.DbLock)
-                    AppService.Store!.SetFavorite(item.ImageId, !item.Favorite);
-            item.Favorite = !item.Favorite;
+            var favorite = !allFavorited;
+            lock (AppService.DbLock)
+                foreach (var id in ids) AppService.Store!.SetFavorite(id, favorite);
+            foreach (var target in items) target.Favorite = favorite;
             if (_favoritesMode) Rebuild(); else UpdateHeader();
-            ToastKindRequested?.Invoke(item.Favorite ? "已添加到收藏夹" : "已从收藏夹中移除",
+            ToastKindRequested?.Invoke(items.Count == 1
+                    ? (favorite ? "已添加到收藏夹" : "已从收藏夹中移除")
+                    : (favorite ? $"已添加 {items.Count} 张到收藏夹" : $"已移除 {items.Count} 张的收藏"),
                 Gallery.Controls.ToastKind.Success, null);
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("编辑标签", "\uE8EC", () => _ = EditTagsAsync(new[] { item })));
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
-        menu.Items.Add(Item("复制为路径", "\uE71B", () =>
+        menu.Items.Add(Item("编辑标签", "\uE8EC", () => _ = EditTagsAsync(items)));
+        if (!batching)
         {
-            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
-            dp.SetText(item.FullPath);
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-            ToastRequested?.Invoke("已复制路径");
-        }));
-        menu.Items.Add(Item("复制/移动", "\uE8DE", () => _ = CopyMoveAsync(new[] { item.ImageId })));
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
+            menu.Items.Add(Item("复制为路径", "\uE71B", () =>
+            {
+                var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                dp.SetText(item.FullPath);
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+                ToastRequested?.Invoke("已复制路径");
+            }));
+        }
+        menu.Items.Add(Item("复制/移动", "\uE8DE", () => _ = CopyMoveAsync(ids)));
         menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(Item("在文件资源管理器中打开", "\uEC50", () =>
+        if (!batching)
         {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
-        }));
-        menu.Items.Add(Item("重命名", "\uE8AC", () => _ = RenameAsync(item)));
-        menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(Item("在文件资源管理器中打开", "\uEC50", () =>
+            {
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
+            }));
+            menu.Items.Add(Item("重命名", "\uE8AC", () => _ = RenameAsync(item)));
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
 
         // 手动标分级：模型接入前的兜底（g/s/q/e 对齐 danbooru 四级，q/e 算敏感）
         var ratingMenu = new MenuFlyoutSubItem { Text = "标记分级" };
@@ -969,20 +982,21 @@ public sealed partial class GalleryPage : UserControl
             var mark = new MenuFlyoutItem { Text = pair.Item2 };
             mark.Click += (_, _) =>
             {
-                if (item.ImageId <= 0) return;
+                if (ids.Count == 0) return;
                 lock (AppService.DbLock)
-                    AppService.Store!.SetNsfwScore(item.ImageId, "manual", rating, tagIt: true);
-                item.Nsfw = rating;
+                    foreach (var id in ids)
+                        AppService.Store!.SetNsfwScore(id, "manual", rating, tagIt: true);
+                foreach (var target in items) target.Nsfw = rating;
                 Rebuild();
-                ToastKindRequested?.Invoke($"已标记为 {rating}",
+                ToastKindRequested?.Invoke(
+                    items.Count == 1 ? $"已标记为 {rating}" : $"已标记 {items.Count} 张为 {rating}",
                     Gallery.Controls.ToastKind.Success, null);
             };
             ratingMenu.Items.Add(mark);
         }
         menu.Items.Add(ratingMenu);
         menu.Items.Add(new MenuFlyoutSeparator());
-        var delete = Item("删除", "\uE74D", () => _ = DeleteAsync(
-            includeOpen && _selected.Contains(SelectionId(item)) ? SelectedIds() : new[] { item.ImageId }));
+        var delete = Item("删除", "\uE74D", () => _ = DeleteAsync(ids));
         delete.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
             Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)); // #ff99a4（删除红）
         menu.Items.Add(delete);
@@ -1182,6 +1196,17 @@ public sealed partial class GalleryPage : UserControl
             SyncSelection();
         }
         UpdateHeader();
+    }
+
+    /// <summary>
+    /// Esc 退出多选（photos 语义）。返回是否真的处理了这次按键：
+    /// true = 已清空选区并退出选择模式，供窗口级 Esc 加速器决定是否吞掉按键。
+    /// </summary>
+    public bool ExitSelection()
+    {
+        if (!_selectMode && _selected.Count == 0) return false;
+        SetSelectMode(false); // 内部清空选区并同步
+        return true;
     }
 
     private void SelectAll_Click(object sender, RoutedEventArgs e)
