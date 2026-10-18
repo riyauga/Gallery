@@ -3,11 +3,11 @@ using System.Text.Json.Nodes;
 
 namespace Gallery.Services;
 
-/// <summary>待归档记录的路径与六类标签；保留扩展原始字段，人工修订单独保存并供归档使用。</summary>
+/// <summary>待归档记录的路径与六类可手工编辑标签；顺序与 <see cref="Taxonomy.Categories"/> 一致（去掉自动识别的分辨率）。</summary>
 public static class IngestReview
 {
-    public static readonly string[] Categories = ["artist", "work", "character", "kind", "rating", "custom"];
-    public static readonly string[] Titles = ["画师", "作品", "角色", "类型", "分级", "自定义"];
+    public static readonly string[] Categories = ["work", "character", "artist", "kind", "rating", "custom"];
+    public static readonly string[] Titles = ["作品", "角色", "画师", "类型", "分级", "自定义"];
 
     /// <summary>兼容扩展 filename 与旧协议 inbox_path，不猜测文件的移动位置。</summary>
     public static string LocalPath(StoreService.PendingIngestRow row)

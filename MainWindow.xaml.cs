@@ -203,19 +203,11 @@ public sealed partial class MainWindow : Window
     /// <summary>主窗口的 AppWindow（托盘唤回、关窗收托盘都要用）。</summary>
     public Microsoft.UI.Windowing.AppWindow? AppWindowInstance { get; private set; }
 
-    /// <summary>从托盘唤回：窗口可能是隐藏状态，先 Show 再 Activate。</summary>
+    /// <summary>从托盘／通知唤回：窗口可能是隐藏状态，先 Show 再抢前台（ActivateWindow 含 SetForegroundWindow）。</summary>
     public void BringToFront()
     {
-        if (AppWindowInstance is { } window)
-        {
-            RestoreTitleBarAfterTrayHide();
-            window.Show();
-            if (window.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter &&
-                presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
-                presenter.Restore();
-        }
-
-        Activate();
+        AppWindowInstance?.Show();
+        ActivateWindow();
         Services.AppService.DebugLog("brought to front");
     }
 

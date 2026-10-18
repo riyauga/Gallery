@@ -1,6 +1,7 @@
 // 标签编辑器（阶段 C）：单图/多图统一——给选中的图片增删标签。
-// 交互照 Gallery_Old/app/ui/tag_editor.py：搜索框同时搜「图片标签」与「角色词库」，
-// 回车把输入当新标签；当前标签按分类分组，点 × 移除；保存才写库。
+// 分组方式照待审核页（Controls/Review/ReviewPage.cs）：一行一类，左边分类名，
+// 右边该类已有标签 + 该类自己的输入框（回车即在该类下新增，候选来自标签库与角色词库）；
+// 保存才写库。分辨率由图片自动识别，不在这里编辑。
 // 三态（PLAN 阶段 C）：每个标签可选「选中(添加) / 排除(移除) / 未选」，
 // 分级互斥：同一张图的「分级」只能有一个选中，选新的会自动把旧的标为排除。
 // 分级行右侧的循环按钮：用已接入的本地模型重跑分级（结果先挂起，保存才写库）。
@@ -45,11 +46,11 @@ public sealed class TagEditorDialog
     private readonly Dictionary<string, string> _profiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, PendingRating> _pendingRatings = new();
     private readonly List<PhotoItem> _items;
-    private readonly StackPanel _chipsHost = new() { Spacing = 8 };
-    private readonly StackPanel _resultsHost = new() { Spacing = 2 };
-    private readonly TextBox _search = new() { PlaceholderText = "搜索标签或词库，回车直接新建", Width = 420 };
-    private readonly TextBox _pageUrl = new() { PlaceholderText = "https://来源页面/帖子地址", Width = 420 };
-    private readonly TextBox _sourceUrl = new() { PlaceholderText = "https://原图地址", Width = 420 };
+    private readonly StackPanel _rowsHost = new() { Spacing = 12 };
+    /// <summary>每类一行的芯片容器（行只建一次：改标签时只重填芯片，输入框不失焦）。</summary>
+    private readonly Dictionary<string, Panel> _rowChips = new(StringComparer.Ordinal);
+    private readonly TextBox _pageUrl = new() { PlaceholderText = "https://来源页面/帖子地址", Width = 420, FontSize = 13 };
+    private readonly TextBox _sourceUrl = new() { PlaceholderText = "https://原图地址", Width = 420, FontSize = 13 };
     private readonly TextBlock _hint = new() { FontSize = 12, Opacity = 0.6 };
     private readonly TextBlock _modelHint = new() { FontSize = 12, Opacity = 0.6, TextWrapping = TextWrapping.Wrap };
     private readonly RotateTransform _syncRotate = new();
@@ -65,7 +66,6 @@ public sealed class TagEditorDialog
 
     private Storyboard? _spin;
     private CancellationTokenSource? _runCts;
-    private Panel? _syncHost;
     private bool _running;
     private bool _closed;
     private bool _ratingTouched;
@@ -104,7 +104,7 @@ public sealed class TagEditorDialog
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = root,
-            Content = editor.Build(),
+            Content = editor.Build(root),
         };
         editor.LoadCurrent();
         var result = await dialog.ShowAsync();
@@ -113,25 +113,10 @@ public sealed class TagEditorDialog
         return editor.Save();
     }
 
-    private UIElement Build()
+    private UIElement Build(XamlRoot root)
     {
-        _search.TextChanged += (_, _) => _ = RefreshResultsAsync();
-        _search.KeyDown += (_, e) =>
-        {
-            if (e.Key != Windows.System.VirtualKey.Enter) return;
-            var text = _search.Text.Trim();
-            if (text.Length == 0) return;
-            SetState("custom", text, TagState.Include);
-            _search.Text = "";
-            e.Handled = true;
-        };
-
-        var resultsScroll = new ScrollViewer
-        {
-            MaxHeight = 168,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Content = _resultsHost,
-        };
+        foreach (var category in EditableCategories)
+            _rowsHost.Children.Add(BuildCategoryRow(category));
 
         var body = new StackPanel
         {
@@ -139,37 +124,45 @@ public sealed class TagEditorDialog
             Width = 460,
             Children =
             {
-                _search,
-                resultsScroll,
-                new TextBlock { Text = "当前标签（点标签切换：添加 → 移除 → 取消改动）", FontSize = 13, Opacity = 0.6 },
-                new ScrollViewer
-                {
-                    MaxHeight = 240,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = _chipsHost,
-                },
-                _modelHint,
+                // 「✓ 添加 · ✕ 移除」提示行顶到最上，取代原来的「当前标签…」标题行
                 _hint,
+                _rowsHost,
+                _modelHint,
             },
         };
         if (_items.Count == 1)
         {
             _pageUrl.Text = _items[0].PageUrl ?? "";
             _sourceUrl.Text = _items[0].SourceUrl ?? "";
-            body.Children.Insert(0, new StackPanel
+            // 来源是附加功能：排在标签之后，用一条左右内缩的分割线隔开
+            body.Children.Add(new Border
+            {
+                Height = 1,
+                Margin = new Thickness(12, 0, 12, 0),
+                Background = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"],
+            });
+            body.Children.Add(new StackPanel
             {
                 Spacing = 6,
                 Children =
                 {
-                    new TextBlock { Text = "图片来源", FontSize = 13, Opacity = 0.6 },
-                    new TextBlock { Text = "来源页面", FontSize = 12, Opacity = 0.55 },
+                    new TextBlock { Text = "图片来源", FontSize = 12, Opacity = 0.55 },
+                    new TextBlock { Text = "来源页面", FontSize = 11, Opacity = 0.5 },
                     _pageUrl,
-                    new TextBlock { Text = "原始图片地址", FontSize = 12, Opacity = 0.55 },
+                    new TextBlock { Text = "原始图片地址", FontSize = 11, Opacity = 0.5 },
                     _sourceUrl,
                 },
             });
         }
-        return body;
+        // 整页一根滚动条：标签往下就是「图片来源」，拖这一次滚动条能从标签一路滑到来源，
+        // 不把上下两块拆成各自独立的滚动区。标签区不再限高，内容多了跟着整页一起滚。
+        return new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = root.Size.Height > 0 ? Math.Clamp(root.Size.Height - 300, 320, 560) : 520,
+            Content = body,
+        };
     }
 
     private void LoadCurrent()
@@ -188,10 +181,12 @@ public sealed class TagEditorDialog
             ? []
             : AppService.Store.TagDetailsForImages(ids);
         // 多选时取并集：任一张已有该标签就显示为已选（保存按同一份集合应用到每张）；
-        // 分级例外——只有你在对话框里主动选过的分级才会写库（见 Save 的 Chosen 过滤）
+        // 分级例外——只有你在对话框里主动选过的分级才会写库（见 Save 的 Chosen 过滤）。
+        // 只收可手工编辑的六类：分辨率由图片自动识别，带进来会在多选保存时串到别的图上。
         foreach (var list in details.Values)
             foreach (var tag in list)
-                _entries.TryAdd(tag.Name, new Entry { Category = tag.Category, Name = tag.Name });
+                if (EditableCategories.Contains(tag.Category))
+                    _entries.TryAdd(tag.Name, new Entry { Category = tag.Category, Name = tag.Name });
 
         RebuildChips();
         _hint.Text = _items.Count == 1
@@ -199,76 +194,138 @@ public sealed class TagEditorDialog
             : $"✓ 添加 · ✕ 移除 · 未标记的不变（应用到 {_items.Count} 张）";
     }
 
+    /// <summary>把当前三态标签按类重填到各自那一行；输入框与行结构保持不动。</summary>
     private void RebuildChips()
     {
-        // 重跑按钮是复用的同一个实例（旋转动画挂在它身上），先把它从旧表头上摘下来，
-        // 否则第二次 Add 会撞「一个 UIElement 只能有一个父级」。
-        _syncHost?.Children.Remove(_syncButton);
-        _syncHost = null;
-        _chipsHost.Children.Clear();
-        if (_entries.Count == 0)
-            _chipsHost.Children.Add(new TextBlock { Text = "还没有标签", Opacity = 0.6, FontSize = 13 });
-
-        var groups = new List<(string Category, IReadOnlyList<Entry> Entries)>();
-        foreach (var group in _entries.Values.GroupBy(p => p.Category))
-            groups.Add((group.Key, group.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList()));
-        // 「分级」那一行始终渲染：右侧挂重跑按钮，还没有分级标签时也要点得到
-        if (groups.All(g => g.Category != "rating")) groups.Add(("rating", []));
-
-        foreach (var group in groups.OrderBy(g => g.Category, StringComparer.Ordinal))
+        foreach (var (category, chips) in _rowChips)
         {
-            var row = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 6) };
-            row.Children.Add(BuildCategoryHeader(group.Category));
-            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            int count = 0;
-            foreach (var entry in group.Entries)
-            {
-                if (count > 0 && count % 4 == 0)
-                {
-                    row.Children.Add(line);
-                    line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                }
-                line.Children.Add(BuildChip(entry));
-                count++;
-            }
-            row.Children.Add(line);
-            _chipsHost.Children.Add(row);
+            chips.Children.Clear();
+            foreach (var entry in _entries.Values
+                         .Where(e => e.Category == category)
+                         .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase))
+                chips.Children.Add(BuildChip(entry));
         }
     }
 
-    /// <summary>分类表头；「分级」右侧多一个重跑按钮。</summary>
-    private UIElement BuildCategoryHeader(string category)
+    /// <summary>可手工编辑的六类：顺序照词库 Taxonomy，分辨率由图片自动识别、不在这里编辑。</summary>
+    private static readonly string[] EditableCategories =
+        [.. Taxonomy.Categories.Where(c => c != "resolution")];
+
+    private static string CategoryTitle(string category)
     {
-        var label = new TextBlock
-        {
-            Text = CategoryLabel(category),
-            FontSize = 12,
-            Opacity = 0.6,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        if (category != "rating") return label;
-        var header = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
-        };
-        header.Children.Add(label);
-        header.Children.Add(_syncButton);
-        _syncHost = header;
-        return header;
+        var index = Array.IndexOf(Taxonomy.Categories, category);
+        return index >= 0 ? Taxonomy.CategoryTitles[index] : category;
     }
 
-    private static string CategoryLabel(string category) => category switch
+    /// <summary>一行一类：左侧分类名（分级多一个重跑按钮），右侧该类标签 + 该类输入框。</summary>
+    private UIElement BuildCategoryRow(string category)
     {
-        "character" => "角色",
-        "work" => "作品",
-        "artist" => "作者",
-        "kind" => "类型",
-        "rating" => "分级",
-        "resolution" => "分辨率",
-        "custom" => "自定义",
-        _ => category,
-    };
+        var title = CategoryTitle(category);
+        var grid = new Grid { ColumnSpacing = 12, Margin = new Thickness(0, 0, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        if (category == "rating")
+        {
+            var header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Margin = new Thickness(0, 4, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            header.Children.Add(new TextBlock { Text = title, FontSize = 12, Opacity = 0.6, VerticalAlignment = VerticalAlignment.Center });
+            header.Children.Add(_syncButton);
+            grid.Children.Add(header);
+        }
+        else
+        {
+            grid.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 12,
+                Opacity = 0.6,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 6, 0, 0),
+            });
+        }
+
+        var content = new StackPanel { Spacing = 6 };
+        Grid.SetColumn(content, 1);
+        grid.Children.Add(content);
+
+        var chips = new TagWrapPanel();
+        content.Children.Add(chips);
+        _rowChips[category] = chips;
+        // 分级只能由芯片（SFW/NSFW）与模型重跑决定，不给手打入口
+        if (category != "rating") content.Children.Add(BuildInput(category, title));
+        return grid;
+    }
+
+    /// <summary>该类自己的输入框：输入或选候选，回车即在该类下新增。</summary>
+    private AutoSuggestBox BuildInput(string category, string title)
+    {
+        var input = new AutoSuggestBox
+        {
+            PlaceholderText = $"输入或搜索{title}…",
+            MinWidth = 0,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        AutomationProperties.SetName(input, $"搜索或添加{title}标签");
+
+        var version = 0;
+        input.TextChanged += async (_, args) =>
+        {
+            if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+            var mine = ++version;
+            var query = input.Text.Trim();
+            if (query.Length == 0) { input.ItemsSource = null; return; }
+            await Task.Delay(160);
+            if (_closed || mine != version) return;
+            try
+            {
+                var hits = await Task.Run(() =>
+                {
+                    if (AppService.Store is not { } store) return [];
+                    lock (AppService.DbLock)
+                    {
+                        var tags = store.SearchTags(query, 200)
+                            .Where(t => t.Category == category)
+                            .Select(t => new Suggestion(t.Name, t.Display, ""));
+                        var entities = new TagCatalogService(store).SearchEntities(query, 30)
+                            .Where(e => e.Kind == category)
+                            .Select(e => new Suggestion(e.Zh.Length > 0 ? e.Zh : e.En, e.Zh.Length > 0 ? e.Zh : e.En, e.EntityKey))
+                            .Where(s => s.Name.Length > 0);
+                        return tags.Concat(entities).DistinctBy(s => s.Name, StringComparer.OrdinalIgnoreCase).Take(12).ToList();
+                    }
+                });
+                if (!_closed && mine == version) input.ItemsSource = hits;
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or ObjectDisposedException)
+            {
+                AppService.DebugLog("tag editor search: " + ex.Message);
+            }
+        };
+
+        input.QuerySubmitted += (_, args) =>
+        {
+            var chosen = args.ChosenSuggestion as Suggestion;
+            var name = chosen?.Name ?? args.QueryText.Trim();
+            if (name.Length == 0) return;
+            // 词库候选：记下实体键，保存时把标签绑到词库身份上
+            if (chosen is { Key.Length: > 0 }) _profiles[name] = chosen.Key;
+            SetState(category, name, TagState.Include);
+            input.Text = "";
+            input.ItemsSource = null;
+        };
+        return input;
+    }
+
+    /// <summary>输入框候选：Key 非空表示来自角色词库。</summary>
+    private sealed record Suggestion(string Name, string Display, string Key)
+    {
+        public override string ToString() => Display.Length > 0 ? Display : Name;
+    }
 
     /// <summary>三态芯片：✓=添加（正常色）、✕=移除（删除线+红边）、点击循环回未选则整体移除。</summary>
     private UIElement BuildChip(Entry entry)
@@ -361,90 +418,6 @@ public sealed class TagEditorDialog
             _entries[clean] = new Entry { Category = cat, Name = clean, State = state, Chosen = true };
         }
         RebuildChips();
-    }
-
-    private async Task RefreshResultsAsync()
-    {
-        var query = _search.Text.Trim();
-        _resultsHost.Children.Clear();
-        if (AppService.Store is null) return;
-        var store = AppService.Store;
-        var catalog = new TagCatalogService(store);
-
-        List<StoreService.TagInfo> tagHits = [];
-        List<TagCatalogService.EntityHit> entityHits = [];
-        await Task.Run(() =>
-        {
-            lock (AppService.DbLock)
-            {
-                try
-                {
-                    tagHits = store.SearchTags(query, 8);
-                    entityHits = query.Length > 0 ? catalog.SearchEntities(query, 5) : [];
-                }
-                catch { }
-            }
-        });
-        if (query != _search.Text.Trim()) return;   // 输入已变，丢弃旧结果
-
-        foreach (var tag in tagHits)
-        {
-            if (_entries.ContainsKey(tag.Name)) continue;
-            var label = tag.Display == tag.Name ? tag.Name : $"{tag.Display} · {tag.Name}";
-            AddResultRow(label, $"{CategoryLabel(tag.Category)} · 已用 {tag.Count}",
-                () =>
-                {
-                    TouchedIfRating(tag.Category);
-                    SetState(tag.Category, tag.Name, TagState.Include);
-                });
-        }
-        foreach (var entity in entityHits)
-        {
-            var name = entity.Zh.Length > 0 ? entity.Zh : entity.En;
-            if (name.Length == 0) continue;
-            if (_entries.ContainsKey(name)) continue;
-            var category = entity.Kind.Length > 0 ? entity.Kind : "character";
-            AddResultRow(name, $"词库 · {CategoryLabel(category)} · {entity.GameKey}", () =>
-            {
-                SetState(category, name, TagState.Include);
-                _profiles[name] = entity.EntityKey;
-            });
-        }
-        if (_resultsHost.Children.Count == 0)
-            _resultsHost.Children.Add(new TextBlock
-            {
-                Text = query.Length == 0 ? "输入以搜索标签或角色词库" : "没有匹配项，回车可直接新建",
-                FontSize = 12,
-                Opacity = 0.6,
-            });
-    }
-
-    private void AddResultRow(string label, string hint, Action add)
-    {
-        var button = new Button
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(10, 6, 10, 6),
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    new TextBlock { Text = label, FontSize = 14 },
-                    new TextBlock { Text = hint, FontSize = 12, Opacity = 0.55, VerticalAlignment = VerticalAlignment.Center },
-                },
-            },
-        };
-        button.Click += (_, _) =>
-        {
-            add();
-            _search.Text = "";
-        };
-        _resultsHost.Children.Add(button);
     }
 
     // ------------------------------------------------------------ 模型重跑分级

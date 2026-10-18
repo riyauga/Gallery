@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Gallery.Models;
+using Gallery.Services;
 
 namespace Gallery.Controls.Viewer;
 
@@ -132,10 +133,10 @@ public sealed class DetailPanel : Grid
 
     private void RenderTags(IReadOnlyList<(string Category, string Name)> itemTags)
     {
-        // 七类分组贴纸（顺序照 taxonomy）
+        // 七类分组贴纸（顺序与分类名统一取词库 Taxonomy）
         _tagsHost.Children.Clear();
-        string[] cats = ["work", "character", "artist", "kind", "rating", "resolution", "custom"];
-        string[] titles = ["作品", "角色", "画师", "类型", "分级", "分辨率", "自定义"];
+        var cats = Taxonomy.Categories;
+        var titles = Taxonomy.CategoryTitles;
         for (var c = 0; c < cats.Length; c++)
         {
             var cat = cats[c];
@@ -143,7 +144,7 @@ public sealed class DetailPanel : Grid
             if (tags.Count == 0) continue;
             var group = new StackPanel { Spacing = 4 };
             group.Children.Add(new TextBlock { Text = titles[c], FontSize = 12, Opacity = 0.55 });
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var row = new Tags.TagWrapPanel();
             foreach (var (category, name) in tags)
             {
                 var label = DisplayName?.Invoke(name) ?? name;
@@ -155,24 +156,7 @@ public sealed class DetailPanel : Grid
                 chip.HorizontalAlignment = HorizontalAlignment.Left;
                 row.Children.Add(chip);
             }
-            var scroll = new ScrollViewer
-            {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollMode = ScrollMode.Enabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollMode = ScrollMode.Disabled,
-                Content = row,
-            };
-            scroll.PointerWheelChanged += (_, e) =>
-            {
-                if (scroll.ScrollableWidth <= 0) return;
-                var delta = e.GetCurrentPoint(scroll).Properties.MouseWheelDelta;
-                scroll.ChangeView(
-                    Math.Clamp(scroll.HorizontalOffset - delta, 0, scroll.ScrollableWidth),
-                    null, null, true);
-                e.Handled = true;
-            };
-            group.Children.Add(scroll);
+            group.Children.Add(row);
             _tagsHost.Children.Add(group);
         }
         if (itemTags.Count == 0)

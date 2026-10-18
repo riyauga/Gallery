@@ -12,9 +12,12 @@ namespace Gallery.Controls.Review;
 /// <summary>新图片提示卡：只展示文件信息，十秒倒计时在悬停时暂停，更新合并内容后重新计时。</summary>
 public sealed class IngestNotificationCard : Grid
 {
-    private readonly TextBlock _heading = new() { FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-    private readonly TextBlock _name = new() { FontSize = 14, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 };
-    private readonly TextBlock _detail = new() { FontSize = 13, Opacity = .7 };
+    /// <summary>整卡尺寸按用户要求缩到原来的 3/4（2026-10-19）：宽度、内边距、字号、按钮高一起缩。</summary>
+    public const double CardScale = 0.75;
+
+    private readonly TextBlock _heading = new() { FontSize = 20 * CardScale, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+    private readonly TextBlock _name = new() { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 };
+    private readonly TextBlock _detail = new() { FontSize = 11, Opacity = .7 };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private long _remaining, _lastTick;
     private bool _hovered, _dismissed;
@@ -23,23 +26,23 @@ public sealed class IngestNotificationCard : Grid
 
     public IngestNotificationCard()
     {
-        Width = 428;
-        Padding = new Thickness(20, 16, 20, 20);
-        CornerRadius = new CornerRadius(14);
+        Width = 428 * CardScale;
+        Padding = new Thickness(20 * CardScale, 16 * CardScale, 20 * CardScale, 20 * CardScale);
+        CornerRadius = new CornerRadius(14 * CardScale);
         Background = Brush(0x29, 0x2f, 0x34);
         BorderBrush = Brush(0x55, 0x60, 0x69);
         BorderThickness = new Thickness(1);
         RequestedTheme = ElementTheme.Dark;
-        var body = new StackPanel { Spacing = 14 };
+        var body = new StackPanel { Spacing = 14 * CardScale };
         var header = new Grid();
-        header.Children.Add(new TextBlock { Text = "▧  Gallery", Foreground = Brush(0xc0, 0xcb, 0xd0), VerticalAlignment = VerticalAlignment.Center });
-        var close = new Button { Content = "×", HorizontalAlignment = HorizontalAlignment.Right, Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0), Padding = new Thickness(6, 0, 6, 0) };
+        header.Children.Add(new TextBlock { Text = "▧  Gallery", FontSize = 12, Foreground = Brush(0xc0, 0xcb, 0xd0), VerticalAlignment = VerticalAlignment.Center });
+        var close = new Button { Content = "×", HorizontalAlignment = HorizontalAlignment.Right, Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0), Padding = new Thickness(5, 0, 5, 0) };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(close, "关闭新图片通知");
         close.Click += (_, _) => Dismiss();
         header.Children.Add(close);
         body.Children.Add(header);
         foreach (var text in new[] { _heading, _name, _detail }) { text.Foreground = Brush(0xf3, 0xf5, 0xf6); body.Children.Add(text); }
-        var open = new Button { Content = "查看并归档  →", HorizontalAlignment = HorizontalAlignment.Stretch, Background = Brush(0xaf, 0xc1, 0xc5), Foreground = Brush(0x20, 0x30, 0x35), MinHeight = 42 };
+        var open = new Button { Content = "查看并归档  →", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Stretch, Background = Brush(0xaf, 0xc1, 0xc5), Foreground = Brush(0x20, 0x30, 0x35), MinHeight = 42 * CardScale };
         open.Click += (_, _) => Open();
         body.Children.Add(open);
         Children.Add(body);
@@ -96,8 +99,8 @@ public sealed class IngestNotificationWindow : Window
         var ownerHwnd = WinRT.Interop.WindowNative.GetWindowHandle(owner);
         var scale = Math.Max(96, GetDpiForWindow(ownerHwnd)) / 96.0;
         var work = DisplayArea.GetFromWindowId(owner.AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
-        var width = (int)Math.Ceiling(428 * scale);
-        var height = (int)Math.Ceiling(246 * scale);
+        var width = (int)Math.Ceiling(428 * IngestNotificationCard.CardScale * scale);
+        var height = (int)Math.Ceiling(246 * IngestNotificationCard.CardScale * scale);
         var gap = (int)Math.Ceiling(18 * scale);
         AppWindow.MoveAndResize(new RectInt32(work.X + work.Width - width - gap, work.Y + work.Height - height - gap, width, height));
         Card.Dismissed += Dismiss;
