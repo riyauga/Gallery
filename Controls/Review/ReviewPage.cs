@@ -144,7 +144,7 @@ public sealed class ReviewPage : Grid
         var panel = new StackPanel { Spacing = 12 };
         var top = new Grid { MinHeight = 34 };
         top.Children.Add(new TextBlock { Text = "图片详情", FontSize = 12, Opacity = .65, VerticalAlignment = VerticalAlignment.Center });
-        foreach (var (key, title) in new[] { ("pending", "待归档"), ("done", "已归档"), ("ignored", "已忽略"), ("deferred", "已延期"), ("hidden", "已隐藏") })
+        foreach (var (key, title) in new[] { ("pending", "待归档"), ("missing", "文件丢失"), ("done", "已归档"), ("ignored", "已忽略"), ("deferred", "已延期"), ("hidden", "已隐藏") })
             _states.Items.Add(new ComboBoxItem { Tag = key, Content = title });
         _states.SelectedIndex = 0;
         _states.SelectionChanged += (_, _) =>
@@ -214,7 +214,12 @@ public sealed class ReviewPage : Grid
         _rows = store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
         var pending = store.PendingIngestCount();
         _count.Text = $"{_rows.Count} 张";
-        _summary.Text = _state == "pending" ? "待归档" : "历史记录";
+        _summary.Text = _state switch
+        {
+            "pending" => "待归档",
+            "missing" => "文件丢失",
+            _ => "历史记录",
+        };
         _archiveAll.Content = $"一键归档（{pending}）";
         _ignoreAll.Content = $"一键忽略（{pending}）";
         if (string.IsNullOrWhiteSpace(_destination.Text))
@@ -241,8 +246,14 @@ public sealed class ReviewPage : Grid
         _ratingBadge = null;
         if (_selected is not { } row)
         {
-            _title.Text = _state == "pending" ? "没有待归档图片" : "没有此类记录";
+            _title.Text = _state switch
+            {
+                "pending" => "没有待归档图片",
+                "missing" => "没有文件丢失记录",
+                _ => "没有此类记录",
+            };
             _time.Text = _spec.Text = _pageUrl.Text = _path.Text = "";
+            _status.Text = "";
             _tags = [];
             UpdateButtons();
             return;
@@ -253,6 +264,10 @@ public sealed class ReviewPage : Grid
         _pageUrl.Text = row.PageUrl.Length == 0 ? "未记录" : row.PageUrl;
         var local = IngestReview.LocalPath(row);
         _path.Text = local.Length == 0 ? "记录没有本地路径" : local + (File.Exists(local) ? "" : "（不可用）");
+        if (row.State == "missing")
+            _status.Text = row.Note.Length > 0 ? row.Note : "源文件不可用";
+        else if (_state != "pending")
+            _status.Text = "";
         ToolTipService.SetToolTip(_path, local);
         ToolTipService.SetToolTip(_pageUrl, row.PageUrl);
         _tags = IngestReview.Tags(row.Payload, row.Rating);
@@ -521,7 +536,11 @@ public sealed class ReviewPage : Grid
     private void Ignore(bool all)
     {
         if (_busy || AppService.Store is not { } store) return;
-        var rows = all ? store.IngestRows("pending", int.MaxValue) : _selected is { State: "pending" } row ? [row] : new List<StoreService.PendingIngestRow>();
+        var rows = all
+            ? store.IngestRows("pending", int.MaxValue)
+            : _selected is { State: "pending" or "missing" } row
+                ? [row]
+                : new List<StoreService.PendingIngestRow>();
         foreach (var item in rows) store.SetIngestState(item.Id, "ignored", "手动忽略");
         Reload();
         Changed?.Invoke();
@@ -540,14 +559,19 @@ public sealed class ReviewPage : Grid
     private void UpdateButtons()
     {
         var pending = _selected is { State: "pending" };
-        _archive.IsEnabled = _ignore.IsEnabled = !_busy && pending;
-        _archive.Visibility = _ignore.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _restore.Visibility = _state is "ignored" or "deferred" or "hidden" ? Visibility.Visible : Visibility.Collapsed;
+        var missing = _selected is { State: "missing" };
+        _archive.IsEnabled = !_busy && pending;
+        _archive.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
+        _ignore.IsEnabled = !_busy && (pending || missing);
+        _ignore.Visibility = _state is "pending" or "missing" ? Visibility.Visible : Visibility.Collapsed;
+        _restore.Visibility = _state is "ignored" or "deferred" or "hidden" or "missing" ? Visibility.Visible : Visibility.Collapsed;
         _restore.IsEnabled = !_busy && _selected is not null;
         _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
+        _archiveAll.Visibility = _ignoreAll.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _previous.IsEnabled = !_busy && _index > 0;
         _next.IsEnabled = !_busy && _index + 1 < _rows.Count;
-        _states.IsEnabled = _destination.IsEnabled = _pickFolder.IsEnabled = !_busy;
+        _states.IsEnabled = !_busy;
+        _destination.IsEnabled = _pickFolder.IsEnabled = !_busy && _state == "pending";
         _tagGroups.IsHitTestVisible = !_busy;
     }
 

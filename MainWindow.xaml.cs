@@ -138,9 +138,17 @@ public sealed partial class MainWindow : Window
                 UpdateReviewBadge();
                 _reviewPage?.Reload();
                 NotifyIngest(id, name);
+                Services.AppService.ScheduleIngestReconcile();
             });
             bridge.UiRequested += (view, path) => DispatcherQueue.TryEnqueue(async () => await HandleUiRequestAsync(view, path));
         }
+        Services.AppService.IngestQueueReconciled += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_quitting) return;
+            UpdateReviewBadge();
+            _reviewPage?.Reload();
+        });
+        Services.AppService.ScheduleIngestReconcile(0);
     }
 
     private Controls.Review.IngestNotificationWindow? _ingestWindow;

@@ -126,6 +126,7 @@ public static class AppService
             DbReady = true;
             StartCatalogImport();
             StartBridge();
+            StartIngestReconciliation();
         }
         catch (Exception ex) when (ex is IOException
             or Microsoft.Data.Sqlite.SqliteException
@@ -243,6 +244,7 @@ public static class AppService
         Settings.Save();
         await Task.WhenAll(Watcher?.StopAsync() ?? Task.CompletedTask,
             Bridge?.StopAsync() ?? Task.CompletedTask);
+        await StopIngestReconciliationAsync();
         if (_catalogTask is not null) await _catalogTask;
         if (Store is { } store)
         {
@@ -252,6 +254,98 @@ public static class AppService
     }
     public static TagCatalogService.AlignReport? CatalogAligned { get; private set; }
     public static string CatalogError { get; private set; } = "";
+    public static event Action? IngestQueueReconciled;
+
+    private static readonly SemaphoreSlim IngestReconcileGate = new(1, 1);
+    private static readonly object IngestReconcileSchedule = new();
+    private static Timer? _ingestReconcileTimer;
+    private static CancellationTokenSource? _ingestReconcileCts;
+
+    private static void StartIngestReconciliation()
+    {
+        if (Store is null) return;
+        lock (IngestReconcileSchedule)
+        {
+            if (_ingestReconcileTimer is not null) return;
+            _ingestReconcileCts = new CancellationTokenSource();
+            var token = _ingestReconcileCts.Token;
+            _ingestReconcileTimer = new Timer(
+                _ => _ = ReconcileIngestQueueAsync(token),
+                null, Timeout.Infinite, Timeout.Infinite);
+        }
+        ScheduleIngestReconcile(0);
+    }
+
+    /// <summary>合并短时间内的多次入库事件，延迟执行一次队列对账。</summary>
+    public static void ScheduleIngestReconcile(int delayMs = 750)
+    {
+        lock (IngestReconcileSchedule)
+        {
+            try
+            {
+                _ingestReconcileTimer?.Change(Math.Max(0, delayMs), Timeout.Infinite);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private static async Task ReconcileIngestQueueAsync(CancellationToken token)
+    {
+        var store = Store;
+        if (store is null || !DbReady || token.IsCancellationRequested) return;
+        try
+        {
+            if (!await IngestReconcileGate.WaitAsync(0, token).ConfigureAwait(false))
+            {
+                ScheduleIngestReconcile(250);
+                return;
+            }
+            try
+            {
+                var result = await Task.Run(() => IngestReconciler.Reconcile(store, token), token)
+                    .ConfigureAwait(false);
+                if (result.Completed + result.Missing == 0) return;
+                DebugLog($"ingest reconcile: completed={result.Completed} missing={result.Missing}");
+                IngestQueueReconciled?.Invoke();
+            }
+            finally
+            {
+                IngestReconcileGate.Release();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or ObjectDisposedException
+            or Microsoft.Data.Sqlite.SqliteException)
+        {
+            DebugLog("ingest reconcile failed: " + ex.Message);
+        }
+    }
+
+    private static async Task StopIngestReconciliationAsync()
+    {
+        Timer? timer;
+        CancellationTokenSource? cts;
+        lock (IngestReconcileSchedule)
+        {
+            timer = _ingestReconcileTimer;
+            cts = _ingestReconcileCts;
+            _ingestReconcileTimer = null;
+            _ingestReconcileCts = null;
+        }
+        try { timer?.Change(Timeout.Infinite, Timeout.Infinite); }
+        catch (ObjectDisposedException) { }
+        timer?.Dispose();
+        cts?.Cancel();
+        await IngestReconcileGate.WaitAsync().ConfigureAwait(false);
+        IngestReconcileGate.Release();
+        cts?.Dispose();
+    }
 
     private static void ApplyWriteSettings()
     {

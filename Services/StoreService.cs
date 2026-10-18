@@ -1360,6 +1360,22 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    /// <summary>仅在记录仍处于预期状态时迁移，避免后台对账覆盖用户操作。</summary>
+    public bool TrySetIngestState(int id, string expectedState, string state, string note)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "UPDATE ingest_queue SET state=$s, note=$n WHERE id=$id AND state=$expected";
+            cmd.Parameters.AddWithValue("$s", state);
+            cmd.Parameters.AddWithValue("$n", note);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$expected", expectedState);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+    }
+
     /// <summary>保存待归档图片的人工标签；只更新尚未处理的记录，不改扩展的幂等身份。</summary>
     public void UpdateIngestReview(int id, string payload, string rating)
     {
