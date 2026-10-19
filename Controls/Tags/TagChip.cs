@@ -1,4 +1,6 @@
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
@@ -41,30 +43,64 @@ public static class TagColors
 /// <summary>
 /// 标签贴纸，照搬 tag_chips.py：高 28、圆角 6、1px 边框、字号 13、文字左右 8；
 /// 显示名优先中文别名（调用方传入）。
+/// 传了 onRemove 时，贴纸左边多一个叉号：平时半透明，鼠标移上去亮起，点它取消这个标签。
 /// </summary>
 public sealed class TagChip : Grid
 {
-    public TagChip(string category, string displayName)
+    public TagChip(string category, string displayName, Action? onRemove = null)
     {
         var dark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
         var (bg, border, fg) = TagColors.Get(category, dark);
 
         Height = 28;
         VerticalAlignment = VerticalAlignment.Top;
+        var text = new TextBlock
+        {
+            Text = displayName,
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = new SolidColorBrush(TagColors.FromHex(fg)),
+        };
+        UIElement content = text;
+        var leftPadding = 8.0;
+        if (onRemove is not null)
+        {
+            var remove = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE711", FontSize = 9 },
+                Width = 18,
+                Height = 18,
+                MinWidth = 0,
+                MinHeight = 0,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(4),
+                BorderThickness = new Thickness(0),
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.55,
+            };
+            remove.PointerEntered += (_, _) => remove.Opacity = 1;
+            remove.PointerExited += (_, _) => remove.Opacity = 0.55;
+            remove.Click += (_, _) => onRemove();
+            ToolTipService.SetToolTip(remove, "移除此标签");
+            AutomationProperties.SetName(remove, $"移除标签 {displayName}");
+            content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 2,
+                Children = { remove, text },
+            };
+            leftPadding = 2;
+        }
+
         var frame = new Border
         {
             CornerRadius = new CornerRadius(6),
             BorderThickness = new Thickness(1),
             Background = new SolidColorBrush(TagColors.FromHex(bg)),
             BorderBrush = new SolidColorBrush(TagColors.FromHex(border)),
-            Padding = new Thickness(8, 0, 8, 0),
-            Child = new TextBlock
-            {
-                Text = displayName,
-                FontSize = 13,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(TagColors.FromHex(fg)),
-            },
+            Padding = new Thickness(leftPadding, 0, 8, 0),
+            Child = content,
         };
         Children.Add(frame);
         void ApplyTheme()
@@ -72,7 +108,7 @@ public sealed class TagChip : Grid
             var colors = TagColors.Get(category, ActualTheme == ElementTheme.Dark);
             frame.Background = new SolidColorBrush(TagColors.FromHex(colors.Bg));
             frame.BorderBrush = new SolidColorBrush(TagColors.FromHex(colors.Border));
-            ((TextBlock)frame.Child).Foreground = new SolidColorBrush(TagColors.FromHex(colors.Fg));
+            text.Foreground = new SolidColorBrush(TagColors.FromHex(colors.Fg));
         }
         Loaded += (_, _) => ApplyTheme();
         ActualThemeChanged += (_, _) => ApplyTheme();

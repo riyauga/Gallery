@@ -13,7 +13,7 @@ namespace Gallery.Services;
 public sealed class FolderMap
 {
     public const string DefaultManagedDir = "cartoon";
-    public const string OriginalWork = "original";   // 没有作品标签时的兜底
+    public const string NoSource = "no_source";      // 没有作品标签时的兜底（original 是真正的「原创作品」标签，走 Sanitize 自然得到 original/）
     public const string NoArtist = "_无画师";        // 没有画师标签时的兜底
 
     public sealed record Rule(string Category, string Name, string Folder);
@@ -79,9 +79,9 @@ public sealed class FolderMap
             .Where(part => part.Length > 0));
     }
 
-    /// <summary>作品目录名：有 rules 覆盖就按覆盖（原样），否则取字典序第一个标签名。</summary>
+    /// <summary>作品目录名：有 rules 覆盖就按覆盖（原样），否则取字典序第一个标签名；没有作品标签时用 <see cref="NoSource"/>。</summary>
     public string WorkFolder(IReadOnlyList<string> works)
-        => FolderFor("work", works) ?? OriginalWork;
+        => FolderFor("work", works) ?? NoSource;
 
     /// <summary>画师目录名：同上，没有画师标签时用 <see cref="NoArtist"/>。</summary>
     public string ArtistFolder(IReadOnlyList<string> artists)

@@ -1306,7 +1306,7 @@ public partial class App : Application
 
     /// <summary>
     /// 沙箱验收：造受管/跳过/不受管三类目录与各种标签 → 整理 → 断言
-    /// （作品/画师分层、非法字符清洗、original 与 _无画师兜底、skip_dirs 与不受管目录不动、
+    /// （作品/画师分层、非法字符清洗、no_source 与 _无画师兜底、skip_dirs 与不受管目录不动、
     /// 预演不落盘、腾空旧目录连带 sidecar 一起收掉）。
     /// </summary>
     private static void RunVerifyOrganize()
@@ -1382,8 +1382,8 @@ public partial class App : Application
                 FolderMap.Sanitize("goddess_of_victory:_nikke") == "goddess_of_victory_nikke" &&
                 FolderMap.Sanitize("@cheese_egg0v0") == "cheese_egg0v0" &&
                 FolderMap.Sanitize("LoveLive!") == "lovelive!");
-            Check("兜底：没作品→original、没画师→_无画师",
-                map.TargetDirRel([], [], "cartoon") == "cartoon/original/_无画师" &&
+            Check("兜底：没作品→no_source、没画师→_无画师",
+                map.TargetDirRel([], [], "cartoon") == "cartoon/no_source/_无画师" &&
                 map.TargetDirRel(["fate"], [], "cartoon") == "cartoon/fate/_无画师");
             Check("不受管的目录不参与",
                 map.TargetDirRel("真人", ["elden_ring"], ["someone"]) is null);
@@ -1403,7 +1403,7 @@ public partial class App : Application
             foreach (var (from, to) in new[]
                      {
                          ("cartoon/old_work/a.png", "cartoon/honkai_star_rail/mr_goblin/a.png"),
-                         ("cartoon/old_work/b.png", "cartoon/original/_无画师/b.png"),
+                         ("cartoon/old_work/b.png", "cartoon/no_source/_无画师/b.png"),
                          ("cartoon/old_work/c.png", "cartoon/wizarding_world/_无画师/c.png"),
                          ("cartoon/old_work/d.png", "cartoon/goddess_of_victory_nikke/cheese_egg0v0/d.png"),
                      })

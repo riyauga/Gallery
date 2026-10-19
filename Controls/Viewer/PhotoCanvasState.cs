@@ -3,6 +3,7 @@ namespace Gallery.Controls.Viewer;
 /// <summary>
 /// Gallery_Old/app/ui/preview.py:PhotoCanvas 的几何状态。
 /// Scale 表示一个原图像素占用的屏幕物理像素数；Qt 绘制由 WinUI 画布适配。
+/// 平移边界按图片自身尺寸算：图比视口大就拖到边缘即停（不留空白），图比视口小就居中不动。
 /// </summary>
 internal sealed class PhotoCanvasState
 {
@@ -61,10 +62,18 @@ internal sealed class PhotoCanvasState
         Clamp();
     }
 
+    /// <summary>把偏移夹回「图片盖住视口」的范围：图大就按多出来的部分给拖动余量，
+    /// 图小就归零（居中），避免把图片拖出画布留出空白。</summary>
     private void Clamp()
     {
-        OffsetX = Math.Clamp(OffsetX, -Width / 2, Width / 2);
-        OffsetY = Math.Clamp(OffsetY, -Height / 2, Height / 2);
+        OffsetX = ClampAxis(OffsetX, PixelWidth * Scale / Dpi, Width);
+        OffsetY = ClampAxis(OffsetY, PixelHeight * Scale / Dpi, Height);
+    }
+
+    private static double ClampAxis(double offset, double image, double viewport)
+    {
+        var slack = (image - viewport) / 2;
+        return slack > 0 ? Math.Clamp(offset, -slack, slack) : 0;
     }
 
     public void ZoomAt(double factor, double x, double y, bool cycle = false)

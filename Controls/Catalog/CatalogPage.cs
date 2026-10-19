@@ -139,6 +139,8 @@ public sealed class CatalogPage : Grid
         _list.SelectionChanged += (_, _) => ShowSelection();
         ScrollViewer.SetVerticalScrollBarVisibility(_list, ScrollBarVisibility.Auto);
         ScrollViewer.SetHorizontalScrollMode(_list, ScrollMode.Disabled);
+        // 浮层滚动条会盖住条目右列的「次数」，条目整体右缩 16（UI_CONVENTIONS.md R5）。
+        _list.Padding = new Thickness(0, 0, 16, 0);
         Grid.SetRow(_list, 1);
         stack.Children.Add(_list);
 
@@ -220,6 +222,8 @@ public sealed class CatalogPage : Grid
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            // 父 Border 的 16 在滚动区外面，挡不住浮层滚动条，滚动区内部再留一次（UI_CONVENTIONS.md R2）。
+            Padding = new Thickness(0, 0, 16, 0),
         };
         return pane;
     }

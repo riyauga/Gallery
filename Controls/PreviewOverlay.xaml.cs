@@ -489,28 +489,20 @@ public sealed partial class PreviewOverlay : Grid
         if (item is null || Services.AppService.Store is not { } store) return null;
         var score = store.NsfwScoreFor(item.ImageId);
         if (score is null)
-            return $"{tagName} · 只有手动标记，没有模型或来源页给出的分级依据";
+            return $"{tagName} · 手动标记";
 
-        var level = score.Rating switch
-        {
-            "g" => "g 普通",
-            "s" => "s 性感",
-            "q" => "q 暗示",
-            "e" => "e 露骨",
-            _ => score.Rating,
-        };
+        var level = Services.RatingText.Level(score.Rating);
         var source = score.Source switch
         {
-            "danbooru" => "来源页（danbooru）",
-            "model" => "本地模型" + (score.ModelName.Length > 0 ? $"（{score.ModelName}）" : ""),
+            "danbooru" => "来源网站",
+            "model" => "自动识别",
             "manual" => "手动标记",
             _ => score.Source,
         };
         var parts = new List<string> { $"{tagName} · {level}", source };
         if (score.Source == "model")
         {
-            parts.Add($"q+e={score.NsfwProb:0.00}");
-            parts.Add($"置信度 {score.Confidence:0.00}");
+            parts.Add($"可信度 {score.Confidence:0.00}");
         }
         return string.Join(" · ", parts);
     }

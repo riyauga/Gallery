@@ -38,7 +38,8 @@ public sealed class ReviewPage : Grid
     private readonly ComboBox _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid _body = new() { ColumnSpacing = 24 };
     private Tags.TagChip? _ratingBadge;
-    private readonly ScrollViewer _detailScroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    // 右侧留 16 给浮层滚动条，否则它会压在标签行与归档目录输入框的右缘（UI_CONVENTIONS.md R1）。
+    private readonly ScrollViewer _detailScroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 16, 0) };
     private List<StoreService.PendingIngestRow> _rows = [];
     private StoreService.PendingIngestRow? _selected;
     private Dictionary<string, List<string>> _tags = [];
@@ -151,7 +152,7 @@ public sealed class ReviewPage : Grid
         var panel = new StackPanel { Spacing = 12 };
         var top = new Grid { MinHeight = 34 };
         top.Children.Add(new TextBlock { Text = "图片详情", FontSize = 12, Opacity = .65, VerticalAlignment = VerticalAlignment.Center });
-        foreach (var (key, title) in new[] { ("pending", "待归档"), ("missing", "文件丢失"), ("done", "已归档"), ("ignored", "已忽略"), ("deferred", "已延期"), ("hidden", "已隐藏") })
+        foreach (var (key, title) in new[] { ("pending", "待归档"), ("missing", "文件丢失"), ("done", "已归档"), ("ignored", "已忽略") })
             _states.Items.Add(new ComboBoxItem { Tag = key, Content = title });
         _states.SelectedIndex = 0;
         _states.SelectionChanged += (_, _) =>
@@ -372,35 +373,46 @@ public sealed class ReviewPage : Grid
             var values = category == "rating" ? new[] { "g", "s", "q", "e" } : _tags[category].ToArray();
             foreach (var name in values)
             {
-                ButtonBase chip = category == "rating" ? new ToggleButton
+                // 分级：四个级别互斥切换，左边贴纸由级别算出来；其他标签：左边叉号点掉即取消
+                if (category == "rating")
                 {
-                    Content = name.ToUpperInvariant(),
-                    IsChecked = _tags[category].Contains(name, StringComparer.OrdinalIgnoreCase),
-                    Padding = new Thickness(9, 4, 9, 4), MinWidth = 0, MinHeight = 28, FontSize = 12,
-                    MaxWidth = 320,
-                    IsEnabled = _state == "pending",
-                } : new Button
+                    var toggle = new ToggleButton
+                    {
+                        Content = RatingText.Level(name),
+                        IsChecked = _tags[category].Contains(name, StringComparer.OrdinalIgnoreCase),
+                        Padding = new Thickness(9, 4, 9, 4), MinWidth = 0, MinHeight = 28, FontSize = 12,
+                        MaxWidth = 320,
+                        IsEnabled = _state == "pending",
+                    };
+                    ToolTipService.SetToolTip(toggle, RatingText.Tooltip(name));
+                    toggle.Click += (_, _) =>
+                    {
+                        if (_busy) return;
+                        _tags[category].Clear();
+                        _tags[category].Add(name);
+                        SaveTags(true);
+                        Rebuild();
+                    };
+                    chips.Children.Add(toggle);
+                }
+                else
                 {
-                    Content = new Tags.TagChip(category, name), Padding = new Thickness(0), MinWidth = 0, MinHeight = 28,
-                    Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0),
-                    IsEnabled = _state == "pending",
-                };
-                ToolTipService.SetToolTip(chip, category == "rating" ? $"{name.ToUpperInvariant()} · {(name is "g" or "s" ? "SFW" : "NSFW")}" : "点击移除此标签");
-                chip.Click += (_, _) =>
-                {
-                    if (_busy) return;
-                    if (category == "rating") { _tags[category].Clear(); _tags[category].Add(name); }
-                    else _tags[category].RemoveAll(t => string.Equals(t, name, StringComparison.OrdinalIgnoreCase));
-                    SaveTags(category == "rating");
-                    Rebuild();
-                };
-                chips.Children.Add(chip);
+                    // 只有待归档的记录能改标签；查看已归档/已忽略时不显示叉号
+                    Action? remove = _state != "pending" ? null : () =>
+                    {
+                        if (_busy) return;
+                        _tags[category].RemoveAll(t => string.Equals(t, name, StringComparison.OrdinalIgnoreCase));
+                        SaveTags(false);
+                        Rebuild();
+                    };
+                    chips.Children.Add(new Tags.TagChip(category, name, remove));
+                }
             }
             if (category == "rating")
             {
                 var classify = new Button { Content = new FontIcon { Glyph = "\uE895", FontSize = 14 }, Padding = new Thickness(9, 5, 9, 5), IsEnabled = _state == "pending" };
-                ToolTipService.SetToolTip(classify, "用本地模型自动分级此图");
-                AutomationProperties.SetName(classify, "自动分级此图");
+                ToolTipService.SetToolTip(classify, "自动判断这张图的敏感程度");
+                AutomationProperties.SetName(classify, "自动判断敏感程度");
                 classify.Click += async (_, _) => { await ClassifyAsync(); Rebuild(); };
                 chips.Children.Add(classify);
             }
@@ -413,7 +425,7 @@ public sealed class ReviewPage : Grid
         if (_busy || _selected is not { State: "pending" } row) return;
         _busy = true;
         UpdateButtons();
-        _status.Text = "正在自动分级…";
+        _status.Text = "正在自动判断…";
         try
         {
             var modelDir = AppService.Settings.Settings.nsfw_model_dir;
@@ -422,14 +434,14 @@ public sealed class ReviewPage : Grid
                 var scorer = NsfwScorer.TryCreate(modelDir, out var error);
                 return scorer is null ? (Rating: "", Error: error) : (Rating: scorer.Score(IngestReview.LocalPath(row)).Rating, Error: "");
             });
-            if (result.Error.Length > 0) { _status.Text = "自动分级失败：" + result.Error; return; }
+            if (result.Error.Length > 0) { _status.Text = "自动判断失败：" + result.Error; return; }
             _tags["rating"].Clear();
             _tags["rating"].Add(result.Rating);
             SaveTags(true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException
             or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
-        { _status.Text = "自动分级失败：" + ex.Message; }
+        { _status.Text = "自动判断失败：" + ex.Message; }
         finally
         {
             _busy = false;
@@ -481,7 +493,7 @@ public sealed class ReviewPage : Grid
         _settingDestination = false;
     }
 
-    /// <summary>按标签算归档目录（绝对路径）：作品/画师两级，缺作品进 original、缺画师进 _无画师。</summary>
+    /// <summary>按标签算归档目录（绝对路径）：作品/画师两级，缺作品进 no_source、缺画师进 _无画师。</summary>
     private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
     {
         if (AppService.Store is not { } store) return "";
@@ -629,7 +641,7 @@ public sealed class ReviewPage : Grid
         _archive.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _ignore.IsEnabled = !_busy && (pending || missing);
         _ignore.Visibility = _state is "pending" or "missing" ? Visibility.Visible : Visibility.Collapsed;
-        _restore.Visibility = _state is "ignored" or "deferred" or "hidden" or "missing" ? Visibility.Visible : Visibility.Collapsed;
+        _restore.Visibility = _state is "ignored" or "missing" ? Visibility.Visible : Visibility.Collapsed;
         _restore.IsEnabled = !_busy && _selected is not null;
         _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
         _archiveAll.Visibility = _ignoreAll.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;

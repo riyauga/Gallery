@@ -22,6 +22,22 @@ public static class ThemeService
     {
         ElementTheme.Light => "浅色",
         ElementTheme.Dark => "深色",
-        _ => "Windows 默认"
+        _ => "跟随 Windows"
+    };
+
+    /// <summary>settings.json 里的主题键 → 主题。</summary>
+    public static ElementTheme Parse(string? key) => key switch
+    {
+        "light" => ElementTheme.Light,
+        "dark" => ElementTheme.Dark,
+        _ => ElementTheme.Default,
+    };
+
+    /// <summary>主题 → settings.json 里的主题键。</summary>
+    public static string Key(ElementTheme theme) => theme switch
+    {
+        ElementTheme.Light => "light",
+        ElementTheme.Dark => "dark",
+        _ => "system",
     };
 }

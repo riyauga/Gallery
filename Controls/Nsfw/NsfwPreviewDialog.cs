@@ -19,10 +19,10 @@ public sealed class NsfwPreviewDialog
 {
     private static readonly (string Key, string Text, Windows.UI.Color Fill)[] Levels =
     {
-        ("g", "g 普通", ColorHelper.FromArgb(0xFF, 0x2E, 0x2E, 0x2E)),
-        ("s", "s 性感", ColorHelper.FromArgb(0xFF, 0x5A, 0x44, 0x1F)),
-        ("q", "q 暗示", ColorHelper.FromArgb(0xFF, 0x6A, 0x33, 0x1F)),
-        ("e", "e 露骨", ColorHelper.FromArgb(0xFF, 0x7A, 0x22, 0x28)),
+        ("g", "普通", ColorHelper.FromArgb(0xFF, 0x2E, 0x2E, 0x2E)),
+        ("s", "性感", ColorHelper.FromArgb(0xFF, 0x5A, 0x44, 0x1F)),
+        ("q", "暗示", ColorHelper.FromArgb(0xFF, 0x6A, 0x33, 0x1F)),
+        ("e", "露骨", ColorHelper.FromArgb(0xFF, 0x7A, 0x22, 0x28)),
     };
 
     public static async Task<bool> ShowAsync(XamlRoot root, NsfwService service, CancellationToken token = default)
@@ -30,7 +30,7 @@ public sealed class NsfwPreviewDialog
         var status = new TextBlock
         {
             Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Text = "正在扫描…",
+            Text = "正在识别…",
             TextWrapping = TextWrapping.Wrap,
         };
 
@@ -41,6 +41,8 @@ public sealed class NsfwPreviewDialog
             Height = 320,
             Width = 460,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            // 浮层滚动条会盖住行右端的分数与勾选框，行的右侧留 16（UI_CONVENTIONS.md R1）。
+            Padding = new Thickness(0, 0, 16, 0),
             Content = list,
         };
 
@@ -52,7 +54,7 @@ public sealed class NsfwPreviewDialog
         var dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = "重判定预览",
+            Title = "重新识别预览",
             Content = body,
             PrimaryButtonText = "应用这些结果",
             CloseButtonText = "取消",
@@ -69,7 +71,7 @@ public sealed class NsfwPreviewDialog
             var reporter = new Progress<(int Done, int Total)>(p =>
             {
                 progress.Value = p.Total == 0 ? 0 : p.Done * 100.0 / p.Total;
-                status.Text = $"正在扫描 {p.Done}/{p.Total}…";
+                status.Text = $"正在识别 {p.Done}/{p.Total}…";
             });
 
             (string error, List<NsfwService.NsfwPreviewRow> result) response;
@@ -87,7 +89,7 @@ public sealed class NsfwPreviewDialog
             rows.AddRange(result);
             if (rows.Count == 0)
             {
-                status.Text = "没有可预览的图片（可能还没扫描过图库）。";
+                status.Text = "没有可预览的图片（可能还没识别过图库）。";
                 return;
             }
 

@@ -158,6 +158,7 @@ public sealed partial class MainWindow : Window
     /// <summary>同一时段的新图片合并为一张提示；前台用应用内卡片，后台用无激活桌面浮层。</summary>
     private void NotifyIngest(int id, string name)
     {
+        if (!Services.AppService.Settings.Settings.notify_new_images) return;
         var foreground = GetForegroundWindow() == WinRT.Interop.WindowNative.GetWindowHandle(this);
         var count = _notificationCount + 1;
         if (_ingestCard is null || foreground != (_ingestWindow is null))
@@ -347,19 +348,12 @@ public sealed partial class MainWindow : Window
 
         // 主题切到根元素（对应 photos 的 IThemeService.SetTheme）
         ThemeService.Root = RootGrid;
+        ThemeService.SetTheme(ThemeService.Parse(AppService.Settings.Settings.theme));
 
         AppService.Init();
         AppService.MainWindowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        if (AppService.DbReady)
-        {
-            // 批次 0 验收可见化：库连接状态
-            ShowToast($"库已连接：{AppService.RootCount} 个目录 · " +
-                      $"{AppService.ImageCount} 张图片 · {AppService.FavoriteCount} 收藏");
-        }
-        else if (AppService.InitError.Length > 0)
-        {
+        if (!AppService.DbReady && AppService.InitError.Length > 0)
             ShowToast("库打开失败：" + AppService.InitError);
-        }
         BuildDirectoryTree();
 
         _page = new GalleryPage(_library);

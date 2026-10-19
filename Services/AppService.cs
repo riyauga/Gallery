@@ -187,6 +187,15 @@ public static class AppService
         }
     }
 
+    /// <summary>设置页切换插件开关或端口后重启监听。</summary>
+    public static void RestartBridge()
+    {
+        var old = Bridge;
+        Bridge = null;
+        old?.Dispose();
+        StartBridge();
+    }
+
     /// <summary>桥接诊断日志（写 %APPDATA%\Gallery\bridge.log，失败不影响主流程）。</summary>
     private static void LogBridge(string message)
     {

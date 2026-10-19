@@ -272,16 +272,6 @@
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                             <RadioMenuFlyoutItem
-                                x:Name="SortRating"
-                                Click="SortKey_Click"
-                                GroupName="CommandBar_GallerySortButton_OptionGroup"
-                                Tag="rating"
-                                Text="星级">
-                                <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE735;" />
-                                </RadioMenuFlyoutItem.Icon>
-                            </RadioMenuFlyoutItem>
-                            <RadioMenuFlyoutItem
                                 x:Name="SortRandom"
                                 Click="SortKey_Click"
                                 GroupName="CommandBar_GallerySortButton_OptionGroup"

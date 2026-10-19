@@ -22,6 +22,7 @@ public sealed class DetailPanel : Grid
     private readonly TextBlock _source;
     private readonly StackPanel _tagsHost;
     private readonly FavoriteButton _favorite;
+    private readonly Button _openButton;
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
@@ -56,8 +57,8 @@ public sealed class DetailPanel : Grid
 
         var editBtn = new Button { Content = "编辑分类标签", HorizontalAlignment = HorizontalAlignment.Stretch };
         editBtn.Click += (_, _) => { if (_item is not null) EditTagsRequested?.Invoke(_item); };
-        var openBtn = new Button { Content = "用照片打开", HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 6, 0, 0) };
-        openBtn.Click += (_, _) => { if (_item is not null) OpenExternalRequested?.Invoke(_item); };
+        _openButton = new Button { Content = FileActions.OpenLabel(), HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 6, 0, 0) };
+        _openButton.Click += (_, _) => { if (_item is not null) OpenExternalRequested?.Invoke(_item); };
 
         var infoHeader = new Grid();
         infoHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -92,7 +93,7 @@ public sealed class DetailPanel : Grid
                     new TextBlock { Text = "来源", FontSize = 13, Opacity = 0.6, Margin = new Thickness(0, 8, 0, 0) },
                     _source,
                     editBtn,
-                    openBtn,
+                    _openButton,
                 }
             }
         };

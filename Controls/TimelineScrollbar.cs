@@ -422,10 +422,13 @@ public sealed class TimelineScrollbar : Grid
             if (element.IsLabel)
             {
                 // Photos TimelineLabelTextBlockPool：文字前景由控件主题继承。
+                // 40 是宽度上限（MaxWidth），不能写成硬 Width：硬宽度会把 DesiredSize 顶到 40，
+                // 后面 canvasWidth - DesiredSize.Width 就恒为 0，刻度会被推到画布左缘（实测偏左 12 DIP）。
+                // 原版标签实际宽度就是文字宽度（UIA 实测 26 DIP），右缘与标签画布右缘齐平（距控件右缘 10）。
                 var tb = new TextBlock
                 {
                     Text = element.Text,
-                    Width = 40,
+                    MaxWidth = 40,
                     Height = LabelHeight,
                     FontFamily = new FontFamily("Segoe UI"),
                     FontSize = LabelFontSize,

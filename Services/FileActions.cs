@@ -288,6 +288,9 @@ public static class FileActions
             "explorer.exe", "/select,\"" + Path.GetFullPath(path) + "\"") { UseShellExecute = true });
     }
 
+    /// <summary>详情面板「打开」按钮的文案。</summary>
+    public static string OpenLabel() => "用别的程序打开";
+
     /// <summary>openers.open_path：photos(ms-photos:) / openwith(ShellExecute verb) / custom / default。</summary>
     public static void OpenImage(string path, string mode = "photos", string customExe = "")
     {

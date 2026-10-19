@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : UserControl
     public SettingsPage()
     {
         InitializeComponent();
+        _theme = ThemeService.Parse(AppService.Settings.Settings.theme);
         ApplyState();
         Loaded += (_, _) =>
         {
@@ -28,8 +29,16 @@ public sealed partial class SettingsPage : UserControl
     /// <summary>刷新桥接状态：地址用实际监听端口，令牌取已落盘的那个。</summary>
     private void RefreshBridge()
     {
+        var settings = AppService.Settings.Settings;
         var bridge = AppService.Bridge;
-        if (bridge is null || !bridge.Running)
+        BridgeEnabledToggle.IsOn = settings.bridge_enabled;
+        BridgePortBox.Text = settings.bridge_port.ToString();
+        if (!settings.bridge_enabled)
+        {
+            BridgeStatusText.Text = "已关闭";
+            BridgeTokenBox.Text = "";
+        }
+        else if (bridge is null || !bridge.Running)
         {
             BridgeStatusText.Text = AppService.BridgeStatus;
             BridgeTokenBox.Text = "";
@@ -59,6 +68,31 @@ public sealed partial class SettingsPage : UserControl
     }
 
     private void BridgeRefresh_Click(object sender, RoutedEventArgs e) => RefreshBridge();
+
+    private void BridgeEnabledToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        var on = BridgeEnabledToggle.IsOn;
+        if (on == AppService.Settings.Settings.bridge_enabled) return;
+        AppService.Settings.Settings.bridge_enabled = on;
+        AppService.Settings.Save();
+        AppService.RestartBridge();
+        RefreshBridge();
+    }
+
+    private void BridgePortApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (!int.TryParse(BridgePortBox.Text.Trim(), out var port) || port < 1024 || port > 65535)
+        {
+            BridgePortStatusText.Text = "端口要在 1024 到 65535 之间。";
+            return;
+        }
+
+        AppService.Settings.Settings.bridge_port = port;
+        AppService.Settings.Save();
+        AppService.RestartBridge();
+        RefreshBridge();
+        BridgePortStatusText.Text = "已应用";
+    }
 
     // ---------------------------------------------------------------- 缩略图缓存
 
@@ -149,6 +183,8 @@ public sealed partial class SettingsPage : UserControl
     {
         _theme = theme;
         ThemeService.SetTheme(theme);
+        AppService.Settings.Settings.theme = ThemeService.Key(theme);
+        AppService.Settings.Save();
         ApplyState();
     }
 
@@ -160,6 +196,7 @@ public sealed partial class SettingsPage : UserControl
         ThemeDarkItem.IsChecked = _theme == ElementTheme.Dark;
         ThemeDefaultItem.IsChecked = _theme == ElementTheme.Default;
         ApplyNsfwState();
+        ApplyOpenModeState();
         ApplyKindWhitelistState();
         ApplySyncErrorState();
     }
@@ -173,14 +210,33 @@ public sealed partial class SettingsPage : UserControl
     private void ApplyNsfwState()
     {
         _nsfwSyncing = true;
-        var mode = Services.AppService.Settings.Settings.nsfw_display;
+        _sysSyncing = true;
+        var settings = Services.AppService.Settings.Settings;
+        var mode = settings.nsfw_display;
         NsfwNormalRadio.IsChecked = mode == "normal";
         NsfwBlurRadio.IsChecked = mode == "blur";
         NsfwHideRadio.IsChecked = mode == "hide";
-        NsfwStrengthSlider.Value = AppService.Settings.Settings.nsfw_blur_strength;
-        NsfwStrengthValue.Text = AppService.Settings.Settings.nsfw_blur_strength.ToString();
+        NsfwStrengthSlider.Value = settings.nsfw_blur_strength;
+        NsfwStrengthValue.Text = settings.nsfw_blur_strength.ToString();
         NsfwStrengthCard.Visibility = mode == "blur" ? Visibility.Visible : Visibility.Collapsed;
+
+        TrayToggle.IsOn = settings.minimize_to_tray;
+        AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
+        ArchiveAutoByTagsToggle.IsOn = settings.archive_auto_by_tags;
+        NotifyNewImagesToggle.IsOn = settings.notify_new_images;
+        AutoTagToggle.IsOn = settings.auto_tag_from_folder;
+        AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
+        AutoNsfwTagToggle.IsOn = settings.auto_nsfw_tag;
+        SelectAutoTagDepth(settings.auto_tag_depth);
+        _sysSyncing = false;
         _nsfwSyncing = false;
+
+        var dir = settings.nsfw_model_dir;
+        NsfwModelText.Text = string.IsNullOrWhiteSpace(dir)
+            ? "未配置"
+            : Services.NsfwScorer.LooksConfigured(dir)
+                ? dir
+                : dir + "（缺少 model.onnx）";
 
         var store = Services.AppService.Store;
         if (store is null)
@@ -190,20 +246,7 @@ public sealed partial class SettingsPage : UserControl
         }
 
         var (scored, nsfw, unknown) = store.NsfwSummary();
-        NsfwSummaryText.Text = $"已打分 {scored} 张 · 判定敏感 {nsfw} 张 · 未判定 {unknown} 张";
-
-        _sysSyncing = true;
-        TrayToggle.IsOn = Services.AppService.Settings.Settings.minimize_to_tray;
-        AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
-        ArchiveAutoByTagsToggle.IsOn = Services.AppService.Settings.Settings.archive_auto_by_tags;
-        _sysSyncing = false;
-
-        var dir = Services.AppService.Settings.Settings.nsfw_model_dir;
-        NsfwModelText.Text = string.IsNullOrWhiteSpace(dir)
-            ? "未配置"
-            : Services.NsfwScorer.LooksConfigured(dir)
-                ? dir
-                : dir + "（缺少 model.onnx）";
+        NsfwSummaryText.Text = $"已识别 {scored} 张 · 敏感 {nsfw} 张 · 未识别 {unknown} 张";
     }
 
     private async void NsfwPickFolder_Click(object sender, RoutedEventArgs e)
@@ -267,7 +310,8 @@ public sealed partial class SettingsPage : UserControl
         {
             XamlRoot = XamlRoot,
             Title = "最近错误",
-            Content = new ScrollViewer { Content = body, MaxHeight = 420, MinWidth = 520 },
+            // 浮层滚动条会压在正文上，正文右侧自己留 16（UI_CONVENTIONS.md R1）。
+            Content = new ScrollViewer { Content = body, MaxHeight = 420, MinWidth = 520, Padding = new Thickness(0, 0, 16, 0) },
             CloseButtonText = "关闭",
         };
         await dialog.ShowAsync();
@@ -307,7 +351,7 @@ public sealed partial class SettingsPage : UserControl
                 FileName = path,
                 UseShellExecute = true,
             });
-            KindWhitelistText.Text = "已用系统默认程序打开，改完回到这里点「恢复默认」上方的刷新即可生效";
+            KindWhitelistText.Text = "已打开，改完点「重新加载」。";
         }
         catch (Exception ex)
         {
@@ -315,8 +359,9 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
-    private void KindWhitelistReset_Click(object sender, RoutedEventArgs e)
-    {
+    private void KindWhitelistReload_Click(object sender, RoutedEventArgs e) => ApplyKindWhitelistState();
+
+    private void KindWhitelistReset_Click(object sender, RoutedEventArgs e)    {
         try
         {
             var path = string.IsNullOrWhiteSpace(Services.AppService.Settings.Settings.kind_whitelist_path)
@@ -348,18 +393,126 @@ public sealed partial class SettingsPage : UserControl
         Services.AppService.Settings.Save();
     }
 
+    private void NotifyNewImagesToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.notify_new_images = NotifyNewImagesToggle.IsOn;
+        Services.AppService.Settings.Save();
+    }
+
+    private void AutoTagToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.auto_tag_from_folder = AutoTagToggle.IsOn;
+        Services.AppService.Settings.Save();
+        AutoTagDepthBox.IsEnabled = AutoTagToggle.IsOn;
+    }
+
+    private void AutoTagDepth_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        if (AutoTagDepthBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out var depth))
+        {
+            Services.AppService.Settings.Settings.auto_tag_depth = depth;
+            Services.AppService.Settings.Save();
+        }
+    }
+
+    private void SelectAutoTagDepth(int depth)
+    {
+        foreach (var item in AutoTagDepthBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && int.TryParse(tag, out var value) && value == depth)
+            {
+                AutoTagDepthBox.SelectedItem = item;
+                return;
+            }
+        }
+        AutoTagDepthBox.SelectedIndex = 0;
+    }
+
+    private void AutoNsfwTagToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.auto_nsfw_tag = AutoNsfwTagToggle.IsOn;
+        Services.AppService.Settings.Save();
+    }
+
+    private bool _openModeSyncing;
+
+    private void ApplyOpenModeState()
+    {
+        var settings = Services.AppService.Settings.Settings;
+        _openModeSyncing = true;
+        foreach (var item in OpenModeBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && tag == settings.open_mode)
+            {
+                OpenModeBox.SelectedItem = item;
+                break;
+            }
+        }
+        if (OpenModeBox.SelectedIndex < 0) OpenModeBox.SelectedIndex = 1;
+        _openModeSyncing = false;
+        UpdateOpenProgramState();
+    }
+
+    private void UpdateOpenProgramState()
+    {
+        var settings = Services.AppService.Settings.Settings;
+        var custom = settings.open_mode == "custom";
+        OpenProgramButton.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+        OpenProgramText.Text = custom
+            ? (settings.open_custom_exe.Length > 0 ? Path.GetFileName(settings.open_custom_exe) : "未选择")
+            : "";
+    }
+
+    private void OpenMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_openModeSyncing) return;
+        if (OpenModeBox.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+        Services.AppService.Settings.Settings.open_mode = mode;
+        Services.AppService.Settings.Save();
+        UpdateOpenProgramState();
+    }
+
+    private async void OpenProgram_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add(".exe");
+        if (MainWindow.Instance is { } window &&
+            WinRT.Interop.WindowNative.GetWindowHandle(window) is var hwnd && hwnd != IntPtr.Zero)
+        {
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        }
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null) return;
+        Services.AppService.Settings.Settings.open_custom_exe = file.Path;
+        Services.AppService.Settings.Save();
+        UpdateOpenProgramState();
+    }
+
     private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_sysSyncing) return;
-        Services.AppService.Settings.Settings.start_at_login = AutoStartToggle.IsOn;
-        Services.AppService.Settings.Save();
+        var on = AutoStartToggle.IsOn;
         try
         {
-            Services.AutoStart.Apply(AutoStartToggle.IsOn);
+            Services.AutoStart.Apply(on);
+            if (Services.AutoStart.IsEnabled() != on) throw new InvalidOperationException("注册表未变更");
+            Services.AppService.Settings.Settings.start_at_login = on;
+            Services.AppService.Settings.Save();
+            AutoStartStatusText.Text = "";
+            ToolTipService.SetToolTip(AutoStartStatusText, null);
         }
         catch (Exception ex)
         {
-            NsfwScanText.Text = "写注册表失败：" + ex.Message;
+            _sysSyncing = true;
+            AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
+            _sysSyncing = false;
+            AutoStartStatusText.Text = "设置失败，请稍后重试。";
+            ToolTipService.SetToolTip(AutoStartStatusText, ex.Message);
         }
     }
 
@@ -369,7 +522,7 @@ public sealed partial class SettingsPage : UserControl
         if (!Services.AppService.FakeNsfwScorer &&
             !Services.NsfwScorer.LooksConfigured(Services.AppService.Settings.Settings.nsfw_model_dir))
         {
-            NsfwScanText.Text = "还没选模型文件夹";
+            NsfwScanText.Text = "还没有选择识别模型";
             return;
         }
 
@@ -384,7 +537,7 @@ public sealed partial class SettingsPage : UserControl
             if (applied && Services.AppService.Store is { } storeAfter)
             {
                 var (scored, nsfw, unknown) = storeAfter.NsfwSummary();
-                NsfwSummaryText.Text = $"已打分 {scored} 张 · 判定敏感 {nsfw} 张 · 未判定 {unknown} 张";
+                NsfwSummaryText.Text = $"已识别 {scored} 张 · 敏感 {nsfw} 张 · 未识别 {unknown} 张";
             }
         }
         finally
@@ -415,7 +568,7 @@ public sealed partial class SettingsPage : UserControl
         {
             var service = new Services.NsfwService(Services.AppService.Store);
             var progress = new Progress<(int Done, int Total)>(p =>
-                NsfwScanText.Text = $"扫描中 {p.Done}/{p.Total}（可以点取消，已判定的会保留）");
+                NsfwScanText.Text = $"识别中 {p.Done}/{p.Total}（可以点取消，已识别的会保留）");
             var result = await service.RunAsync(progress, token: _nsfwScanCts.Token);
             NsfwScanText.Text = Services.NsfwService.Describe(result);
             ApplyNsfwState();
@@ -423,13 +576,13 @@ public sealed partial class SettingsPage : UserControl
         }
         catch (OperationCanceledException)
         {
-            NsfwScanText.Text = "已取消；已经判定的图保持新结果";
+            NsfwScanText.Text = "已取消；已经识别的图保持新结果";
             ApplyNsfwState();
             Services.AppService.NotifyDisplayModeChanged();
         }
         catch (Exception ex)
         {
-            NsfwScanText.Text = "扫描失败：" + ex.Message;
+            NsfwScanText.Text = "识别失败：" + ex.Message;
         }
         finally
         {

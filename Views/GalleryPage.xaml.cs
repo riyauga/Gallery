@@ -664,7 +664,7 @@ public sealed partial class GalleryPage : UserControl
                     ? recursive
                         ? "这个文件夹里没有可显示的图片。"
                         : "打开「筛选器」里的“显示子文件夹内容”，就能看到子文件夹里的照片。"
-                    : "把照片放进 assets 文件夹后重新启动。";
+                    : "把图片放进左侧已添加的文件夹，图库会自动更新。";
     }
 
     private void UpdateHeader()
@@ -1001,13 +1001,10 @@ public sealed partial class GalleryPage : UserControl
 
         // 手动标分级：模型接入前的兜底（g/s/q/e 对齐 danbooru 四级，q/e 算敏感）
         var ratingMenu = new MenuFlyoutSubItem { Text = "标记分级" };
-        foreach (var pair in new[]
-                 {
-                     ("g", "安全 g"), ("s", "敏感 s"), ("q", "可疑 q"), ("e", "露骨 e"),
-                 })
+        foreach (var level in new[] { "g", "s", "q", "e" })
         {
-            var rating = pair.Item1;
-            var mark = new MenuFlyoutItem { Text = pair.Item2 };
+            var rating = level;
+            var mark = new MenuFlyoutItem { Text = RatingText.Level(level) };
             mark.Click += (_, _) =>
             {
                 if (ids.Count == 0) return;
@@ -1017,7 +1014,9 @@ public sealed partial class GalleryPage : UserControl
                 foreach (var target in items) target.Nsfw = rating;
                 Rebuild();
                 ToastKindRequested?.Invoke(
-                    items.Count == 1 ? $"已标记为 {rating}" : $"已标记 {items.Count} 张为 {rating}",
+                    items.Count == 1
+                        ? $"已标记为「{RatingText.Level(rating)}」"
+                        : $"已标记 {items.Count} 张为「{RatingText.Level(rating)}」",
                     Gallery.Controls.ToastKind.Success, null);
             };
             ratingMenu.Items.Add(mark);
@@ -1374,7 +1373,6 @@ public sealed partial class GalleryPage : UserControl
         SortName.IsChecked = _sortKey == "name";
         SortAdded.IsChecked = _sortKey == "added";
         SortSize.IsChecked = _sortKey == "size";
-        SortRating.IsChecked = _sortKey == "rating";
         SortRandom.IsChecked = _sortKey == "random";
         SortAsc.IsChecked = _ascending;
         SortDesc.IsChecked = !_ascending;

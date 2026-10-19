@@ -2,8 +2,8 @@
 // 分组方式照待审核页（Controls/Review/ReviewPage.cs）：一行一类，左边分类名，
 // 右边该类已有标签 + 该类自己的输入框（回车即在该类下新增，候选来自标签库与角色词库）；
 // 保存才写库。分辨率由图片自动识别，不在这里编辑。
-// 三态（PLAN 阶段 C）：每个标签可选「选中(添加) / 排除(移除) / 未选」，
-// 分级互斥：同一张图的「分级」只能有一个选中，选新的会自动把旧的标为排除。
+// 标签编辑方式与归档页一致：每个标签左边一个叉号（悬停亮起，点击即取消该标签），不再有勾/叉三态。
+// 分级同归档页：左边显示的那一个 SFW/NSFW 由右侧四级（g/s/q/e）自动算出，不能直接编辑分级标签。
 // 分级行右侧的循环按钮：用已接入的本地模型重跑分级（结果先挂起，保存才写库）。
 using System;
 using System.Collections.Generic;
@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Gallery.Models;
@@ -24,7 +25,7 @@ namespace Gallery.Controls.Tags;
 
 public sealed class TagEditorDialog
 {
-    /// <summary>三态：Include=写完要存在；Exclude=写完要移除；Neutral=不关心。</summary>
+    /// <summary>标签在对话框里的去留：Include=保存后存在；Exclude=保存时删除（点叉号取消的标签）。</summary>
     private enum TagState { Include, Exclude }
 
     private sealed class Entry
@@ -32,9 +33,6 @@ public sealed class TagEditorDialog
         public required string Category { get; init; }
         public required string Name { get; init; }
         public TagState State { get; set; } = TagState.Include;
-
-        /// <summary>用户在对话框里主动选过（点芯片/搜索/回车/模型重跑）；加载进来的并集不算。</summary>
-        public bool Chosen { get; set; }
     }
 
     /// <summary>模型跑出来但还没落库的分级（保存才写；取消就丢）。</summary>
@@ -51,7 +49,7 @@ public sealed class TagEditorDialog
     private readonly Dictionary<string, Panel> _rowChips = new(StringComparer.Ordinal);
     private readonly TextBox _pageUrl = new() { PlaceholderText = "https://来源页面/帖子地址", Width = 420, FontSize = 13 };
     private readonly TextBox _sourceUrl = new() { PlaceholderText = "https://原图地址", Width = 420, FontSize = 13 };
-    private readonly TextBlock _hint = new() { FontSize = 12, Opacity = 0.6 };
+    private readonly TextBlock _hint = new() { FontSize = 12, Opacity = 0.6, Visibility = Visibility.Collapsed };
     private readonly TextBlock _modelHint = new() { FontSize = 12, Opacity = 0.6, TextWrapping = TextWrapping.Wrap };
     private readonly RotateTransform _syncRotate = new();
     private readonly FontIcon _syncIcon = new()
@@ -70,6 +68,15 @@ public sealed class TagEditorDialog
     private bool _closed;
     private bool _ratingTouched;
 
+    /// <summary>分级当前显示的等级（g/s/q/e）；空串表示没有可显示的统一分级。</summary>
+    private string _rating = "";
+    /// <summary>所选图片的分级不一致（有的有、有的没有，或各不相同）。</summary>
+    private bool _ratingMixed;
+    /// <summary>用户在对话框里点过四级；只有点过才在保存时写分级（避免多选串级）。</summary>
+    private bool _ratingChosen;
+
+    private static readonly string[] RatingLevels = ["g", "s", "q", "e"];
+
     private TagEditorDialog(IReadOnlyList<PhotoItem> items, Action<string, ToastKind, string?>? toast)
     {
         _items = items.ToList();
@@ -87,8 +94,8 @@ public sealed class TagEditorDialog
         _syncButton.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         _syncButton.VerticalAlignment = VerticalAlignment.Center;
         _syncButton.Click += (_, _) => _ = RerunRatingAsync();
-        ToolTipService.SetToolTip(_syncButton, "用分级模型重新判定（保存后写入）");
-        AutomationProperties.SetName(_syncButton, "重新判定分级");
+        ToolTipService.SetToolTip(_syncButton, "自动判断敏感程度（保存后写入）");
+        AutomationProperties.SetName(_syncButton, "自动判断敏感程度");
     }
 
     /// <summary>弹出编辑器；返回是否保存成功。</summary>
@@ -124,7 +131,7 @@ public sealed class TagEditorDialog
             Width = 460,
             Children =
             {
-                // 「✓ 添加 · ✕ 移除」提示行顶到最上，取代原来的「当前标签…」标题行
+                // 只在不入库时用来说一句；平时隐藏，不占提示行
                 _hint,
                 _rowsHost,
                 _modelHint,
@@ -161,6 +168,8 @@ public sealed class TagEditorDialog
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             MaxHeight = root.Size.Height > 0 ? Math.Clamp(root.Size.Height - 300, 320, 560) : 520,
+            // 浮层滚动条会盖住标签行与输入框的右缘，正文右侧留 16（UI_CONVENTIONS.md R1）。
+            Padding = new Thickness(0, 0, 16, 0),
             Content = body,
         };
     }
@@ -169,42 +178,103 @@ public sealed class TagEditorDialog
     {
         _entries.Clear();
         _pendingRatings.Clear();
+        _rating = "";
+        _ratingMixed = false;
+        _ratingChosen = false;
+        _ratingTouched = false;
         _modelHint.Text = "";
+        _hint.Visibility = Visibility.Collapsed;
         var ids = _items.Where(i => i.ImageId > 0).Select(i => i.ImageId).ToList();
         if (ids.Count == 0)
         {
             _hint.Text = "这些图片还没有入库，无法写标签。";
+            _hint.Visibility = Visibility.Visible;
             return;
         }
 
-        var details = AppService.Store is null
-            ? []
-            : AppService.Store.TagDetailsForImages(ids);
-        // 多选时取并集：任一张已有该标签就显示为已选（保存按同一份集合应用到每张）；
-        // 分级例外——只有你在对话框里主动选过的分级才会写库（见 Save 的 Chosen 过滤）。
+        var store = AppService.Store;
+        var details = store is null ? [] : store.TagDetailsForImages(ids);
+        // 多选时取并集：任一张已有该标签就显示（保存按同一份集合应用到每张）。
         // 只收可手工编辑的六类：分辨率由图片自动识别，带进来会在多选保存时串到别的图上。
+        // 分级不进 _entries：它由四级自动算出（同归档页），只走 _rating。
         foreach (var list in details.Values)
             foreach (var tag in list)
-                if (EditableCategories.Contains(tag.Category))
+                if (EditableCategories.Contains(tag.Category) && tag.Category != "rating")
                     _entries.TryAdd(tag.Name, new Entry { Category = tag.Category, Name = tag.Name });
 
+        LoadRating(store, ids);
         RebuildChips();
-        _hint.Text = _items.Count == 1
-            ? "✓ 添加 · ✕ 移除 · 未标记的不变"
-            : $"✓ 添加 · ✕ 移除 · 未标记的不变（应用到 {_items.Count} 张）";
     }
 
-    /// <summary>把当前三态标签按类重填到各自那一行；输入框与行结构保持不动。</summary>
+    /// <summary>分级用 images.nsfw 的四级：全部一致才显示那一个，否则算「不一致」。</summary>
+    private void LoadRating(StoreService? store, List<int> ids)
+    {
+        var levels = store is null ? new Dictionary<int, string>() : store.NsfwRatings(ids);
+        var seen = ids
+            .Select(id => ArchiveService.NormalizeRating(levels.GetValueOrDefault(id)))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var rated = seen.Where(v => v.Length > 0).ToList();
+        _rating = rated.Count == 1 && seen.Count == 1 ? rated[0] : "";
+        _ratingMixed = rated.Count > 0 && _rating.Length == 0;
+    }
+
+    /// <summary>把当前标签按类重填到各自那一行；输入框与行结构保持不动。</summary>
     private void RebuildChips()
     {
         foreach (var (category, chips) in _rowChips)
         {
             chips.Children.Clear();
+            if (category == "rating")
+            {
+                BuildRatingChips(chips);
+                continue;
+            }
             foreach (var entry in _entries.Values
-                         .Where(e => e.Category == category)
+                         .Where(e => e.Category == category && e.State == TagState.Include)
                          .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase))
                 chips.Children.Add(BuildChip(entry));
         }
+    }
+
+    /// <summary>
+    /// 分级行照归档页：左边那个标签由四级算出来（g/s→SFW，q/e→NSFW），不能直接编辑；
+    /// 右边四个级别互斥，点哪个就把分级改成哪个。
+    /// </summary>
+    private void BuildRatingChips(Panel chips)
+    {
+        var label = _rating is "g" or "s" ? "SFW"
+            : _rating is "q" or "e" ? "NSFW"
+            : _ratingMixed ? "分级不一致" : "未分级";
+        chips.Children.Add(new TagChip("rating", label) { IsHitTestVisible = false });
+
+        foreach (var level in RatingLevels)
+        {
+            var button = new ToggleButton
+            {
+                Content = RatingText.Level(level),
+                IsChecked = _rating == level,
+                Padding = new Thickness(9, 4, 9, 4),
+                MinWidth = 0,
+                MinHeight = 28,
+                FontSize = 12,
+            };
+            ToolTipService.SetToolTip(button, RatingText.Tooltip(level));
+            button.Click += (_, _) => ChooseRating(level);
+            chips.Children.Add(button);
+        }
+    }
+
+    private void ChooseRating(string level)
+    {
+        // 点的就是当前那一级：不重写判定，免得把模型/来源的依据覆盖成「手动」；
+        // 重建一次是为了把 ToggleButton 被点掉的勾恢复回来
+        if (!_ratingMixed && level == _rating) { RebuildChips(); return; }
+        _rating = level;
+        _ratingMixed = false;
+        _ratingChosen = true;
+        TouchedIfRating("rating");
+        RebuildChips();
     }
 
     /// <summary>可手工编辑的六类：顺序照词库 Taxonomy，分辨率由图片自动识别、不在这里编辑。</summary>
@@ -257,7 +327,7 @@ public sealed class TagEditorDialog
         var chips = new TagWrapPanel();
         content.Children.Add(chips);
         _rowChips[category] = chips;
-        // 分级只能由芯片（SFW/NSFW）与模型重跑决定，不给手打入口
+        // 分级只能由四级（g/s/q/e）与模型重跑决定，不给手打入口
         if (category != "rating") content.Children.Add(BuildInput(category, title));
         return grid;
     }
@@ -327,64 +397,12 @@ public sealed class TagEditorDialog
         public override string ToString() => Display.Length > 0 ? Display : Name;
     }
 
-    /// <summary>三态芯片：✓=添加（正常色）、✕=移除（删除线+红边）、点击循环回未选则整体移除。</summary>
-    private UIElement BuildChip(Entry entry)
+    /// <summary>标签贴纸：左边一个叉号，点它即取消这个标签（保存时删除）；悬停时光标处的叉号亮起。</summary>
+    private UIElement BuildChip(Entry entry) => new TagChip(entry.Category, entry.Name, () =>
     {
-        bool excluded = entry.State == TagState.Exclude;
-        var text = new TextBlock
-        {
-            Text = entry.Name,
-            FontSize = 13,
-            VerticalAlignment = VerticalAlignment.Center,
-            Opacity = excluded ? 0.55 : 1,
-        };
-        var icon = new FontIcon
-        {
-            Glyph = excluded ? "\uE711" : "\uE73E",
-            FontSize = 10,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var chip = new Border
-        {
-            Background = (Brush)Application.Current.Resources["ControlFillColorSecondaryBrush"],
-            BorderBrush = excluded
-                ? new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0x99, 0xFF, 0x99, 0xA4))
-                : (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"],
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 2, 8, 2),
-            Child = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                Children = { icon, text },
-            },
-        };
-
-        var button = new Button
-        {
-            Content = chip,
-            Padding = new Thickness(0),
-            BorderThickness = new Thickness(0),
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-        };
-        button.Click += (_, _) =>
-        {
-            // 添加 → 移除 → 取消改动
-            TouchedIfRating(entry.Category);
-            if (entry.State == TagState.Include)
-            {
-                entry.State = TagState.Exclude;
-                entry.Chosen = true;
-            }
-            else
-            {
-                _entries.Remove(entry.Name);
-            }
-            RebuildChips();
-        };
-        return button;
-    }
+        entry.State = TagState.Exclude;
+        RebuildChips();
+    });
 
     /// <summary>手动动过分级 → 模型挂起的结果作废（手动优先，保存只按手动选写标签）。</summary>
     private void TouchedIfRating(string category)
@@ -394,28 +412,20 @@ public sealed class TagEditorDialog
         _pendingRatings.Clear();
     }
 
-    /// <summary>写入/更新一个标签的三态；分级互斥在这里处理。</summary>
+    /// <summary>写入一个标签的去留；分级不走这里（由四级单独处理）。</summary>
     private void SetState(string category, string name, TagState state)
     {
         var clean = (name ?? "").Trim();
         if (clean.Length == 0) return;
         var cat = category.Length == 0 ? "custom" : category;
 
-        if (state == TagState.Include && cat == "rating")
-        {
-            // 分级互斥：同分类其他标签标成「移除」
-            foreach (var other in _entries.Values.Where(e => e.Category == "rating"))
-                other.State = TagState.Exclude;
-        }
-
         if (_entries.TryGetValue(clean, out var existing))
         {
             existing.State = state;
-            existing.Chosen = true;
         }
         else
         {
-            _entries[clean] = new Entry { Category = cat, Name = clean, State = state, Chosen = true };
+            _entries[clean] = new Entry { Category = cat, Name = clean, State = state };
         }
         RebuildChips();
     }
@@ -435,7 +445,7 @@ public sealed class TagEditorDialog
         var dir = AppService.Settings.Settings.nsfw_model_dir;
         if (!NsfwScorer.LooksConfigured(dir))
         {
-            const string message = "未接入分级模型，请先在设置里选择模型文件夹";
+            const string message = "还没有选择识别模型";
             _modelHint.Text = message;
             Toast(message);
             return;
@@ -444,7 +454,7 @@ public sealed class TagEditorDialog
         var scorer = NsfwScorer.TryCreate(dir, out var error);
         if (scorer is null)
         {
-            const string message = "分级模型加载失败";
+            const string message = "无法加载识别模型";
             _modelHint.Text = message;
             Toast(message, ToastKind.Info, error);
             return;
@@ -540,15 +550,16 @@ public sealed class TagEditorDialog
     {
         if (_ratingTouched)
         {
-            _modelHint.Text = "模型结果未采用（已手动改过分级）";
-            Toast("模型结果未采用：跑的过程中手动改过分级");
+            _modelHint.Text = "未采用自动判断（你手动改过分级）";
+            Toast("未采用自动判断");
             return;
         }
 
         if (scored.Count == 0)
         {
-            _modelHint.Text = firstError is null ? "分级没跑出来" : $"分级没跑出来：{firstError}";
-            Toast($"分级没跑出来（{failed} 张失败）", ToastKind.Info, firstError);
+            _modelHint.Text = "自动判断失败";
+            ToolTipService.SetToolTip(_modelHint, firstError);
+            Toast($"自动判断失败（{failed} 张）", ToastKind.Info, firstError);
             return;
         }
 
@@ -562,37 +573,41 @@ public sealed class TagEditorDialog
 
         var nsfw = scored.Count(s => s.Probs.Rating is "q" or "e");
         var sfw = scored.Count - nsfw;
-        if (nsfw == 0 || sfw == 0)
+        var distinct = scored
+            .Select(s => ArchiveService.NormalizeRating(s.Probs.Rating))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinct.Count == 1 && distinct[0].Length > 0)
         {
-            // 整批同一个分级：照手动点芯片的语义显示（新的 ✓、旧的自动 ✕）
-            var tagName = nsfw > 0 ? "NSFW" : "SFW";
-            SetState("rating", tagName, TagState.Include);
+            // 整批同一个等级：左边的分级标签跟着四级一起更新
+            _rating = distinct[0];
+            _ratingMixed = false;
+            _ratingChosen = false;   // 模型结果优先，不再写之前手动点的等级
+            RebuildChips();
+            var tagName = _rating is "q" or "e" ? "NSFW" : "SFW";
             var levels = string.Join("、", scored
                 .GroupBy(s => s.Probs.Rating)
                 .OrderBy(g => g.Key, StringComparer.Ordinal)
                 .Select(g => scored.Count == 1 ? LevelLabel(g.Key) : $"{LevelLabel(g.Key)} ×{g.Count()}"));
             _modelHint.Text = scored.Count == 1
-                ? $"分级模型：{tagName}（{levels}）"
-                : $"分级模型：{tagName}（{levels}）· {scored.Count} 张";
+                ? $"自动判断：{tagName}（{levels}）"
+                : $"自动判断：{tagName}（{levels}）· {scored.Count} 张";
         }
         else
         {
-            // 结果不一致：芯片表达不了「每张各写各的」，只在提示行写分布
-            _modelHint.Text = $"分级模型：SFW {sfw} 张 / NSFW {nsfw} 张（各张按自己的结果写入）";
+            // 结果不一致：四级表达不了「每张各写各的」，只在提示行写分布
+            _rating = "";
+            _ratingMixed = true;
+            _ratingChosen = false;
+            RebuildChips();
+            _modelHint.Text = $"自动判断：SFW {sfw} 张 / NSFW {nsfw} 张";
         }
 
-        var summary = $"分级已重跑：SFW {sfw} 张 / NSFW {nsfw} 张，保存后写入";
+        var summary = $"已重新判断：SFW {sfw} 张 / NSFW {nsfw} 张，保存后写入";
         Toast(failed == 0 ? summary : $"{summary}；{failed} 张失败", ToastKind.Info, failed == 0 ? null : firstError);
     }
 
-    private static string LevelLabel(string rating) => rating switch
-    {
-        "g" => "g 普通",
-        "s" => "s 性感",
-        "q" => "q 暗示",
-        "e" => "e 露骨",
-        _ => rating,
-    };
+    private static string LevelLabel(string rating) => RatingText.Level(rating);
 
     private void StartSpin()
     {
@@ -637,9 +652,6 @@ public sealed class TagEditorDialog
 
         var include = _entries.Values
             .Where(e => e.State == TagState.Include)
-            // 分级互斥：加载时多选取的并集（用户没主动选过）不参与写入，
-            // 否则会把 SFW 与 NSFW 同时写进每张图，或给本没有分级的图补上别人的分级
-            .Where(e => e.Category != "rating" || e.Chosen)
             .ToList();
         var exclude = _entries.Values.Where(e => e.State == TagState.Exclude).ToList();
         var includePairs = include.Select(e => (e.Category, e.Name)).ToList();
@@ -670,15 +682,11 @@ public sealed class TagEditorDialog
                         pending.Detail, tagIt: true);
                 }
 
-                // 用户删掉分级芯片后，图和判定要一起清：图上一个 rating 标签都没有的，
-                // 判定就不该留着（否则「没标签却有判定」自相矛盾）；只在本次动过分级时做。
-                if (_ratingTouched)
+                // 用户点过四级：写判定并顺手同步 SFW/NSFW 标签（与归档页一致，贴纸由等级算出来）
+                if (_ratingChosen && _rating.Length > 0)
                 {
                     foreach (var id in ids)
-                    {
-                        if (!store.CategorizedTags(id).Any(t => t.Category == "rating"))
-                            store.ClearNsfwScore(id);
-                    }
+                        store.SetNsfwScore(id, "manual", _rating, tagIt: true);
                 }
 
                 if (profiles.Count > 0)

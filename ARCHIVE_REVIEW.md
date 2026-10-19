@@ -69,4 +69,14 @@
 
 本条只说明源码变更；编译与实际数据恢复结果在本轮交付中另行记录。
 
+## 2026-10-19 · 缺作品兜底目录改名
+
+`original` 原被当作「没有作品标签」的兜底目录，与真正的原创作品标签 `original` 语义冲突（两者都会生成 `original/`，事后无法区分）。现约定：`original` 只代表原创作品标签，缺作品标签改落 `no_source/`。改动位置：`FolderMap` 的兜底常量与注释、`OrganizeService` 报表、设置页「按标签自动分目录」说明、评审页 `ArchiveTargetFor` 注释、`--verify-organize` 的兜底断言与期望路径。
+
+本轮验证：独立输出目录编译 0 错误 0 警告；`--verify-organize` 沙箱 PASS 17 / FAIL 0，含 `cartoon/no_source/_无画师`。盘上已有的 `original/` 目录未做迁移，需要时跑 `--organize --apply` 按标签重排（带作品标签 `original` 的图会留在原地）。
+
+实际执行：对 `D:\Photos` 跑了一次 `--organize --apply`，275 张从 `cartoon/original/<画师>/` 移到 `cartoon/no_source/<画师>/`，54 张 `work=original` 留在原位；对账位置不符 0、新位置缺文件 0，复跑预演要搬 0。库与设置备份在 `%LOCALAPPDATA%\Gallery\backups\roots-20261019-124557-93485343`，搬迁清单在 `%TEMP%\ptv\organize_moves.txt`。
+
+配套约定：关掉「按标签自动分目录」时用的固定目录改为 `cartoon/no_source`（`settings.archive_sub` 从 `cartoon\original` 改过来），语义与「没按标签归档」一致，不再占用真原创作品的 `original/`。`archive_sub` 是评审页记忆值，不在代码默认值里（代码默认仍为空 → 首个启用根目录）。
+
 本轮验证补充：独立输出编译0错误0警告；一致性SQLite备份及旧程序备份保存在本聊天gallery-source-fix相关产物中。通过托盘正常退出，安装本轮二进制后重启；启动日志确认restored origins=5，实际数据库回读这5条page_url/source_url均与成功归档payload一致，可恢复而仍为空的来源页数量0。新浏览器下载到详情显示的完整交互尚未操作确认；未编写或运行测试。正常退出首次因Windows PowerShell 5.1未按UTF-8读取中文菜单名而未匹配到，改用UTF-8 BOM后完成，未强制结束进程。

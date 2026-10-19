@@ -17,13 +17,29 @@ def main_window(pid):
     u.EnumWindows(cb,0)
     return best[1]
 
+def force_foreground(hwnd):
+    """拿到前台：SetForegroundWindow 会被系统拒绝，先用 AttachThreadInput 把输入队列接到目标线程再设。"""
+    u.ShowWindow(hwnd, 9)
+    for _ in range(8):
+        u.SetForegroundWindow(hwnd); time.sleep(0.15)
+        if u.GetForegroundWindow()==hwnd: return True
+        fg=u.GetForegroundWindow()
+        if fg:
+            t1=u.GetWindowThreadProcessId(fg,0); t2=u.GetWindowThreadProcessId(hwnd,0)
+            if t1 and t2:
+                u.AttachThreadInput(t1,t2,True)
+                u.SetForegroundWindow(hwnd)
+                u.AttachThreadInput(t1,t2,False)
+                time.sleep(0.15)
+                if u.GetForegroundWindow()==hwnd: return True
+        u.SwitchToThisWindow(hwnd, True); time.sleep(0.2)
+    return u.GetForegroundWindow()==hwnd
+
 pid=int(sys.argv[1]); mode=sys.argv[2]
 hwnd=main_window(pid)
-u.ShowWindow(hwnd, 9)
-u.SetForegroundWindow(hwnd)
-time.sleep(0.4)
-if u.GetForegroundWindow()!=hwnd:
+if not force_foreground(hwnd):
     print('NOT_FOREGROUND'); sys.exit(2)
+time.sleep(0.4)
 r=wintypes.RECT(); u.GetWindowRect(hwnd,ctypes.byref(r))
 pt=wintypes.POINT(); u.GetCursorPos(ctypes.byref(pt))
 old=(pt.x,pt.y)
@@ -54,6 +70,17 @@ elif mode=='dblclick':
     u.SetCursorPos(r.left+x, r.top+y); time.sleep(0.15)
     for _ in range(2):
         u.mouse_event(0x0002,0,0,0,0); time.sleep(0.03); u.mouse_event(0x0004,0,0,0,0); time.sleep(0.08)
+elif mode=='drag':
+    # drag sx sy ex ey [steps]：按住左键从 (sx,sy) 拖到 (ex,ey)，坐标相对窗口左上角
+    sx=int(sys.argv[3]); sy=int(sys.argv[4]); ex=int(sys.argv[5]); ey=int(sys.argv[6])
+    steps=int(sys.argv[7]) if len(sys.argv)>7 else 24
+    u.SetCursorPos(r.left+sx, r.top+sy); time.sleep(0.25)
+    u.mouse_event(0x0002,0,0,0,0); time.sleep(0.2)
+    for i in range(1, steps+1):
+        u.SetCursorPos(r.left+sx+(ex-sx)*i//steps, r.top+sy+(ey-sy)*i//steps)
+        time.sleep(0.02)
+    time.sleep(0.3)
+    u.mouse_event(0x0004,0,0,0,0); time.sleep(0.2)
 time.sleep(0.5)
 u.SetCursorPos(old[0], old[1])
 print('OK')

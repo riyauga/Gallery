@@ -62,7 +62,7 @@ public static class OrganizeService
         var byWork = items.GroupBy(i => i.Target.Split('/').ElementAtOrDefault(1) ?? "")
             .OrderByDescending(g => g.Count()).ToList();
         report.AppendLine($"目标目录 {targets.Count} 个（还不存在的 {missingDirs.Count} 个）· 作品层 {byWork.Count} 个");
-        report.AppendLine($"落到 {FolderMap.OriginalWork}/ 的 {items.Count(i => i.Target.Contains($"/{FolderMap.OriginalWork}/"))} 张 · " +
+        report.AppendLine($"落到 {FolderMap.NoSource}/ 的 {items.Count(i => i.Target.Contains($"/{FolderMap.NoSource}/"))} 张 · " +
                           $"落到 {FolderMap.NoArtist} 的 {items.Count(i => i.Target.EndsWith("/" + FolderMap.NoArtist, StringComparison.Ordinal))} 张");
         report.AppendLine();
 

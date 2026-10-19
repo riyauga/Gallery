@@ -122,8 +122,8 @@ public sealed class NsfwService
         !result.Ok
             ? result.Error
             : result.Total == 0
-                ? "没有需要重新判定的图片"
-                : $"扫了 {result.Total} 张 · 成功 {result.Scored} · 敏感 {result.Nsfw} · 失败 {result.Failed}";
+                ? "没有需要重新识别的图片"
+                : $"识别了 {result.Total} 张 · 成功 {result.Scored} · 敏感 {result.Nsfw} · 失败 {result.Failed}";
 
     /// <summary>预览行：只算不写库，用来对比新旧分级。</summary>
     public sealed record NsfwPreviewRow(

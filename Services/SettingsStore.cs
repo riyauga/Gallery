@@ -8,6 +8,12 @@ namespace Gallery.Services;
 /// 键集与 galleryold <c>app/config.py:Settings</c> 一致（galleryold 可直接读回）。
 /// 新增约定：关窗行为沿用键 <c>minimize_to_tray</c>（true=收托盘，默认）。
 /// </summary>
+/// <remarks>
+/// galleryold 兼容键（当前版本不读写，保留只为旧配置原样回读）：
+/// auto_archive、notify_exceptions、auto_open_review、review_poll_seconds、
+/// inbox_root、inbox_folder、readonly_index、setup_completed、button_height、
+/// settings_section、nsfw_model_signature。
+/// </remarks>
 public sealed class AppSettings
 {
     public List<string> created_folders { get; set; } = [];
@@ -42,7 +48,7 @@ public sealed class AppSettings
     public int review_poll_seconds { get; set; } = 5;
     public bool blur_nsfw { get; set; } = true;
     public string nsfw_model_dir { get; set; } = "";
-    public bool auto_nsfw_tag { get; set; }
+    public bool auto_nsfw_tag { get; set; } = true;
     public string nsfw_model_signature { get; set; } = "";
     public string nsfw_display { get; set; } = "normal";
     public int nsfw_blur_strength { get; set; } = 100;
@@ -54,6 +60,7 @@ public sealed class AppSettings
     public bool auto_archive { get; set; } = true;
     public bool start_at_login { get; set; } = true;
     public bool notify_exceptions { get; set; } = true;
+    public bool notify_new_images { get; set; } = true;
     public bool setup_completed { get; set; }
 
     /// <summary>上次归档用的根目录与子目录（映射记忆，下次默认带上）。</summary>
@@ -165,9 +172,9 @@ public sealed class SettingsStore
 
 public static class SortKeys
 {
-    // galleryold 的 8 个排序键（config.py + main_window.py 排序弹窗）
+    // 星级暂时没有打星入口，先不提供这个排序键；旧配置里的 rating 会回落到 name。
     public static readonly string[] All =
-        ["name", "modified", "taken", "created", "added", "size", "rating", "random"];
+        ["name", "modified", "taken", "created", "added", "size", "random"];
 
     public static bool IsValid(string key) => Array.IndexOf(All, key) >= 0;
 }
