@@ -46,6 +46,8 @@ public sealed class ReviewPage : Grid
     private string _state = "pending";
     private int _index, _selectionGeneration;
     private bool _busy, _active = true;
+    private bool _destinationEdited;   // 用户手改过当前这张的归档目录
+    private bool _settingDestination;  // 程序正在往 _destination 里填内容
     public event Action? Changed;
 
     public ReviewPage(Window owner)
@@ -76,6 +78,11 @@ public sealed class ReviewPage : Grid
             if (_selected is { } row && string.Equals(IngestReview.LocalPath(row), item.FullPath, StringComparison.OrdinalIgnoreCase))
                 _spec.Text = text;
         };
+        _destination.TextChanged += (_, _) =>
+        {
+            if (!_settingDestination) _destinationEdited = true;
+        };
+        AppService.Settings.Changed += RefreshDestination;
         _previous.Click += (_, _) => Select(_index - 1);
         _next.Click += (_, _) => Select(_index + 1);
         _archive.Click += async (_, _) => await ArchiveAsync(false);
@@ -225,9 +232,11 @@ public sealed class ReviewPage : Grid
         if (string.IsNullOrWhiteSpace(_destination.Text))
         {
             var settings = AppService.Settings.Settings;
+            _settingDestination = true;
             _destination.Text = settings.archive_root.Length > 0
                 ? Path.Combine(settings.archive_root, settings.archive_sub)
                 : store.Roots().FirstOrDefault(r => r.Enabled)?.Path ?? "";
+            _settingDestination = false;
         }
         var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
         Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1));
@@ -244,6 +253,7 @@ public sealed class ReviewPage : Grid
         _position.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
         _tagGroups.Children.Clear();
         _ratingBadge = null;
+        _destinationEdited = false;
         if (_selected is not { } row)
         {
             _title.Text = _state switch
@@ -274,6 +284,7 @@ public sealed class ReviewPage : Grid
         for (var i = 0; i < IngestReview.Categories.Length; i++)
             BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
         UpdateButtons();
+        RefreshDestination();
     }
 
     /// <summary>通知点击后按队列记录定位，避免依赖列表排序或当前选中项。</summary>
@@ -445,6 +456,7 @@ public sealed class ReviewPage : Grid
             _selected = row with { Payload = payload, Rating = rating };
             _rows[_index] = _selected;
             _status.Text = "标签已保存";
+            RefreshDestination();
             if (refreshProtection)
             {
                 _carousel.RefreshPreview();
@@ -455,6 +467,45 @@ public sealed class ReviewPage : Grid
         {
             _status.Text = "标签保存失败：" + ex.Message;
         }
+    }
+
+    /// <summary>开启「按标签自动分目录」时，当前这张的目录随标签走；用户手改过就不覆盖。</summary>
+    private void RefreshDestination()
+    {
+        if (_selected is null || _destinationEdited) return;
+        if (!AppService.Settings.Settings.archive_auto_by_tags) return;
+        var target = ArchiveTargetFor(_tags);
+        if (target.Length == 0) return;
+        _settingDestination = true;
+        _destination.Text = target;
+        _settingDestination = false;
+    }
+
+    /// <summary>按标签算归档目录（绝对路径）：作品/画师两级，缺作品进 original、缺画师进 _无画师。</summary>
+    private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
+    {
+        if (AppService.Store is not { } store) return "";
+        var root = ArchiveRoot(store);
+        if (root is null) return "";
+        var map = FolderMap.Load(AppPaths.FolderMapPath);
+        var works = tags.TryGetValue("work", out var w) ? w : new List<string>();
+        var artists = tags.TryGetValue("artist", out var a) ? a : new List<string>();
+        var relative = map.TargetDirRel(works, artists);
+        return Path.Combine(root.Path, relative.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    /// <summary>归档用哪个根目录：优先上次用过的（还在图库里），否则第一个启用的根。</summary>
+    private static RootInfo? ArchiveRoot(StoreService store)
+    {
+        var enabled = store.Roots().Where(r => r.Enabled).ToList();
+        var remembered = AppService.Settings.Settings.archive_root;
+        if (remembered.Length > 0)
+        {
+            var hit = enabled.FirstOrDefault(r =>
+                string.Equals(FileIdentity.PathKey(r.Path), FileIdentity.PathKey(remembered), StringComparison.Ordinal));
+            if (hit is not null) return hit;
+        }
+        return enabled.FirstOrDefault();
     }
 
     private async Task PickFolderAsync()
@@ -483,9 +534,12 @@ public sealed class ReviewPage : Grid
     {
         if (_busy || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
         var destination = _destination.Text.Trim();
+        var auto = AppService.Settings.Settings.archive_auto_by_tags;
+        // 开着自动分目录、且这张没被手改过时，每张图用自己算出来的目录，不再校验框里那一个
+        var fixedDestination = !auto || _destinationEdited;
         try
         {
-            if (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0)
+            if (fixedDestination && (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0))
             {
                 _status.Text = "请选择已登记图库内的归档目录。";
                 return;
@@ -496,6 +550,15 @@ public sealed class ReviewPage : Grid
             _status.Text = "归档目录无效：" + ex.Message;
             return;
         }
+
+        string DestOf(int id)
+        {
+            if (!auto) return destination;
+            if (_selected is { } current && current.Id == id && _destinationEdited) return destination;
+            var record = store.IngestRow(id);
+            return record is null ? "" : ArchiveTargetFor(IngestReview.Tags(record.Payload, record.Rating));
+        }
+
         var ids = all ? store.IngestRows("pending", int.MaxValue).Select(r => r.Id).ToArray()
             : _selected is { State: "pending" } row ? [row.Id] : Array.Empty<int>();
         if (ids.Length == 0) return;
@@ -508,10 +571,12 @@ public sealed class ReviewPage : Grid
             foreach (var id in ids)
             {
                 _status.Text = $"正在归档 {succeeded + failures.Count + 1} / {ids.Length}…";
-                var result = await Task.Run(() => archiver.Archive(id, destination));
+                var target = DestOf(id);
+                if (target.Length == 0) { failures.Add($"#{id}：没有可用的归档目录"); continue; }
+                var result = await Task.Run(() => archiver.Archive(id, target));
                 if (result.Ok) succeeded++; else failures.Add($"#{id}：{result.Message}");
             }
-            if (succeeded > 0)
+            if (succeeded > 0 && !auto)
             {
                 var (rootId, relative) = archiver.ResolveRoot(destination);
                 AppService.Settings.Settings.archive_root = store.Roots().First(r => r.Id == rootId).Path;

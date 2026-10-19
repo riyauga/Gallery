@@ -490,6 +490,55 @@ public partial class App : Application
             return;
         }
 
+        // --merge-tags <plan.json> [--apply]：合并重复标签（作品/画师），默认只预演
+        var mergeTags = Array.IndexOf(cli, "--merge-tags");
+        if (mergeTags >= 0 && mergeTags + 1 < cli.Length)
+        {
+            RunMergeTags(cli[mergeTags + 1], cli.Contains("--apply"));
+            Exit();
+            return;
+        }
+
+        // --verify-merge-tags：沙箱验收（造标签 → 合并 → 断言），写报告后退出
+        if (cli.Contains("--verify-merge-tags"))
+        {
+            RunVerifyMergeTags();
+            Exit();
+            return;
+        }
+
+        // --dedupe-rows [--apply]：合并「同一路径多行」的重复记录，默认只预演
+        if (cli.Contains("--dedupe-rows"))
+        {
+            RunDedupeRows(cli.Contains("--apply"));
+            Exit();
+            return;
+        }
+
+        // --verify-dedupe-rows：沙箱验收（造重复行 → 合并 → 断言），写报告后退出
+        if (cli.Contains("--verify-dedupe-rows"))
+        {
+            RunVerifyDedupeRows();
+            Exit();
+            return;
+        }
+
+        // --organize [--apply]：按标签把受管目录整理成 作品/画师 两级，默认只预演
+        if (cli.Contains("--organize"))
+        {
+            RunOrganize(cli.Contains("--apply"));
+            Exit();
+            return;
+        }
+
+        // --verify-organize：沙箱验收（造目录与标签 → 整理 → 断言），写报告后退出
+        if (cli.Contains("--verify-organize"))
+        {
+            RunVerifyOrganize();
+            Exit();
+            return;
+        }
+
         // --addroot <path>：非交互添加根目录 + 扫描（自动化测试用）
         var idx = Array.IndexOf(cli, "--addroot");
         if (idx >= 0 && idx + 1 < cli.Length)
@@ -847,6 +896,172 @@ public partial class App : Application
         WriteVerifyReport("verify_relocate.txt", report);
     }
 
+    /// <summary>
+    /// 合并重复标签（--merge-tags plan.json [--apply]）。默认只预演；执行前自动备份库。
+    /// 报告写到 %TEMP%\ptv\merge_tags.txt。
+    /// </summary>
+    private static void RunMergeTags(string planPath, bool apply)
+    {
+        var report = new StringBuilder();
+        var scope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(scope))
+        {
+            report.AppendLine("有另一个 Gallery 实例正在运行，请先退出再合并（重试一次即可）。");
+        }
+        else
+        {
+            try
+            {
+                var store = new StoreService(AppPaths.DbPath);
+                report.AppendLine(TagMergeService.Run(store, planPath, apply));
+                store.Dispose();
+            }
+            catch (Exception ex)
+            {
+                report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+                report.AppendLine(ex.StackTrace ?? "");
+            }
+        }
+        WriteVerifyReport("merge_tags.txt", report);
+    }
+
+    /// <summary>
+    /// 沙箱验收：造 3 张图与重复标签 → 合并 → 断言
+    /// （图片转移、重复关联去重、别名与中文名、loser 删除、sidecar 重写、EnsureTag 别名重定向、重复执行中止）。
+    /// </summary>
+    private static void RunVerifyMergeTags()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "mergetags");
+        var lib = Path.Combine(sandbox, "lib");
+        var pass = 0;
+        var fail = 0;
+        void Check(string name, bool ok, string detail = "")
+        {
+            if (ok) pass++;
+            else fail++;
+            report.AppendLine($"{(ok ? "PASS" : "FAIL")}  {name}{(detail.Length > 0 ? "  (" + detail + ")" : "")}");
+        }
+
+        try
+        {
+            if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true);
+            AppPaths.ApplySandbox(sandbox);
+            AppPaths.EnsureDirs();
+            Directory.CreateDirectory(Path.Combine(lib, "cartoon"));
+
+            var pixel = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+            foreach (var name in new[] { "a.png", "b.png", "c.png" })
+                File.WriteAllBytes(Path.Combine(lib, "cartoon", name), pixel);
+
+            var settings = new SettingsStore();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var folders = new FolderService(store, settings);
+            var (root, scan) = folders.AddRootAndScan(lib);
+            report.AppendLine($"sandbox = {sandbox}");
+            report.AppendLine($"图库    = [{root.Id}] {root.Path}  scan={scan.Summary()}");
+
+            var rows = store.QueryAll("SELECT * FROM images WHERE root_id=$r ORDER BY name", ("$r", root.Id));
+            var a = rows[0].Id;
+            var b = rows[1].Id;
+            var c = rows[2].Id;
+
+            var winnerArtist = store.EnsureTag("ui_uiiiiiiiii", "artist");
+            store.SetCategorizedTags([a], [("work", "honkai"), ("work", "honkai:_star_rail"), ("artist", "uiiiiiiiii")]);
+            store.SetCategorizedTags([b], [("work", "honkai")]);
+            store.SetCategorizedTags([c], [("work", "崩坏星穹铁道")]);
+            store.WriteSidecar(root.Id, "cartoon");
+            var winnerWork = store.EnsureTag("honkai:_star_rail", "work");
+            var linksBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            var tagsBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM tags");
+
+            var planPath = Path.Combine(sandbox, "plan.json");
+            File.WriteAllText(planPath, """
+                [
+                  {"loser":["work","honkai"],"winner":["work","honkai:_star_rail"],"zh":"崩坏星穹铁道"},
+                  {"loser":["work","崩坏星穹铁道"],"winner":["work","honkai:_star_rail"]},
+                  {"loser":["artist","uiiiiiiiii"],"winner":["artist","ui_uiiiiiiiii"]}
+                ]
+                """);
+
+            var dry = TagMergeService.Run(store, planPath, apply: false);
+            var afterDry = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            Check("预演不写数据", afterDry == linksBefore, $"image_tags {linksBefore} → {afterDry}");
+
+            report.AppendLine("---- 执行 ----");
+            report.AppendLine(TagMergeService.Run(store, planPath, apply: true));
+            // 合并刚结束就取快照：后面的 EnsureTag 断言自己会新建标签，别把计数弄脏
+            var linksAfter = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            var tagsAfterMerge = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM tags");
+
+            // 1) 标签行
+            Check("loser 标签行已删除",
+                RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM tags WHERE category='work' AND name IN ('honkai','崩坏星穹铁道')") == 0
+                && RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM tags WHERE category='artist' AND name='uiiiiiiiii'") == 0);
+
+            // 2) 图片归属
+            string WorkOf(int id) => RawText(AppPaths.DbPath,
+                $"SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id WHERE it.image_id={id} AND t.category='work'");
+            string ArtistOf(int id) => RawText(AppPaths.DbPath,
+                $"SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id WHERE it.image_id={id} AND t.category='artist'");
+            Check("a：work 去重后只剩 winner", WorkOf(a) == "honkai:_star_rail", WorkOf(a));
+            Check("b：loser work 转到 winner", WorkOf(b) == "honkai:_star_rail", WorkOf(b));
+            Check("c：中文 loser 转到 winner", WorkOf(c) == "honkai:_star_rail", WorkOf(c));
+            Check("a：artist 转到 ui_uiiiiiiiii", ArtistOf(a) == "ui_uiiiiiiiii", ArtistOf(a));
+
+            // 3) 别名 / 中文名
+            var aliasHits = RawLong(AppPaths.DbPath,
+                $"SELECT COUNT(*) FROM tag_aliases WHERE tag_id={winnerWork} AND alias IN ('honkai','崩坏星穹铁道')");
+            Check("loser 旧名成为 winner 的别名", aliasHits == 2, $"命中 {aliasHits}");
+            Check("winner 中文名已写入", RawText(AppPaths.DbPath,
+                $"SELECT zh FROM tag_profiles WHERE tag_id={winnerWork}") == "崩坏星穹铁道");
+
+            // 4) 别名重定向（新下载/重导 sidecar 时不再分裂）
+            Check("EnsureTag('honkai','work') 重定向到 winner", store.EnsureTag("honkai", "work") == winnerWork);
+            Check("EnsureTag 不跨分类重定向", store.EnsureTag("honkai", "custom") != winnerWork);
+
+            // 5) sidecar 跟着重写
+            var sidecar = Path.Combine(lib, "cartoon", StoreService.SidecarName);
+            var workTags = new List<string>();
+            if (File.Exists(sidecar))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(sidecar));
+                var fileA = doc.RootElement.GetProperty("files").GetProperty("a.png");
+                if (fileA.TryGetProperty("classified_tags", out var arr))
+                    foreach (var t in arr.EnumerateArray())
+                        if (t.GetProperty("category").GetString() == "work")
+                            workTags.Add(t.GetProperty("name").GetString() ?? "");
+            }
+            Check("sidecar 里 a.png 的 work 只剩 winner",
+                workTags.Count == 1 && workTags[0] == "honkai:_star_rail",
+                string.Join(" | ", workTags));
+
+            // 6) 对账
+            Check("image_tags 只少了 1 行重复关联", linksAfter == linksBefore - 1, $"{linksBefore} → {linksAfter}");
+            Check("标签总数只少了 3 个 loser", tagsAfterMerge == tagsBefore - 3,
+                $"合并前 {tagsBefore} → 现在 {tagsAfterMerge}");
+
+            // 7) 重复执行：整体中止，不改数据
+            var again = TagMergeService.Run(store, planPath, apply: true);
+            Check("重复执行整体中止", again.Contains("未做任何改动"), "");
+            Check("重复执行不改数据",
+                RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags") == linksAfter);
+
+            store.Dispose();
+        }
+        catch (Exception ex)
+        {
+            fail++;
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        report.AppendLine($"结果: PASS {pass} / FAIL {fail}");
+        WriteVerifyReport("verify_merge_tags.txt", report);
+    }
+
     private static string Sql(string s) => s.Replace("'", "''");
 
     private static long RawLong(string dbPath, string sql)
@@ -907,5 +1122,328 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "verify_addroot.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// 合并重复行（--dedupe-rows [--apply]）。默认只预演；执行前自动备份库。
+    /// 报告写到 %TEMP%\ptv\dedupe_rows.txt。
+    /// </summary>
+    private static void RunDedupeRows(bool apply)
+    {
+        var report = new StringBuilder();
+        var scope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(scope))
+        {
+            report.AppendLine("有另一个 Gallery 实例正在运行，请先退出再合并（重试一次即可）。");
+        }
+        else
+        {
+            try
+            {
+                var store = new StoreService(AppPaths.DbPath);
+                report.AppendLine(RowDedupeService.Run(store, apply));
+                store.Dispose();
+            }
+            catch (Exception ex)
+            {
+                report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+                report.AppendLine(ex.StackTrace ?? "");
+            }
+        }
+        WriteVerifyReport("dedupe_rows.txt", report);
+    }
+
+    /// <summary>
+    /// 沙箱验收：造「同一份文件两行记录」（老行 missing=1 拿标签）→ 合并 → 断言
+    /// （活行保住自己的标签并继承对方的、收藏/nsfw/手动分类跟着走、多余行删除、
+    /// sidecar 与 sidecar_state 收尾、重复执行无组可处理）。
+    /// </summary>
+    private static void RunVerifyDedupeRows()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "deduperows");
+        var lib = Path.Combine(sandbox, "lib");
+        var pass = 0;
+        var fail = 0;
+        void Check(string name, bool ok, string detail = "")
+        {
+            if (ok) pass++;
+            else fail++;
+            report.AppendLine($"{(ok ? "PASS" : "FAIL")}  {name}{(detail.Length > 0 ? "  (" + detail + ")" : "")}");
+        }
+
+        try
+        {
+            if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true);
+            AppPaths.ApplySandbox(sandbox);
+            AppPaths.EnsureDirs();
+            Directory.CreateDirectory(Path.Combine(lib, "cartoon", "case"));
+            var pixel = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+            File.WriteAllBytes(Path.Combine(lib, "cartoon", "case", "a.png"), pixel);
+
+            var settings = new SettingsStore();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var folders = new FolderService(store, settings);
+            var (root, scan) = folders.AddRootAndScan(lib);
+            report.AppendLine($"sandbox = {sandbox}");
+            report.AppendLine($"图库    = [{root.Id}] {root.Path}  scan={scan.Summary()}");
+
+            var live = store.QueryAll("SELECT * FROM images WHERE root_id=$r", ("$r", root.Id)).Single();
+            report.AppendLine($"活行    = #{live.Id} {live.DirRel}/{live.Name}");
+            store.SetCategorizedTags([live.Id], [("resolution", "1x1")]);
+
+            // 老记录：目录大小写不同、missing=1，标签挂在它身上（真实数据就是这么来的）
+            var phantomSidecar = Path.Combine(lib, "cartoon", "Case", StoreService.SidecarName);
+            store.Exec("INSERT INTO images(root_id,rel_path,abs_path,dir_rel,name,ext,size,mtime,missing," +
+                       "added_at,updated_at,managed) VALUES(" +
+                       $"{root.Id},'cartoon/Case/{Sql(live.Name)}'," +
+                       $"'{Sql(Path.Combine(lib, "cartoon", "Case", live.Name))}','cartoon/Case'," +
+                       $"'{Sql(live.Name)}','.png',{live.Size}," +
+                       live.Mtime.ToString("F9", System.Globalization.CultureInfo.InvariantCulture) +
+                       ",1,1,1,1)");
+            var phantomId = (int)RawLong(AppPaths.DbPath, "SELECT id FROM images WHERE dir_rel='cartoon/Case'");
+            store.SetCategorizedTags([phantomId], [("work", "veri_work"), ("artist", "veri_artist")]);
+            store.Exec($"INSERT OR IGNORE INTO favorites(image_id,added_at) VALUES({phantomId},1)");
+            store.Exec("INSERT OR IGNORE INTO nsfw_scores(image_id,source,rating,value,nsfw_prob,confidence," +
+                       $"margin,model_name,model_hash,detail,checked_at) VALUES({phantomId},'danbooru','s','',0,0,0,'','','',1)");
+            store.Exec($"INSERT OR IGNORE INTO image_manual_categories(image_id,category) VALUES({phantomId},'resolution')");
+            store.Exec($"INSERT OR REPLACE INTO sidecar_state(path,mtime,hash) VALUES('{Sql(phantomSidecar)}',1,NULL)");
+            var imagesBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM images");
+            var linksBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            report.AppendLine($"造出老行 #{phantomId}（work=veri_work / artist=veri_artist + 收藏 + nsfw 分）");
+            report.AppendLine();
+
+            var dry = RowDedupeService.Run(store, apply: false);
+            Check("预演不写数据",
+                RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM images") == imagesBefore &&
+                RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags") == linksBefore);
+            Check("预演认出了重复组", dry.Contains("重复组 1 组") && dry.Contains("可继承的标签关联 2 行"),
+                dry.Contains("没有「同一路径多行」") ? "没认出重复组" : "");
+
+            report.AppendLine("---- 执行 ----");
+            report.AppendLine(RowDedupeService.Run(store, apply: true));
+            var imagesAfter = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM images");
+            var linksAfter = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+
+            Check("只剩一行记录", imagesAfter == imagesBefore - 1, $"{imagesBefore} → {imagesAfter}");
+            Check("missing 行没了", RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM images WHERE missing!=0") == 0);
+            Check("活行继承了两个标签、保住自己的",
+                RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM image_tags WHERE image_id={live.Id}") == 3 &&
+                RawText(AppPaths.DbPath, "SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id " +
+                    $"WHERE it.image_id={live.Id} AND t.category='work'") == "veri_work" &&
+                RawText(AppPaths.DbPath, "SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id " +
+                    $"WHERE it.image_id={live.Id} AND t.category='artist'") == "veri_artist" &&
+                RawText(AppPaths.DbPath, "SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id " +
+                    $"WHERE it.image_id={live.Id} AND t.category='resolution'") == "1x1");
+            Check("标签关联总数不变（只是换了归属）", linksAfter == linksBefore, $"{linksBefore} → {linksAfter}");
+            Check("收藏跟着活行",
+                RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM favorites WHERE image_id={live.Id}") == 1);
+            Check("nsfw 分跟着活行",
+                RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM nsfw_scores WHERE image_id={live.Id}") == 1);
+            Check("手动分类跟着活行",
+                RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM image_manual_categories WHERE image_id={live.Id}") == 1);
+            Check("老目录的 sidecar 状态键被清掉",
+                RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM sidecar_state WHERE path='{Sql(phantomSidecar)}'") == 0);
+            var sidecar = Path.Combine(lib, "cartoon", "case", StoreService.SidecarName);
+            var sidecarWork = "";
+            if (File.Exists(sidecar))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(sidecar));
+                if (doc.RootElement.GetProperty("files").TryGetProperty("a.png", out var entry) &&
+                    entry.TryGetProperty("classified_tags", out var tags))
+                    foreach (var tag in tags.EnumerateArray())
+                        if (tag.GetProperty("category").GetString() == "work")
+                            sidecarWork = tag.GetProperty("name").GetString() ?? "";
+            }
+            Check("sidecar 里写上了继承来的作品标签", sidecarWork == "veri_work", sidecarWork);
+            Check("重复执行时没有组可处理",
+                RowDedupeService.Run(store, apply: false).Contains("没有「同一路径多行」"));
+            store.Dispose();
+        }
+        catch (Exception ex)
+        {
+            fail++;
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        report.AppendLine($"结果: PASS {pass} / FAIL {fail}");
+        WriteVerifyReport("verify_dedupe_rows.txt", report);
+    }
+
+    /// <summary>
+    /// 整理目录（--organize [--apply]）。默认只预演；执行前自动备份库。
+    /// 报告写到 %TEMP%\ptv\organize.txt。
+    /// </summary>
+    private static void RunOrganize(bool apply)
+    {
+        var report = new StringBuilder();
+        var scope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(scope))
+        {
+            report.AppendLine("有另一个 Gallery 实例正在运行，请先退出再整理（重试一次即可）。");
+        }
+        else
+        {
+            try
+            {
+                var store = new StoreService(AppPaths.DbPath);
+                var map = FolderMap.Load(AppPaths.FolderMapPath);
+                var logPath = Path.Combine(Path.GetTempPath(), "ptv", "organize_moves.txt");
+                report.AppendLine(OrganizeService.Run(store, map, apply, logPath));
+                store.Dispose();
+            }
+            catch (Exception ex)
+            {
+                report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+                report.AppendLine(ex.StackTrace ?? "");
+            }
+        }
+        WriteVerifyReport("organize.txt", report);
+    }
+
+    /// <summary>
+    /// 沙箱验收：造受管/跳过/不受管三类目录与各种标签 → 整理 → 断言
+    /// （作品/画师分层、非法字符清洗、original 与 _无画师兜底、skip_dirs 与不受管目录不动、
+    /// 预演不落盘、腾空旧目录连带 sidecar 一起收掉）。
+    /// </summary>
+    private static void RunVerifyOrganize()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "organize");
+        var lib = Path.Combine(sandbox, "lib");
+        var pass = 0;
+        var fail = 0;
+        void Check(string name, bool ok, string detail = "")
+        {
+            if (ok) pass++;
+            else fail++;
+            report.AppendLine($"{(ok ? "PASS" : "FAIL")}  {name}{(detail.Length > 0 ? "  (" + detail + ")" : "")}");
+        }
+
+        try
+        {
+            if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true);
+            AppPaths.ApplySandbox(sandbox);
+            AppPaths.EnsureDirs();
+            var pixel = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+            var files = new Dictionary<string, string[]>
+            {
+                ["cartoon/old_work"] = ["a.png", "b.png", "c.png", "d.png"],
+                ["cartoon/skipdir"] = ["e.png"],
+                ["cartoon/wizarding_world/_无画师"] = ["h.png"],   // 已经在目标位置，不该被搬
+                ["真人"] = ["g.png"],
+            };
+            foreach (var (dir, names) in files)
+            {
+                Directory.CreateDirectory(Path.Combine(lib, dir.Replace('/', '\\')));
+                foreach (var name in names)
+                    File.WriteAllBytes(Path.Combine(lib, dir.Replace('/', '\\'), name), pixel);
+            }
+            File.WriteAllText(AppPaths.FolderMapPath, """
+                {
+                  "version": 3,
+                  "managed_dirs": ["cartoon"],
+                  "skip_dirs": ["cartoon/skipdir"],
+                  "rules": [],
+                  "_说明": "沙箱验收用"
+                }
+                """);
+
+            var settings = new SettingsStore();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var folders = new FolderService(store, settings);
+            var (root, scan) = folders.AddRootAndScan(lib);
+            var rows = store.QueryAll("SELECT * FROM images WHERE root_id=$r", ("$r", root.Id))
+                .ToDictionary(r => r.DirRel + "/" + r.Name, r => r.Id);
+            report.AppendLine($"sandbox = {sandbox}");
+            report.AppendLine($"图库    = [{root.Id}] {root.Path}  scan={scan.Summary()}");
+            report.AppendLine();
+
+            int Id(string rel) => rows[rel];
+            store.SetCategorizedTags([Id("cartoon/old_work/a.png")],
+                [("work", "honkai:_star_rail"), ("artist", "mr_goblin")]);
+            store.SetCategorizedTags([Id("cartoon/old_work/b.png")], [("kind", "original")]);
+            store.SetCategorizedTags([Id("cartoon/old_work/c.png")], [("work", "wizarding_world")]);
+            store.SetCategorizedTags([Id("cartoon/old_work/d.png")],
+                [("work", "goddess_of_victory:_nikke"), ("artist", "@cheese_egg0v0")]);
+            store.SetCategorizedTags([Id("cartoon/skipdir/e.png")], [("work", "elden_ring")]);
+            store.SetCategorizedTags([Id("真人/g.png")], [("work", "elden_ring"), ("artist", "someone")]);
+            store.SetCategorizedTags([Id("cartoon/wizarding_world/_无画师/h.png")], [("work", "wizarding_world")]);
+
+            var map = FolderMap.Load(AppPaths.FolderMapPath);
+            Check("规则读进来了", map.ManagedDirs.Count == 1 && map.SkipDirs.Count == 1,
+                $"受管 {string.Join("、", map.ManagedDirs)} / 跳过 {string.Join("、", map.SkipDirs)}");
+            Check("目录名清洗：冒号去掉、@ 去掉、统一小写",
+                FolderMap.Sanitize("goddess_of_victory:_nikke") == "goddess_of_victory_nikke" &&
+                FolderMap.Sanitize("@cheese_egg0v0") == "cheese_egg0v0" &&
+                FolderMap.Sanitize("LoveLive!") == "lovelive!");
+            Check("兜底：没作品→original、没画师→_无画师",
+                map.TargetDirRel([], [], "cartoon") == "cartoon/original/_无画师" &&
+                map.TargetDirRel(["fate"], [], "cartoon") == "cartoon/fate/_无画师");
+            Check("不受管的目录不参与",
+                map.TargetDirRel("真人", ["elden_ring"], ["someone"]) is null);
+
+            var dry = OrganizeService.Run(store, map, apply: false);
+            Check("预演认出要搬 4 张、跳过 1 张",
+                dry.Contains("受管 5 张（不动 1、要搬 4）") && dry.Contains("不受管 2 张"),
+                dry.Contains("== 盘点 ==") ? dry.Split("== 盘点 ==")[1].Split('\n')[1].Trim() : "");
+            Check("预演没落盘",
+                File.Exists(Path.Combine(lib, "cartoon", "old_work", "a.png")) &&
+                !Directory.Exists(Path.Combine(lib, "cartoon", "honkai_star_rail")));
+
+            report.AppendLine("---- 执行 ----");
+            var logPath = Path.Combine(sandbox, "moves.txt");
+            report.AppendLine(OrganizeService.Run(store, map, apply: true, logPath));
+
+            foreach (var (from, to) in new[]
+                     {
+                         ("cartoon/old_work/a.png", "cartoon/honkai_star_rail/mr_goblin/a.png"),
+                         ("cartoon/old_work/b.png", "cartoon/original/_无画师/b.png"),
+                         ("cartoon/old_work/c.png", "cartoon/wizarding_world/_无画师/c.png"),
+                         ("cartoon/old_work/d.png", "cartoon/goddess_of_victory_nikke/cheese_egg0v0/d.png"),
+                     })
+            {
+                var id = Id(from);
+                var dirRel = RawText(AppPaths.DbPath, $"SELECT dir_rel FROM images WHERE id={id}");
+                var target = to[..to.LastIndexOf('/')];
+                Check($"#{id} {from} → {to}",
+                    dirRel == target && File.Exists(Path.Combine(lib, to.Replace('/', '\\'))),
+                    $"库={dirRel} 盘={(File.Exists(Path.Combine(lib, to.Replace('/', '\\'))) ? "在" : "不在")}");
+            }
+            Check("跳过目录里的图没动",
+                File.Exists(Path.Combine(lib, "cartoon", "skipdir", "e.png")) &&
+                RawText(AppPaths.DbPath, $"SELECT dir_rel FROM images WHERE id={Id("cartoon/skipdir/e.png")}") == "cartoon/skipdir");
+            Check("已经在目标位置的图不动",
+                RawText(AppPaths.DbPath, $"SELECT dir_rel FROM images WHERE id={Id("cartoon/wizarding_world/_无画师/h.png")}") == "cartoon/wizarding_world/_无画师");
+            Check("不受管目录里的图没动",
+                File.Exists(Path.Combine(lib, "真人", "g.png")) &&
+                RawText(AppPaths.DbPath, $"SELECT dir_rel FROM images WHERE id={Id("真人/g.png")}") == "真人");
+            Check("腾空的旧目录被清掉（目录与 sidecar 都不在）",
+                !Directory.Exists(Path.Combine(lib, "cartoon", "old_work")) &&
+                !File.Exists(Path.Combine(lib, "cartoon", "old_work", StoreService.SidecarName)));
+            Check("新目录的 sidecar 已生成",
+                File.Exists(Path.Combine(lib, "cartoon", "honkai_star_rail", "mr_goblin", StoreService.SidecarName)));
+            Check("保留目录的 sidecar 还在",
+                File.Exists(Path.Combine(lib, "cartoon", "skipdir", StoreService.SidecarName)));
+            Check("搬迁清单落盘（4 张，含新←旧路径）",
+                File.Exists(logPath) &&
+                File.ReadAllLines(logPath).Count(line => !line.StartsWith("#")) == 4 &&
+                File.ReadAllLines(logPath).Any(line => line.Contains("honkai_star_rail") && line.Contains("old_work")));
+            store.Dispose();
+        }
+        catch (Exception ex)
+        {
+            fail++;
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        report.AppendLine($"结果: PASS {pass} / FAIL {fail}");
+        WriteVerifyReport("verify_organize.txt", report);
     }
 }

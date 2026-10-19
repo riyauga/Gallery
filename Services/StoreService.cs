@@ -851,6 +851,19 @@ public sealed class StoreService : IDisposable
         }
         if (found > 0) return found;
 
+        // 合并过的旧名字：先按「同分类别名」重定向到留下的标签，
+        // 否则同一位画师/同一作品的旧写法（重新下载、重导 sidecar）会再分裂出一个新标签。
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT t.id FROM tag_aliases a JOIN tags t ON t.id=a.tag_id " +
+                "WHERE a.alias=$n AND COALESCE(t.category,'custom')=$c LIMIT 1";
+            cmd.Parameters.AddWithValue("$n", clean);
+            cmd.Parameters.AddWithValue("$c", category);
+            var redirected = Convert.ToInt32(cmd.ExecuteScalar() ?? -1);
+            if (redirected > 0) return redirected;
+        }
+
         using (var cmd = _conn.CreateCommand())
         {
             cmd.CommandText = "INSERT INTO tags(name,category) VALUES($n,$c); SELECT last_insert_rowid();";

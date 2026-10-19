@@ -59,6 +59,9 @@ public sealed class AppSettings
     /// <summary>上次归档用的根目录与子目录（映射记忆，下次默认带上）。</summary>
     public string archive_root { get; set; } = "";
     public string archive_sub { get; set; } = "";
+
+    /// <summary>归档时按标签自动算「作品/画师」两级目录（关掉则用 archive_root + archive_sub 那一个固定目录）。</summary>
+    public bool archive_auto_by_tags { get; set; } = true;
 }
 
 public sealed class AppPaths

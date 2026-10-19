@@ -195,6 +195,7 @@ public sealed partial class SettingsPage : UserControl
         _sysSyncing = true;
         TrayToggle.IsOn = Services.AppService.Settings.Settings.minimize_to_tray;
         AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
+        ArchiveAutoByTagsToggle.IsOn = Services.AppService.Settings.Settings.archive_auto_by_tags;
         _sysSyncing = false;
 
         var dir = Services.AppService.Settings.Settings.nsfw_model_dir;
@@ -337,6 +338,13 @@ public sealed partial class SettingsPage : UserControl
     {
         if (_sysSyncing) return;
         Services.AppService.Settings.Settings.minimize_to_tray = TrayToggle.IsOn;
+        Services.AppService.Settings.Save();
+    }
+
+    private void ArchiveAutoByTagsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.archive_auto_by_tags = ArchiveAutoByTagsToggle.IsOn;
         Services.AppService.Settings.Save();
     }
 

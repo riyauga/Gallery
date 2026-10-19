@@ -149,6 +149,15 @@
                     </ctc:SettingsCard>
                     <ctc:SettingsCard Header="新图片归档提醒"
                                       Description="前台显示应用内提示，后台显示屏幕右下角通知；点击后进入对应图片，悬停暂停十秒倒计时。" />
+
+                    <ctc:SettingsCard
+                        Description="归档时按标签自动算「作品/画师」两级目录（没有作品标签进 original、没有画师进 _无画师）；关掉则回到评审页里固定那一个目录。"
+                        Header="按标签自动分目录">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="ArchiveAutoByTagsToggle" Toggled="ArchiveAutoByTagsToggle_Toggled" />
+                    </ctc:SettingsCard>
                     <!--  敏感内容  -->
                     <TextBlock
                         Margin="1,24,0,6"
