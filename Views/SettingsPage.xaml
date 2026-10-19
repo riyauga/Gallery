@@ -293,6 +293,18 @@
                         </ctc:SettingsCard.HeaderIcon>
                         <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled" />
                     </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="浏览时按需生成；清掉不影响图片、标签和分级判定，下次浏览到时会重新生成（重建期间略慢）"
+                        Header="缩略图缓存">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE74D;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="ThumbCacheText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button x:Name="ThumbCacheClearButton" Click="ThumbCacheClear_Click" Content="清理" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

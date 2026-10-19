@@ -89,6 +89,32 @@ public sealed class ThumbnailService
         return removed;
     }
 
+    /// <summary>缓存占用（文件数 / 字节），设置页展示用。</summary>
+    public (int Files, long Bytes) Measure()
+    {
+        if (!Directory.Exists(_dir)) return (0, 0);
+        var count = 0;
+        long bytes = 0;
+        foreach (var f in new DirectoryInfo(_dir).EnumerateFiles("*.webp", SearchOption.AllDirectories))
+        {
+            count++;
+            bytes += f.Length;
+        }
+        return (count, bytes);
+    }
+
+    /// <summary>清空全部缓存（下次浏览按需重建）；返回删除数。文件被占用则跳过。</summary>
+    public int Clear()
+    {
+        if (!Directory.Exists(_dir)) return 0;
+        var removed = 0;
+        foreach (var f in new DirectoryInfo(_dir).EnumerateFiles("*.webp", SearchOption.AllDirectories))
+        {
+            try { f.Delete(); removed++; } catch (IOException) { }
+        }
+        return removed;
+    }
+
     /// <summary>
     /// 对应 build_thumb_bytes：EXIF 转正 → 等比缩到 edge 内 → WebP。
     /// </summary>

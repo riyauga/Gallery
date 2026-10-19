@@ -17,7 +17,11 @@ public sealed partial class SettingsPage : UserControl
     {
         InitializeComponent();
         ApplyState();
-        Loaded += (_, _) => RefreshBridge();
+        Loaded += (_, _) =>
+        {
+            RefreshBridge();
+            RefreshThumbCacheAsync();
+        };
         Unloaded += (_, _) => SaveBlurStrength();
     }
 
@@ -55,6 +59,85 @@ public sealed partial class SettingsPage : UserControl
     }
 
     private void BridgeRefresh_Click(object sender, RoutedEventArgs e) => RefreshBridge();
+
+    // ---------------------------------------------------------------- 缩略图缓存
+
+    private static ThumbnailService? _thumbCache;
+
+    /// <summary>图库没连接时也要能清，所以不依赖 Scanner。</summary>
+    private static ThumbnailService ThumbCache => AppService.Scanner?.Thumbs
+        ?? (_thumbCache ??= new ThumbnailService(AppPaths.ThumbCacheDir, AppService.Settings.Settings.thumb_quality));
+
+    private async void RefreshThumbCacheAsync()
+    {
+        try
+        {
+            var cache = ThumbCache;
+            var (files, bytes) = await Task.Run(cache.Measure);
+            ThumbCacheText.Text = files == 0 ? "空的" : $"{files} 个 · {DescribeBytes(bytes)}";
+            ThumbCacheClearButton.IsEnabled = files > 0;
+        }
+        catch (Exception ex)
+        {
+            ThumbCacheText.Text = "读取失败：" + ex.Message;
+        }
+    }
+
+    private async void ThumbCacheClear_Click(object sender, RoutedEventArgs e)
+    {
+        var cache = ThumbCache;
+        ThumbCacheClearButton.IsEnabled = false;
+        try
+        {
+            var (files, bytes) = await Task.Run(cache.Measure);
+            if (files == 0)
+            {
+                ThumbCacheText.Text = "空的";
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "清理缩略图缓存",
+                Content = $"删除 {files} 个文件（{DescribeBytes(bytes)}）？" +
+                          "图片、标签和分级判定都不受影响，下次浏览到时会重新生成。",
+                PrimaryButtonText = "清理",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                ThumbCacheClearButton.IsEnabled = true;
+                return;
+            }
+
+            var removed = await Task.Run(cache.Clear);
+            var (left, leftBytes) = await Task.Run(cache.Measure);
+            ThumbCacheText.Text = $"已清理 {removed} 个（{DescribeBytes(bytes - leftBytes)}）· " +
+                                  $"现在 {left} 个 / {DescribeBytes(leftBytes)}";
+            ThumbCacheClearButton.IsEnabled = left > 0;
+        }
+        catch (Exception ex)
+        {
+            ThumbCacheText.Text = "清理失败：" + ex.Message;
+            ThumbCacheClearButton.IsEnabled = true;
+        }
+    }
+
+    private static string DescribeBytes(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        double value = bytes;
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.#} {units[unit]}";
+    }
 
     private void ThemeLightItem_Click(object sender, RoutedEventArgs e) => SetTheme(ElementTheme.Light);
 

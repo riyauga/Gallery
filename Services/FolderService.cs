@@ -108,7 +108,8 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
         return full;
     }
 
-    private string BackupBeforeChange()
+    /// <summary>改根目录前备份（库全量快照 + settings.json）。搬迁根路径也复用这一份。</summary>
+    internal static string BackupBeforeChange()
     {
         var dir = Path.GetDirectoryName(AppPaths.DbPath)!;
         var backup = Path.Combine(dir, "backups",
@@ -141,7 +142,7 @@ public sealed class FolderService(StoreService store, SettingsStore settings)
         return backup;
     }
 
-    private static void RestoreBackup(string backupDir)
+    internal static void RestoreBackup(string backupDir)
     {
         var configBackup = Path.Combine(backupDir, "settings.json");
         if (!File.Exists(configBackup))

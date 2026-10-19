@@ -473,6 +473,23 @@ public partial class App : Application
             return;
         }
 
+        // --relocate-root <旧根> <新根> [--force]：图库根换位置（文件须已在磁盘就位），只改库与设置里的路径前缀
+        var relocate = Array.IndexOf(cli, "--relocate-root");
+        if (relocate >= 0 && relocate + 2 < cli.Length)
+        {
+            RunRelocate(cli[relocate + 1], cli[relocate + 2], cli.Contains("--force"));
+            Exit();
+            return;
+        }
+
+        // --verify-relocate：沙箱验收（造库 → 搬文件 → 改路径 → 断言），写报告后退出
+        if (cli.Contains("--verify-relocate"))
+        {
+            RunVerifyRelocate();
+            Exit();
+            return;
+        }
+
         // --addroot <path>：非交互添加根目录 + 扫描（自动化测试用）
         var idx = Array.IndexOf(cli, "--addroot");
         if (idx >= 0 && idx + 1 < cli.Length)
@@ -661,6 +678,194 @@ public partial class App : Application
         }
 
         WriteVerifyReport("verify_archive.txt", report);
+    }
+
+    /// <summary>
+    /// 图库根换位置（跨盘搬家）：文件已经在磁盘上就位，这里把库与设置里的路径前缀改掉。
+    /// 保留 image id，所以标签 / NSFW 判定 / 收藏 / 来源全部不动。
+    /// 报告写到 %TEMP%\ptv\relocate.txt。
+    /// </summary>
+    private static void RunRelocate(string oldRoot, string newRoot, bool force)
+    {
+        var report = new StringBuilder();
+        var scope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(scope))
+        {
+            report.AppendLine("有另一个 Gallery 实例正在运行，请先退出再搬（重试一次即可）。");
+        }
+        else
+        {
+            try
+            {
+                SettingsStore settings = new();
+                settings.Load();
+                var store = new StoreService(AppPaths.DbPath);
+                var audit = RelocateService.Inspect(store, oldRoot, newRoot);
+                report.AppendLine("== 体检 ==");
+                report.AppendLine(audit.Describe());
+                if (!audit.Ok && !force)
+                {
+                    report.AppendLine("体检未通过，未做任何改动。");
+                }
+                else
+                {
+                    report.AppendLine("== 执行 ==");
+                    report.AppendLine(RelocateService.Apply(store, settings, audit, force));
+                }
+                store.Dispose();
+            }
+            catch (Exception ex)
+            {
+                report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+                report.AppendLine(ex.StackTrace ?? "");
+            }
+        }
+        WriteVerifyReport("relocate.txt", report);
+    }
+
+    /// <summary>
+    /// 沙箱验收：造一个小图库 → 模拟搬文件（其中一个故意不搬）→ 改根路径 → 断言
+    /// （体检拦截、roots.path、abs_path、missing 归属、标签关联数、sidecar 前缀、settings）。
+    /// </summary>
+    private static void RunVerifyRelocate()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "relocate");
+        var oldLib = Path.Combine(sandbox, "lib-old");
+        var newLib = Path.Combine(sandbox, "lib-new");
+        var pass = 0;
+        var fail = 0;
+        void Check(string name, bool ok, string detail = "")
+        {
+            if (ok) pass++;
+            else fail++;
+            report.AppendLine($"{(ok ? "PASS" : "FAIL")}  {name}{(detail.Length > 0 ? "  (" + detail + ")" : "")}");
+        }
+
+        try
+        {
+            if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true);
+            AppPaths.ApplySandbox(sandbox);
+            AppPaths.EnsureDirs();
+            Directory.CreateDirectory(oldLib);
+            Directory.CreateDirectory(Path.Combine(oldLib, "cartoon"));
+            Directory.CreateDirectory(newLib);
+
+            var pixel = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+            foreach (var name in new[] { "a.png", "b.png", "c.png", "d.png" })
+                File.WriteAllBytes(Path.Combine(oldLib, "cartoon", name), pixel);
+
+            var settings = new SettingsStore();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var folders = new FolderService(store, settings);
+            var (root, scan) = folders.AddRootAndScan(oldLib);
+            report.AppendLine($"sandbox = {sandbox}");
+            report.AppendLine($"旧根    = [{root.Id}] {root.Path}  scan={scan.Summary()}");
+
+            var rows = store.QueryAll("SELECT * FROM images WHERE root_id=$r", ("$r", root.Id));
+            var ids = rows.Select(r => r.Id).ToList();
+            store.AddTags(ids, ["wlop", "zenless_zone_zero", "单人"]);
+            store.SetCategorizedTags(ids, [("artist", "wlop"), ("work", "zenless_zone_zero"), ("kind", "单人")]);
+            store.Commit();
+            store.WriteSidecar(root.Id, "cartoon");
+            // d.png：模拟"库里记着 missing、但文件其实在"的历史漂移行（真实库里就有 132 组这种大小写重复行）
+            store.Exec($"UPDATE images SET missing=1 WHERE root_id={root.Id} AND rel_path='cartoon/d.png'");
+            var linksBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            var sidecarBefore = RawLong(AppPaths.DbPath,
+                $"SELECT COUNT(*) FROM sidecar_state WHERE substr(path,1,{oldLib.Length}) = '{Sql(oldLib)}' COLLATE NOCASE");
+            report.AppendLine($"造数据  = {rows.Count} 张 / 标签关联 {linksBefore} / sidecar 记录 {sidecarBefore}");
+
+            // 模拟磁盘搬运：a、b、d 搬到新根；c 故意漏掉；sidecar 跟着走
+            Directory.CreateDirectory(Path.Combine(newLib, "cartoon"));
+            File.Move(Path.Combine(oldLib, "cartoon", "a.png"), Path.Combine(newLib, "cartoon", "a.png"));
+            File.Move(Path.Combine(oldLib, "cartoon", "b.png"), Path.Combine(newLib, "cartoon", "b.png"));
+            File.Move(Path.Combine(oldLib, "cartoon", "d.png"), Path.Combine(newLib, "cartoon", "d.png"));
+            File.Delete(Path.Combine(oldLib, "cartoon", "c.png"));
+            var sidecarPath = Path.Combine(oldLib, "cartoon", StoreService.SidecarName);
+            if (File.Exists(sidecarPath))
+                File.Move(sidecarPath, Path.Combine(newLib, "cartoon", StoreService.SidecarName));
+
+            var audit = RelocateService.Inspect(store, oldLib, newLib);
+            report.AppendLine("== 体检 ==");
+            report.Append(audit.Describe());
+            Check("缺文件时体检不通过", !audit.Ok, $"problems={audit.Problems.Count}");
+            Check("体检认出 2 个文件已到位", audit.OnDisk == 2, $"onDisk={audit.OnDisk}");
+
+            report.AppendLine("== 执行（force）==");
+            report.AppendLine(RelocateService.Apply(store, settings, audit, force: true));
+            store.Dispose();
+
+            var newRootPath = RawText(AppPaths.DbPath, $"SELECT path FROM roots WHERE id={root.Id}");
+            Check("roots.path 已改到新根",
+                FileIdentity.PathKey(newRootPath) == FileIdentity.PathKey(newLib), newRootPath);
+
+            var strayAbs = RawLong(AppPaths.DbPath,
+                $"SELECT COUNT(*) FROM images WHERE root_id={root.Id} AND substr(abs_path,1,{newLib.Length}) <> '{Sql(newLib)}' COLLATE NOCASE");
+            Check("abs_path 全部指向新根", strayAbs == 0, $"不符 {strayAbs} 行");
+
+            var stillThere = RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM images WHERE root_id={root.Id} AND missing=0");
+            var nowMissing = RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM images WHERE root_id={root.Id} AND missing=1");
+            Check("跟过来的 2 张 missing=0", stillThere == 2, $"missing=0 共 {stillThere}");
+            Check("没跟过来的 1 张 + 历史 missing 1 张 = missing=1 共 2 张", nowMissing == 2, $"missing=1 共 {nowMissing}");
+            var dryMissing = RawText(AppPaths.DbPath,
+                $"SELECT missing FROM images WHERE root_id={root.Id} AND rel_path='cartoon/d.png'");
+            Check("历史 missing 行不被复活（d.png 仍 missing=1）", dryMissing == "1", $"missing={dryMissing}");
+
+            var linksAfter = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
+            Check("标签关联数不变", linksAfter == linksBefore, $"{linksBefore} → {linksAfter}");
+
+            var sidecarOld = RawLong(AppPaths.DbPath,
+                $"SELECT COUNT(*) FROM sidecar_state WHERE substr(path,1,{oldLib.Length}) = '{Sql(oldLib)}' COLLATE NOCASE");
+            var sidecarNew = RawLong(AppPaths.DbPath,
+                $"SELECT COUNT(*) FROM sidecar_state WHERE substr(path,1,{newLib.Length}) = '{Sql(newLib)}' COLLATE NOCASE");
+            Check("sidecar 记录前缀已改", sidecarOld == 0 && sidecarNew == sidecarBefore,
+                $"旧 {sidecarOld} / 新 {sidecarNew}");
+
+            var reopened = new SettingsStore();
+            reopened.Load();
+            Check("settings.roots 已换成新根",
+                reopened.Settings.roots.Any(p => FileIdentity.PathKey(p) == FileIdentity.PathKey(newLib))
+                && !reopened.Settings.roots.Any(p => FileIdentity.PathKey(p) == FileIdentity.PathKey(oldLib)),
+                string.Join(" | ", reopened.Settings.roots));
+
+            // 改完再体检一次：不应再有问题（没跟过来的那张已按 missing 记账）
+            var store2 = new StoreService(AppPaths.DbPath);
+            var audit2 = RelocateService.Inspect(store2, newLib, newLib);
+            Check("改完再体检通过", audit2.Ok, $"problems={audit2.Problems.Count} missing={audit2.MissingRows}");
+            store2.Dispose();
+        }
+        catch (Exception ex)
+        {
+            fail++;
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        report.AppendLine($"结果: PASS {pass} / FAIL {fail}");
+        WriteVerifyReport("verify_relocate.txt", report);
+    }
+
+    private static string Sql(string s) => s.Replace("'", "''");
+
+    private static long RawLong(string dbPath, string sql)
+        => long.TryParse(RawText(dbPath, sql), out var n) ? n : 0L;
+
+    private static string RawText(string dbPath, string sql)
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+            {
+                DataSource = dbPath,
+                Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite,
+                Pooling = false,
+            }.ToString());
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        var value = cmd.ExecuteScalar();
+        return value is null or DBNull ? "" : Convert.ToString(value) ?? "";
     }
 
     private static long SafeLength(string path)
