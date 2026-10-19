@@ -97,6 +97,13 @@ Gallery/
 
 - `Controls/ContinuousScrollBar.cs`：可复用的连续滚动条。值始终是 `double`；拖动 1:1 跟手，点击轨道任意位置时滑块和内容一起短滑到点击处，不走原生 `ScrollBar` 的 `LargeChange`。支持竖向/横向、步长吸附、轨道/滑块厚度。待审核页用它替代原生滚动条。用法与约束见 `UI_CONVENTIONS.md`。
 
+## 项目规范
+
+- 协作、构建、验证与交付边界：`AGENTS.md`
+- UI 与交互约束：`UI_CONVENTIONS.md`
+- 图片加载：`IMAGE_LOADING.md`
+- 待审核与归档：`ARCHIVE_REVIEW.md`
+
 ## 已知差距（有意为之或未做）
 
 1. **无虚拟化**：40 张全部创建。真实 Photos 用 `ItemsRepeater` + 自定义 `VirtualizingLayout`；本项目只复刻视觉与手感。
