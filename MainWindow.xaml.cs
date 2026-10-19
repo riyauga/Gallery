@@ -277,6 +277,20 @@ public sealed partial class MainWindow : Window
     }
     private Controls.Review.ReviewPage? _reviewPage;
 
+    private const int WM_ENTERSIZEMOVE = 0x0231;
+    private const int WM_EXITSIZEMOVE = 0x0232;
+    private delegate IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData);
+    [DllImport("comctl32.dll", SetLastError = true)] private static extern bool SetWindowSubclass(IntPtr hWnd, WindowSubclassProc pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
+    [DllImport("comctl32.dll")] private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+    private WindowSubclassProc? _windowSubclass;
+
+    private IntPtr OnWindowSubclass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
+    {
+        if (uMsg == WM_ENTERSIZEMOVE) _reviewPage?.BeginWindowMove();
+        else if (uMsg == WM_EXITSIZEMOVE) _reviewPage?.EndWindowMove();
+        return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+    }
+
     /// <summary>当前窗口实例（查看器进全屏时需要暂时隐藏应用标题栏）。</summary>
     public static MainWindow? Instance { get; private set; }
 
@@ -309,6 +323,13 @@ public sealed partial class MainWindow : Window
         {
             appWindow.TitleBar.PreferredHeightOption =
                 Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
+
+            // 拖动/缩放窗口时把待审核页的 WebView 冻结成快照，松开后恢复。
+            if (hwnd != IntPtr.Zero)
+            {
+                _windowSubclass = OnWindowSubclass;
+                SetWindowSubclass(hwnd, _windowSubclass, 1, IntPtr.Zero);
+            }
 
             // 关窗行为对齐 galleryold：minimize_to_tray 时收进托盘而不是退出
             appWindow.Closing += (sender, e) =>

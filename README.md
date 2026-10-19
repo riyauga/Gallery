@@ -84,6 +84,7 @@ Gallery/
 │  ├─ PhotoGalleryPanel.cs       方格 / 河流布局（照搬 Photos 公式）
 │  ├─ PhotoTile.cs               缩略图状态机与按压动画
 │  ├─ TimelineScrollbar.cs       时间线滚动条
+│  ├─ ContinuousScrollBar.cs     通用连续滚动条（待审核圆环）
 │  └─ PreviewOverlay.xaml(.cs)   全窗预览
 ├─ Views/SettingsPage.xaml(.cs)  设置页（个性化 · 应用主题）
 ├─ ThemeService.cs               主题服务（SetTheme / GetThemeName）
@@ -91,6 +92,10 @@ Gallery/
 ├─ Services/Library.cs           读取 assets/manifest.json
 └─ assets/                       40 张示例图 + manifest.json
 ```
+
+## 通用控件
+
+- `Controls/ContinuousScrollBar.cs`：可复用的连续滚动条。值始终是 `double`；拖动 1:1 跟手，点击轨道任意位置时滑块和内容一起短滑到点击处，不走原生 `ScrollBar` 的 `LargeChange`。支持竖向/横向、步长吸附、轨道/滑块厚度。待审核页用它替代原生滚动条。用法与约束见 `UI_CONVENTIONS.md`。
 
 ## 已知差距（有意为之或未做）
 
@@ -117,3 +122,4 @@ Gallery/
 8. **UIA 的 `Name` ≠ 界面可见文字**：选择按钮的 `AutomationProperties.Name` 是「选择项目」，但可见 `Label` 是「选择」（来自 `GetSelectionText()`）。**猜文案时要看 XAML 绑定的属性名，别看 UIA 的 Name。**
 9. **WinUI 默认 chevron 是 `E974`（ChevronRight ›）**：Photos 在 `CommandBarStyles.xaml` 里覆盖成 `E70D`（ChevronDown ∨）。不覆盖就是「›」而不是「∨」。
 10. **非打包（`WindowsPackageType=None`）不能用 `ms-appx:///` 引用自带资源字典**：会直接以 `0xC000027B` 崩溃。把 `ThemeDictionaries` 内联进用它的控件 `Resources` 即可。
+11. **原生 `ScrollBar` 点击轨道按 `LargeChange` 走**，且 `ValueChanged` 不能直接拿来做 1:1 跟手；需要“点哪到哪”时用 `Controls/ContinuousScrollBar.cs`。

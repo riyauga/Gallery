@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Gallery.Services;
 using Microsoft.UI;
 using Microsoft.UI.Text;
@@ -6,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 
@@ -17,7 +19,22 @@ public sealed class ReviewPage : Grid
     private readonly Window _owner;
     private readonly ReviewCarousel _carousel = new();
     private readonly Grid _carouselHost = new();
-    private readonly TextBlock _count = new() { FontSize = 28 };
+    private readonly TextBlock _count = new() { FontSize = 20, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _revealAllText = new() { FontSize = 12, TextDecorations = Windows.UI.Text.TextDecorations.Underline };
+    private readonly HyperlinkButton _revealAll = new() { Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Right, Visibility = Visibility.Collapsed };
+    private readonly PaneResizer _splitter = new() { Width = 16, Margin = new Thickness(0) };
+    // 通用连续滚动条：拖动 1:1 跟手，点击轨道任意位置由控件自己做同步短滑。
+    private readonly ContinuousScrollBar _queueScroll = new()
+    {
+        Margin = new Thickness(0, 14, -22, 14),
+        Visibility = Visibility.Collapsed,
+        Opacity = 0,
+        ViewportSize = 9,
+    };
+    private bool _syncingScroll, _scrollHovered, _scrollDragging;
+    private readonly DispatcherTimer _scrollFade = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    // 分割线默认取当前拖出来的比例（左栏占两侧内容宽度的 48%），拖动后写回设置。
+    private double _splitRatio = .48;
     private readonly Border _dropOverlay = new()
     {
         Background = new SolidColorBrush(Microsoft.UI.Colors.Black) { Opacity = .28 },
@@ -38,7 +55,6 @@ public sealed class ReviewPage : Grid
         },
     };
     private readonly TextBlock _summary = Caption();
-    private readonly TextBlock _position = Caption();
     private readonly TextBlock _title = new() { FontSize = 21, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _time = Caption();
     private readonly TextBlock _spec = Caption();
@@ -52,8 +68,6 @@ public sealed class ReviewPage : Grid
     private readonly Button _ignore = new() { Content = "忽略此图", HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _archiveAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _ignoreAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly Button _previous = new() { Content = "↑", MinWidth = 36 };
-    private readonly Button _next = new() { Content = "↓", MinWidth = 36 };
     private readonly Button _restore = new() { Content = "恢复待处理", Visibility = Visibility.Collapsed };
     private readonly ComboBox _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid _body = new() { ColumnSpacing = 24 };
@@ -80,20 +94,72 @@ public sealed class ReviewPage : Grid
         _pageUrl.TextTrimming = TextTrimming.CharacterEllipsis;
         Padding = new Thickness(28, 24, 28, 22);
         _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(46, GridUnitType.Star) });
-        _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
+        // 分隔线列给足 16px，把手直接放在列里，不再靠负边距撑布局。
+        _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
         _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54, GridUnitType.Star) });
         _body.Children.Add(BuildQueue());
-        var divider = new Border { Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 28, 0, 28), IsHitTestVisible = false };
+        var divider = new Border { Width = 1, HorizontalAlignment = HorizontalAlignment.Center, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 28, 0, 28), IsHitTestVisible = false };
         Grid.SetColumn(divider, 1);
         _body.Children.Add(divider);
         var details = BuildDetails();
         Grid.SetColumn(details, 2);
         _body.Children.Add(details);
+        // 把手填满 16px 分隔列，滚动条在左侧空隙，两者保持独立命中区。
+        if (AppService.Settings.Settings.layout_options.TryGetValue("review_split_ratio", out var savedSplit)
+            && savedSplit.ValueKind == JsonValueKind.Number && savedSplit.TryGetDouble(out var savedRatio) && double.IsFinite(savedRatio))
+            _splitRatio = Math.Clamp(savedRatio, .2, .8);
+        _splitter.MinLength = 300;
+        _splitter.CurrentLength = () => _body.ColumnDefinitions[0].ActualWidth;
+        _splitter.WidthChanged += next =>
+        {
+            _body.ColumnDefinitions[0].Width = new GridLength(next);
+            var content = SplitContentWidth();
+            if (content > 0) _splitRatio = Math.Clamp(next / content, .2, .8);
+        };
+        _splitter.DragFinished += () =>
+        {
+            AppService.Settings.Settings.layout_options["review_split_ratio"] = JsonSerializer.SerializeToElement(Math.Round(_splitRatio, 4));
+            AppService.Settings.Save();
+        };
+        Grid.SetColumn(_splitter, 1);
+        _body.Children.Add(_splitter);
         Children.Add(_body);
-        _carousel.SelectionRequested += Select;
+        _revealAll.Content = _revealAllText;
+        _carousel.SelectionRequested += index => Select(index);
         _carousel.OpenRequested += (row, source) => Open(source ? row.PageUrl : IngestReview.LocalPath(row), source);
         _carousel.FilesDropped += async paths => await ImportAsync(paths);
         _carousel.DragStateChanged += over => _dropOverlay.Visibility = over ? Visibility.Visible : Visibility.Collapsed;
+        // 连续滚动轴：拖动 1:1 跟随；点击轨道由控件自己做同步短动画，详情在松手/动画结束后提交。
+        _queueScroll.ValueChanged += value =>
+        {
+            if (_syncingScroll || _busy) return;
+            _carousel.ScrollTo(value, follow: true);
+        };
+        _queueScroll.InteractionStarted += () =>
+        {
+            _scrollDragging = true;
+            _queueScroll.Opacity = 1;
+            _scrollFade.Stop();
+        };
+        _queueScroll.InteractionCompleted += () =>
+        {
+            _scrollDragging = false;
+            CommitScroll();
+            if (!_scrollHovered) FadeScrollLater();
+        };
+        _queueScroll.HoverChanged += over =>
+        {
+            _scrollHovered = over;
+            if (over) { _queueScroll.Opacity = 1; _scrollFade.Stop(); }
+            else if (!_scrollDragging) FadeScrollLater();
+        };
+        _scrollFade.Tick += (_, _) =>
+        {
+            _scrollFade.Stop();
+            if (_scrollHovered || _scrollDragging) return;
+            _queueScroll.Opacity = 0;
+        };
+        AutomationProperties.SetName(_queueScroll, "图片列表滚动条");
         _carousel.SelectedImageLoaded += item =>
         {
             var text = $"{item.PixelWidth} × {item.PixelHeight} · {item.Extension} · {item.FileSize / 1024.0 / 1024:0.##} MB";
@@ -106,8 +172,11 @@ public sealed class ReviewPage : Grid
             if (!_settingDestination) _destinationEdited = true;
         };
         AppService.Settings.Changed += RefreshDestination;
-        _previous.Click += (_, _) => Select(_index - 1);
-        _next.Click += (_, _) => Select(_index + 1);
+        _revealAll.Click += (_, _) =>
+        {
+            _carousel.ToggleRevealAll();
+            UpdateButtons();
+        };
         _archive.Click += async (_, _) => await ArchiveAsync(false);
         _archiveAll.Click += async (_, _) => await ArchiveAsync(true);
         _ignore.Click += (_, _) => Ignore(false);
@@ -120,10 +189,20 @@ public sealed class ReviewPage : Grid
         SizeChanged += (_, _) =>
         {
             var narrow = ActualWidth < 850;
-            Padding = new Thickness(narrow ? 16 : 28, 20, narrow ? 16 : 28, 20);
-            _body.ColumnSpacing = narrow ? 16 : 28;
-            // 左栏跟随可容纳的画框宽度，不让较高窗口中的预览两边留下大片空白。
-            _body.ColumnDefinitions[0].Width = new GridLength(Math.Min(Math.Max(300, (ActualHeight - 220) * .67), Math.Max(300, (ActualWidth - 80) * .49)));
+            var pad = new Thickness(narrow ? 16 : 28, 20, narrow ? 16 : 28, 20);
+            if (Padding != pad) Padding = pad;
+            var spacing = narrow ? 16 : 28;
+            if (_body.ColumnSpacing != spacing) _body.ColumnSpacing = spacing;
+            // 滚动条落在圆环与分割线之间的空隙里，不压住卡片。
+            var scrollMargin = new Thickness(0, 14, -(spacing + 16) / 2.0, 14);
+            if (_queueScroll.Margin != scrollMargin) _queueScroll.Margin = scrollMargin;
+            var content = SplitContentWidth();
+            var maxQueue = Math.Max(300, content - 420);
+            if (Math.Abs(_splitter.MaxLength - maxQueue) > .5) _splitter.MaxLength = maxQueue;
+            // 固定按比例还原：窗口缩放时保持当前拖出来的左右比例。
+            var target = Math.Clamp(_splitRatio * content, _splitter.MinLength, maxQueue);
+            if (Math.Abs(_body.ColumnDefinitions[0].Width.Value - target) > .5)
+                _body.ColumnDefinitions[0].Width = new GridLength(target);
         };
         ApplyColors();
     }
@@ -148,16 +227,11 @@ public sealed class ReviewPage : Grid
         _carouselHost.AddHandler(DragLeaveEvent, new DragEventHandler(OnDragLeave), true);
         _carouselHost.AddHandler(DropEvent, new DragEventHandler(OnDrop), true);
         _carouselHost.Children.Add(_carousel);
+        _carouselHost.Children.Add(_queueScroll);
         _carouselHost.Children.Add(_dropOverlay);
         Grid.SetRow(_carouselHost, 1);
         panel.Children.Add(_carouselHost);
         var footer = new StackPanel { Spacing = 10 };
-        var navigation = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Spacing = 14 };
-        _position.VerticalAlignment = VerticalAlignment.Center;
-        navigation.Children.Add(_previous);
-        navigation.Children.Add(_position);
-        navigation.Children.Add(_next);
-        footer.Children.Add(navigation);
         var actions = new Grid { ColumnSpacing = 8 };
         actions.ColumnDefinitions.Add(new ColumnDefinition());
         actions.ColumnDefinitions.Add(new ColumnDefinition());
@@ -165,11 +239,10 @@ public sealed class ReviewPage : Grid
         Grid.SetColumn(_ignoreAll, 1);
         actions.Children.Add(_ignoreAll);
         footer.Children.Add(actions);
+        footer.Children.Add(_revealAll);
         footer.Children.Add(new TextBlock { Text = "批量操作范围：全部待归档图片", FontSize = 11, Opacity = .65, HorizontalAlignment = HorizontalAlignment.Center });
         Grid.SetRow(footer, 2);
         panel.Children.Add(footer);
-        AutomationProperties.SetName(_previous, "上一张待归档图片");
-        AutomationProperties.SetName(_next, "下一张待归档图片");
         return panel;
     }
 
@@ -250,7 +323,6 @@ public sealed class ReviewPage : Grid
         var keep = _selected?.Id;
         _rows = store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
         var pending = store.PendingIngestCount();
-        _count.Text = $"{_rows.Count} 张";
         _summary.Text = _state switch
         {
             "pending" => "待归档",
@@ -269,18 +341,32 @@ public sealed class ReviewPage : Grid
             _settingDestination = false;
         }
         var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
-        Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1));
+        Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1), false);
         UpdateButtons();
     }
 
-    private void Select(int index)
+    private void Select(int index, bool revealScroll = true)
     {
         if (_busy) return;
-        _index = _rows.Count == 0 ? 0 : Math.Clamp(index, 0, _rows.Count - 1);
+        var changed = _index != (index = _rows.Count == 0 ? 0 : Math.Clamp(index, 0, _rows.Count - 1));
+        _index = index;
         _selected = _rows.Count == 0 ? null : _rows[_index];
+        _syncingScroll = true;
+        _queueScroll.Maximum = Math.Max(0, _rows.Count - 1);
+        _queueScroll.ViewportSize = Math.Min(9, Math.Max(1, _rows.Count));
+        // 拖动中不回写滑块，松手后再吸附到整数。
+        if (!_scrollDragging) _queueScroll.Value = _index;
+        _queueScroll.Visibility = _rows.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (_rows.Count > 1)
+        {
+            if (revealScroll && changed) RevealScroll();
+            else if (!_scrollHovered && !_scrollDragging) { _scrollFade.Stop(); _queueScroll.Opacity = 0; }
+        }
+        else { _scrollFade.Stop(); _queueScroll.Opacity = 0; }
+        _syncingScroll = false;
         ++_selectionGeneration;
         _carousel.SetItems(_rows, _index);
-        _position.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
+        _count.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
         _tagGroups.Children.Clear();
         _ratingBadge = null;
         _destinationEdited = false;
@@ -325,7 +411,7 @@ public sealed class ReviewPage : Grid
         _states.SelectedIndex = 0;
         Reload();
         var index = _rows.FindIndex(row => row.Id == id);
-        if (index >= 0) Select(index);
+        if (index >= 0) Select(index, false);
         else _status.Text = "这张图片已处理，不在待归档队列中。";
     }
 
@@ -674,8 +760,9 @@ public sealed class ReviewPage : Grid
         _restore.IsEnabled = !_busy && _selected is not null;
         _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
         _archiveAll.Visibility = _ignoreAll.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
-        _previous.IsEnabled = !_busy && _index > 0;
-        _next.IsEnabled = !_busy && _index + 1 < _rows.Count;
+        _revealAll.Visibility = _state == "pending" && _carousel.HasBlurredRows ? Visibility.Visible : Visibility.Collapsed;
+        _revealAll.IsEnabled = !_busy;
+        _revealAllText.Text = _carousel.AllPreviewsRevealed ? "一键隐藏预览" : "一键显示预览";
         _states.IsEnabled = !_busy;
         _destination.IsEnabled = _pickFolder.IsEnabled = !_busy && _state == "pending";
         _tagGroups.IsHitTestVisible = !_busy;
@@ -685,8 +772,15 @@ public sealed class ReviewPage : Grid
     {
         _active = active;
         ++_selectionGeneration;
+        if (!active)
+        {
+            _scrollFade.Stop();
+            _scrollDragging = false;
+            _carousel.UnfreezeWindow();
+        }
         _carousel.SetActive(active);
         if (!active) _imageSpecs.Clear();
+        else UpdateButtons();
     }
 
     /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>
@@ -744,7 +838,11 @@ public sealed class ReviewPage : Grid
         }
     }
 
-    public void RefreshPreview() => _carousel.RefreshPreview();
+    public void RefreshPreview()
+    {
+        _carousel.RefreshPreview();
+        UpdateButtons();
+    }
 
     private void Open(string target, bool source)
     {
@@ -763,6 +861,42 @@ public sealed class ReviewPage : Grid
         _ignoreAll.Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 64, 55, 43) : Windows.UI.Color.FromArgb(255, 247, 237, 223));
         _ignoreAll.Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 225, 194, 145) : Windows.UI.Color.FromArgb(255, 128, 85, 26));
         _ignore.Opacity = .72;
+        _revealAllText.Foreground = ResourceBrush("AccentTextFillColorPrimaryBrush");
+    }
+
+    private void RevealScroll()
+    {
+        if (_queueScroll.Visibility != Visibility.Visible) return;
+        _queueScroll.Opacity = 1;
+        if (!_scrollHovered && !_scrollDragging) FadeScrollLater();
+    }
+
+    private void FadeScrollLater()
+    {
+        _scrollFade.Stop();
+        _scrollFade.Start();
+    }
+
+    private void CommitScroll()
+    {
+        if (_rows.Count == 0) return;
+        // 控件已经吸附到整数；这里发最终位置，网页回 settled 后统一提交详情和清晰图。
+        _carousel.CommitScroll((int)Math.Round(_queueScroll.Value));
+    }
+
+    /// <summary>窗口开始拖动/缩放：把 WebView 冻结成快照。</summary>
+    public void BeginWindowMove()
+    {
+        if (!_active) return;
+        _carousel.FreezeForWindowMove();
+    }
+
+    public void EndWindowMove() => _carousel.UnfreezeWindow();
+
+    private double SplitContentWidth()
+    {
+        var width = _body.ActualWidth > 0 ? _body.ActualWidth : Math.Max(0, ActualWidth - Padding.Left - Padding.Right);
+        return Math.Max(1, width - 16 - _body.ColumnSpacing * 2);
     }
 
     private static Brush ResourceBrush(string key) => (Brush)Application.Current.Resources[key];

@@ -7,9 +7,13 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.PixelFormats;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
+using XamlImage = Microsoft.UI.Xaml.Controls.Image;
 
 namespace Gallery.Controls.Review;
 
@@ -17,15 +21,22 @@ namespace Gallery.Controls.Review;
 internal sealed class ReviewCarousel : Grid
 {
     private readonly WebView2 _browser = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
+    private readonly XamlImage _freeze = new() { Stretch = Stretch.Fill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
     private readonly Dictionary<int, Preview> _previews = [];
     private readonly Dictionary<int, string> _sentSources = [];
     private readonly HashSet<int> _revealed = [];
     private IReadOnlyList<StoreService.PendingIngestRow> _rows = [];
     private CancellationTokenSource? _loading;
-    private int _index;
-    private bool _active = true, _initializing, _ready;
-    private double _angle = 10, _overlap = 67, _size = 95;
+    private CancellationTokenSource? _prefetch;
+    private IReadOnlyList<StoreService.PendingIngestRow>? _prefetchedRows;
+    private readonly HashSet<string> _placeholderLoading = [];
+    private Preview? _clearPreview;
+    private int _index, _selectSeq;
+    private bool _active = true, _initializing, _ready, _clearAllowed;
+    private bool _frozen, _freezing, _freezeRequested;
+    private double _angle = 10, _overlap = 67, _size = 95, _scale = 1.12, _drag = 1;
+    private string _ease = "out";
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public event Action<int>? SelectionRequested;
     public event Action<PhotoItem>? SelectedImageLoaded;
@@ -38,11 +49,16 @@ internal sealed class ReviewCarousel : Grid
     {
         MinHeight = 320;
         Children.Add(_error);
+        Children.Add(_freeze);
+        Canvas.SetZIndex(_freeze, 20);
         if (AppService.Settings.Settings.layout_options.TryGetValue("review_carousel", out var saved) && saved.ValueKind == JsonValueKind.Object)
         {
             _angle = ReadNumber(saved, "angle", 10, 8, 17);
             _overlap = ReadNumber(saved, "overlap", 67, 0, 95);
             _size = ReadNumber(saved, "size", 95, 50, 95);
+            _scale = ReadNumber(saved, "scale", 1.12, 1, 1.6);
+            _drag = ReadNumber(saved, "drag", 1, .4, 2);
+            _ease = ReadEase(saved, "ease", "out");
         }
         Loaded += async (_, _) => await InitializeAsync();
         Unloaded += (_, _) => SetActive(false);
@@ -90,33 +106,149 @@ internal sealed class ReviewCarousel : Grid
     {
         _rows = rows;
         _index = rows.Count == 0 ? 0 : Math.Clamp(index, 0, rows.Count - 1);
+        if (_active && !ReferenceEquals(_prefetchedRows, rows))
+        {
+            _prefetchedRows = rows;
+            PrunePreviews(rows);
+            StartPrefetch(rows);
+        }
         PublishState();
         StartLoads();
+    }
+
+    /// <summary>连续滚动：只更新卡片窗口，不重建详情；详情由网页在停稳后发 settled 提交。</summary>
+    public void ScrollWindow(int index)
+    {
+        if (!_active || !_ready || _rows.Count == 0) return;
+        index = Math.Clamp(index, 0, _rows.Count - 1);
+        if (index == _index) return;
+        _index = index;
+        // 占位图已经整队预取，换窗口只换 9 个 src，不再取消/重启加载。
+        PublishState();
+        // 预取还没轮到这一屏时，优先把当前窗口补上；已缓存/在加载的会被去重。
+        var token = _prefetch?.Token ?? CancellationToken.None;
+        if (!token.IsCancellationRequested)
+            foreach (var (row, _) in Nearby()) _ = EnsurePlaceholderAsync(row, token);
+    }
+
+    /// <summary>滚动轴连续位置；follow=true 时网页直接落位，不走弹簧。</summary>
+    public void ScrollTo(double position, bool follow)
+    {
+        if (!_active || !_ready || _rows.Count == 0) return;
+        position = Math.Clamp(position, 0, _rows.Count - 1);
+        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "scroll", position, follow }, Json));
+    }
+
+    /// <summary>滚动轴结束：落到整数并让网页回 settled，由宿主统一提交详情。</summary>
+    public void CommitScroll(int index)
+    {
+        if (!_active || !_ready || _rows.Count == 0) return;
+        index = Math.Clamp(index, 0, _rows.Count - 1);
+        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "scroll", position = (double)index, follow = false, settle = true,
+        }, Json));
     }
 
     public void SetActive(bool active)
     {
         _active = active;
-        if (!active) { _loading?.Cancel(); _previews.Clear(); _revealed.Clear(); }
+        if (!active)
+        {
+            _loading?.Cancel();
+            _prefetch?.Cancel();
+            _prefetchedRows = null;
+            _previews.Clear(); _clearPreview = null; _revealed.Clear();
+            UnfreezeWindow();
+        }
         PublishState();
-        if (active) StartLoads();
+        if (active)
+        {
+            StartLoads();
+            if (_rows.Count > 0)
+            {
+                _prefetchedRows = _rows;
+                StartPrefetch(_rows);
+            }
+        }
     }
 
     public void RefreshPreview()
     {
-        _revealed.Clear(); _previews.Clear();
-        PublishState(); StartLoads();
+        _revealed.Clear(); _previews.Clear(); _clearPreview = null;
+        _prefetchedRows = _rows;
+        PublishState(); StartLoads(); StartPrefetch(_rows);
+    }
+
+
+    /// <summary>窗口拖动/缩放时把 WebView 冻结成一张快照，避免整块网页参与合成。</summary>
+    public async void FreezeForWindowMove()
+    {
+        _freezeRequested = true;
+        if (_frozen || _freezing || !_ready) return;
+        _freezing = true;
+        try
+        {
+            using var stream = new InMemoryRandomAccessStream();
+            await _browser.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream);
+            if (!_freezeRequested) return;
+            stream.Seek(0);
+            var bitmap = new BitmapImage();
+            await bitmap.SetSourceAsync(stream);
+            if (!_freezeRequested) return;
+            _freeze.Source = bitmap;
+            _freeze.Visibility = Visibility.Visible;
+            _browser.Visibility = Visibility.Collapsed;
+            _frozen = true;
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("review freeze: " + ex.Message);
+        }
+        finally { _freezing = false; }
+    }
+
+    public void UnfreezeWindow()
+    {
+        _freezeRequested = false;
+        if (!_frozen && !_freezing) return;
+        _freeze.Visibility = Visibility.Collapsed;
+        _freeze.Source = null;
+        if (_ready) _browser.Visibility = Visibility.Visible;
+        _frozen = false;
     }
 
     private IEnumerable<(StoreService.PendingIngestRow Row, int Index)> Nearby()
         => Enumerable.Range(Math.Max(0, _index - 4), Math.Max(0, Math.Min(_rows.Count, _index + 5) - Math.Max(0, _index - 4)))
             .Select(index => (_rows[index], index));
 
-    private bool Protected(StoreService.PendingIngestRow row)
-        => AppService.Settings.Settings.blur_nsfw && ArchiveService.NormalizeRating(row.Rating) is not ("g" or "s") && !_revealed.Contains(row.Id);
+    private static bool Blurred(StoreService.PendingIngestRow row)
+        => AppService.Settings.Settings.blur_nsfw && ArchiveService.NormalizeRating(row.Rating) is not ("g" or "s");
 
-    private string PreviewKey(StoreService.PendingIngestRow row, int index)
-        => $"{IngestReview.LocalPath(row)}|{Protected(row)}|{(index == _index ? 2048 : 768)}";
+    private bool Protected(StoreService.PendingIngestRow row) => Blurred(row) && !_revealed.Contains(row.Id);
+
+    /// <summary>当前队列里是否有需要保护的图片（决定批量预览按钮是否出现）。</summary>
+    public bool HasBlurredRows => _rows.Any(Blurred);
+
+    /// <summary>所有需要保护的图片都已显示预览。</summary>
+    public bool AllPreviewsRevealed => _rows.Count > 0 && _rows.Where(Blurred).All(row => _revealed.Contains(row.Id));
+
+    /// <summary>批量显示/隐藏当前队列所有受保护图片的预览。</summary>
+    public void ToggleRevealAll()
+    {
+        var targets = _rows.Where(Blurred).ToList();
+        if (targets.Count == 0) return;
+        if (targets.All(row => _revealed.Contains(row.Id))) _revealed.Clear();
+        else foreach (var row in targets) _revealed.Add(row.Id);
+        PublishState();
+        StartLoads();
+    }
+
+    private string PlaceholderKey(StoreService.PendingIngestRow row)
+        => $"{IngestReview.LocalPath(row)}|{Protected(row)}|ph";
+
+    private string ClearKey(StoreService.PendingIngestRow row)
+        => $"{IngestReview.LocalPath(row)}|{Protected(row)}|clear";
 
     private void PublishState()
     {
@@ -126,19 +258,23 @@ internal sealed class ReviewCarousel : Grid
         var cards = !_active ? [] : Nearby().Select(entry =>
         {
             var (row, index) = entry;
-            var cached = _previews.GetValueOrDefault(row.Id);
-            // 分级保护切换后不能显示旧的清晰缓存，尺寸变化则可先沿用同一保护等级的像素。
-            var preview = cached is not null && cached.Protected == Protected(row) ? cached : null;
+            var placeholder = _previews.GetValueOrDefault(row.Id);
+            var protectedNow = Protected(row);
+            // 只有停稳后才把清晰图给中心卡片；滚动过程中所有卡片都用 256px 低清图 + 距离亮度。
+            var clear = _clearAllowed && index == _index && _clearPreview is not null && !_clearPreview.Protected
+                && _clearPreview.Key == ClearKey(row) ? _clearPreview : null;
+            var preview = clear ?? (placeholder is not null && placeholder.Protected == protectedNow ? placeholder : null);
             var source = preview?.Source ?? "";
             var changed = !_sentSources.TryGetValue(row.Id, out var sent) || !ReferenceEquals(source, sent);
             _sentSources[row.Id] = source;
             return new { row.Id, Index = index, row.InboxName, Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
-                Blocked = Protected(row), Status = preview?.Status ?? "正在加载…" };
+                Blocked = protectedNow, Placeholder = preview?.Placeholder ?? true, Status = preview?.Status ?? "正在加载…",
+                Avg = preview?.Average ?? "" };
         }).ToArray();
         _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
-            type = "state", cards, index = _index, count = _rows.Count,
-            design = new { angle = _angle, overlap = _overlap, size = _size, aspect = 16.0 / 9 },
+            type = "state", cards, index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,
+            design = new { angle = _angle, overlap = _overlap, size = _size, scale = _scale, drag = _drag, ease = _ease, aspect = 16.0 / 9 },
             theme = ActualTheme == ElementTheme.Dark ? "dark" : "light",
             background = SurfaceColor(),
             motion = new Windows.UI.ViewManagement.UISettings().AnimationsEnabled,
@@ -170,65 +306,162 @@ internal sealed class ReviewCarousel : Grid
         _loading?.Cancel(); _loading?.Dispose();
         _loading = new CancellationTokenSource();
         if (!_active || !_ready) return;
-        var entries = Nearby().OrderBy(entry => Math.Abs(entry.Index - _index)).ToArray();
-        var ids = entries.Select(entry => entry.Row.Id).ToHashSet();
-        foreach (var id in _previews.Keys.Where(id => !ids.Contains(id)).ToArray()) _previews.Remove(id);
-        foreach (var (row, index) in entries)
+        var token = _loading.Token;
+        var entries = Nearby().ToArray();
+        foreach (var (row, _) in entries) _ = EnsurePlaceholderAsync(row, token);
+        // 只有停稳后才为当前中心加载清晰图；滚动过程中全部用低清占位。
+        if (_clearAllowed && _rows.Count > 0 && !Protected(_rows[_index]))
         {
-            var key = PreviewKey(row, index);
-            if (_previews.TryGetValue(row.Id, out var cached) && cached.Key == key)
-            {
-                if (index == _index && cached.Item is not null) SelectedImageLoaded?.Invoke(cached.Item);
-                continue;
-            }
-            _ = LoadAsync(row, index, key, _loading.Token);
+            var center = _rows[_index];
+            if (_clearPreview is null || _clearPreview.Key != ClearKey(center))
+                _ = LoadClearAsync(center, _index, token);
         }
     }
 
-    private async Task LoadAsync(StoreService.PendingIngestRow row, int index, string key, CancellationToken token)
+    private void StartPrefetch(IReadOnlyList<StoreService.PendingIngestRow> rows)
     {
+        _prefetch?.Cancel();
+        _prefetch?.Dispose();
+        _prefetch = new CancellationTokenSource();
+        if (!_active || rows.Count == 0) return;
+        _ = PrefetchAsync(rows, _prefetch.Token);
+    }
+
+    /// <summary>后台预取整队 256px 占位图，滚动条长距离跳转时窗口切换不空白。</summary>
+    private async Task PrefetchAsync(IReadOnlyList<StoreService.PendingIngestRow> rows, CancellationToken token)
+    {
+        try
+        {
+            // 待审核队列通常很小；超大列表只预取最近的 200 张，避免一次性压满。
+            var limit = Math.Min(rows.Count, 200);
+            var order = rows
+                .Select((row, index) => (Row: row, Distance: Math.Abs(index - _index)))
+                .OrderBy(entry => entry.Distance)
+                .Take(limit)
+                .Select(entry => entry.Row)
+                .ToArray();
+            using var gate = new SemaphoreSlim(3);
+            await Task.WhenAll(order.Select(async row =>
+            {
+                await gate.WaitAsync(token);
+                try { await EnsurePlaceholderAsync(row, token); }
+                finally { gate.Release(); }
+            }));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { AppService.DebugLog("review prefetch: " + ex.Message); }
+    }
+
+    private void PrunePreviews(IReadOnlyList<StoreService.PendingIngestRow> rows)
+    {
+        var ids = rows.Select(row => row.Id).ToHashSet();
+        foreach (var id in _previews.Keys.Where(id => !ids.Contains(id)).ToArray()) _previews.Remove(id);
+        _sentSources.Clear();
+    }
+
+    private async Task EnsurePlaceholderAsync(StoreService.PendingIngestRow row, CancellationToken token)
+    {
+        var key = PlaceholderKey(row);
+        if (_previews.TryGetValue(row.Id, out var cached) && cached.Key == key && cached.Source.Length > 0) return;
+        if (!_placeholderLoading.Add(key)) return;
         var blocked = Protected(row);
         try
         {
             var path = IngestReview.LocalPath(row);
             if (path.Length == 0 || !File.Exists(path))
             {
-                _previews[row.Id] = new Preview(key, "", 1, blocked, "本地文件不可用", null);
+                _previews[row.Id] = new Preview(key, "", 1, blocked, "本地文件不可用", null, true, "");
                 PublishState(); return;
             }
-            var item = await Task.Run(() =>
-            {
-                var meta = ImageInfo.ReadMeta(path);
-                var file = new FileInfo(path);
-                return new PhotoItem { File = file.Name, FullPath = path, PixelWidth = meta.Width ?? 0, PixelHeight = meta.Height ?? 0,
-                    Date = file.LastWriteTime, FileSize = file.Length, ModifiedAtUnix = StoreService.ToUnixSeconds(file.LastWriteTimeUtc), Tags = [("rating", "SFW")] };
-            }, token);
-            // 敏感／未知图片在揭示前只交付已模糊像素；本地网页不接触原文件路径。
-            var bitmap = (WriteableBitmap)(blocked ? await ImageLoader.LoadThumbnailAsync(item, 256, 100, token)
-                : index == _index ? await ImageLoader.LoadPreviewAsync(item, 2048, token)
-                : await ImageLoader.LoadThumbnailAsync(item, 768, 0, token));
+            var item = await ReadItemAsync(row, token);
+            // 不做运行时模糊，非中心卡片直接用 256px 低清图；受保护图片仍是预先糊好的 256px 底图。
+            var thumb = (WriteableBitmap)await ImageLoader.LoadThumbnailAsync(item, 256, blocked ? 100 : 0, token);
             token.ThrowIfCancellationRequested();
-            using var stream = new InMemoryRandomAccessStream();
-            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
-            encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, bitmap.PixelBuffer.ToArray());
-            await encoder.FlushAsync();
-            token.ThrowIfCancellationRequested();
-            stream.Seek(0);
-            using var bytes = new MemoryStream();
-            await stream.AsStreamForRead().CopyToAsync(bytes, token);
-            token.ThrowIfCancellationRequested();
-            _previews[row.Id] = new Preview(key, "data:image/png;base64," + Convert.ToBase64String(bytes.ToArray()), (double)bitmap.PixelWidth / bitmap.PixelHeight, blocked, "", item);
+            var encoded = await EncodeJpegAsync(thumb, 76, token);
+            _previews[row.Id] = new Preview(key, encoded.Source,
+                (double)thumb.PixelWidth / thumb.PixelHeight, blocked, "", item, true, encoded.Average);
             PublishState();
-            if (index == _index && _rows.Count > 0 && _rows[_index].Id == row.Id) SelectedImageLoaded?.Invoke(item);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException
             or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
         {
             if (token.IsCancellationRequested) return;
-            _previews[row.Id] = new Preview(key, "", 1, blocked, "图片无法读取", null);
-            PublishState(); AppService.DebugLog("review preview: " + ex.Message);
+            _previews[row.Id] = new Preview(key, "", 1, blocked, "图片无法读取", null, true, "");
+            PublishState(); AppService.DebugLog("review placeholder: " + ex.Message);
         }
+        finally { _placeholderLoading.Remove(key); }
+    }
+
+    private async Task LoadClearAsync(StoreService.PendingIngestRow row, int index, CancellationToken token)
+    {
+        var blocked = Protected(row);
+        if (blocked) return;
+        var key = ClearKey(row);
+        if (_clearPreview is not null && _clearPreview.Key == key) return;
+        try
+        {
+            var path = IngestReview.LocalPath(row);
+            if (path.Length == 0 || !File.Exists(path)) return;
+            var item = await ReadItemAsync(row, token);
+            var bitmap = (WriteableBitmap)await ImageLoader.LoadPreviewAsync(item, 1024, token);
+            token.ThrowIfCancellationRequested();
+            var encoded = await EncodeJpegAsync(bitmap, 86, token);
+            _clearPreview = new Preview(key, encoded.Source,
+                (double)bitmap.PixelWidth / bitmap.PixelHeight, false, "", item, false, encoded.Average);
+            PublishState();
+            if (_index == index && _rows.Count > 0 && _rows[_index].Id == row.Id) SelectedImageLoaded?.Invoke(item);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException
+            or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
+        {
+            if (token.IsCancellationRequested) return;
+            if (_previews.TryGetValue(row.Id, out var keep) && keep.Source.Length > 0)
+                _previews[row.Id] = keep with { Status = "图片无法读取" };
+            PublishState(); AppService.DebugLog("review clear: " + ex.Message);
+        }
+    }
+
+    private static Task<PhotoItem> ReadItemAsync(StoreService.PendingIngestRow row, CancellationToken token)
+    {
+        var path = IngestReview.LocalPath(row);
+        return Task.Run(() =>
+        {
+            var meta = Gallery.Services.ImageInfo.ReadMeta(path);
+            var file = new FileInfo(path);
+            return new PhotoItem { File = file.Name, FullPath = path, PixelWidth = meta.Width ?? 0, PixelHeight = meta.Height ?? 0,
+                Date = file.LastWriteTime, FileSize = file.Length, ModifiedAtUnix = StoreService.ToUnixSeconds(file.LastWriteTimeUtc), Tags = [("rating", "SFW")] };
+        }, token);
+    }
+
+    private static Task<(string Source, string Average)> EncodeJpegAsync(WriteableBitmap bitmap, int quality, CancellationToken token)
+    {
+        var pixels = bitmap.PixelBuffer.ToArray();
+        var width = bitmap.PixelWidth;
+        var height = bitmap.PixelHeight;
+        return Task.Run(() =>
+        {
+            var average = AverageColor(pixels, width, height);
+            using var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(pixels, width, height);
+            using var stream = new MemoryStream();
+            image.Save(stream, new JpegEncoder { Quality = quality });
+            token.ThrowIfCancellationRequested();
+            return ("data:image/jpeg;base64," + Convert.ToBase64String(stream.ToArray()), average);
+        }, token);
+    }
+
+    private static string AverageColor(byte[] bgra, int width, int height)
+    {
+        var total = Math.Max(1, width * height);
+        var step = Math.Max(1, total / 4096) * 4;
+        long b = 0, g = 0, r = 0;
+        var count = 0;
+        for (var i = 0; i + 3 < bgra.Length; i += step)
+        {
+            b += bgra[i]; g += bgra[i + 1]; r += bgra[i + 2]; count++;
+        }
+        return count == 0 ? "" : $"rgb({r / count},{g / count},{b / count})";
     }
 
     private void OnMessage(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
@@ -259,8 +492,26 @@ internal sealed class ReviewCarousel : Grid
                 _angle = ReadNumber(message, "angle", _angle, 8, 17);
                 _overlap = ReadNumber(message, "overlap", _overlap, 0, 95);
                 _size = ReadNumber(message, "size", _size, 50, 95);
-                AppService.Settings.Settings.layout_options["review_carousel"] = JsonSerializer.SerializeToElement(new { angle = _angle, overlap = _overlap, size = _size });
+                _scale = ReadNumber(message, "scale", _scale, 1, 1.6);
+                _drag = ReadNumber(message, "drag", _drag, .4, 2);
+                _ease = ReadEase(message, "ease", _ease);
+                AppService.Settings.Settings.layout_options["review_carousel"] = JsonSerializer.SerializeToElement(new { angle = _angle, overlap = _overlap, size = _size, scale = _scale, drag = _drag, ease = _ease });
                 AppService.Settings.Save(); return;
+            }
+            if (type == "window")
+            {
+                _clearAllowed = false;
+                ScrollWindow(message.GetProperty("index").GetInt32());
+                return;
+            }
+            if (type == "settled")
+            {
+                if (_rows.Count == 0) return;
+                _clearAllowed = true;
+                _index = Math.Clamp(message.GetProperty("index").GetInt32(), 0, _rows.Count - 1);
+                // 停稳后才提交详情并加载中心清晰图。
+                SelectionRequested?.Invoke(_index);
+                return;
             }
             if (type == "step")
             {
@@ -270,9 +521,17 @@ internal sealed class ReviewCarousel : Grid
             var id = message.GetProperty("id").GetInt32();
             var index = _rows.ToList().FindIndex(row => row.Id == id);
             if (index < 0 || Math.Abs(index - _index) > 4) return;
-            if (type == "select") { SelectionRequested?.Invoke(index); return; }
+            if (type == "select")
+            {
+                // 网页端带序号的选择只回显最新一条；卡片点击没有序号，属于宿主主动选中，必须直接生效。
+                if (message.TryGetProperty("seq", out var seq) && seq.TryGetInt32(out var value)) _selectSeq = value;
+                else _selectSeq = -1;
+                _clearAllowed = false;
+                SelectionRequested?.Invoke(index);
+                return;
+            }
             if (index != _index) return;
-            if (type == "reveal") { _revealed.Add(id); PublishState(); StartLoads(); }
+            if (type == "reveal") { _revealed.Add(id); _clearAllowed = true; PublishState(); StartLoads(); }
             else if (type == "context")
             {
                 var row = _rows[index];
@@ -282,7 +541,7 @@ internal sealed class ReviewCarousel : Grid
                 var file = new MenuFlyoutItem { Text = "打开文件", IsEnabled = File.Exists(IngestReview.LocalPath(row)) };
                 file.Click += (_, _) => OpenRequested?.Invoke(row, false);
                 menu.Items.Add(source); menu.Items.Add(file);
-                menu.ShowAt(_browser, new Point(ReadNumber(message, "x", 0, 0, ActualWidth), ReadNumber(message, "y", 0, 0, ActualHeight)));
+                menu.ShowAt(_browser, new Windows.Foundation.Point(ReadNumber(message, "x", 0, 0, ActualWidth), ReadNumber(message, "y", 0, 0, ActualHeight)));
             }
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
@@ -291,5 +550,11 @@ internal sealed class ReviewCarousel : Grid
 
     private static double ReadNumber(JsonElement root, string name, double fallback, double min, double max)
         => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && double.IsFinite(number) ? Math.Clamp(number, min, max) : fallback;
-    private sealed record Preview(string Key, string Source, double Ratio, bool Protected, string Status, PhotoItem? Item);
+    private static string ReadEase(JsonElement root, string name, string fallback)
+    {
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return fallback;
+        var text = value.GetString();
+        return text is "linear" or "out" or "in" or "inout" ? text : fallback;
+    }
+    private sealed record Preview(string Key, string Source, double Ratio, bool Protected, string Status, PhotoItem? Item, bool Placeholder, string Average);
 }

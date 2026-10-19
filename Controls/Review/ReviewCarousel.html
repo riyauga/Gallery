@@ -5,36 +5,57 @@
 :root{color-scheme:dark;--g-panel:light-dark(#fff,#292929);--g-text:light-dark(#202020,#f2f2f2);--g-line:light-dark(#ddd,#414141);--g-accent:light-dark(#006cbe,#9ad7ff)}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:var(--g-text);font:14px/1.5 'Segoe UI','Microsoft YaHei',sans-serif}
 button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel);padding:9px 13px;cursor:pointer}button:focus-visible{outline:3px solid var(--g-accent);outline-offset:3px}
-#deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:hidden}
+#deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:hidden;touch-action:none;user-select:none}
+/* 上下渐隐用普通渐变层，避免给整块 3D/滤镜层套 mask 拖慢窗口。 */
+#deck::before,#deck::after{content:'';position:absolute;left:0;right:0;height:8%;z-index:20;pointer-events:none}
+#deck::before{top:0;background:linear-gradient(to bottom,var(--g-surface,#1f1f1f),transparent)}
+#deck::after{bottom:0;background:linear-gradient(to top,var(--g-surface,#1f1f1f),transparent)}
+#deck.g-dragging,#deck.g-dragging .g-photo{cursor:grabbing}
 /* 画框、滤镜、阴影和投影参数沿用 archive-review-sketch.html。 */
-.g-photo{position:absolute;left:50%;top:50%;width:var(--g-frame-width,98%);height:var(--g-frame-height,330px);margin-top:calc(var(--g-frame-height,330px) / -2);padding:8px;border:1px solid light-dark(#ffffffa0,#ffffff35);border-radius:13px;background:var(--g-panel);display:flex;justify-content:center;align-items:center;box-shadow:0 3px 7px #0002,0 10px 24px #0002;transform:translateX(-50%);transform-origin:center;overflow:hidden;isolation:isolate;filter:brightness(var(--g-brightness,1)) blur(var(--g-defocus,0px))}
+.g-photo{position:absolute;left:50%;top:50%;width:var(--g-frame-width,98%);height:var(--g-frame-height,330px);margin-top:calc(var(--g-frame-height,330px) / -2);padding:8px;border:1px solid light-dark(#ffffffa0,#ffffff35);border-radius:13px;background:var(--g-avg,var(--g-panel));display:flex;justify-content:center;align-items:center;box-shadow:0 3px 7px #0002,0 10px 24px #0002;transform:translateX(-50%);transform-origin:center;overflow:hidden;isolation:isolate}
 .ready .g-photo{transition:box-shadow .36s,border-color .36s}
-.g-photo.g-selected{outline:1.5px solid var(--g-accent);outline-offset:3px;box-shadow:0 5px 12px #0002,0 20px 38px #0003;border-color:light-dark(#ffffffd0,#ffffff70)}
-.g-art,.g-fill{display:block;flex-shrink:0;pointer-events:none;object-fit:fill}
-.g-art{position:relative;z-index:2;border-radius:3px;box-shadow:0 2px 10px #0002}
-.g-fill{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(1.22);filter:blur(22px) saturate(.85);z-index:0}
+.g-photo.g-selected{border-color:light-dark(#ffffffd0,#ffffff70)}
+.g-art{display:block;flex-shrink:0;pointer-events:none;object-fit:fill}
+/* 只做距离亮度衰减，不做高斯模糊；景深由 translateZ/rotateX/scale 负责。 */
+.g-art{position:relative;z-index:2;border-radius:3px;box-shadow:0 2px 10px #0002;filter:brightness(var(--g-brightness,1));opacity:0;transition:opacity .24s}
+.g-art.g-loaded{opacity:1}
+.g-photo::before{content:'';position:absolute;inset:0;z-index:1;background:#000;opacity:var(--g-shade,0);pointer-events:none}
 .g-photo::after{content:'';position:absolute;inset:0;z-index:1;background:light-dark(#ffffff20,#ffffff0d);pointer-events:none;box-shadow:inset 0 1px 0 #ffffff30}
 .message{position:absolute;z-index:3;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 4px #000a;font-size:12px}.message [data-reveal]{pointer-events:auto;padding:5px 10px;background:#292929aa;color:white;border:1px solid #ffffff50;border-radius:6px}
 img:not([src]),[hidden]{display:none!important}
-#tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;pointer-events:none;transition:opacity .16s}body:hover #tweak,#tweak:focus-within,#tweak[open]{opacity:1;pointer-events:auto}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input{display:block;width:100%;accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
+#tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;transition:opacity .16s}#tweak:hover,#tweak:focus-within,#tweak[open]{opacity:1}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;max-height:70vh;overflow:auto;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input[type=range]{display:block;width:100%;accent-color:var(--g-accent)}#tweak fieldset{margin:0 0 12px;padding:0;border:0}#tweak legend{margin-bottom:6px;opacity:.75}#tweak fieldset label{display:flex;align-items:center;gap:6px;margin:0 0 4px}#tweak input[type=radio]{accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
 <label>整组图片大小<output id="size-value"></output><input id="size" type="range" min="50" max="95" step="1"></label>
 <label>环面转角<output id="angle-value"></output><input id="angle" type="range" min="8" max="17" step="1"></label>
-<button id="reset">恢复确认参数</button></div></details>
+<label>选中放大<output id="scale-value"></output><input id="scale" type="range" min="100" max="160" step="1"></label>
+<label>拖拽力度<output id="drag-value"></output><input id="drag" type="range" min="40" max="200" step="5"></label>
+<fieldset><legend>切入动画</legend>
+<label><input type="radio" name="ease" value="linear">线性</label>
+<label><input type="radio" name="ease" value="out">先快后慢</label>
+<label><input type="radio" name="ease" value="in">先慢后快</label>
+<label><input type="radio" name="ease" value="inout">两端慢中间快</label>
+</fieldset>
+<button id="reset">重置</button></div></details>
 <script>
 (()=>{
-const deck=document.getElementById('deck'),cards=new Map();
-let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,angle:10};
+const deck=document.getElementById('deck'),tweak=document.getElementById('tweak'),cards=new Map();
+let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,angle:10,scale:1.12,drag:1,ease:'out'};
+// 切入与切出共用同一条距离曲线：|d| 从 1 到 0 是切入，反向滚走时自然就是相反的切出。
+const EASES={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
 // 位置用连续值驱动：滚轮/拖拽只改目标，逐帧用临界阻尼弹簧跟随，停手后吸附到最近一张。
-let pos=0,goal=0,vel=0,mode='spring',wheelAt=0,raf=0,lastT=0,lastSent=-1,lastReported=-1;
+let pos=0,goal=0,vel=0,mode='spring',wheelAt=0,raf=0,lastT=0,lastSent=-1,lastReported=-1,sentSeq=0;
+let deckDrag=false,dragMoved=false,dragY=0,dragSamples=[],suppressClick=false;
+let hostScroll=false,scrollSettle=false,motionActive=false,lastWindow=-1;
 const WHEEL_CLAMP=120,WHEEL_GAIN=.006,WHEEL_IDLE=150,SNAP_STIFFNESS=55,WHEEL_STIFFNESS=80;
-const BRIGHTNESS=[1,.78,.57,.4,.28],DEFOCUS=[0,1.3,3.5,7,12];
+const DRAG_GAIN=.006,DRAG_START=4,FLING_FRICTION=1.7,FLING_STOP=.45,SELECT_HYSTERESIS=.38;
+// 距离亮度曲线：中心 1，往两侧逐级压暗；只改亮度，不做模糊。
+const BRIGHTNESS=[1,.78,.57,.4,.28];
 const sample=(arr,at)=>{const i=Math.min(arr.length-1,Math.floor(at)),j=Math.min(arr.length-1,i+1);return arr[i]+(arr[j]-arr[i])*Math.min(1,at-i);};
 const clampGoal=()=>{goal=count>0?Math.max(0,Math.min(count-1,goal)):0;};
 const send=value=>window.chrome.webview.postMessage(value);
-function settings(){for(const key of ['overlap','size','angle']){document.getElementById(key).value=design[key];document.getElementById(key+'-value').value=design[key]+(key==='angle'?'°':'%');}}
+function settings(){for(const key of ['overlap','size','angle','scale','drag']){const percent=key==='scale'||key==='drag';document.getElementById(key).value=percent?Math.round(design[key]*100):design[key];document.getElementById(key+'-value').value=percent?Math.round(design[key]*100)+'%':design[key]+(key==='angle'?'°':'%');}for(const radio of document.querySelectorAll('input[name=ease]'))radio.checked=radio.value===design.ease;}
 function render(){
  const angleStep=design.angle*Math.PI/180;
  const radiusFactor=(0.5+(0.5-design.overlap/100)*Math.cos(angleStep))/Math.sin(angleStep);
@@ -47,12 +68,14 @@ function render(){
  const span=2*extent,frameHeight=Math.min(deck.clientWidth*.98/design.aspect,(deck.clientHeight-20)*design.size/100/span);
  deck.style.setProperty('--g-frame-height',frameHeight+'px');deck.style.setProperty('--g-frame-width',frameHeight*design.aspect+'px');deck.style.setProperty('--g-perspective',frameHeight*cameraFactor+'px');
  for(const {element:card,data} of cards.values()){
-  const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);
-  card.style.setProperty('--g-brightness',sample(BRIGHTNESS,a));card.style.setProperty('--g-defocus',sample(DEFOCUS,a)+'px');
+  const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);
   const theta=d*angleStep,y=frameHeight*radiusFactor*Math.sin(theta),z=frameHeight*radiusFactor*(Math.cos(theta)-1);
-  card.style.transform='translate(-50%,'+y+'px) translateZ('+z+'px) rotateX('+(-d*design.angle)+'deg)';card.style.zIndex=String(8-Math.round(a));
-  const art=card.querySelector('.g-art'),fill=card.querySelector('.g-fill'),w=frameHeight*design.aspect-18,h=frameHeight-18,ratio=data.ratio;
-  art.style.width=Math.min(w,h*ratio)+'px';art.style.height=Math.min(h,w/ratio)+'px';fill.style.width=Math.max(w,h*ratio)+'px';fill.style.height=Math.max(h,w/ratio)+'px';
+  const t=Math.max(0,1-a),scale=1+(design.scale-1)*EASES[design.ease](t);
+  card.style.transform='translate(-50%,'+y+'px) translateZ('+z+'px) rotateX('+(-d*design.angle)+'deg) scale('+scale+')';card.style.zIndex=String(8-Math.round(a));
+  card.style.setProperty('--g-brightness',String(sample(BRIGHTNESS,a)));
+  card.style.setProperty('--g-shade',String(1-sample(BRIGHTNESS,a)));
+  const art=card.querySelector('.g-art'),w=frameHeight*design.aspect-18,h=frameHeight-18,ratio=data.ratio;
+  art.style.width=Math.min(w,h*ratio)+'px';art.style.height=Math.min(h,w/ratio)+'px';
   const state=(data.status||'')+'|'+(data.blocked&&a<.5?1:0);
   if(card.dataset.msgKey!==state){
    card.dataset.msgKey=state;
@@ -79,27 +102,58 @@ document.addEventListener('drop',event=>{
  window.chrome.webview.postMessageWithAdditionalObjects({type:'files'},files);
 });
 window.chrome.webview.addEventListener('message',event=>{
- const state=event.data;if(state.type!=='state')return;
- current=state.index;const first=!initialized;count=state.count;if(first){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;document.body.classList.toggle('ready',state.motion);
+ const state=event.data;
+ // 滚动轴：宿主已经算好连续位置，这里直接落位；跟随期间不发 select，停稳后由宿主提交。
+ if(state.type==='scroll'){
+  if(count===0)return;
+  if(raf){cancelAnimationFrame(raf);raf=0;}
+  motionActive=false;deck.classList.remove('g-scrolling');
+  const target=Math.max(0,Math.min(count-1,state.position));
+  hostScroll=state.follow!==false;
+  pos=goal=target;vel=0;mode='idle';
+  render();syncWindow();
+  if(state.settle){
+   hostScroll=false;
+   send({type:'settled',index:Math.max(0,Math.min(count-1,Math.round(pos)))});
+  }
+  return;
+ }
+ if(state.type!=='state')return;
+ current=state.index;lastWindow=state.index;const first=!initialized;count=state.count;if(first){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;deck.style.setProperty('--g-surface',state.background);document.body.classList.toggle('ready',state.motion);
  const ids=new Set(state.cards.map(card=>card.id));for(const [id,entry] of cards)if(!ids.has(id)){entry.element.remove();cards.delete(id);}
  for(const data of state.cards){
   let entry=cards.get(data.id);
   if(!entry){
    const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
-   const fill=document.createElement('img');fill.className='g-fill';fill.alt='';fill.setAttribute('aria-hidden','true');const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';card.append(fill,art,message);
+   const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';card.append(art,message);
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
    card.onclick=()=>send({type:'select',id:entry.data.id});card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
    card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
   }
   entry.data=data;
-  if(data.src!==null)for(const img of entry.element.querySelectorAll('img')){if(data.src){if(img.getAttribute('src')!==data.src)img.src=data.src;}else img.removeAttribute('src');}
+  // 卡片背景用图片平均色；图片加载前/失败时回退到面板色。
+  if(data.avg){
+   if(entry.element.dataset.avg!==data.avg){entry.element.dataset.avg=data.avg;entry.element.style.setProperty('--g-avg',data.avg);}
+  }else if(entry.element.dataset.avg){delete entry.element.dataset.avg;entry.element.style.removeProperty('--g-avg');}
+  if(data.src!==null)for(const img of entry.element.querySelectorAll('img')){
+   if(data.src){
+    if(img.getAttribute('src')!==data.src){
+     img.classList.remove('g-loaded');
+     const reveal=()=>{img.onload=null;img.onerror=null;requestAnimationFrame(()=>requestAnimationFrame(()=>img.classList.add('g-loaded')));};
+     img.onload=reveal;img.onerror=reveal;img.src=data.src;
+     if(img.complete)reveal();
+    }
+   }else{img.removeAttribute('src');img.classList.remove('g-loaded');}
+  }
  }
  settings();
  if(first){pos=goal=state.index;lastReported=lastSent=state.index;}
- else if(state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;wake();}
+ // 宿主主动选中（卡片点击/外部选中）直接生效；只有本地滚动的旧回声需要被过滤。
+ else if(!hostScroll&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
  if(count===0){pos=goal=vel=0;}
  else{goal=Math.max(0,Math.min(count-1,goal));pos=Math.max(0,Math.min(count-1,pos));}
  render();
+ if(first)send({type:'settled',index:state.index});
 });
 // 阻尼滚动：滚轮只累加目标位置，位置和速度用临界阻尼弹簧逐帧跟随（参数照搬 Flex Carousel），
 // 停手 150ms 后吸附到最近一张；不再把一次滚动拆成一堆离散步，所以不会滑很久。
@@ -107,6 +161,19 @@ function wake(){if(!raf){lastT=performance.now();raf=requestAnimationFrame(frame
 function frame(now){
  raf=0;
  const dt=Math.min(.05,Math.max(.001,(now-lastT)/1000));lastT=now;
+ // 松手后的惯性：速度按指数衰减，滚到足够慢再吸附到最近一张。
+ if(mode==='fling'){
+  const last=Math.max(0,count-1);
+  vel*=Math.exp(-FLING_FRICTION*dt);
+  pos+=vel*dt;
+  if(pos<=0){pos=0;vel=0;}
+  else if(pos>=last){pos=last;vel=0;}
+  if(Math.abs(vel)<FLING_STOP){goal=Math.max(0,Math.min(last,Math.round(pos)));mode='spring';}
+  render();syncSelection();
+  if(mode==='fling'){wake();return;}
+  if(Math.abs(goal-pos)<.001&&Math.abs(vel)<.01){pos=goal;vel=0;render();syncSelection();finishMotion();return;}
+  wake();return;
+ }
  if(mode==='wheel'&&now-wheelAt>WHEEL_IDLE){goal=Math.round(goal);mode='spring';}
  const stiffness=mode==='wheel'?WHEEL_STIFFNESS:SNAP_STIFFNESS;
  const damping=2*Math.sqrt(stiffness);
@@ -116,16 +183,42 @@ function frame(now){
   const acc=stiffness*(goal-pos)-damping*vel;
   vel+=acc*h;pos+=vel*h;
  }
- if(Math.abs(goal-pos)<.001&&Math.abs(vel)<.01){pos=goal;vel=0;render();syncSelection();return;}
+ if(Math.abs(goal-pos)<.001&&Math.abs(vel)<.01){
+  // 滚轮还没到停手时间时保持滚动态，避免在两个刻度之间闪一下清晰图。
+  if(mode==='wheel'&&now-wheelAt<=WHEEL_IDLE){pos=goal;vel=0;render();syncSelection();wake();return;}
+  pos=goal;vel=0;render();syncSelection();finishMotion();return;
+ }
  render();syncSelection();wake();
 }
+function beginMotion(){
+ if(motionActive)return;
+ motionActive=true;deck.classList.add('g-scrolling');
+}
+function finishMotion(){
+ if(!motionActive)return;
+ // 滚动条还按着时先保持滚动态和模糊，等松手后的最终 scroll 再提交。
+ if(hostScroll&&!scrollSettle)return;
+ motionActive=false;deck.classList.remove('g-scrolling');
+ const index=Math.max(0,Math.min(count-1,Math.round(pos)));
+ hostScroll=false;
+ send({type:'settled',index});
+}
+function syncWindow(){
+ const index=Math.max(0,Math.min(count-1,Math.round(pos)));
+ if(index===lastWindow)return;
+ lastWindow=index;
+ send({type:'window',index});
+}
 function syncSelection(){
+ if(hostScroll){syncWindow();return;}
  const index=Math.round(pos);
  if(index===lastReported)return;
+ // 靠近新卡片 62% 以上才提交选择，避免停在半张卡片附近时详情来回切。
+ if(Math.abs(pos-index)>SELECT_HYSTERESIS)return;
  const entry=[...cards.values()].find(item=>item.data.index===index);
  if(!entry)return;
  lastReported=index;lastSent=index;
- send({type:'select',id:entry.data.id});
+ send({type:'select',id:entry.data.id,seq:++sentSeq});
 }
 deck.addEventListener('wheel',event=>{
  if(initialized===false||count===0)return;
@@ -133,18 +226,77 @@ deck.addEventListener('wheel',event=>{
  const raw=event.deltaY*unit;
  if(Math.abs(raw)<1)return;
  event.preventDefault();
+ hostScroll=false;scrollSettle=true;beginMotion();
  const delta=Math.max(-WHEEL_CLAMP,Math.min(WHEEL_CLAMP,raw));
  goal=Math.max(0,Math.min(count-1,goal+delta*WHEEL_GAIN));
  mode='wheel';wheelAt=performance.now();wake();
 },{passive:false});
+// 左键拖动：向下拖上一张、向上拖下一张；松手后按拖动速度继续冲一段再吸附。
+function onDragMove(event){
+ if(!deckDrag)return;
+ const now=performance.now();
+ if(!dragMoved&&Math.abs(event.clientY-dragY)<DRAG_START)return;
+ const dy=dragY-event.clientY;
+ if(!dragMoved){dragMoved=true;deck.classList.add('g-dragging');hostScroll=false;scrollSettle=true;beginMotion();}
+ dragY=event.clientY;
+ dragSamples.push({y:event.clientY,t:now});
+ while(dragSamples.length>1&&now-dragSamples[0].t>100)dragSamples.shift();
+ goal=Math.max(0,Math.min(count-1,goal+dy*DRAG_GAIN*design.drag));
+ pos=goal;vel=0;render();syncSelection();
+}
+function onDragEnd(){
+ if(!deckDrag)return;
+ deckDrag=false;
+ window.removeEventListener('pointermove',onDragMove);
+ window.removeEventListener('pointerup',onDragEnd);
+ window.removeEventListener('pointercancel',onDragEnd);
+ window.removeEventListener('blur',onDragEnd);
+ deck.classList.remove('g-dragging');
+ if(dragMoved){
+  suppressClick=true;setTimeout(()=>suppressClick=false,0);
+  const now=performance.now();
+  while(dragSamples.length>1&&now-dragSamples[0].t>100)dragSamples.shift();
+  const first=dragSamples[0],last=dragSamples[dragSamples.length-1];
+  const dt=first&&last?(last.t-first.t)/1000:0;
+  const fling=dt>.012?Math.max(-40,Math.min(40,(first.y-last.y)/dt*DRAG_GAIN*design.drag)):0;
+  if(Math.abs(fling)>FLING_STOP){mode='fling';vel=fling;}
+  else{goal=Math.max(0,Math.min(count-1,Math.round(pos)));mode='spring';vel=0;}
+  wake();
+ }
+ else finishMotion();
+ dragMoved=false;
+}
+deck.addEventListener('pointerdown',event=>{
+ if(event.button!==0||deckDrag||!initialized||count===0)return;
+ if(event.target instanceof Element&&event.target.closest('[data-reveal]'))return;
+ deckDrag=true;dragMoved=false;dragY=event.clientY;dragSamples=[{y:event.clientY,t:performance.now()}];
+ if(raf){cancelAnimationFrame(raf);raf=0;}
+ hostScroll=false;scrollSettle=true;
+ goal=pos;vel=0;mode='spring';
+ window.addEventListener('pointermove',onDragMove);
+ window.addEventListener('pointerup',onDragEnd);
+ window.addEventListener('pointercancel',onDragEnd);
+ window.addEventListener('blur',onDragEnd);
+});
+// 拖动结束后紧跟的 click 交给拖动，不再触发卡片选中或右键之外的点击行为。
+deck.addEventListener('click',event=>{
+ if(!suppressClick)return;
+ suppressClick=false;event.preventDefault();event.stopPropagation();
+},true);
+deck.addEventListener('dragstart',event=>event.preventDefault());
 deck.addEventListener('keydown',event=>{
  if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
  event.preventDefault();
+ hostScroll=false;scrollSettle=true;beginMotion();
  const next=Math.max(0,Math.min(count-1,Math.round(goal)+(event.key==='ArrowDown'?1:-1)));
  goal=next;mode='spring';wake();
 });
-for(const key of ['overlap','size','angle']){const input=document.getElementById(key);input.oninput=()=>{design[key]=Number(input.value);settings();render();};input.onchange=()=>send({type:'configure',...design});}
-document.getElementById('reset').onclick=()=>{design={overlap:67,size:95,aspect:16/9,angle:10};settings();render();send({type:'configure',...design});};
+for(const key of ['overlap','size','angle','scale','drag']){const input=document.getElementById(key);input.oninput=()=>{design[key]=key==='scale'||key==='drag'?Number(input.value)/100:Number(input.value);settings();render();};input.onchange=()=>send({type:'configure',...design});}
+for(const radio of document.querySelectorAll('input[name=ease]'))radio.onchange=()=>{design.ease=radio.value;render();send({type:'configure',...design});};
+document.getElementById('reset').onclick=()=>{design={overlap:67,size:95,aspect:16/9,angle:10,scale:1.12,drag:1,ease:'out'};settings();render();send({type:'configure',...design});};
+// 点击设置面板以外的任何位置都收起，Esc 同样可以关闭。
+document.addEventListener('pointerdown',event=>{if(tweak.open&&!tweak.contains(event.target))tweak.open=false;},true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&tweak.open){tweak.open=false;tweak.querySelector('summary').focus();}});
 new ResizeObserver(render).observe(deck);settings();send({type:'ready'});
 })();
 </script></body></html>
