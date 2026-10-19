@@ -1305,6 +1305,78 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    /// <summary>本地导入：把文件路径写进待归档队列，跳过队列里未忽略的或图库里已有的同路径。</summary>
+    public (int Added, int Skipped) EnqueueLocalImages(IReadOnlyList<string> paths, bool keepSource)
+    {
+        EnsureBridgeSchema();
+        lock (SyncRoot)
+        {
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COALESCE(inbox_path,'') FROM ingest_queue WHERE state!='ignored'";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var path = r.GetString(0);
+                    if (path.Length > 0) known.Add(path);
+                }
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT abs_path FROM images";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) known.Add(r.GetString(0));
+            }
+
+            var added = 0;
+            var skipped = 0;
+            using var tx = _conn.BeginTransaction();
+            using var insert = _conn.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText =
+                "INSERT INTO ingest_queue(received_at,state,inbox_path,inbox_name,page_url,image_url," +
+                "post_id,md5,rating,source,payload,note) VALUES($t,'pending',$p,$n,'',''," +
+                "'','','','',$j,'')";
+            insert.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+            insert.Parameters.AddWithValue("$p", "");
+            insert.Parameters.AddWithValue("$n", "");
+            insert.Parameters.AddWithValue("$j", "");
+
+            foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                string full;
+                try { full = Path.GetFullPath(path); }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                if (!File.Exists(full) || !known.Add(full))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                insert.Parameters["$p"].Value = full;
+                insert.Parameters["$n"].Value = Path.GetFileName(full);
+                insert.Parameters["$j"].Value = JsonSerializer.Serialize(new
+                {
+                    filename = full,
+                    imported = true,
+                    import_keep_source = keepSource,
+                });
+                insert.ExecuteNonQuery();
+                added++;
+            }
+
+            tx.Commit();
+            return (added, skipped);
+        }
+    }
+
     /// <summary>待处理（pending）条数，供 /ping 与侧栏指示使用。</summary>
     public int PendingIngestCount()
     {

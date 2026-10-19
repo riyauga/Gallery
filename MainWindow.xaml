@@ -176,10 +176,35 @@
                     <FontIcon Glyph="&#xE8F1;" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="ReviewNavItem" Content="待审核" Tag="review">
+            <NavigationViewItem x:Name="ReviewNavItem" Tag="review" HorizontalContentAlignment="Stretch">
                 <NavigationViewItem.Icon>
                     <FontIcon Glyph="&#xE8B5;" />
                 </NavigationViewItem.Icon>
+                <Grid HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="ReviewNavText"
+                        VerticalAlignment="Center"
+                        Text="待审核" />
+                    <Button
+                        x:Name="ImportToReviewButton"
+                        Grid.Column="1"
+                        Width="36"
+                        Height="36"
+                        Margin="0,0,-20,0"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="ImportToReviewButton_Click"
+                        ToolTipService.ToolTip="导入文件夹到待审核">
+                        <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                    </Button>
+                </Grid>
             </NavigationViewItem>
             <NavigationViewItem Content="收藏夹" Tag="fav">
                     <NavigationViewItem.Icon>

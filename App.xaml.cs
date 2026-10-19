@@ -465,6 +465,14 @@ public partial class App : Application
             return;
         }
 
+        // --verify-import：本地文件夹导入待审核队列的沙箱验收（枚举 / 去重 / 保留原文件）
+        if (cli.Contains("--verify-import"))
+        {
+            RunVerifyImport();
+            Exit();
+            return;
+        }
+
         // --verify-archive：阶段 D 归档流水线验收（沙箱内造文件→归档→校验，写报告后退出）
         if (cli.Contains("--verify-archive"))
         {
@@ -607,6 +615,90 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "verify_db.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// 本地导入验收：枚举（含/不含子目录）、重复跳过、归档时复制保留原文件或移动。
+    /// </summary>
+    private static void RunVerifyImport()
+    {
+        var report = new StringBuilder();
+        var sandbox = Path.Combine(Path.GetTempPath(), "ptv", "import");
+        var libRoot = Path.Combine(sandbox, "lib");
+        var source = Path.Combine(sandbox, "source");
+        try
+        {
+            SettingsStore settings = new();
+            settings.Load();
+            var store = new StoreService(AppPaths.DbPath);
+            var folders = new FolderService(store, settings);
+            var archiver = new ArchiveService(store);
+
+            if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true);
+            Directory.CreateDirectory(libRoot);
+            Directory.CreateDirectory(Path.Combine(source, "子目录"));
+
+            var pixel = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+            var a = Path.Combine(source, "a.png");
+            var b = Path.Combine(source, "b.png");
+            var nested = Path.Combine(source, "子目录", "c.png");
+            File.WriteAllBytes(a, pixel);
+            File.WriteAllBytes(b, pixel);
+            File.WriteAllBytes(nested, pixel);
+            File.WriteAllText(Path.Combine(source, "note.txt"), "not an image");
+
+            report.AppendLine($"sandbox = {sandbox}");
+            var (root, scan) = folders.AddRootAndScan(libRoot);
+            report.AppendLine($"root[{root.Id}] scan={scan.Summary()}");
+
+            var flat = LocalImageImport.Enumerate(source, recursive: false);
+            report.AppendLine($"非递归枚举 = {flat.Count}（期望 2）");
+
+            var all = LocalImageImport.Enumerate(source, recursive: true);
+            report.AppendLine($"递归枚举 = {all.Count}（期望 3）");
+
+            var first = store.EnqueueLocalImages(flat, keepSource: true);
+            report.AppendLine($"首次导入 = added {first.Added} / skipped {first.Skipped}（期望 2 / 0）");
+
+            var again = store.EnqueueLocalImages(flat, keepSource: true);
+            report.AppendLine($"重复导入 = added {again.Added} / skipped {again.Skipped}（期望 0 / 2）");
+
+            var deep = store.EnqueueLocalImages([nested], keepSource: true);
+            report.AppendLine($"子目录导入 = added {deep.Added} / skipped {deep.Skipped}（期望 1 / 0）");
+            report.AppendLine($"待归档条数 = {store.PendingIngestCount()}（期望 3）");
+
+            var rows = store.IngestRows("pending", int.MaxValue).OrderBy(r => r.Id).ToList();
+            foreach (var row in rows)
+                report.AppendLine($"  #{row.Id} {row.InboxName} path={IngestReview.LocalPath(row)}");
+
+            var copyTarget = Path.Combine(libRoot, "保留");
+            var copy = archiver.Archive(rows[0].Id, copyTarget);
+            report.AppendLine($"复制归档 → ok={copy.Ok} msg={copy.Message}");
+            report.AppendLine($"  源仍存在 = {File.Exists(a)}（期望 True）");
+            report.AppendLine($"  目标存在 = {File.Exists(copy.Destination)}（期望 True）");
+            report.AppendLine($"  作业阶段 = {store.ArchiveJob(copy.Destination)?.Phase}（期望 copied）");
+
+            var moveTarget = Path.Combine(libRoot, "移动");
+            var moveSource = Path.Combine(source, "d.png");
+            File.WriteAllBytes(moveSource, pixel);
+            var moving = store.EnqueueLocalImages([moveSource], keepSource: false);
+            var moveRow = store.IngestRows("pending", int.MaxValue).OrderBy(r => r.Id).Last();
+            var move = archiver.Archive(moveRow.Id, moveTarget);
+            report.AppendLine($"移动导入 = added {moving.Added}（期望 1）");
+            report.AppendLine($"移动归档 → ok={move.Ok} msg={move.Message}");
+            report.AppendLine($"  源已删除 = {!File.Exists(moveSource)}（期望 True）");
+            report.AppendLine($"  作业阶段 = {store.ArchiveJob(move.Destination)?.Phase}（期望 moved）");
+            report.AppendLine($"图库图片数 = {store.CountImages()}（期望 2）");
+            report.AppendLine($"剩余待归档 = {store.PendingIngestCount()}（期望 2：b、c）");
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+            report.AppendLine(ex.StackTrace ?? "");
+        }
+
+        WriteVerifyReport("verify_import.txt", report);
     }
 
     /// <summary>

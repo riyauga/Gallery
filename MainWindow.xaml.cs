@@ -52,16 +52,10 @@ public sealed partial class MainWindow : Window
         if (store is null) return;
 
         var pending = store.IngestStats().TryGetValue("pending", out var n) ? n : 0;
-        if (_reviewBadge is null)
-        {
-            _reviewBadge = new InfoBadge();
-            ReviewNavItem.InfoBadge = _reviewBadge;
-        }
 
-        _reviewBadge.Value = pending;
-        _reviewBadge.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-        // 待审核数量保留为文字和侧栏 InfoBadge，不改写系统图标。
+        // 待审核数量显示在标题栏和侧栏文字里。侧栏不再用 InfoBadge：
+        // 角标会挤占内容列，导致右侧导入按钮和「图库」的添加按钮对不齐。
+        ReviewNavText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
         ReviewChipButton.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
         ReviewChipText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
         UpdateTitleBarRegions();
@@ -282,7 +276,6 @@ public sealed partial class MainWindow : Window
         _tray?.UpdateTip(pending > 0 ? $"Gallery · 待审核 {pending} 条" : "Gallery");
     }
     private Controls.Review.ReviewPage? _reviewPage;
-    private InfoBadge? _reviewBadge;
 
     /// <summary>当前窗口实例（查看器进全屏时需要暂时隐藏应用标题栏）。</summary>
     public static MainWindow? Instance { get; private set; }
@@ -293,7 +286,6 @@ public sealed partial class MainWindow : Window
         TitleBar.Visibility = hidden ? Visibility.Collapsed : Visibility.Visible;
         RootGrid.RowDefinitions[0].Height = new GridLength(hidden ? 0 : 48);
     }
-
     public MainWindow()
     {
         InitializeComponent();
@@ -676,6 +668,35 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             // 非打包应用的 FolderPicker 常见环境性失败：给出可见反馈而不是静默
+            ShowToast($"打开文件夹选择器失败：{ex.Message}", ToastKind.Pending);
+        }
+    }
+
+    /// <summary>「待审核」右侧的导入：选目录 → 选项弹窗 → 写入待归档队列。</summary>
+    private async void ImportToReviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppService.Store is null)
+        {
+            ShowToast("库未连接，无法导入");
+            return;
+        }
+
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeFilter.Add("*");
+            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+
+            _reviewPage ??= CreateReviewPage();
+            Nav.SelectedItem = ReviewNavItem;
+            await _reviewPage.ImportAsync([folder.Path]);
+        }
+        catch (Exception ex)
+        {
             ShowToast($"打开文件夹选择器失败：{ex.Message}", ToastKind.Pending);
         }
     }

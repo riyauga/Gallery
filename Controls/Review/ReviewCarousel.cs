@@ -30,6 +30,9 @@ internal sealed class ReviewCarousel : Grid
     public event Action<int>? SelectionRequested;
     public event Action<PhotoItem>? SelectedImageLoaded;
     public event Action<StoreService.PendingIngestRow, bool>? OpenRequested;
+    public event Action<IReadOnlyList<string>>? FilesDropped;
+    /// <summary>拖入/拖出卡片区，宿主据此显示覆盖提示。</summary>
+    public event Action<bool>? DragStateChanged;
 
     public ReviewCarousel()
     {
@@ -237,6 +240,19 @@ internal sealed class ReviewCarousel : Grid
             var message = document.RootElement;
             var type = message.GetProperty("type").GetString();
             if (type == "ready") { _ready = true; PublishState(); StartLoads(); return; }
+            if (type == "files")
+            {
+                var paths = new List<string>();
+                foreach (var item in args.AdditionalObjects)
+                    if (item is CoreWebView2File file && file.Path.Length > 0) paths.Add(file.Path);
+                if (paths.Count > 0) FilesDropped?.Invoke(paths);
+                return;
+            }
+            if (type == "drag")
+            {
+                DragStateChanged?.Invoke(message.GetProperty("over").GetBoolean());
+                return;
+            }
             if (!_active) return;
             if (type == "configure")
             {

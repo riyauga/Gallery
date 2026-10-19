@@ -80,6 +80,7 @@ public sealed class ArchiveService(StoreService store)
         var name = Path.GetFileName(source);
         var destination = UniquePath(Path.Combine(destinationDir, name));
         var jobId = Guid.NewGuid().ToString("n");
+        var keepSource = KeepSource(row.Payload);
 
         // 先复制并校验，再入库，最后才删源——任何一步失败都能回滚到「源文件还在原地」
         try
@@ -115,20 +116,38 @@ public sealed class ArchiveService(StoreService store)
             return new ArchiveResult(false, "索引失败：" + indexed, destination);
         }
 
-        store.SaveArchiveJob(jobId, source, destination, "moved", row.Payload, "");
+        store.SaveArchiveJob(jobId, source, destination, keepSource ? "copied" : "moved", row.Payload, "");
 
-        try
+        if (!keepSource)
         {
-            File.Delete(source);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // 副本已就位、已入库，只是源文件删不掉（被占用等）；记一条错误但不判失败
-            store.RecordSyncError($"archive:{ingestId}:{source}", "已归档但源文件删不掉：" + ex.Message);
+            try
+            {
+                File.Delete(source);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 副本已就位、已入库，只是源文件删不掉（被占用等）；记一条错误但不判失败
+                store.RecordSyncError($"archive:{ingestId}:{source}", "已归档但源文件删不掉：" + ex.Message);
+            }
         }
 
         store.SetIngestState(row.Id, "done", destination);
         return new ArchiveResult(true, $"已归档到 {Path.GetFileName(destination)}", destination);
+    }
+
+    /// <summary>本地导入时选择「归档后保留原文件」；浏览器下载的记录没有这个字段，按移动处理。</summary>
+    private static bool KeepSource(string payload)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("import_keep_source", out var value)
+                && value.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     /// <summary>复制到目标后做长度 + SHA-256 双重校验；校验不过就删掉副本并抛错，源文件不动。</summary>

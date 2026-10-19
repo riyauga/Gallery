@@ -47,7 +47,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
 
     public ThumbnailService Thumbs => _thumbs;
 
-    private static bool ShouldSkipDir(string name, string full)
+    public static bool ShouldSkipDir(string name, string full)
     {
         if (SkipDirNames.Contains(name)) return true;
         if (name.StartsWith('.')) return true;

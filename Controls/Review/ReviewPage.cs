@@ -16,7 +16,27 @@ public sealed class ReviewPage : Grid
 {
     private readonly Window _owner;
     private readonly ReviewCarousel _carousel = new();
+    private readonly Grid _carouselHost = new();
     private readonly TextBlock _count = new() { FontSize = 28 };
+    private readonly Border _dropOverlay = new()
+    {
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Black) { Opacity = .28 },
+        BorderBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"],
+        BorderThickness = new Thickness(2),
+        CornerRadius = new CornerRadius(10),
+        Margin = new Thickness(12),
+        AllowDrop = false,
+        IsHitTestVisible = false,
+        Visibility = Visibility.Collapsed,
+        Child = new TextBlock
+        {
+            Text = "松开即可导入到待审核",
+            FontSize = 16,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        },
+    };
     private readonly TextBlock _summary = Caption();
     private readonly TextBlock _position = Caption();
     private readonly TextBlock _title = new() { FontSize = 21, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -72,6 +92,8 @@ public sealed class ReviewPage : Grid
         Children.Add(_body);
         _carousel.SelectionRequested += Select;
         _carousel.OpenRequested += (row, source) => Open(source ? row.PageUrl : IngestReview.LocalPath(row), source);
+        _carousel.FilesDropped += async paths => await ImportAsync(paths);
+        _carousel.DragStateChanged += over => _dropOverlay.Visibility = over ? Visibility.Visible : Visibility.Collapsed;
         _carousel.SelectedImageLoaded += item =>
         {
             var text = $"{item.PixelWidth} × {item.PixelHeight} · {item.Extension} · {item.FileSize / 1024.0 / 1024:0.##} MB";
@@ -120,8 +142,15 @@ public sealed class ReviewPage : Grid
         header.Children.Add(heading);
         header.Children.Add(_summary);
         panel.Children.Add(header);
-        Grid.SetRow(_carousel, 1);
-        panel.Children.Add(_carousel);
+        // 拖拽范围就是左侧卡片容器：提示层也放在这里，不覆盖整页。
+        _carouselHost.AllowDrop = true;
+        _carouselHost.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), true);
+        _carouselHost.AddHandler(DragLeaveEvent, new DragEventHandler(OnDragLeave), true);
+        _carouselHost.AddHandler(DropEvent, new DragEventHandler(OnDrop), true);
+        _carouselHost.Children.Add(_carousel);
+        _carouselHost.Children.Add(_dropOverlay);
+        Grid.SetRow(_carouselHost, 1);
+        panel.Children.Add(_carouselHost);
         var footer = new StackPanel { Spacing = 10 };
         var navigation = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Spacing = 14 };
         _position.VerticalAlignment = VerticalAlignment.Center;
@@ -658,6 +687,61 @@ public sealed class ReviewPage : Grid
         ++_selectionGeneration;
         _carousel.SetActive(active);
         if (!active) _imageSpecs.Clear();
+    }
+
+    /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>
+    public async Task ImportAsync(IReadOnlyList<string> sources)
+    {
+        if (_busy || sources.Count == 0) return;
+        var root = XamlRoot ?? _owner.Content?.XamlRoot;
+        if (root is null) return;
+        var result = await LocalImportFlow.RunAsync(root, sources);
+        if (result is null) return;
+        if (result.Added == 0 && result.Skipped == 0)
+        {
+            _status.Text = "这些位置里没有可导入的图片";
+            return;
+        }
+
+        _state = "pending";
+        _states.SelectedIndex = 0;
+        Reload();
+        Changed?.Invoke();
+        _status.Text = result.Skipped > 0
+            ? $"已导入 {result.Added} 张，跳过重复或不可用 {result.Skipped} 张"
+            : $"已导入 {result.Added} 张";
+    }
+
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems)) return;
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = "导入到待审核";
+        e.DragUIOverride.IsCaptionVisible = true;
+        _dropOverlay.Visibility = Visibility.Visible;
+        e.Handled = true;
+    }
+
+    private void OnDragLeave(object sender, DragEventArgs e) => _dropOverlay.Visibility = Visibility.Collapsed;
+
+    private async void OnDrop(object sender, DragEventArgs e)
+    {
+        _dropOverlay.Visibility = Visibility.Collapsed;
+        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems)) return;
+        e.Handled = true;
+        try
+        {
+            var items = await e.DataView.GetStorageItemsAsync();
+            var sources = items
+                .Select(item => item.Path)
+                .Where(path => path.Length > 0)
+                .ToList();
+            if (sources.Count > 0) await ImportAsync(sources);
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+        {
+            _status.Text = "读取拖入的内容失败：" + ex.Message;
+        }
     }
 
     public void RefreshPreview() => _carousel.RefreshPreview();
