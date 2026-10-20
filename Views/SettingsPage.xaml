@@ -16,7 +16,7 @@
     xmlns:controls="using:Gallery.Controls"
     Background="Transparent">
 
-    <Grid>
+    <Grid x:Name="SettingsRoot" Background="Transparent" IsTabStop="True" UseSystemFocusVisuals="False">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

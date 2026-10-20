@@ -333,9 +333,9 @@ public sealed class TagEditorDialog
     }
 
     /// <summary>该类自己的输入框：输入或选候选，回车即在该类下新增。</summary>
-    private AutoSuggestBox BuildInput(string category, string title)
+    private SearchInputBox BuildInput(string category, string title)
     {
-        var input = new AutoSuggestBox
+        var input = new SearchInputBox
         {
             PlaceholderText = $"输入或搜索{title}…",
             MinWidth = 0,

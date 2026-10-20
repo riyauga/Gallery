@@ -5,6 +5,24 @@
 
 ---
 
+## 搜索输入框
+
+- 封装默认圆角取原生主题资源 `ControlCornerRadius`，再同步给内部控件；不得用 UserControl 默认的 0 覆盖原生圆角。内容及内部控件双向拉伸，按宿主分配尺寸布局，不通过放大宽度或负边距补偿边缘。本轮仅静态/编译核对，边缘完整性待人工确认。
+- 顶部图库搜索、资料库、筛选、标签编辑与待审核标签输入统一使用 `Controls/SearchInputBox.cs`，基于原生 `AutoSuggestBox`，不另绘模板。默认 `AllowFocusOnInteraction=true`、`PreventAutomaticFocus=false`；文本编辑、选区、键盘、输入法及候选展示交给原生控件。普通资料编辑字段仍用 `TextBox`。
+- `AutoSuggestBox` 是密封类，组件用 `UserControl` 内嵌原生控件，不继承或修改其模板。公共 API 转发 `Text`、`PlaceholderText`、`TextChanged`、`ItemsSource`、`QuerySubmitted`；显式聚焦用 `FocusSearch()`，尺寸、可用状态由宿主设置，圆角同步到内部控件。例如 `new SearchInputBox { PlaceholderText = "搜索标签", Width = 300 }`。转发属性不是依赖属性，当前仅供 XAML 初值和代码读写，不提供完整 AutoSuggestBox API 或绑定契约。事件 sender 为内部原生 AutoSuggestBox。宿主负责查询、防抖、过期结果过滤和提交；普通搜索不提供 `ItemsSource`，不额外弹出候选。标签搜索保留候选选择、键盘提交与输入新标签；`TextChanged` 使用 `AutoSuggestBoxTextChangedEventArgs`，候选查询仅处理 `UserInput`。
+- 标题栏设置 `PreventAutomaticFocus=true` 并提供 `DefaultFocusAnchor`，保留原 Photos 主动聚焦判断，允许点击、Tab 和 `FocusSearch()`，拦截启动或内容卸载等非主动聚焦；内部文本编辑器已有焦点时允许其正常转移。其他搜索不启用此保护。旧 `PhotosSearchBox` 已移除，不再维护第二套控件。
+- 含输入框的普通 `Flyout`，触发按钮必须允许交互聚焦。WinUI 会把目标按钮的 `AllowFocusOnInteraction` 传给 `FlyoutPresenter`；仅修改输入框或 Flyout 本身不足以替代宿主配置。当前 `FilterButton` 显式设置为 `True`，其他菜单按钮不变。
+- 不统一查询范围：资料库查实体，筛选查已入库标签及其中英文名、别名；组件不访问数据库，不适用于普通资料编辑字段。
+- 本次未启动应用；需人工核对所有入口的点击输入、中文输入法、删除/清空、结果刷新、候选选择/提交，以及标题栏切页/关闭查看器的焦点保护和搜索快捷键。
+
+## 输入焦点与标题栏命中
+
+- 统一控件不等于统一宿主行为。含文本编辑的页面须提供可聚焦的中性锚点：点击页面空白/说明文字时，将已有文本编辑焦点转移到锚点；不能只隐藏光标或清空文本。设置页使用 `SettingsRoot`，透明背景保证空白可命中，关闭系统焦点框；该锚点会参与 Tab 导航。
+- 空白点击处理需识别原始事件来源及祖先，跳过输入框、候选输入、按钮、滑块/滚动条及开关，不拦截其点击、文本选区或候选操作。设置页接收已处理的指针事件，避免 ScrollViewer 吞掉空白点击，但不将事件标记为已处理，不改变保存时机。不默认扩展到其他页面或独立 Popup。
+- `TransformToVisual` 与 `ActualWidth/Height` 得到的是 DIP；交给 `InputNonClientPointerSource.SetRegionRects` 前必须乘当前 `XamlRoot.RasterizationScale` 转成物理像素。边界用左上向下、右下向上取整，覆盖完整控件边缘。不得沿用旧源码中“SetRegionRects 使用 DIP”的错误注释，也不得通过强制 IBeam 光标掩盖命中区域错误。[微软标题栏交互区域示例](https://learn.microsoft.com/zh-cn/windows/apps/develop/title-bar#interactive-content)
+- 标题栏仍使用原自定义布局；搜索框尺寸、标题栏/根布局尺寸、缩放比例变化后重新登记命中区域，隐藏后不得保留过期区域。保持现有托盘恢复入口的重算，不把普通窗口移动变成逐帧坐标刷新；缩放变化监听随根元素加载/卸载成对接线。
+- 人工核对须包含：设置页点击输入→点击空白→再次输入、只读框选取复制、按钮/滑块不被抢焦点；首页搜索框左/中/右端悬停与点击、文本拖选、缩放/最大化/还原/跨 DPI 显示器及托盘恢复。编译通过不能代替这些验收，本轮未启动或操作应用。
+
 ## 一、滚动条与内容必须分离
 
 ### 为什么需要专门一条

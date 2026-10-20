@@ -18,7 +18,7 @@ namespace Gallery.Controls.Catalog;
 public sealed class CatalogPage : Grid
 {
     private readonly TagCatalogService _catalog;
-    private readonly TextBox _search = new();
+    private readonly SearchInputBox _search = new();
     private readonly ListView _list = new();
     private readonly TextBlock _summary = new();
     private readonly TextBlock _status = new();

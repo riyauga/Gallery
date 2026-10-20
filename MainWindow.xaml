@@ -44,8 +44,9 @@
                     Text="Gallery" />
             </StackPanel>
 
-            <controls:PhotosSearchBox
+            <controls:SearchInputBox
                 x:Name="SearchBox"
+                PreventAutomaticFocus="True"
                 Grid.Column="1"
                 MinWidth="160"
                 MaxWidth="718"

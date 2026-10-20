@@ -409,7 +409,7 @@ public sealed class ReviewPage : Grid
         Rebuild();
         if (category != "rating")
         {
-            var search = new AutoSuggestBox { PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
+            var search = new SearchInputBox { PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
             AutomationProperties.SetName(search, $"搜索或添加{title}标签");
             var generation = _selectionGeneration;
             var searchVersion = 0;

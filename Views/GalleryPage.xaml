@@ -308,6 +308,7 @@
 
                 <AppBarButton
                     x:Name="FilterButton"
+                    AllowFocusOnInteraction="True"
                     Label="筛选器"
                     LabelPosition="Collapsed">
                     <AppBarButton.Resources>

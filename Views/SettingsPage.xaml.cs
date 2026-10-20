@@ -1,6 +1,9 @@
 using Gallery.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace Gallery.Views;
@@ -16,6 +19,7 @@ public sealed partial class SettingsPage : UserControl
     public SettingsPage()
     {
         InitializeComponent();
+        AddHandler(PointerPressedEvent, new PointerEventHandler(OnBackgroundPointerPressed), true);
         _theme = ThemeService.Parse(AppService.Settings.Settings.theme);
         ApplyState();
         Loaded += (_, _) =>
@@ -24,6 +28,18 @@ public sealed partial class SettingsPage : UserControl
             RefreshThumbCacheAsync();
         };
         Unloaded += (_, _) => SaveBlurStrength();
+    }
+
+    private void OnBackgroundPointerPressed(object sender, PointerRoutedEventArgs args)
+    {
+        if (FocusManager.GetFocusedElement(XamlRoot) is not TextBox) return;
+        for (var element = args.OriginalSource as DependencyObject;
+             element is not null && !ReferenceEquals(element, this);
+             element = VisualTreeHelper.GetParent(element))
+        {
+            if (element is TextBox or AutoSuggestBox or ButtonBase or RangeBase or ToggleSwitch) return;
+        }
+        SettingsRoot.Focus(FocusState.Pointer);
     }
 
     /// <summary>刷新桥接状态：地址用实际监听端口，令牌取已落盘的那个。</summary>

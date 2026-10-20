@@ -68,10 +68,19 @@ public sealed partial class MainWindow : Window
     /// 标题栏整条被 SetTitleBar 当成拖动区，按钮默认收不到鼠标。
     /// 把搜索框、「待审核」角标和设置按钮登记成 passthrough 区域，允许文本编辑与按钮交互。
     /// </summary>
+    private double _titleBarRasterizationScale = 1.0;
+    private XamlRoot? _titleBarXamlRoot;
+
+    private void OnTitleBarXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    {
+        if (sender.RasterizationScale != _titleBarRasterizationScale) UpdateTitleBarRegions();
+    }
+
     private void UpdateTitleBarRegions()
     {
         if (AppWindowInstance is not { } window) return;
         var scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+        _titleBarRasterizationScale = scale;
         var rects = new List<Windows.Graphics.RectInt32>();
 
         void Add(FrameworkElement element)
@@ -80,23 +89,25 @@ public sealed partial class MainWindow : Window
             if (element.ActualWidth <= 0 || element.ActualHeight <= 0) return;
             var bounds = element.TransformToVisual(null)
                 .TransformBounds(new Windows.Foundation.Rect(0, 0, element.ActualWidth, element.ActualHeight));
-            // 实测：SetRegionRects 收的是 DIP（不是物理像素），乘 RasterizationScale 会偏到窗口外
+            var left = (int)Math.Floor(bounds.Left * scale);
+            var top = (int)Math.Floor(bounds.Top * scale);
+            var right = (int)Math.Ceiling(bounds.Right * scale);
+            var bottom = (int)Math.Ceiling(bounds.Bottom * scale);
             rects.Add(new Windows.Graphics.RectInt32(
-                (int)Math.Round(bounds.X),
-                (int)Math.Round(bounds.Y),
-                (int)Math.Round(bounds.Width),
-                (int)Math.Round(bounds.Height)));
+                left, top, right - left, bottom - top));
         }
 
         Add(SearchBox);
         Add(ReviewChipButton);
         Add(SettingsButton);
 
-        if (rects.Count == 0) return;
         try
         {
             var source = Microsoft.UI.Input.InputNonClientPointerSource.GetForWindowId(window.Id);
-            source.SetRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough, rects.ToArray());
+            if (rects.Count == 0)
+                source.ClearRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough);
+            else
+                source.SetRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough, rects.ToArray());
         }
         catch (Exception ex)
         {
@@ -458,6 +469,21 @@ public sealed partial class MainWindow : Window
         Preview.FavoriteRequested = _page.ToggleFavoriteAsync;
         Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         ContentHost.Children.Add(_page);
+        RootGrid.SizeChanged += (_, _) => UpdateTitleBarRegions();
+        TitleBar.SizeChanged += (_, _) => UpdateTitleBarRegions();
+        SearchBox.SizeChanged += (_, _) => UpdateTitleBarRegions();
+        RootGrid.Loaded += (_, _) =>
+        {
+            _titleBarXamlRoot = RootGrid.XamlRoot;
+            _titleBarXamlRoot.Changed += OnTitleBarXamlRootChanged;
+            UpdateTitleBarRegions();
+        };
+        RootGrid.Unloaded += (_, _) =>
+        {
+            if (_titleBarXamlRoot is not { } root) return;
+            root.Changed -= OnTitleBarXamlRootChanged;
+            _titleBarXamlRoot = null;
+        };
         if (AppService.Watcher is { } watcher)
         {
             watcher.Changed += OnLibraryChanged;
@@ -479,7 +505,6 @@ public sealed partial class MainWindow : Window
             HookDisplayMode();
             SetupTray();
             UpdateTitleBarRegions();
-            RootGrid.SizeChanged += (_, _) => UpdateTitleBarRegions();
             UpdateTrayTip();
         };
 
@@ -697,7 +722,7 @@ public sealed partial class MainWindow : Window
             Nav.SelectedItem = Nav.MenuItems[navIndex];
     }
 
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         => _page.SetSearch(SearchBox.Text);
 
     private void OnSearchInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
