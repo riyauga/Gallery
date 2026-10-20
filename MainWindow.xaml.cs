@@ -205,6 +205,8 @@ public sealed partial class MainWindow : Window
     private TrayMenuHost? _trayMenu;
     private bool _quitting;
     private bool _restoreTitleBarAfterTrayHide;
+    private string? _captionInputTracePhase;
+    private int _captionInputTraceMask;
 
     /// <summary>主窗口的 AppWindow（托盘唤回、关窗收托盘都要用）。</summary>
     public Microsoft.UI.Windowing.AppWindow? AppWindowInstance { get; private set; }
@@ -212,8 +214,12 @@ public sealed partial class MainWindow : Window
     /// <summary>从托盘／通知唤回：窗口可能是隐藏状态，先 Show 再抢前台（ActivateWindow 含 SetForegroundWindow）。</summary>
     public void BringToFront()
     {
+        RestoreTitleBarAfterTrayHide();
         AppWindowInstance?.Show();
         ActivateWindow();
+        _captionInputTracePhase = "restored";
+        _captionInputTraceMask = 0;
+        AppService.DebugLog($"caption restored custom={ExtendsContentIntoTitleBar}");
         Services.AppService.DebugLog("brought to front");
     }
 
@@ -314,6 +320,30 @@ public sealed partial class MainWindow : Window
 
     private IntPtr OnWindowSubclass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
+        if ((uMsg == 0x00A1 || uMsg == 0x00A2) && wParam == (IntPtr)20) // HTCLOSE
+        {
+            if (uMsg == 0x00A1)
+            {
+                _captionInputTracePhase = "close-click";
+                _captionInputTraceMask = 0;
+            }
+            AppService.DebugLog($"caption close message=0x{uMsg:X}");
+        }
+        var inputBit = uMsg switch
+        {
+            0x0200 => 1, // WM_MOUSEMOVE
+            0x00A0 => 2, // WM_NCMOUSEMOVE
+            0x02A3 => 4, // WM_MOUSELEAVE
+            0x02A2 => 8, // WM_NCMOUSELEAVE
+            0x0245 => 16, // WM_POINTERUPDATE
+            _ => 0,
+        };
+        if (_captionInputTracePhase is { } phase && inputBit != 0 &&
+            (_captionInputTraceMask & inputBit) == 0)
+        {
+            _captionInputTraceMask |= inputBit;
+            AppService.DebugLog($"caption input phase={phase} message=0x{uMsg:X} wParam=0x{wParam.ToInt64():X} lParam=0x{lParam.ToInt64():X}");
+        }
         if (uMsg == WM_ENTERSIZEMOVE)
         {
             _inWindowMove = true;
@@ -419,6 +449,7 @@ public sealed partial class MainWindow : Window
                 e.Cancel = true;
                 if (AppService.Settings.Settings.minimize_to_tray && _tray is { IsCreated: true })
                 {
+                    AppService.DebugLog($"caption hiding custom={ExtendsContentIntoTitleBar} inputMask=0x{_captionInputTraceMask:X}");
                     appWindow.Hide();
                     // WinUI #12232：自定义标题栏在 Hide/Show 后可能保留关闭按钮高亮。
                     // 隐藏期间退出自定义模式，唤回前重新启用；不改变可见时的标题栏外观。

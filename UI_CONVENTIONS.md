@@ -18,6 +18,7 @@
 
 ## 输入焦点与标题栏命中
 
+- 托盘唤回时，须在 `AppWindow.Show()` 前完成 `RestoreTitleBarAfterTrayHide()`，使标题栏在隐藏期间恢复自定义模式、高度和命中区域；关闭按钮红色高亮是否消除须人工核对。
 - 统一控件不等于统一宿主行为。含文本编辑的页面须提供可聚焦的中性锚点：点击页面空白/说明文字时，将已有文本编辑焦点转移到锚点；不能只隐藏光标或清空文本。设置页使用 `SettingsRoot`，透明背景保证空白可命中，关闭系统焦点框；该锚点会参与 Tab 导航。
 - 空白点击处理需识别原始事件来源及祖先，跳过输入框、候选输入、按钮、滑块/滚动条及开关，不拦截其点击、文本选区或候选操作。设置页接收已处理的指针事件，避免 ScrollViewer 吞掉空白点击，但不将事件标记为已处理，不改变保存时机。不默认扩展到其他页面或独立 Popup。
 - `TransformToVisual` 与 `ActualWidth/Height` 得到的是 DIP；交给 `InputNonClientPointerSource.SetRegionRects` 前必须乘当前 `XamlRoot.RasterizationScale` 转成物理像素。边界用左上向下、右下向上取整，覆盖完整控件边缘。不得沿用旧源码中“SetRegionRects 使用 DIP”的错误注释，也不得通过强制 IBeam 光标掩盖命中区域错误。[微软标题栏交互区域示例](https://learn.microsoft.com/zh-cn/windows/apps/develop/title-bar#interactive-content)

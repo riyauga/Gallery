@@ -4,6 +4,8 @@
 
 ## 运行
 
+托盘唤回先在隐藏期间恢复自定义标题栏，再显示和激活窗口；关闭按钮悬停红色残留的修正尚待人工验证。
+
 ```bash
 cd D:\Projects\Other\Gallery
 dotnet run
