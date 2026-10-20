@@ -204,7 +204,7 @@ public sealed partial class MainWindow : Window
     private Services.TrayIcon? _tray;
     private TrayMenuHost? _trayMenu;
     private bool _quitting;
-    private bool _restoreTitleBarAfterTrayHide;
+    private bool _refreshCaptionAfterTrayHide;
     private string? _captionInputTracePhase;
     private int _captionInputTraceMask;
 
@@ -214,7 +214,6 @@ public sealed partial class MainWindow : Window
     /// <summary>从托盘／通知唤回：窗口可能是隐藏状态，先 Show 再抢前台（ActivateWindow 含 SetForegroundWindow）。</summary>
     public void BringToFront()
     {
-        RestoreTitleBarAfterTrayHide();
         AppWindowInstance?.Show();
         ActivateWindow();
         _captionInputTracePhase = "restored";
@@ -223,15 +222,28 @@ public sealed partial class MainWindow : Window
         Services.AppService.DebugLog("brought to front");
     }
 
-    /// <summary>在窗口仍隐藏时重新启用自定义标题栏，避免沿用关闭按钮的红色交互状态。</summary>
-    private void RestoreTitleBarAfterTrayHide()
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CursorPoint
     {
-        if (!_restoreTitleBarAfterTrayHide) return;
-        ExtendsContentIntoTitleBar = true;
-        SetTitleBar(TitleBar);
-        AppWindowInstance!.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        public int X, Y;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out CursorPoint point);
+
+    /// <summary>托盘唤回后按真实鼠标位置刷新系统按钮状态，不移动鼠标。</summary>
+    private void RefreshCaptionAfterTrayHide(IntPtr hwnd)
+    {
+        if (!_refreshCaptionAfterTrayHide) return;
+        _refreshCaptionAfterTrayHide = false;
         UpdateTitleBarRegions();
-        _restoreTitleBarAfterTrayHide = false;
+        if (!GetCursorPos(out var point)) return;
+        // Win32 鼠标消息以两个有符号 16 位屏幕坐标打包，兼容负坐标显示器。
+        var position = (IntPtr)unchecked((int)(((uint)point.Y & 0xFFFF) << 16 | ((uint)point.X & 0xFFFF)));
+        var hit = SendMessage(hwnd, 0x0084, IntPtr.Zero, position); // WM_NCHITTEST
+        SendMessage(hwnd, 0x00A0, hit, position); // WM_NCMOUSEMOVE
+        AppService.DebugLog($"caption refresh hit={hit} cursor={point.X},{point.Y}");
     }
 
     /// <summary>建托盘图标：左键唤回、右键菜单（显示 / 待审核数 / 退出）。</summary>
@@ -451,11 +463,8 @@ public sealed partial class MainWindow : Window
                 {
                     AppService.DebugLog($"caption hiding custom={ExtendsContentIntoTitleBar} inputMask=0x{_captionInputTraceMask:X}");
                     appWindow.Hide();
-                    // WinUI #12232：自定义标题栏在 Hide/Show 后可能保留关闭按钮高亮。
-                    // 隐藏期间退出自定义模式，唤回前重新启用；不改变可见时的标题栏外观。
-                    SetTitleBar(null);
-                    ExtendsContentIntoTitleBar = false;
-                    _restoreTitleBarAfterTrayHide = true;
+                    // 隐藏不会清理系统按钮的悬停状态，唤回后同步真实鼠标位置。
+                    _refreshCaptionAfterTrayHide = true;
                     AppService.DebugLog("window hidden to tray");
                 }
                 else _ = QuitAsync();
@@ -696,7 +705,6 @@ public sealed partial class MainWindow : Window
     /// <summary>窗口最小化时先还原，再抢前台（浏览器点「在图库中查看」的感觉）。</summary>
     private void ActivateWindow()
     {
-        RestoreTitleBarAfterTrayHide();
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var id = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(id);
@@ -708,6 +716,7 @@ public sealed partial class MainWindow : Window
 
         Activate();
         SetForegroundWindow(hwnd);
+        RefreshCaptionAfterTrayHide(hwnd);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
