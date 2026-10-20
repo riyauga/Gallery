@@ -113,7 +113,7 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 - **背景**：容器透明/融入 Mica，不写死背景色；卡片背景取图片平均色，不默认黑色；平均色从已加载缩略图采样。
 - **渐进加载**：先低清/模糊占位，再清晰；受保护图在“显示预览”前只加载模糊版；清晰图只在停稳/揭示后加载。
 - **预取**：覆盖整队或足够范围，长跳不空白；换窗口只换可见 `src`，不取消/重启加载；不抢可见请求。
-- **性能**：不在动画/缩放内容上用运行时 `filter: blur()`；用预模糊/低清/亮度/遮罩；批量 host↔web 消息；不动画 WebView；非活动 WebView 用快照/挂起。
+- **性能**：不在动画/缩放内容上用运行时 `filter: blur()`；用预模糊/低清/亮度/遮罩；批量 host↔web 消息；不动画 WebView；快照、折叠或挂起不等于解除 WebView 的窗口位置通知订阅。
 - **主题**：不要写死 `#202020` 等颜色；优先主题资源/透明；平均色只用于卡片内容层，不用于容器背景。
 
 具体加载参数与当前实现见 `IMAGE_LOADING.md`。
@@ -136,3 +136,10 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 - **交付说明**：见 `AGENTS.md`；构建 0/0 不等于 UI 验收，UI 手感由用户确认。
 - **文档落点**：项目规范在 `AGENTS.md`；UI 规则在本文件；加载细节在 `IMAGE_LOADING.md`；待审核页行为在 `ARCHIVE_REVIEW.md`；入口/总览在 `README.md`。
 
+
+## 窗口拖动与标题栏
+
+- 保留 48 DIP 顶部布局、系统窗口按钮及原有搜索／设置交互。
+- `MainWindow.OnWindowSubclass` 只在交互移动循环内，对明确标记为不改变尺寸、Z 序、激活状态且 DPI 不变的位置消息做合并。通过 `DefWindowProc` 保留即时 `WM_MOVE`；退出循环时将最后一条完整位置消息交回框架，然后恢复网页。
+- 实际缩放、框架变化、显示／隐藏、最大化及 DPI 变化不合并；跨 DPI 后当前循环恢复完整处理。不适合需要逐帧 `AppWindow.Changed` 位置事件的独立悬浮窗口；当前宿主在拖动时冻结待审核网页，松手后先同步位置再恢复。
+- 该行为是主窗口内部实现，没有新增公共 API、可配置默认值或页面接入方式。宿主后续增加位置事件订阅时，应核对合并语义；不能全局丢弃 `WM_WINDOWPOSCHANGED`，也不能只隐藏网页便认定其通知停止。

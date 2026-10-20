@@ -279,16 +279,80 @@ public sealed partial class MainWindow : Window
 
     private const int WM_ENTERSIZEMOVE = 0x0231;
     private const int WM_EXITSIZEMOVE = 0x0232;
+    private const uint WM_WINDOWPOSCHANGED = 0x0047;
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr DefWindowProc(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+    /// <summary>保留最后一条 Win32 位置消息，在松手时同步框架状态。</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowPosition
+    {
+        public IntPtr Window, InsertAfter;
+        public int X, Y, Width, Height;
+        public uint Flags;
+    }
+    private bool _inWindowMove;
+    private uint _windowMoveDpi;
+    private WindowPosition? _deferredWindowPosition;
     private delegate IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData);
     [DllImport("comctl32.dll", SetLastError = true)] private static extern bool SetWindowSubclass(IntPtr hWnd, WindowSubclassProc pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
     [DllImport("comctl32.dll")] private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+    [DllImport("comctl32.dll")] private static extern bool RemoveWindowSubclass(IntPtr hWnd, WindowSubclassProc pfnSubclass, UIntPtr uIdSubclass);
     private WindowSubclassProc? _windowSubclass;
 
     private IntPtr OnWindowSubclass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
-        if (uMsg == WM_ENTERSIZEMOVE) _reviewPage?.BeginWindowMove();
-        else if (uMsg == WM_EXITSIZEMOVE) _reviewPage?.EndWindowMove();
+        if (uMsg == WM_ENTERSIZEMOVE)
+        {
+            _inWindowMove = true;
+            _windowMoveDpi = GetDpiForWindow(hWnd);
+            _reviewPage?.BeginWindowMove();
+        }
+        else if (uMsg == WM_EXITSIZEMOVE)
+        {
+            _inWindowMove = false;
+            FlushWindowPosition(hWnd);
+            _reviewPage?.EndWindowMove();
+        }
+        else if (uMsg == WM_WINDOWPOSCHANGED)
+        {
+            var position = Marshal.PtrToStructure<WindowPosition>(lParam);
+            const uint SWP_NOSIZE = 0x0001, SWP_NOZORDER = 0x0004,
+                SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020,
+                SWP_SHOWWINDOW = 0x0040, SWP_HIDEWINDOW = 0x0080;
+            if (_inWindowMove && (position.Flags & (SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)) ==
+                    (SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE) &&
+                (position.Flags & (SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_HIDEWINDOW)) == 0 &&
+                GetDpiForWindow(hWnd) == _windowMoveDpi)
+            {
+                // 纯移动时客户端几何不变。保留 DefWindowProc 发出的 WM_MOVE，
+                // 将 AppWindow 标题栏的输入窗口重排合并到松手后一次。
+                _deferredWindowPosition = position;
+                return DefWindowProc(hWnd, uMsg, wParam, lParam);
+            }
+            _deferredWindowPosition = null;
+        }
+        else if (uMsg == 0x02E0) // WM_DPICHANGED：跨 DPI 后恢复完整框架处理。
+        {
+            _inWindowMove = false;
+            _deferredWindowPosition = null;
+        }
         return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+    }
+
+    /// <summary>松手时同步最终位置，再恢复待审核网页；缩放和 DPI 变化不合并。</summary>
+    private void FlushWindowPosition(IntPtr hwnd)
+    {
+        if (_deferredWindowPosition is not { } position) return;
+        _deferredWindowPosition = null;
+        var buffer = Marshal.AllocHGlobal(Marshal.SizeOf<WindowPosition>());
+        try
+        {
+            Marshal.StructureToPtr(position, buffer, false);
+            SendMessage(hwnd, WM_WINDOWPOSCHANGED, IntPtr.Zero, buffer);
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
     }
 
     /// <summary>当前窗口实例（查看器进全屏时需要暂时隐藏应用标题栏）。</summary>
@@ -329,6 +393,12 @@ public sealed partial class MainWindow : Window
             {
                 _windowSubclass = OnWindowSubclass;
                 SetWindowSubclass(hwnd, _windowSubclass, 1, IntPtr.Zero);
+                Closed += (_, _) =>
+                {
+                    if (_windowSubclass is { } subclass) RemoveWindowSubclass(hwnd, subclass, 1);
+                    _inWindowMove = false;
+                    _deferredWindowPosition = null;
+                };
             }
 
             // 关窗行为对齐 galleryold：minimize_to_tray 时收进托盘而不是退出
