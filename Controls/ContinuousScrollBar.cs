@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Foundation;
 using Windows.UI;
 using XamlOrientation = Microsoft.UI.Xaml.Controls.Orientation;
@@ -15,10 +16,14 @@ namespace Gallery.Controls;
 /// 滑块和内容一起用短缓动滑到点击处，不走原生 ScrollBar 的 LargeChange 跳页。
 /// 竖向/横向、步长吸附、轨道/滑块厚度均可配置。
 /// 宿主订阅 <see cref="ValueChanged"/> 同步内容位置，订阅 <see cref="InteractionStarted"/> /
-/// <see cref="InteractionCompleted"/> 控制显隐与提交时机。
+/// <see cref="InteractionCompleted"/> 控制提交时机；组件统一管理活动唤醒、悬停保持和空闲自动淡出。
 /// </summary>
 public sealed class ContinuousScrollBar : Grid
 {
+    private readonly Grid _indicator = new() { Opacity = .01, IsHitTestVisible = false };
+    private readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    private Storyboard? _indicatorAnimation;
+    private bool _hovered, _interactionActive, _indicatorVisible;
     private readonly Border _track;
     private readonly Border _thumb;
     private readonly TranslateTransform _thumbOffset = new();
@@ -27,6 +32,7 @@ public sealed class ContinuousScrollBar : Grid
     private double _minimum, _maximum, _value, _viewport = 9;
     private double _step = 1, _minimumThumbLength = 28;
     private double _trackThickness = 2, _thumbThickness = 6;
+    private double _thumbCrossOffset;
     private uint? _pointerId;
     private bool _thumbDrag, _clickMode, _animating;
     private double _pressPosition, _dragOffset;
@@ -50,33 +56,101 @@ public sealed class ContinuousScrollBar : Grid
             RenderTransform = _thumbOffset,
             IsHitTestVisible = false,
         };
-        Children.Add(_track);
-        Children.Add(_thumb);
+        _indicator.Children.Add(_track);
+        _indicator.Children.Add(_thumb);
+        Children.Add(_indicator);
 
         ApplyOrientation();
         SizeChanged += (_, _) => UpdateThumb();
-        PointerEntered += (_, _) => HoverChanged?.Invoke(true);
-        PointerExited += (_, _) => HoverChanged?.Invoke(false);
+        PointerEntered += (_, _) => { _hovered = true; NotifyActivity(); HoverChanged?.Invoke(true); };
+        PointerExited += (_, _) => { _hovered = false; NotifyActivity(); HoverChanged?.Invoke(false); };
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
         PointerCaptureLost += OnPointerCaptureLost;
         PointerCanceled += (_, _) => EndPointer();
         ActualThemeChanged += (_, _) => RefreshTheme();
-        Unloaded += (_, _) => StopAnimation();
+        Loaded += (_, _) => NotifyActivity();
+        Unloaded += (_, _) =>
+        {
+            StopAnimation();
+            _hovered = _interactionActive = false;
+            _pointerId = null;
+            _thumbDrag = _clickMode = false;
+            ReleasePointerCaptures();
+            HideIndicator();
+        };
+        _hideTimer.Tick += (_, _) =>
+        {
+            _hideTimer.Stop();
+            if (!_hovered && !_interactionActive) AnimateIndicator(false);
+        };
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) =>
+        {
+            if (Visibility == Visibility.Visible) NotifyActivity();
+            else HideIndicator();
+        });
     }
 
     /// <summary>值变化。拖动、点击动画、程序设置 <see cref="Value"/> 都会触发。</summary>
     public event Action<double>? ValueChanged;
 
-    /// <summary>一次拖动/点击交互开始，宿主应停止自动隐藏。</summary>
+    /// <summary>一次拖动/点击交互开始，组件保持显示；宿主据此开始同步内容。</summary>
     public event Action? InteractionStarted;
 
     /// <summary>交互结束（点击动画和吸附已完成），宿主可提交详情或最终位置。</summary>
     public event Action? InteractionCompleted;
 
-    /// <summary>指针进入/离开，宿主可据此显示/淡出滚动条。</summary>
+    /// <summary>指针进入/离开；显隐由组件管理，宿主可据此调整滑块外观。</summary>
     public event Action<bool>? HoverChanged;
+
+    /// <summary>内容滚动或用户输入时唤醒；空闲 700ms 后用 200ms 淡出，悬停和交互中保持显示。</summary>
+    public void NotifyActivity()
+    {
+        if (!IsLoaded || Visibility != Visibility.Visible || Range <= 0) return;
+        _hideTimer.Stop();
+        AnimateIndicator(true);
+        if (!_hovered && !_interactionActive) _hideTimer.Start();
+    }
+
+    /// <summary>宿主页面隐藏时立即收起指示层并停止显隐计时，不改变组件布局和命中范围。</summary>
+    public void HideIndicator()
+    {
+        _hideTimer.Stop();
+        _hovered = false;
+        _indicatorAnimation?.Stop();
+        _indicatorAnimation = null;
+        _indicatorVisible = false;
+        _indicator.Opacity = .01;
+    }
+
+    private void AnimateIndicator(bool visible)
+    {
+        if (_indicatorVisible == visible) return;
+        var from = _indicator.Opacity;
+        _indicatorAnimation?.Stop();
+        _indicator.Opacity = from;
+        _indicatorVisible = visible;
+        var target = visible ? 1 : .01;
+        var storyboard = new Storyboard();
+        var animation = new DoubleAnimation
+        {
+            From = from, To = target,
+            Duration = new Duration(TimeSpan.FromMilliseconds(visible ? 30 : 200)),
+        };
+        Storyboard.SetTarget(animation, _indicator);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        storyboard.Children.Add(animation);
+        storyboard.Completed += (_, _) =>
+        {
+            if (!ReferenceEquals(_indicatorAnimation, storyboard)) return;
+            storyboard.Stop();
+            _indicator.Opacity = target;
+            _indicatorAnimation = null;
+        };
+        _indicatorAnimation = storyboard;
+        storyboard.Begin();
+    }
 
     /// <summary>竖向或横向。建议在设置 Width/Height 之前先设好方向。</summary>
     public XamlOrientation Orientation
@@ -95,10 +169,13 @@ public sealed class ContinuousScrollBar : Grid
         get => _minimum;
         set
         {
+            var changed = _minimum != value;
             _minimum = value;
             _maximum = Math.Max(_maximum, _minimum);
             SetValueCore(_value);
             UpdateThumb();
+            if (Range <= 0) HideIndicator();
+            else if (changed) NotifyActivity();
         }
     }
 
@@ -107,9 +184,12 @@ public sealed class ContinuousScrollBar : Grid
         get => _maximum;
         set
         {
+            var changed = _maximum != Math.Max(_minimum, value);
             _maximum = Math.Max(_minimum, value);
             SetValueCore(_value);
             UpdateThumb();
+            if (Range <= 0) HideIndicator();
+            else if (changed) NotifyActivity();
         }
     }
 
@@ -164,15 +244,39 @@ public sealed class ContinuousScrollBar : Grid
         }
     }
 
+    /// <summary>滑块在横轴上的额外偏移，用于匹配原滚动条的贴边位置。</summary>
+    public double ThumbCrossOffset
+    {
+        get => _thumbCrossOffset;
+        set { _thumbCrossOffset = value; UpdateThumb(); }
+    }
+
     /// <summary>程序设置值会立即停止正在进行的点击/吸附动画。</summary>
     public double Value
     {
         get => _value;
         set
         {
+            var finished = _interactionActive && _pointerId is null;
             StopAnimation();
+            if (finished) _interactionActive = false;
             SetValueCore(value);
+            if (finished) NotifyActivity();
         }
+    }
+
+    /// <summary>停止动画并释放捕获，不吸附；有进行中的交互时发出完成通知。</summary>
+    public void CancelInteraction()
+    {
+        var active = _pointerId is not null || _animating || _thumbDrag || _clickMode;
+        StopAnimation();
+        _pointerId = null;
+        _thumbDrag = false;
+        _clickMode = false;
+        ReleasePointerCaptures();
+        _interactionActive = false;
+        if (active) NotifyActivity();
+        if (active) InteractionCompleted?.Invoke();
     }
 
     private double Range => Math.Max(0, _maximum - _minimum);
@@ -247,6 +351,9 @@ public sealed class ContinuousScrollBar : Grid
         _thumbDrag = false;
         _clickMode = false;
 
+        _interactionActive = true;
+        NotifyActivity();
+        InteractionStarted?.Invoke();
         var start = PositionFor(_value);
         var length = ThumbLength();
         if (_pressPosition >= start && _pressPosition <= start + length)
@@ -261,7 +368,6 @@ public sealed class ContinuousScrollBar : Grid
             var target = ValueAt(_pressPosition - _dragOffset);
             StartAnimation(target, DurationFor(target - _value), OnClickAnimationDone);
         }
-        InteractionStarted?.Invoke();
         e.Handled = true;
     }
 
@@ -355,6 +461,8 @@ public sealed class ContinuousScrollBar : Grid
         _clickMode = false;
         _thumbDrag = false;
         _animating = false;
+        _interactionActive = false;
+        NotifyActivity();
         InteractionCompleted?.Invoke();
     }
 
@@ -407,6 +515,7 @@ public sealed class ContinuousScrollBar : Grid
         if (Math.Abs(clamped - _value) < 1e-9) { UpdateThumb(); return; }
         _value = clamped;
         UpdateThumb();
+        NotifyActivity();
         ValueChanged?.Invoke(_value);
     }
 
@@ -441,13 +550,13 @@ public sealed class ContinuousScrollBar : Grid
         {
             // 初始 Height 是 NaN；NaN 参与比较会让“是否需要更新”恒为 false，滑块会一直 0 高。
             if (!double.IsFinite(_thumb.Height) || Math.Abs(_thumb.Height - length) > .01) _thumb.Height = length;
-            _thumbOffset.X = 0;
+            _thumbOffset.X = _thumbCrossOffset;
             _thumbOffset.Y = PositionFor(_value);
         }
         else
         {
             if (!double.IsFinite(_thumb.Width) || Math.Abs(_thumb.Width - length) > .01) _thumb.Width = length;
-            _thumbOffset.Y = 0;
+            _thumbOffset.Y = _thumbCrossOffset;
             _thumbOffset.X = PositionFor(_value);
         }
     }

@@ -28,11 +28,9 @@ public sealed class ReviewPage : Grid
     {
         Margin = new Thickness(0, 14, -22, 14),
         Visibility = Visibility.Collapsed,
-        Opacity = 0,
         ViewportSize = 9,
     };
-    private bool _syncingScroll, _scrollHovered, _scrollDragging;
-    private readonly DispatcherTimer _scrollFade = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    private bool _syncingScroll, _scrollDragging;
     // 分割线默认取当前拖出来的比例（左栏占两侧内容宽度的 48%），拖动后写回设置。
     private double _splitRatio = .48;
     private readonly Border _dropOverlay = new()
@@ -138,26 +136,11 @@ public sealed class ReviewPage : Grid
         _queueScroll.InteractionStarted += () =>
         {
             _scrollDragging = true;
-            _queueScroll.Opacity = 1;
-            _scrollFade.Stop();
         };
         _queueScroll.InteractionCompleted += () =>
         {
             _scrollDragging = false;
             CommitScroll();
-            if (!_scrollHovered) FadeScrollLater();
-        };
-        _queueScroll.HoverChanged += over =>
-        {
-            _scrollHovered = over;
-            if (over) { _queueScroll.Opacity = 1; _scrollFade.Stop(); }
-            else if (!_scrollDragging) FadeScrollLater();
-        };
-        _scrollFade.Tick += (_, _) =>
-        {
-            _scrollFade.Stop();
-            if (_scrollHovered || _scrollDragging) return;
-            _queueScroll.Opacity = 0;
         };
         AutomationProperties.SetName(_queueScroll, "图片列表滚动条");
         _carousel.SelectedImageLoaded += item =>
@@ -357,12 +340,7 @@ public sealed class ReviewPage : Grid
         // 拖动中不回写滑块，松手后再吸附到整数。
         if (!_scrollDragging) _queueScroll.Value = _index;
         _queueScroll.Visibility = _rows.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-        if (_rows.Count > 1)
-        {
-            if (revealScroll && changed) RevealScroll();
-            else if (!_scrollHovered && !_scrollDragging) { _scrollFade.Stop(); _queueScroll.Opacity = 0; }
-        }
-        else { _scrollFade.Stop(); _queueScroll.Opacity = 0; }
+        if (_rows.Count > 1 && revealScroll && changed) _queueScroll.NotifyActivity();
         _syncingScroll = false;
         ++_selectionGeneration;
         _carousel.SetItems(_rows, _index);
@@ -774,7 +752,7 @@ public sealed class ReviewPage : Grid
         ++_selectionGeneration;
         if (!active)
         {
-            _scrollFade.Stop();
+            _queueScroll.HideIndicator();
             _scrollDragging = false;
             _carousel.UnfreezeWindow();
         }
@@ -862,19 +840,6 @@ public sealed class ReviewPage : Grid
         _ignoreAll.Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 225, 194, 145) : Windows.UI.Color.FromArgb(255, 128, 85, 26));
         _ignore.Opacity = .72;
         _revealAllText.Foreground = ResourceBrush("AccentTextFillColorPrimaryBrush");
-    }
-
-    private void RevealScroll()
-    {
-        if (_queueScroll.Visibility != Visibility.Visible) return;
-        _queueScroll.Opacity = 1;
-        if (!_scrollHovered && !_scrollDragging) FadeScrollLater();
-    }
-
-    private void FadeScrollLater()
-    {
-        _scrollFade.Stop();
-        _scrollFade.Start();
     }
 
     private void CommitScroll()

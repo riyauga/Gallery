@@ -29,17 +29,24 @@ WinUI 的竖向滚动条是**浮层**：它画在滚动内容之上，**不占�
 | R4 | 横向滚动区同理，底部留出占位（本项目默认禁用横向滚动） |
 | R5 | `ListView` / `GridView` 的条由内部 `ScrollViewer` 提供，用 `Padding`（如 `new Thickness(0, 0, 16, 0)`）给条目让位；条目模板的最右列不要贴边 |
 | R6 | 不要用「看起来没压到」来判断：浮层条会淡出，只有明确留白才算分离 |
-| R7 | 需要 1:1 连续拖动、点击轨道任意位置、或宿主驱动的内容位置时，用 `Controls/ContinuousScrollBar.cs`；不要用原生 `ScrollBar` 再拦截指针（`LargeChange` 会打架） |
+| R7 | 原生滚动区和宿主驱动的内容位置统一使用 `Controls/ContinuousScrollBar.cs` 的连续交互。WinUI 通过全局 `ScrollBar` 模板接入，原生条仅保留外层布局、范围与无障碍契约，不再接收轨道指针；不要叠加原生 `LargeChange` |
 
 数值来源：48 与 Photos 对齐、也等于自绘时间线宽度（`README.md` 参数表）；16 是详情面板既有取值（`Controls/Viewer/DetailPanel.cs`）。原生浮层条的宽度随系统与主题变化，没有可引用的常量，所以上表用项目约定值，而不是从条宽推导。
 
 ### 通用连续滚动条（`ContinuousScrollBar`）
 
 - 适用：圆环、照片条等「滚动条位置 = 内容连续位置」，需要拖动 1:1、点击轨道任意位置、宿主自己驱动内容位置的场景。
-- 不适用：普通 `ScrollViewer` 的滚动区；那里仍用原生浮层条，按 R1–R6 留白。
+- 普通 `ScrollViewer`、列表、对话框及下拉菜单内部的滚动区：由 `App.xaml` 的全局 `ScrollBar` 模板使用 `ContinuousScrollBarPresenter` 自动接入，按 R1–R6 保留原内容留白。无需替换容器或逐页调整尺寸。
 - 默认：竖向命中区 16、轨道 2、滑块 6、滑块最短 28。待审核圆环把它放在圆环与分割线之间的列间距里，不压卡片。
-- 宿主订阅 `ValueChanged` 把值直接映射到内容位置；`InteractionCompleted` 再提交详情/加载清晰图。宿主用 `Opacity` 控制显隐，控件本身不自动隐藏。
+- 宿主订阅 `ValueChanged` 把值直接映射到内容位置；`InteractionCompleted` 再提交详情/加载清晰图。自动隐藏属于组件默认行为，各宿主不得再设置条的 `Opacity` 或维护单独的隐藏计时器。
+- 所有连续条默认首次可滚动时显示、30ms 淡入，空闲 700ms 后用 200ms 淡出；悬停条本身或拖动/点击动画期间保持显示。显隐只影响内部指示层，隐藏终点为 0.01，透明命中区和原布局位置/尺寸不变，指针移入仍能唤醒。
+- 实际值和范围变化会自动唤醒。宿主收到不一定改变偏移的滚轮、滚动按键或网页原生输入时调用 `NotifyActivity()`；页面隐藏时调用 `HideIndicator()` 停止显隐动画/计时并立即收起。卸载由组件自动清理，不新增可关闭自动隐藏的开关。
 - `Step` 默认 1（松手吸附整数）；`Step = 0` 保留连续值。设置 `Orientation` 会重置控件默认宽高，自定义尺寸请在其后覆盖。
+- `ThumbCrossOffset` 默认 0，可匹配原浮层细滑块的贴边位置；`MinimumThumbLength`、`ThumbThickness`、`TrackThickness` 沿用原公共属性。
+- `CancelInteraction()` 停止动画、释放指针捕获且不吸附；有进行中的交互时发出 `InteractionCompleted`。宿主在外部滚轮/方向键接管、隐藏或卸载时调用。
+- `ContinuousScrollBarPresenter` 是原生条的模板宿主，无额外页面 API。保留原 `ScrollViewer` 模板中滚动条的单元格、边距及显隐；按当前 SDK 资源读取 12 DIP 条宽、8 DIP 展开滑块、30 DIP 最短滑块及两端按钮保留区，紧凑态使用 2 DIP、32 DIP 最短滑块与原贴边偏移。直接 `ChangeView(..., disableAnimation: true)` 同步滚动，保留滚轮、键盘、虚拟化与外层原生条的无障碍范围。
+- 网页调参面板保留 DOM `overflow:auto`，只隐藏其原生条；测量原滚动条占位后补回同等右内边距，宿主 Canvas 在对应 CSS 区域叠加同一个 C# 控件。CSS 像素按网页视口与 WebView 实际尺寸换算；滚动、展开、缩放触发合并后的几何消息。无布局占位的浏览器浮层条若也未暴露有效 CSS 宽度，则保留原生条，不猜测宽度；该模式尚未完成替换。
+- 限制：模板接入面向当前项目的 `ScrollViewer`，不覆盖另行引入的 `ScrollView` 或独立原生窗口。网页目前仅接入待审核调参面板，不修改浏览器扩展页面。隐藏页与拖窗快照期间隐藏网页对应条并停止其动画。位置与尺寸已按模板/DOM 几何接线，仍需用户在实际窗口手动核验。
 
 ```csharp
 var bar = new ContinuousScrollBar
@@ -64,7 +71,7 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 
 | 位置 | 滚动区 | 右侧留白（加在哪一层） | 判定 |
 |---|---|---|---|
-| `Views/GalleryPage.xaml:445` | 图库内容区（日期维度隐藏原生条、改用自绘时间线） | 内容 `Margin` 右 48 | 合规（本轮未改动，按要求保持原状） |
+| `Views/GalleryPage.xaml:445` | 图库内容区（日期排序保留时间线；其他排序通过原模板接入连续条） | 内容 `Margin` 右 48 | 原留白不变 |
 | `Views/SettingsPage.xaml:47` | 设置页整页 | `ScrollViewer.Padding` 右 48 | 合规（本轮未改动） |
 | `Controls/Viewer/DetailPanel.cs:76` | 预览右侧「图片信息」 | 内容 `Padding` 右 16 | 合规（下限值，本轮未改动） |
 | `Views/SettingsPage.xaml.cs:270` | 「最近错误」对话框 | `ScrollViewer.Padding` 右 16 | 已修 |
@@ -122,7 +129,7 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 
 - **位置**：通用控件放 `Controls/`，命名空间 `Gallery.Controls`，`public sealed`，与 `PaneResizer` / `TimelineScrollbar` 同级；不要埋在 feature 子目录。
 - **提取**：保持原调用方默认行为；把差异做成属性（`Orientation` / `Step` / `Thickness` 等），不是只改目录/命名空间；补 XML 注释、用法示例、已知限制。
-- **职责**：组件只做值/指针/动画；显隐、提交、业务由宿主负责；事件用 `ValueChanged` / `InteractionStarted` / `InteractionCompleted` / `HoverChanged` 这类明确语义。
+- **职责**：连续滚动条负责值/指针/动画及默认自动隐藏；宿主只报告内容活动、页面可用性并处理提交和业务，不维护重复的透明度或隐藏计时。事件用 `ValueChanged` / `InteractionStarted` / `InteractionCompleted` / `HoverChanged` 这类明确语义。
 - **防回归**：初始未测量尺寸（NaN）不要参与“是否变化”比较；用 `double.IsFinite` 或显式初始化，避免 0 高/0 宽。
 - **数据/设置**：持久化用现有 `layout_options` 或记录字段；不新增散落配置；导入保留源用 `import_keep_source`；去重按完整路径查队列和 `images.abs_path`；copy/move 的归档阶段对应 `copied` / `moved`。
 - **依赖**：不新增 NuGet/依赖，优先现有 `ImageLoader` / `ThumbnailService` / SDK。

@@ -62,7 +62,7 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 选择按钮图标 | 勾选 `E73A` / 取消 `E711`，FontSize 12 | `IconService.GetCheckMarkIcon/GetCancelIcon` |
 | 选择按钮底色 | `AppBarButtonHighlightedStyles.xaml`（灰底 + 描边） | 同上 |
 | 下拉 chevron | `E70D`（ChevronDown ∨），**覆盖 WinUI 默认 `E974`** | `CommandBarStyles.xaml:21` |
-| 排序类型 → 滚动条 | 日期维度 → 时间线；名字等非日期维度 → 原生条（`ScrollBarVisibility.Auto`） | `GalleryViewModel.EvaluateScrollbarType` |
+| 排序类型 → 滚动条 | 日期维度 → 时间线；名字等非日期维度 → 原模板位置的通用连续条（`ScrollBarVisibility.Auto` 控制显隐） | `GalleryViewModel.EvaluateScrollbarType` / `ContinuousScrollBarPresenter` |
 | 设置按钮 | 标题栏首，宽 40 高 48，图标 `E713` FontSize 16 | `TitleBarStyles.xaml: SettingsButtonWidth` |
 | 标题栏按钮间距 | `CommandBarMargin = 12,0,12,0`；CommandBar 列 MinWidth 110 | `TitleBarStyles.xaml` |
 | 设置页头 | margin `32,28,48,26`；图标 `E713` FontSize 20；标题 FontSize 24 | `Margins.xaml` / `GetSettingsHeaderIcon` |
@@ -96,6 +96,8 @@ Gallery/
 ## 通用控件
 
 - `Controls/ContinuousScrollBar.cs`：可复用的连续滚动条。值始终是 `double`；拖动 1:1 跟手，点击轨道任意位置时滑块和内容一起短滑到点击处，不走原生 `ScrollBar` 的 `LargeChange`。支持竖向/横向、步长吸附、轨道/滑块厚度。待审核页用它替代原生滚动条。用法与约束见 `UI_CONVENTIONS.md`。
+- `Controls/ContinuousScrollBarPresenter.cs`：全局接管 WinUI 原生条的模板内容，沿用原滚动条外层位置、尺寸和内容留白；设置、资料库、详情、列表、对话框和下拉菜单内的 `ScrollViewer` 自动接入。日期时间线仍独立保留。待审核网页调参面板由 DOM 报告几何/范围，WinUI 宿主叠加同一个连续条，网页继续负责内容滚动。实际尺寸与交互观感由用户手动确认。
+- 自动隐藏统一由 `ContinuousScrollBar` 负责：活动时显示，悬停/拖动时保持，空闲 700ms 后淡出 200ms。WinUI 接入层、待审核圆环和网页调参条均使用该默认行为，宿主通过 `NotifyActivity()` 报告外部活动，通过 `HideIndicator()` 处理页面隐藏；不各自修改透明度或启动隐藏计时器。指示层隐藏不改变布局或命中范围。
 
 ## 项目规范
 

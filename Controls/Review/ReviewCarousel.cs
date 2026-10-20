@@ -21,6 +21,10 @@ namespace Gallery.Controls.Review;
 internal sealed class ReviewCarousel : Grid
 {
     private readonly WebView2 _browser = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
+    private readonly Canvas _scrollOverlay = new();
+    private readonly ContinuousScrollBar _settingsScroll = new() { Step = 0, Visibility = Visibility.Collapsed, ThumbThickness = 8, MinimumThumbLength = 18 };
+    private bool _settingsSyncing, _settingsInteracting, _settingsVisible;
+    private int _settingsCommand;
     private readonly XamlImage _freeze = new() { Stretch = Stretch.Fill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
     private readonly Dictionary<int, Preview> _previews = [];
@@ -50,6 +54,21 @@ internal sealed class ReviewCarousel : Grid
         MinHeight = 320;
         Children.Add(_error);
         Children.Add(_freeze);
+        Children.Add(_scrollOverlay);
+        _scrollOverlay.Children.Add(_settingsScroll);
+        Canvas.SetZIndex(_scrollOverlay, 10);
+        _settingsScroll.ValueChanged += value =>
+        {
+            if (_settingsSyncing || !_ready || !_active) return;
+            _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "panelScroll", value, command = ++_settingsCommand }, Json));
+        };
+        _settingsScroll.InteractionStarted += () => _settingsInteracting = true;
+        _settingsScroll.InteractionCompleted += () => _settingsInteracting = false;
+        _settingsScroll.PointerWheelChanged += (_, args) =>
+        {
+            _settingsScroll.Value = Math.Clamp(_settingsScroll.Value - args.GetCurrentPoint(_settingsScroll).Properties.MouseWheelDelta / 3.0, 0, _settingsScroll.Maximum);
+            args.Handled = true;
+        };
         Canvas.SetZIndex(_freeze, 20);
         if (AppService.Settings.Settings.layout_options.TryGetValue("review_carousel", out var saved) && saved.ValueKind == JsonValueKind.Object)
         {
@@ -155,6 +174,11 @@ internal sealed class ReviewCarousel : Grid
         _active = active;
         if (!active)
         {
+            _settingsVisible = false;
+            _settingsScroll.Visibility = Visibility.Collapsed;
+            _settingsInteracting = false;
+            _settingsScroll.CancelInteraction();
+            _settingsScroll.HideIndicator();
             _loading?.Cancel();
             _prefetch?.Cancel();
             _prefetchedRows = null;
@@ -199,6 +223,10 @@ internal sealed class ReviewCarousel : Grid
             _freeze.Source = bitmap;
             _freeze.Visibility = Visibility.Visible;
             _browser.Visibility = Visibility.Collapsed;
+            _settingsScroll.Visibility = Visibility.Collapsed;
+            _settingsInteracting = false;
+            _settingsScroll.CancelInteraction();
+            _settingsScroll.HideIndicator();
             _frozen = true;
         }
         catch (Exception ex)
@@ -216,6 +244,39 @@ internal sealed class ReviewCarousel : Grid
         _freeze.Source = null;
         if (_ready) _browser.Visibility = Visibility.Visible;
         _frozen = false;
+        _settingsScroll.Visibility = _active && _settingsVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UpdateSettingsScroll(JsonElement message)
+    {
+        _settingsVisible = message.TryGetProperty("visible", out var visible) && visible.GetBoolean();
+        _settingsScroll.Visibility = _settingsVisible && !_frozen ? Visibility.Visible : Visibility.Collapsed;
+        if (!_settingsVisible) return;
+        var scaleX = _browser.ActualWidth / ReadNumber(message, "viewportWidth", 1, 1, 100000);
+        var scaleY = _browser.ActualHeight / ReadNumber(message, "viewportHeight", 1, 1, 100000);
+        Canvas.SetLeft(_settingsScroll, ReadNumber(message, "x", 0, -100000, 100000) * scaleX);
+        Canvas.SetTop(_settingsScroll, ReadNumber(message, "y", 0, -100000, 100000) * scaleY);
+        _settingsScroll.Width = ReadNumber(message, "width", 12, 1, 1000) * scaleX;
+        _settingsScroll.Height = ReadNumber(message, "height", 0, 0, 100000) * scaleY;
+        _settingsSyncing = true;
+        try
+        {
+            _settingsScroll.Maximum = ReadNumber(message, "maximum", 0, 0, 10000000);
+            _settingsScroll.ViewportSize = ReadNumber(message, "viewport", 1, 1, 10000000);
+            var command = ReadNumber(message, "command", 0, 0, int.MaxValue);
+            var userInput = message.TryGetProperty("userInput", out var user) && user.GetBoolean();
+            if (userInput)
+            {
+                _settingsScroll.CancelInteraction();
+                _settingsScroll.NotifyActivity();
+            }
+            if (userInput || (!_settingsInteracting && command >= _settingsCommand))
+            {
+                var value = ReadNumber(message, "value", 0, 0, _settingsScroll.Maximum);
+                if (Math.Abs(_settingsScroll.Value - value) > .01) _settingsScroll.Value = value;
+            }
+        }
+        finally { _settingsSyncing = false; }
     }
 
     private IEnumerable<(StoreService.PendingIngestRow Row, int Index)> Nearby()
@@ -487,6 +548,7 @@ internal sealed class ReviewCarousel : Grid
                 return;
             }
             if (!_active) return;
+            if (type == "panelMetrics") { UpdateSettingsScroll(message); return; }
             if (type == "configure")
             {
                 _angle = ReadNumber(message, "angle", _angle, 8, 17);

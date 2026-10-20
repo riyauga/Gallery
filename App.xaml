@@ -3,12 +3,22 @@
     x:Class="Gallery.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Gallery.Controls">
+    xmlns:controls="using:Gallery.Controls"
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="primitives:ScrollBar" BasedOn="{StaticResource DefaultScrollBarStyle}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="primitives:ScrollBar">
+                            <controls:ContinuousScrollBarPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <!-- Photos Styles/CommandBarStyles.xaml：实际被图库引用的默认样式和覆盖；未引用的旧 Win10 OpenDownCommandBar 不加载。 -->
     <!--  CommandBar & AppBarButon  -->
     <SolidColorBrush x:Key="CommandBarBackgroundOpen" Color="Transparent" />

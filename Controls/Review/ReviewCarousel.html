@@ -24,6 +24,7 @@ button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);bo
 .message{position:absolute;z-index:3;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 4px #000a;font-size:12px}.message [data-reveal]{pointer-events:auto;padding:5px 10px;background:#292929aa;color:white;border:1px solid #ffffff50;border-radius:6px}
 img:not([src]),[hidden]{display:none!important}
 #tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;transition:opacity .16s}#tweak:hover,#tweak:focus-within,#tweak[open]{opacity:1}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;max-height:70vh;overflow:auto;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input[type=range]{display:block;width:100%;accent-color:var(--g-accent)}#tweak fieldset{margin:0 0 12px;padding:0;border:0}#tweak legend{margin-bottom:6px;opacity:.75}#tweak fieldset label{display:flex;align-items:center;gap:6px;margin:0 0 4px}#tweak input[type=radio]{accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
+#tweak .controls.continuous-scrollbar{scrollbar-width:none}#tweak .controls.continuous-scrollbar::-webkit-scrollbar{display:none}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
@@ -55,6 +56,40 @@ const BRIGHTNESS=[1,.78,.57,.4,.28];
 const sample=(arr,at)=>{const i=Math.min(arr.length-1,Math.floor(at)),j=Math.min(arr.length-1,i+1);return arr[i]+(arr[j]-arr[i])*Math.min(1,at-i);};
 const clampGoal=()=>{goal=count>0?Math.max(0,Math.min(count-1,goal)):0;};
 const send=value=>window.chrome.webview.postMessage(value);
+const settingsPanel=tweak.querySelector('.controls');
+let panelFrame=0,panelWidth=0,panelCommand=0,panelUserInput=false;
+function publishPanel(){
+ panelFrame=0;
+ if(!tweak.open){send({type:'panelMetrics',visible:false});return;}
+ if(settingsPanel.scrollHeight<=settingsPanel.clientHeight){
+  settingsPanel.classList.remove('continuous-scrollbar');settingsPanel.style.paddingRight='';
+  send({type:'panelMetrics',visible:false});return;
+ }
+ const style=getComputedStyle(settingsPanel),box=settingsPanel.getBoundingClientRect();
+ const borderLeft=parseFloat(style.borderLeftWidth)||0,borderRight=parseFloat(style.borderRightWidth)||0,borderTop=parseFloat(style.borderTopWidth)||0;
+ if(!settingsPanel.classList.contains('continuous-scrollbar')){
+  const gutter=Math.max(0,settingsPanel.offsetWidth-settingsPanel.clientWidth-borderLeft-borderRight);
+  const measuredWidth=gutter||parseFloat(getComputedStyle(settingsPanel,'::-webkit-scrollbar').width);
+  if(!Number.isFinite(measuredWidth)||measuredWidth<=0){send({type:'panelMetrics',visible:false});return;}
+  panelWidth=measuredWidth;
+  settingsPanel.style.paddingRight=((parseFloat(style.paddingRight)||0)+gutter)+'px';
+  settingsPanel.classList.add('continuous-scrollbar');
+ }
+ send({type:'panelMetrics',visible:settingsPanel.scrollHeight>settingsPanel.clientHeight,
+  x:box.right-borderRight-panelWidth,y:box.top+borderTop,width:panelWidth,height:settingsPanel.clientHeight,
+  viewport:settingsPanel.clientHeight,maximum:Math.max(0,settingsPanel.scrollHeight-settingsPanel.clientHeight),
+  value:settingsPanel.scrollTop,viewportWidth:innerWidth,viewportHeight:innerHeight,command:panelCommand,userInput:panelUserInput});
+ panelUserInput=false;
+}
+function queuePanel(){if(!panelFrame)panelFrame=requestAnimationFrame(publishPanel);}
+settingsPanel.addEventListener('scroll',queuePanel,{passive:true});
+for(const name of ['wheel','pointerdown','keydown'])settingsPanel.addEventListener(name,()=>{panelUserInput=true;queuePanel();},{passive:true});
+tweak.addEventListener('toggle',()=>{
+ if(!tweak.open){settingsPanel.classList.remove('continuous-scrollbar');settingsPanel.style.paddingRight='';}
+ queuePanel();
+});
+new ResizeObserver(queuePanel).observe(settingsPanel);
+window.addEventListener('resize',queuePanel);
 function settings(){for(const key of ['overlap','size','angle','scale','drag']){const percent=key==='scale'||key==='drag';document.getElementById(key).value=percent?Math.round(design[key]*100):design[key];document.getElementById(key+'-value').value=percent?Math.round(design[key]*100)+'%':design[key]+(key==='angle'?'°':'%');}for(const radio of document.querySelectorAll('input[name=ease]'))radio.checked=radio.value===design.ease;}
 function render(){
  const angleStep=design.angle*Math.PI/180;
@@ -103,6 +138,9 @@ document.addEventListener('drop',event=>{
 });
 window.chrome.webview.addEventListener('message',event=>{
  const state=event.data;
+ if(state.type==='panelScroll'){
+  panelCommand=state.command;settingsPanel.scrollTop=state.value;queuePanel();return;
+ }
  // 滚动轴：宿主已经算好连续位置，这里直接落位；跟随期间不发 select，停稳后由宿主提交。
  if(state.type==='scroll'){
   if(count===0)return;
@@ -146,7 +184,7 @@ window.chrome.webview.addEventListener('message',event=>{
    }else{img.removeAttribute('src');img.classList.remove('g-loaded');}
   }
  }
- settings();
+ settings();queuePanel();
  if(first){pos=goal=state.index;lastReported=lastSent=state.index;}
  // 宿主主动选中（卡片点击/外部选中）直接生效；只有本地滚动的旧回声需要被过滤。
  else if(!hostScroll&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
