@@ -169,6 +169,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
             SyncManaged(rootId);
         }
         progress?.Invoke(n, "完成");
+        if (!res.Cancelled) AppService.RequestCatalogAlign();
         return res;
     }
 

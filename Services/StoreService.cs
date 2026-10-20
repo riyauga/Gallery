@@ -857,7 +857,8 @@ public sealed class StoreService : IDisposable
         {
             cmd.CommandText =
                 "SELECT t.id FROM tag_aliases a JOIN tags t ON t.id=a.tag_id " +
-                "WHERE a.alias=$n AND COALESCE(t.category,'custom')=$c LIMIT 1";
+                "WHERE a.alias=$n AND (COALESCE(t.category,'custom')=$c " +
+                "OR ($c='custom' AND COALESCE(t.category,'custom')='character')) LIMIT 1";
             cmd.Parameters.AddWithValue("$n", clean);
             cmd.Parameters.AddWithValue("$c", category);
             var redirected = Convert.ToInt32(cmd.ExecuteScalar() ?? -1);
@@ -1651,18 +1652,34 @@ public sealed class StoreService : IDisposable
         public string ZhName { get; init; } = "";
         public string EnName { get; init; } = "";
         public string EntityKey { get; init; } = "";
-        /// <summary>贴片显示名：有中文名用中文，否则用标签名。</summary>
-        public string Display => ZhName.Length > 0 ? ZhName : Name;
+        /// <summary>标签所绑定的词库实体所属作品；用于搜索时避免把同作品的同一来源名再加一遍。</summary>
+        public string GameKey { get; init; } = "";
+        /// <summary>人工状态：manual / resolved / external / original；空 = 未处理。</summary>
+        public string Status { get; init; } = "";
+        /// <summary>同一身份的身份键（跨作品/跨写法共用）。</summary>
+        public string IdentityKey { get; init; } = "";
+        /// <summary>起源作品（派生/联动时与标签所在作品不同）。</summary>
+        public string OriginGame { get; init; } = "";
+        /// <summary>显示模式：zh_full / zh_short / alias / original / canonical。</summary>
+        public string DisplayMode { get; init; } = "";
+        /// <summary>人工指定的显示名；非空时优先于显示模式。</summary>
+        public string DisplayName { get; init; } = "";
+        /// <summary>贴片实际显示名：人工显示名 > 显示模式结果 > 中文名 > 英文来源名 > 标签名。</summary>
+        public string DisplayOverride { get; init; } = "";
+        public string Display => DisplayOverride.Length > 0
+            ? DisplayOverride
+            : ZhName.Length > 0 ? ZhName : EnName.Length > 0 ? EnName : Name;
 
         /// <summary>搜索用的全部可命中写法：标签名 + 别名 + 词库补出的中/英文名。</summary>
         public IReadOnlyList<string> SearchTerms
         {
             get
             {
-                var list = new List<string>(Aliases.Count + 3) { Name };
+                var list = new List<string>(Aliases.Count + 4) { Name };
                 list.AddRange(Aliases);
                 if (ZhName.Length > 0) list.Add(ZhName);
                 if (EnName.Length > 0) list.Add(EnName);
+                if (DisplayName.Length > 0) list.Add(DisplayName);
                 return list;
             }
         }
@@ -1688,19 +1705,27 @@ public sealed class StoreService : IDisposable
             }
         }
 
+        var states = TagDisplayState.Load(_conn);
+        var globalMode = TagDisplayState.GlobalMode(_conn);
         var tags = new List<TagInfo>();
         using (var cmd = _conn.CreateCommand())
         {
             cmd.CommandText =
                 "SELECT t.id,t.name,t.color,COALESCE(t.category,'custom')," +
                 "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) AS c," +
-                "COALESCE(p.zh,''),COALESCE(p.en,''),COALESCE(p.entity_key,'') " +
+                "COALESCE(p.zh,''),COALESCE(p.en,''),COALESCE(p.entity_key,'')," +
+                "COALESCE(e.identity_key,''),COALESCE(e.game_key,'') " +
                 "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
+                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
                 "ORDER BY t.name COLLATE NOCASE";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
                 var id = r.GetInt32(0);
+                states.TryGetValue(id, out var state);
+                var mode = state is not null && state.DisplayMode.Length > 0
+                    ? state.DisplayMode
+                    : globalMode;
                 tags.Add(new TagInfo
                 {
                     Id = id,
@@ -1711,12 +1736,123 @@ public sealed class StoreService : IDisposable
                     ZhName = r.GetString(5),
                     EnName = r.GetString(6),
                     EntityKey = r.GetString(7),
+                    GameKey = r.GetString(9),
                     Aliases = aliases.TryGetValue(id, out var al) ? al : [],
+                    Status = state?.Status ?? "",
+                    // 词库实体的身份是权威值；状态里的身份只用于没有 profile 的标签。
+                    IdentityKey = r.GetString(8).Length > 0
+                        ? r.GetString(8)
+                        : state?.IdentityKey ?? "",
+                    OriginGame = state?.OriginGame ?? "",
+                    DisplayMode = mode,
+                    DisplayName = state?.DisplayName ?? "",
                 });
             }
         }
+
+        // 中文短名要跨「同一身份」的所有写法取最短；只有真的用到时才扫实体表。
+        Dictionary<string, string>? entityIdentity = null;
+        Dictionary<string, string>? shortNames = null;
+        if (tags.Any(t => t.DisplayMode == "zh_short"))
+        {
+            entityIdentity = new Dictionary<string, string>(StringComparer.Ordinal);
+            shortNames = new Dictionary<string, string>(StringComparer.Ordinal);
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT entity_key,COALESCE(NULLIF(identity_key,''),entity_key)," +
+                "COALESCE(zh,''),COALESCE(aliases,'[]') FROM catalog_entities";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var key = r.GetString(0);
+                var identity = r.GetString(1);
+                entityIdentity[key] = identity;
+                var candidates = new List<string>();
+                var zh = r.GetString(2);
+                if (zh.Length > 0) candidates.Add(zh);
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<List<string>>(r.GetString(3));
+                    if (parsed is not null)
+                        candidates.AddRange(parsed.Where(a => !string.IsNullOrWhiteSpace(a)));
+                }
+                catch
+                {
+                    // 别名 JSON 坏了就只用中文名。
+                }
+                foreach (var candidate in candidates)
+                {
+                    if (!shortNames.TryGetValue(identity, out var old) ||
+                        candidate.Length < old.Length ||
+                        (candidate.Length == old.Length &&
+                         string.CompareOrdinal(candidate, old) < 0))
+                        shortNames[identity] = candidate;
+                }
+            }
+        }
+
+        for (var i = 0; i < tags.Count; i++)
+        {
+            var tag = tags[i];
+            var display = tag.DisplayName;
+            if (display.Length == 0)
+            {
+                // 默认：有中文用中文；没有中文用英文来源名；再没有才用标签原名。
+                var zhFull = tag.ZhName.Length > 0
+                    ? tag.ZhName
+                    : tag.EnName.Length > 0 ? tag.EnName : tag.Name;
+                display = tag.DisplayMode switch
+                {
+                    "original" => tag.EnName.Length > 0 ? tag.EnName : tag.Name,
+                    "canonical" => tag.Name,
+                    "alias" => tag.Aliases.Count > 0 ? tag.Aliases[0] : zhFull,
+                    "zh_short" => ShortDisplay(tag, entityIdentity, shortNames) ?? zhFull,
+                    _ => zhFull,
+                };
+            }
+            tags[i] = tag with { DisplayOverride = display };
+        }
         return tags;
     }
+
+    private static string? ShortDisplay(TagInfo tag,
+        Dictionary<string, string>? entityIdentity, Dictionary<string, string>? shortNames)
+    {
+        var identity = tag.IdentityKey;
+        if (identity.Length == 0 && entityIdentity is not null &&
+            tag.EntityKey.Length > 0 && entityIdentity.TryGetValue(tag.EntityKey, out var mapped))
+            identity = mapped;
+        if (identity.Length > 0 && shortNames is not null &&
+            shortNames.TryGetValue(identity, out var shortName) && shortName.Length > 0)
+            return shortName;
+
+        var candidates = new List<string>();
+        if (tag.ZhName.Length > 0) candidates.Add(tag.ZhName);
+        if (tag.EnName.Length > 0) candidates.Add(tag.EnName);
+        candidates.AddRange(tag.Aliases);
+        if (tag.Name.Length > 0) candidates.Add(tag.Name);
+        return candidates
+            .OrderBy(s => s.Length)
+            .ThenBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    /// <summary>当前全局标签显示模式；设置页和候选搜索共用。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public string GlobalTagDisplayMode() => TagDisplayState.GlobalMode(_conn);
+
+    /// <summary>保存全局标签显示模式；下一次 AllTags/搜索立即生效。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public void SetGlobalTagDisplayMode(string mode) =>
+        TagDisplayState.SetGlobalMode(_conn, mode);
+
+    /// <summary>搜索候选的来源名语言；与标签贴纸显示设置分开。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public string GlobalTagSearchNameMode() => TagDisplayState.SearchNameMode(_conn);
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public void SetGlobalTagSearchNameMode(string mode) =>
+        TagDisplayState.SetSearchNameMode(_conn, mode);
 
     /// <summary>
     /// 照搬 store.py search_tags：空格折叠成下划线后做包含匹配（名或别名），

@@ -204,6 +204,39 @@
                             </controls:SelectionDropDown>
                         </StackPanel>
                     </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="搜索候选显示来源原名并带作品名，例如 kafka_(honkai:_star_rail) 或 卡芙卡_(崩坏：星穹铁道)；不影响标签贴纸显示"
+                        Header="角色搜索候选">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE721;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <controls:SelectionDropDown
+                            x:Name="TagSearchNameBox"
+                            MinWidth="180"
+                            SelectionChanged="TagSearchName_SelectionChanged">
+                            <ComboBoxItem Content="英文来源原名" Tag="en_source" />
+                            <ComboBoxItem Content="中文来源原名" Tag="zh_source" />
+                        </controls:SelectionDropDown>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="只影响标签贴纸和评审页标签；没有中文名时回退英文来源名；搜索候选在上方单独设置"
+                        Header="角色标签显示">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8D2;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <controls:SelectionDropDown
+                            x:Name="TagDisplayModeBox"
+                            MinWidth="180"
+                            SelectionChanged="TagDisplayMode_SelectionChanged">
+                            <ComboBoxItem Content="中文全名" Tag="zh_full" />
+                            <ComboBoxItem Content="中文短名" Tag="zh_short" />
+                            <ComboBoxItem Content="英文来源名" Tag="original" />
+                            <ComboBoxItem Content="标签原名" Tag="canonical" />
+                            <ComboBoxItem Content="首选别名" Tag="alias" />
+                        </controls:SelectionDropDown>
+                    </ctc:SettingsCard>
                     <!--  敏感内容  -->
                     <TextBlock
                         Margin="1,24,0,6"

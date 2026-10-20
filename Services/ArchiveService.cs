@@ -304,6 +304,7 @@ public sealed class ArchiveService(StoreService store)
                     store.AddTags([imageId], edited.Select(t => t.Name).Distinct().ToList());
                     store.SetCategorizedTags([imageId], edited);
                     store.Commit();
+                    AppService.RequestCatalogAlign();
                 }
                 return;
             }
@@ -336,6 +337,7 @@ public sealed class ArchiveService(StoreService store)
             store.AddTags([imageId], pairs.Select(p => p.Name).Distinct().ToList());
             store.SetCategorizedTags([imageId], pairs);
             store.Commit();
+            AppService.RequestCatalogAlign();
         }
         catch (JsonException)
         {

@@ -32,6 +32,7 @@ public sealed class TagEditorDialog
     {
         public required string Category { get; init; }
         public required string Name { get; init; }
+        public string Display { get; set; } = "";
         public TagState State { get; set; } = TagState.Include;
     }
 
@@ -200,7 +201,12 @@ public sealed class TagEditorDialog
         foreach (var list in details.Values)
             foreach (var tag in list)
                 if (EditableCategories.Contains(tag.Category) && tag.Category != "rating")
-                    _entries.TryAdd(tag.Name, new Entry { Category = tag.Category, Name = tag.Name });
+                    _entries.TryAdd(tag.Name, new Entry
+                    {
+                        Category = tag.Category,
+                        Name = tag.Name,
+                        Display = tag.Display,
+                    });
 
         LoadRating(store, ids);
         RebuildChips();
@@ -359,14 +365,9 @@ public sealed class TagEditorDialog
                     if (AppService.Store is not { } store) return [];
                     lock (AppService.DbLock)
                     {
-                        var tags = store.SearchTags(query, 200)
-                            .Where(t => t.Category == category)
-                            .Select(t => new Suggestion(t.Name, t.Display, ""));
-                        var entities = new TagCatalogService(store).SearchEntities(query, 30)
-                            .Where(e => e.Kind == category)
-                            .Select(e => new Suggestion(e.Zh.Length > 0 ? e.Zh : e.En, e.Zh.Length > 0 ? e.Zh : e.En, e.EntityKey))
-                            .Where(s => s.Name.Length > 0);
-                        return tags.Concat(entities).DistinctBy(s => s.Name, StringComparer.OrdinalIgnoreCase).Take(12).ToList();
+                        return TagSearchService.Search(store, category, query)
+                            .Select(s => new Suggestion(s.Name, s.Display, s.SearchDisplay, s.EntityKey))
+                            .ToList();
                     }
                 });
                 if (!_closed && mine == version) input.ItemsSource = hits;
@@ -384,21 +385,23 @@ public sealed class TagEditorDialog
             if (name.Length == 0) return;
             // 词库候选：记下实体键，保存时把标签绑到词库身份上
             if (chosen is { Key.Length: > 0 }) _profiles[name] = chosen.Key;
-            SetState(category, name, TagState.Include);
+            SetState(category, name, TagState.Include, chosen?.Display ?? "");
             input.Text = "";
             input.ItemsSource = null;
         };
         return input;
     }
 
-    /// <summary>输入框候选：Key 非空表示来自角色词库。</summary>
-    private sealed record Suggestion(string Name, string Display, string Key)
+    /// <summary>输入框候选：Key 非空表示来自角色词库；SearchDisplay 只用于候选，Display 仍用于标签贴纸。</summary>
+    private sealed record Suggestion(string Name, string Display, string SearchDisplay, string Key)
     {
-        public override string ToString() => Display.Length > 0 ? Display : Name;
+        public override string ToString() =>
+            SearchDisplay.Length > 0 ? SearchDisplay : Display.Length > 0 ? Display : Name;
     }
 
     /// <summary>标签贴纸：左边一个叉号，点它即取消这个标签（保存时删除）；悬停时光标处的叉号亮起。</summary>
-    private UIElement BuildChip(Entry entry) => new TagChip(entry.Category, entry.Name, () =>
+    private UIElement BuildChip(Entry entry) => new TagChip(
+        entry.Category, entry.Display.Length > 0 ? entry.Display : entry.Name, () =>
     {
         entry.State = TagState.Exclude;
         RebuildChips();
@@ -413,7 +416,7 @@ public sealed class TagEditorDialog
     }
 
     /// <summary>写入一个标签的去留；分级不走这里（由四级单独处理）。</summary>
-    private void SetState(string category, string name, TagState state)
+    private void SetState(string category, string name, TagState state, string display = "")
     {
         var clean = (name ?? "").Trim();
         if (clean.Length == 0) return;
@@ -422,10 +425,17 @@ public sealed class TagEditorDialog
         if (_entries.TryGetValue(clean, out var existing))
         {
             existing.State = state;
+            if (display.Length > 0) existing.Display = display;
         }
         else
         {
-            _entries[clean] = new Entry { Category = cat, Name = clean, State = state };
+            _entries[clean] = new Entry
+            {
+                Category = cat,
+                Name = clean,
+                Display = display,
+                State = state,
+            };
         }
         RebuildChips();
     }
@@ -704,6 +714,7 @@ public sealed class TagEditorDialog
                 if (item is not null)
                     store.SetImageOrigins(item.ImageId, pageUrl, sourceUrl);
             }
+            AppService.RequestCatalogAlign();
             if (item is not null)
             {
                 item.PageUrl = pageUrl;

@@ -215,6 +215,7 @@ public sealed partial class SettingsPage : UserControl
         ApplyOpenModeState();
         ApplyKindWhitelistState();
         ApplySyncErrorState();
+        ApplyTagDisplayState();
     }
 
     // ---------------------------------------------------------------- 敏感内容
@@ -445,6 +446,54 @@ public sealed partial class SettingsPage : UserControl
             }
         }
         AutoTagDepthBox.SelectedIndex = 0;
+    }
+
+    private bool _tagDisplaySyncing;
+
+    /// <summary>角色标签显示和搜索候选名称分开存库（meta），不另开 settings 字段。</summary>
+    private void ApplyTagDisplayState()
+    {
+        _tagDisplaySyncing = true;
+        try
+        {
+            var displayMode = Services.AppService.Store?.GlobalTagDisplayMode()
+                              ?? Services.TagDisplayState.DefaultGlobalMode;
+            SelectTagMode(TagDisplayModeBox, displayMode);
+            var searchMode = Services.AppService.Store?.GlobalTagSearchNameMode()
+                             ?? Services.TagDisplayState.DefaultSearchNameMode;
+            SelectTagMode(TagSearchNameBox, searchMode);
+        }
+        finally
+        {
+            _tagDisplaySyncing = false;
+        }
+    }
+
+    private static void SelectTagMode(Gallery.Controls.SelectionDropDown box, string mode)
+    {
+        foreach (var item in box.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && tag == mode)
+            {
+                box.SelectedItem = item;
+                return;
+            }
+        }
+        box.SelectedIndex = 0;
+    }
+
+    private void TagDisplayMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_tagDisplaySyncing) return;
+        if (TagDisplayModeBox.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+        Services.AppService.Store?.SetGlobalTagDisplayMode(mode);
+    }
+
+    private void TagSearchName_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_tagDisplaySyncing) return;
+        if (TagSearchNameBox.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+        Services.AppService.Store?.SetGlobalTagSearchNameMode(mode);
     }
 
     private void AutoNsfwTagToggle_Toggled(object sender, RoutedEventArgs e)

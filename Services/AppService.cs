@@ -246,6 +246,31 @@ public static class AppService
         });
     }
 
+    /// <summary>扫描/入库/手改标签后，后台补一次对齐；同一时间只跑一个。</summary>
+    public static void RequestCatalogAlign()
+    {
+        var catalog = Catalog;
+        if (catalog is null || Store is null) return;
+        if (Interlocked.Exchange(ref _catalogAlignRunning, 1) == 1) return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                catalog.AlignTags();
+            }
+            catch
+            {
+                // 对齐失败不打扰正常使用；下次启动/扫描会再试。
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _catalogAlignRunning, 0);
+            }
+        });
+    }
+
+    private static int _catalogAlignRunning;
+
     public static int CatalogImported { get; private set; }
     private static Task? _catalogTask;
 

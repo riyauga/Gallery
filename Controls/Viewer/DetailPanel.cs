@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Gallery.Models;
@@ -9,7 +10,7 @@ namespace Gallery.Controls.Viewer;
 /// <summary>
 /// 单图查看器右侧详情面板，照搬 galleryold preview.py（容器与美术按 photos 规范）：
 /// 宽 360、圆角 12；小节「图片信息」（文件名 / 宽×高 / 目录）、七类标签贴纸、
-/// 「来源」；按钮「编辑分类标签」（批次 3 接入）、「用照片打开」。
+/// 「来源」（右侧复制网址）；按钮「编辑分类标签」（批次 3 接入）、「用照片打开」。
 /// </summary>
 public sealed class DetailPanel : Grid
 {
@@ -20,12 +21,16 @@ public sealed class DetailPanel : Grid
     private readonly TextBlock _sizeText;
     private readonly TextBlock _directoryText;
     private readonly TextBlock _source;
+    private readonly Button _copySourceButton;
+    private string? _copyableSource;
     private readonly StackPanel _tagsHost;
     private readonly FavoriteButton _favorite;
     private readonly Button _openButton;
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
+    /// <summary>操作结果提示，由宿主转发到通知浮层。</summary>
+    public event Action<string>? ToastRequested;
     public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public DetailPanel()
@@ -49,6 +54,7 @@ public sealed class DetailPanel : Grid
         _directoryText = InfoText();
         _tagsHost = new StackPanel { Spacing = 6 };
         _source = new TextBlock { FontSize = 13, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+        _copySourceButton = BuildCopyButton();
         _favorite = new FavoriteButton { VerticalAlignment = VerticalAlignment.Center };
         _favorite.ToggleRequested += favorite =>
             _item is null || FavoriteRequested is null
@@ -90,7 +96,7 @@ public sealed class DetailPanel : Grid
                     _directoryText,
                     new TextBlock { Text = "标签", FontSize = 13, Opacity = 0.6, Margin = new Thickness(0, 8, 0, 0) },
                     _tagsHost,
-                    new TextBlock { Text = "来源", FontSize = 13, Opacity = 0.6, Margin = new Thickness(0, 8, 0, 0) },
+                    BuildSourceHeader(),
                     _source,
                     editBtn,
                     _openButton,
@@ -110,6 +116,7 @@ public sealed class DetailPanel : Grid
         _directoryText.Text = $"目录：{(item.DirRel.Length > 0 ? item.DirRel : "图库根目录")}";
         _source.Text = !string.IsNullOrWhiteSpace(item.PageUrl) ? item.PageUrl :
             !string.IsNullOrWhiteSpace(item.SourceUrl) ? item.SourceUrl : "未记录";
+        UpdateCopySource(item.PageUrl, item.SourceUrl);
         _favorite.Favorite = item.Favorite;
 
         RenderTags(item.Tags);
@@ -124,6 +131,24 @@ public sealed class DetailPanel : Grid
     {
         _source.Text = !string.IsNullOrWhiteSpace(pageUrl) ? pageUrl :
             !string.IsNullOrWhiteSpace(sourceUrl) ? sourceUrl : "未记录";
+        UpdateCopySource(pageUrl, sourceUrl);
+    }
+
+    /// <summary>没有来源网址时收起复制按钮，避免复制「未记录」。</summary>
+    private void UpdateCopySource(string? pageUrl, string? sourceUrl)
+    {
+        _copyableSource = !string.IsNullOrWhiteSpace(pageUrl) ? pageUrl :
+            !string.IsNullOrWhiteSpace(sourceUrl) ? sourceUrl : null;
+        _copySourceButton.Visibility = _copyableSource is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void CopySource()
+    {
+        if (_copyableSource is null) return;
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetText(_copyableSource);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+        ToastRequested?.Invoke("已复制来源网址");
     }
 
     /// <summary>标签 → 展示名（词库补出的中文名）；没配就用原名。</summary>
@@ -170,6 +195,50 @@ public sealed class DetailPanel : Grid
         Opacity = 0.7,
         VerticalAlignment = VerticalAlignment.Center,
     };
+
+    /// <summary>「来源」标题 + 复制按钮（按钮紧跟标题右侧，只复制来源网址）。</summary>
+    private StackPanel BuildSourceHeader()
+    {
+        var header = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        header.Children.Add(new TextBlock
+        {
+            Text = "来源",
+            FontSize = 13,
+            Opacity = 0.6,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        header.Children.Add(_copySourceButton);
+        return header;
+    }
+
+    /// <summary>透明底的图标按钮，图标沿用右键菜单的复制符号（E8C8）。</summary>
+    private Button BuildCopyButton()
+    {
+        var button = new Button
+        {
+            Width = 28,
+            Height = 28,
+            Padding = new Thickness(0),
+            MinWidth = 0,
+            MinHeight = 0,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+            Content = new FontIcon { Glyph = "\uE8C8", FontSize = 14, Opacity = 0.7 },
+        };
+        ToolTipService.SetToolTip(button, "复制来源网址");
+        AutomationProperties.SetName(button, "复制来源网址");
+        button.Click += (_, _) => CopySource();
+        return button;
+    }
 
     /// <summary>Photos 详情面板的三联信息行：格式 │ 尺寸 │ 文件大小（图标 + 数值，竖线分隔）。</summary>
     private StackPanel BuildInfoRow()

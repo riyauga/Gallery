@@ -1,0 +1,428 @@
+{
+  "identity_links": [
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:336",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:806",
+      "origin": "zenless_zone_zero",
+      "note": "猫又 / 猫宫又奈（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:384",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:893",
+      "origin": "zenless_zone_zero",
+      "note": "莱卡恩 / 冯·莱卡恩（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3949",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:24762",
+      "origin": "zenless_zone_zero",
+      "note": "真斗 / 狛野真斗（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2991",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:25013",
+      "origin": "zenless_zone_zero",
+      "note": "柚叶 / 浮波柚叶（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:796",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3371",
+      "origin": "zenless_zone_zero",
+      "note": "悠真 / 浅羽悠真（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:402",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:1022",
+      "origin": "zenless_zone_zero",
+      "note": "雅 / 星见雅（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:797",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3370",
+      "origin": "zenless_zone_zero",
+      "note": "柳 / 月城柳（简称）"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3691",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:29451",
+      "origin": "zenless_zone_zero",
+      "note": "奥菲丝&「鬼火」/ 奥菲丝・马格努森&「鬼火」（全简称）"
+    },
+    {
+      "member": "cn-genshin:wiki.biligame.com:page:171396",
+      "identity": "genshin-impact-wiki:genshin-impact:page:478473",
+      "origin": "genshin",
+      "note": "海珊娜 / 海珊那（译名差异）"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:41165",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "耀嘉音：ZZZ 起源，HSR 联动角色"
+    },
+    {
+      "member": "honkai-star-rail-wiki:honkai-star-rail:page:168850",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "耀嘉音：ZZZ 起源，HSR 联动 NPC"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3945",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "origin": "zenless_zone_zero",
+      "note": "卢西娅 / Lucia Elowen 的简写"
+    },
+    {
+      "member": "zenless-zone-zero-wiki:zenless-zone-zero:page:2869",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "origin": "zenless_zone_zero",
+      "note": "Luciana Auxesis Theodoro de Montefio 是 Lucia Elowen 的全名"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5306",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:46899",
+      "origin": "zenless_zone_zero",
+      "note": "诺姆 / Norma Hollowell 的简写；与 norma_hollowell 同一身份"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:26",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·黎明，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:28021",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·深红囚影，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:3113",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·鸦羽，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:33733",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·誓焰，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:41016",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·逆冕，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:781",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·红莲，和深红之渊是同一角色的不同机体"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:153",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Crimson Abyss"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:10501",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Inverse Crown"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:107",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Lotus"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:131",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Dawn"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:517",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Plume"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:5404",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Crimson Weave"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:7214",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Pyroath"
+    },
+    {
+      "member": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "origin": "Fate",
+      "note": "Saber：Fate 起源（外部作品），HSR 联动锚点"
+    }
+  ],
+  "tag_states": [
+    {
+      "tag": "kafka",
+      "category": "character",
+      "status": "manual",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:679",
+      "origin": "star_rail",
+      "note": "14 条风险链接核对：图片全部是 HSR；ZZZ 卡芙卡只是同名 NPC，不并"
+    },
+    {
+      "tag": "belle",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:738",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 铃/Belle"
+    },
+    {
+      "tag": "aria",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:43343",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 爱芮"
+    },
+    {
+      "tag": "sophia",
+      "category": "character",
+      "status": "manual",
+      "identity": "reverse1999-wiki:reverse1999:page:5817",
+      "origin": "reverse_1999",
+      "note": "图片全部 R1999 苏菲亚"
+    },
+    {
+      "tag": "yu",
+      "category": "character",
+      "status": "manual",
+      "identity": "cn-arknights:prts.wiki:page:75071",
+      "origin": "arknights",
+      "note": "图片全部明日方舟 余"
+    },
+    {
+      "tag": "红",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:53245",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 红/Red"
+    },
+    {
+      "tag": "铃",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:738",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 铃/Belle"
+    },
+    {
+      "tag": "耀嘉音",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "ZZZ 起源；HSR 联动记录已在 identity_links 里并入同一身份"
+    },
+    {
+      "tag": "apple",
+      "category": "character",
+      "status": "manual",
+      "identity": "cn-reverse_1999:wiki.biligame.com:page:277",
+      "origin": "reverse_1999",
+      "note": "图片全部 R1999 APPLe"
+    },
+    {
+      "tag": "charlotte",
+      "category": "character",
+      "status": "manual",
+      "identity": "genshin-impact-wiki:genshin-impact:page:228387",
+      "origin": "genshin",
+      "note": "图片全部原神 夏洛蒂"
+    },
+    {
+      "tag": "phoebe",
+      "category": "character",
+      "status": "manual",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24784",
+      "origin": "wuthering_waves",
+      "note": "图片全部鸣潮 菲比"
+    },
+    {
+      "tag": "rain",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:13027",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 芮恩"
+    },
+    {
+      "tag": "vivian",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:6354",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 薇薇"
+    },
+    {
+      "tag": "yixuan",
+      "category": "character",
+      "status": "manual",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:20269",
+      "origin": "zenless_zone_zero",
+      "note": "图片全部 ZZZ 仪玄"
+    },
+    {
+      "tag": "kaede",
+      "category": "character",
+      "status": "resolved",
+      "identity": "bluearchive-wiki:bluearchive:page:4677",
+      "origin": "blue_archive",
+      "display_mode": "original",
+      "note": "BA 的英文名是 Isami Kaede（姓在前），图片作品是 BA；不是其他作品的 Kaede"
+    },
+    {
+      "tag": "nozomi",
+      "category": "character",
+      "status": "resolved",
+      "identity": "bluearchive-wiki:bluearchive:page:33386",
+      "origin": "blue_archive",
+      "display_mode": "original",
+      "note": "BA 的英文名是 Tachibana Nozomi（姓在前），图片作品是 BA"
+    },
+    {
+      "tag": "topaz",
+      "category": "character",
+      "status": "resolved",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:17298",
+      "origin": "star_rail",
+      "note": "HSR 的实体名是 Topaz & Numby（复合名），图片作品是 HSR；ZZZ NPC 不相关"
+    },
+    {
+      "tag": "lucilla",
+      "category": "character",
+      "status": "resolved",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37545",
+      "origin": "wuthering_waves",
+      "note": "鸣潮同名两条：洛瑟菈 character 优先于露西拉 npc"
+    },
+    {
+      "tag": "卢西娅",
+      "category": "character",
+      "status": "resolved",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "origin": "zenless_zone_zero",
+      "note": "ZZZ 的 Lucia Elowen 简写；和 lucia_elowen、luciana_de_montefio 同一身份"
+    },
+    {
+      "tag": "luciana_de_montefio",
+      "category": "character",
+      "status": "resolved",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "origin": "zenless_zone_zero",
+      "note": "ZZZ 的 Lucia Elowen 全名写法；图片作品全是 ZZZ"
+    },
+    {
+      "tag": "sharkboo",
+      "category": "character",
+      "status": "resolved",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3007",
+      "origin": "zenless_zone_zero",
+      "note": "ZZZ 同名三条：鲨牙布 pet 优先于两条 npc"
+    },
+    {
+      "tag": "rover",
+      "category": "character",
+      "status": "resolved",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:329",
+      "origin": "wuthering_waves",
+      "note": "鸣潮漂泊者基础页；元素形态不另立身份"
+    },
+    {
+      "tag": "trailblazer",
+      "category": "character",
+      "status": "resolved",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "HSR 开拓者基础页；命途/形态不另立身份"
+    },
+    {
+      "tag": "saber",
+      "category": "character",
+      "status": "manual",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "origin": "Fate",
+      "display_mode": "original",
+      "note": "Fate 起源（外部作品）→ HSR 联动锚点；图片作品标签是 Fate"
+    },
+    {
+      "tag": "chalky",
+      "category": "character",
+      "status": "manual",
+      "note": "ZZZ 两条 小白/Chalky npc + Chalky Devil；同名同作品，证据不足，保留人工"
+    },
+    {
+      "tag": "victor",
+      "category": "character",
+      "status": "manual",
+      "note": "ZZZ 维克多/Victor 与 维克托/Victor 两条 npc；证据不足，保留人工"
+    },
+    {
+      "tag": "lilith",
+      "category": "character",
+      "status": "external",
+      "origin": "neon_genesis_evangelion",
+      "note": "EVA 没有角色词库；不链 FE/鸣潮同名"
+    },
+    {
+      "tag": "melina",
+      "category": "character",
+      "status": "external",
+      "origin": "elden_ring",
+      "note": "艾尔登法环没有角色词库；不链 FE/Nikki/ZZZ 同名"
+    },
+    {
+      "tag": "mika",
+      "category": "character",
+      "status": "original",
+      "origin": "original",
+      "note": "原创角色；不链原神 Mika/ZZZ 米可"
+    },
+    {
+      "tag": "lucy",
+      "category": "character",
+      "status": "external",
+      "origin": "cyberpunk",
+      "note": "5 张赛博朋克 + 1 张鸣潮；赛博朋克没有角色词库，不硬链鸣潮/R1999/ZZZ 同名"
+    },
+    {
+      "tag": "wraith",
+      "category": "character",
+      "status": "external",
+      "origin": "wuthering_waves",
+      "note": "鸣潮只有 Nimbus Wraith enemy，没有 exact Wraith 角色；不链方舟/HI3"
+    }
+  ],
+  "tag_merges": [
+    {
+      "loser": ["custom", "komano_manato"],
+      "winner": ["character", "komano_manato"],
+      "note": "0 图 custom 重复标签并入 character；身份已并到狛野真斗"
+    },
+    {
+      "loser": ["custom", "ukinami_yuzuha"],
+      "winner": ["character", "ukinami_yuzuha"],
+      "note": "0 图 custom 重复标签并入 character；身份已并到浮波柚叶"
+    }
+  ]
+}

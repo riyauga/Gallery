@@ -396,6 +396,102 @@ public sealed class TagCatalogService
                 Count("catalog_source_tags"), Count("catalog_memberships"), Count("catalog_imports"));
     }
 
+    /// <summary>作品键到中/英文名的映射；搜索候选拼作品名时用。</summary>
+    public Dictionary<string, (string Zh, string En)> GameNames()
+    {
+        var result = new Dictionary<string, (string Zh, string En)>(StringComparer.Ordinal);
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT game_key,COALESCE(zh,''),COALESCE(en,'') FROM catalog_games";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            result[r.GetString(0)] = (r.GetString(1), r.GetString(2));
+        return result;
+    }
+
+    /// <summary>
+    /// 身份级来源名与作品：同一身份可能由中/英文 wiki、多个形态的实体组成，
+    /// 搜索候选缺某一语言时，可以先用同身份其他实体的来源名。
+    /// </summary>
+    public sealed record IdentityNames(
+        IReadOnlyList<string> Zh, IReadOnlyList<string> En, IReadOnlyList<string> Games);
+
+    /// <summary>
+    /// 读取身份到来源名/作品的索引；只用于展示，不写回任何关联。
+    /// 传入 identityKeys 时只读这些身份（搜索候选只需要当前命中的身份）。
+    /// </summary>
+    public Dictionary<string, IdentityNames> LoadIdentityNames(
+        IEnumerable<string>? identityKeys = null)
+    {
+        var wanted = identityKeys?
+            .Select(key => (key ?? "").Trim())
+            .Where(key => key.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (wanted is { Count: 0 }) return new Dictionary<string, IdentityNames>(StringComparer.Ordinal);
+
+        // 参数太多时退回全量读取，避免触发 SQLite 变量数上限；正常搜索只有几百个身份。
+        var useFilter = wanted is { Count: <= 800 };
+        var filter = useFilter
+            ? string.Join(",", wanted!.Select((_, i) => $"$k{i}"))
+            : "";
+        void BindKeys(SqliteCommand cmd)
+        {
+            if (!useFilter) return;
+            for (var i = 0; i < wanted!.Count; i++) cmd.Parameters.AddWithValue($"$k{i}", wanted[i]);
+        }
+
+        var zh = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var en = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var games = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        static void Add(Dictionary<string, List<string>> map, string key, string value)
+        {
+            var clean = (value ?? "").Trim();
+            if (key.Length == 0 || clean.Length == 0) return;
+            if (!map.TryGetValue(key, out var list)) map[key] = list = [];
+            if (!list.Contains(clean, StringComparer.Ordinal)) list.Add(clean);
+        }
+
+        using var conn = Open();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT COALESCE(NULLIF(identity_key,''),entity_key)," +
+                "COALESCE(zh,''),COALESCE(en,''),COALESCE(game_key,'') FROM catalog_entities" +
+                (useFilter ? $" WHERE identity_key IN ({filter})" : "");
+            BindKeys(cmd);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var key = r.GetString(0);
+                Add(zh, key, r.GetString(1));
+                Add(en, key, r.GetString(2));
+                Add(games, key, r.GetString(3));
+            }
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT identity_key,COALESCE(game_key,'') FROM catalog_memberships" +
+                (useFilter ? $" WHERE identity_key IN ({filter})" : "");
+            BindKeys(cmd);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) Add(games, r.GetString(0), r.GetString(1));
+        }
+
+        var keys = zh.Keys.Concat(en.Keys).Concat(games.Keys).Distinct(StringComparer.Ordinal);
+        var result = new Dictionary<string, IdentityNames>(StringComparer.Ordinal);
+        foreach (var key in keys)
+        {
+            result[key] = new IdentityNames(
+                zh.TryGetValue(key, out var z) ? z : [],
+                en.TryGetValue(key, out var e) ? e : [],
+                games.TryGetValue(key, out var g) ? g : []);
+        }
+        return result;
+    }
+
     /// <summary>写入人工资料（zh/en/entity_key），词库更新不会覆盖这些。</summary>
     public void SetProfile(int tagId, string zh = "", string en = "", string entityKey = "")
     {
@@ -485,7 +581,8 @@ public sealed class TagCatalogService
     }
 
     public sealed record EntityHit(
-        string EntityKey, string Zh, string En, string Kind, string GameKey, List<string> Aliases);
+        string EntityKey, string Zh, string En, string Kind, string GameKey, List<string> Aliases,
+        string IdentityKey);
 
     /// <summary>在词库里搜角色/作品（标签编辑器用它把「刻晴」这类词加进标签）。</summary>
     public List<EntityHit> SearchEntities(string text, int limit = 30)
@@ -496,24 +593,46 @@ public sealed class TagCatalogService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.kind,'character')," +
-            "COALESCE(e.game_key,''),COALESCE(e.aliases,'[]') FROM catalog_entities e";
+            "COALESCE(e.game_key,''),COALESCE(e.aliases,'[]')," +
+            "COALESCE(NULLIF(e.identity_key,''),e.entity_key) FROM catalog_entities e";
         using var r = cmd.ExecuteReader();
-        var hits = new List<EntityHit>();
+        var all = new List<EntityHit>();
         while (r.Read())
         {
             List<string> aliases;
             try { aliases = JsonSerializer.Deserialize<List<string>>(r.GetString(5)) ?? []; }
             catch { aliases = []; }
-            var hit = new EntityHit(r.GetString(0), r.GetString(1), r.GetString(2),
-                r.GetString(3), r.GetString(4), aliases);
-            if (needle.Length > 0)
-            {
-                var haystack = new[] { hit.Zh, hit.En }.Concat(hit.Aliases)
-                    .Select(Norm).Where(s => s.Length > 0).ToList();
-                if (!haystack.Any(s => s.Contains(needle, StringComparison.Ordinal))) continue;
-            }
-            hits.Add(hit);
+            all.Add(new EntityHit(r.GetString(0), r.GetString(1), r.GetString(2),
+                r.GetString(3), r.GetString(4), aliases, r.GetString(6)));
         }
+
+        // 同一身份可能来自多个 wiki（中/英）或同一角色的不同形态。
+        // 只要命中任意一个成员，就只在候选里保留一个代表；优先精确命中，其次有中文名的成员。
+        var matched = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var hit in all)
+        {
+            if (needle.Length == 0) continue;
+            var haystack = new[] { hit.Zh, hit.En }.Concat(hit.Aliases)
+                .Select(Norm).Where(s => s.Length > 0).ToList();
+            if (haystack.Any(s => s.Contains(needle, StringComparison.Ordinal)))
+                matched.Add(hit.IdentityKey.Length > 0 ? hit.IdentityKey : hit.EntityKey);
+        }
+        if (needle.Length == 0)
+            foreach (var hit in all)
+                matched.Add(hit.IdentityKey.Length > 0 ? hit.IdentityKey : hit.EntityKey);
+
+        var hits = new List<EntityHit>();
+        foreach (var group in all.GroupBy(h => h.IdentityKey.Length > 0 ? h.IdentityKey : h.EntityKey))
+        {
+            if (!matched.Contains(group.Key)) continue;
+            hits.Add(group
+                .OrderByDescending(h => new[] { h.Zh, h.En }.Concat(h.Aliases)
+                    .Any(s => string.Equals(s.Trim(), exact, StringComparison.OrdinalIgnoreCase)))
+                .ThenByDescending(h => h.Zh.Length > 0)
+                .ThenBy(h => h.Zh.Length > 0 ? h.Zh : h.En, StringComparer.OrdinalIgnoreCase)
+                .First());
+        }
+
         return hits
             .OrderBy(h => new[] { h.Zh, h.En }.Concat(h.Aliases)
                 .Any(s => string.Equals(s.Trim(), exact, StringComparison.OrdinalIgnoreCase)) ? 0 : 1)
@@ -524,41 +643,241 @@ public sealed class TagCatalogService
     }
 
     /// <summary>标签↔身份对齐结果（跳过歧义名，不猜）。</summary>
-    public sealed record AlignReport(int Matched, int Ambiguous, int Unmatched, int Existing);
+    public sealed record AlignReport(
+        int Matched, int Ambiguous, int Unmatched, int Existing,
+        int External = 0, int Manual = 0, int Skipped = 0,
+        int Seeded = 0, int IdentityLinks = 0, int MergedEntities = 0, int MergedTags = 0);
+
+    private sealed record PlanLink(string Member, string Identity, string Origin, string Note);
+    private sealed record PlanTagState(string Tag, string Category, string Status, string Identity,
+        string Origin, string DisplayMode, string DisplayName, string Note);
+    private sealed record PlanTagMerge(string LoserCategory, string LoserName,
+        string WinnerCategory, string WinnerName, string Note);
+    private sealed record TagPlan(List<PlanLink> Links, List<PlanTagState> States,
+        List<PlanTagMerge> Merges);
+
+    /// <summary>读取 assets/tag_catalog/tag_identity.json：人工身份映射、标签状态、重复标签合并。</summary>
+    private static TagPlan LoadIdentityPlan()
+    {
+        foreach (var dir in BundleDirs())
+        {
+            var path = Path.Combine(dir, "tag_identity.json");
+            if (!File.Exists(path)) continue;
+            using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+            var root = doc.RootElement;
+            var links = new List<PlanLink>();
+            if (root.TryGetProperty("identity_links", out var linkEl) &&
+                linkEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in linkEl.EnumerateArray())
+                {
+                    if (e.ValueKind != JsonValueKind.Object) continue;
+                    var member = Str(e, "member");
+                    var identity = Str(e, "identity");
+                    if (member.Length == 0 || identity.Length == 0) continue;
+                    links.Add(new PlanLink(member, identity, Str(e, "origin"), Str(e, "note")));
+                }
+            }
+
+            var states = new List<PlanTagState>();
+            if (root.TryGetProperty("tag_states", out var stateEl) &&
+                stateEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in stateEl.EnumerateArray())
+                {
+                    if (e.ValueKind != JsonValueKind.Object) continue;
+                    var tag = Str(e, "tag");
+                    if (tag.Length == 0) continue;
+                    states.Add(new PlanTagState(
+                        tag, Str(e, "category", "character"), Str(e, "status"),
+                        Str(e, "identity"), Str(e, "origin"), Str(e, "display_mode"),
+                        Str(e, "display_name"), Str(e, "note")));
+                }
+            }
+
+            var merges = new List<PlanTagMerge>();
+            if (root.TryGetProperty("tag_merges", out var mergeEl) &&
+                mergeEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in mergeEl.EnumerateArray())
+                {
+                    if (e.ValueKind != JsonValueKind.Object) continue;
+                    var loser = List(e, "loser");
+                    var winner = List(e, "winner");
+                    if (loser.Count < 2 || winner.Count < 2) continue;
+                    merges.Add(new PlanTagMerge(loser[0], loser[1], winner[0], winner[1],
+                        Str(e, "note")));
+                }
+            }
+            return new TagPlan(links, states, merges);
+        }
+        return new TagPlan([], [], []);
+    }
+
+    private static int TagId(SqliteConnection conn, string category, string name)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id FROM tags WHERE name=$n COLLATE NOCASE " +
+            "AND COALESCE(category,'custom')=$c LIMIT 1";
+        cmd.Parameters.AddWithValue("$n", name);
+        cmd.Parameters.AddWithValue("$c", category);
+        return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+    }
+
+    private static void WriteProfile(SqliteConnection conn, SqliteTransaction tx, int tagId,
+        string entityKey, Action<string>? log)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
+            "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_entities " +
+            "WHERE entity_key=$k " +
+            "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
+        cmd.Parameters.AddWithValue("$t", tagId);
+        cmd.Parameters.AddWithValue("$k", entityKey);
+        if (cmd.ExecuteNonQuery() == 0)
+            log?.Invoke($"实体不存在，未写标签 #{tagId}: {entityKey}");
+    }
+
+    private sealed record NameHit(string Key, string Identity, string Zh, string En, string Game);
+
+    private static Dictionary<string, List<NameHit>> LoadNameIndex(SqliteConnection conn)
+    {
+        var byTerm = new Dictionary<string, List<NameHit>>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT n.term,e.entity_key,COALESCE(NULLIF(e.identity_key,''),e.entity_key)," +
+            "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,'') " +
+            "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var term = r.GetString(0);
+            if (term.Length == 0) continue;
+            if (!byTerm.TryGetValue(term, out var list))
+            {
+                list = [];
+                byTerm[term] = list;
+            }
+            list.Add(new NameHit(r.GetString(1), r.GetString(2), r.GetString(3),
+                r.GetString(4), r.GetString(5)));
+        }
+        return byTerm;
+    }
+
+    /// <summary>把同一身份下的 cn/wiki 两条记录折成一个候选；优先用身份锚点自身。</summary>
+    private static List<NameHit> CollapseIdentities(IEnumerable<NameHit> hits)
+    {
+        var map = new Dictionary<string, NameHit>(StringComparer.Ordinal);
+        foreach (var hit in hits)
+        {
+            if (!map.TryGetValue(hit.Identity, out var old) ||
+                (hit.Key == hit.Identity && old.Key != old.Identity))
+                map[hit.Identity] = hit;
+        }
+        return map.Values.ToList();
+    }
 
     /// <summary>
-    /// 把现有标签按「规范化名称」接到词库实体上：term 唯一命中才写 tag_profiles（人工资料优先，
-    /// 已有 entity_key 的不覆盖）；同名多实体记为 ambiguous，不猜。
+    /// 先按 tag_identity.json 写入人工状态/身份映射，再把剩余 character 标签按唯一名称接到身份上。
+    /// 已有人工/外部/原创/已解析状态、0 图标签、非 character 标签都不再自动猜。
     /// </summary>
-    public AlignReport AlignTags(bool overwrite = false)
+    public AlignReport AlignTags(bool overwrite = false, bool dryRun = false, Action<string>? log = null)
     {
-        var byTerm = new Dictionary<string, List<(string Key, string Zh, string En)>>(StringComparer.Ordinal);
+        var plan = LoadIdentityPlan();
         using var conn = Open();
+        var states = TagDisplayState.Load(conn);
+
+        // 1) 计划状态：缺的补上；已有状态只补空的显示方式/显示名，不覆盖人工修改。
+        var changes = new Dictionary<int, TagDisplayState.State>();
+        var newIds = new HashSet<int>();
+        foreach (var ps in plan.States)
+        {
+            var id = TagId(conn, ps.Category, ps.Tag);
+            if (id == 0)
+            {
+                log?.Invoke($"计划标签不存在：{ps.Category}/{ps.Tag}");
+                continue;
+            }
+            if (!states.TryGetValue(id, out var existingState))
+            {
+                changes[id] = new TagDisplayState.State(
+                    ps.Status, ps.Identity, ps.Origin, ps.DisplayMode, ps.DisplayName, ps.Note);
+                newIds.Add(id);
+                continue;
+            }
+            var next = existingState;
+            if (existingState.DisplayMode.Length == 0 && ps.DisplayMode.Length > 0)
+                next = next with { DisplayMode = ps.DisplayMode };
+            if (existingState.DisplayName.Length == 0 && ps.DisplayName.Length > 0)
+                next = next with { DisplayName = ps.DisplayName };
+            if (next != existingState)
+                changes[id] = next;
+        }
+        var seeded = changes.Count;
+        if (!dryRun && changes.Count > 0)
+        {
+            using var tx = conn.BeginTransaction();
+            foreach (var (id, st) in changes) states[id] = st;
+            TagDisplayState.Save(conn, states, tx);
+            foreach (var (id, st) in changes)
+                if (newIds.Contains(id) && st.IdentityKey.Length > 0)
+                    WriteProfile(conn, tx, id, st.IdentityKey, log);
+            tx.Commit();
+            log?.Invoke($"标签状态：写入/补齐 {changes.Count} 条");
+        }
+        else if (dryRun)
+        {
+            foreach (var (id, st) in changes) states[id] = st;
+        }
+
+        // 2) 身份映射（含跨作品起源/派生）和 0 图重复标签合并。
+        var (identityLinks, mergedEntities) = ApplyIdentityLinks(conn, plan.Links, dryRun, log);
+        var mergedTags = ApplyCustomTagMerges(conn, plan.Merges, dryRun, log);
+        if (!dryRun && mergedTags > 0) states = TagDisplayState.Load(conn);
+
+        // 旧库里的状态可能还指向已被合并的成员身份；统一到映射后的身份，
+        // 避免搜索/显示按旧值再分出一份。
+        var linkMap = plan.Links
+            .Where(l => l.Member.Length > 0 && l.Identity.Length > 0 && l.Member != l.Identity)
+            .GroupBy(l => l.Member, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Identity, StringComparer.Ordinal);
+        var normalizedStates = 0;
+        foreach (var id in states.Keys.ToList())
+        {
+            var st = states[id];
+            if (st.IdentityKey.Length == 0 || !linkMap.TryGetValue(st.IdentityKey, out var canonical))
+                continue;
+            if (canonical == st.IdentityKey) continue;
+            states[id] = st with { IdentityKey = canonical };
+            normalizedStates++;
+        }
+        if (normalizedStates > 0 && !dryRun)
+        {
+            using var tx = conn.BeginTransaction();
+            TagDisplayState.Save(conn, states, tx);
+            tx.Commit();
+            log?.Invoke($"标签状态身份归一：{normalizedStates} 条");
+        }
+        else if (normalizedStates > 0)
+        {
+            log?.Invoke($"预演标签状态身份归一：{normalizedStates} 条");
+        }
+
+        // 3) 对没有被状态挡住的 character 标签，按名称唯一命中身份。
+        var byTerm = LoadNameIndex(conn);
+        var tags = new List<(int Id, string Name, string Category, int Images)>();
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText =
-                "SELECT n.term,COALESCE(e.zh,''),COALESCE(e.en,''),e.entity_key " +
-                "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
+                "SELECT t.id,t.name,COALESCE(t.category,'custom')," +
+                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) " +
+                "FROM tags t ORDER BY t.name";
             using var r = cmd.ExecuteReader();
             while (r.Read())
-            {
-                var term = r.GetString(0);
-                if (term.Length == 0) continue;
-                if (!byTerm.TryGetValue(term, out var list))
-                {
-                    list = new List<(string, string, string)>();
-                    byTerm[term] = list;
-                }
-                list.Add((r.GetString(3), r.GetString(1), r.GetString(2)));
-            }
-        }
-
-        var tags = new List<(int Id, string Name)>();
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "SELECT id,name FROM tags";
-            using var r = cmd.ExecuteReader();
-            while (r.Read()) tags.Add((r.GetInt32(0), r.GetString(1)));
+                tags.Add((r.GetInt32(0), r.GetString(1), r.GetString(2), r.GetInt32(3)));
         }
 
         var existing = new HashSet<int>();
@@ -570,40 +889,330 @@ public sealed class TagCatalogService
         }
 
         int matched = 0, ambiguous = 0, unmatched = 0, kept = 0;
-        using var tx = conn.BeginTransaction();
-        foreach (var (id, name) in tags)
+        int external = 0, manual = 0, skipped = 0;
+        SqliteTransaction? writeTx = dryRun ? null : conn.BeginTransaction();
+        try
         {
-            var term = Norm(BaseName(name));
-            if (term.Length == 0 || !byTerm.TryGetValue(term, out var hits))
+            foreach (var (id, name, category, images) in tags)
             {
-                unmatched++;
+                if (category != "character") { skipped++; continue; }
+                if (images == 0) { skipped++; continue; }
+                if (states.TryGetValue(id, out var st) && st.BlocksAutoAlign)
+                {
+                    if (st.Status is "external" or "original") external++;
+                    else manual++;
+                    continue;
+                }
+                if (existing.Contains(id) && !overwrite) { kept++; continue; }
+
+                var term = Norm(BaseName(name));
+                if (term.Length == 0 || !byTerm.TryGetValue(term, out var raw) || raw.Count == 0)
+                {
+                    unmatched++;
+                    continue;
+                }
+                var hits = CollapseIdentities(raw);
+                if (hits.Count != 1)
+                {
+                    ambiguous++;
+                    continue;
+                }
+                var hit = hits[0];
+                if (dryRun)
+                {
+                    log?.Invoke($"[预演] {category}/{name} -> {hit.Key} | {hit.Zh}/{hit.En} @ {hit.Game}");
+                    matched++;
+                    continue;
+                }
+                WriteProfile(conn, writeTx!, id, hit.Key, log);
+                matched++;
+            }
+            writeTx?.Commit();
+        }
+        finally
+        {
+            writeTx?.Dispose();
+        }
+
+        return new AlignReport(matched, ambiguous, unmatched, kept, external, manual, skipped,
+            seeded, identityLinks, mergedEntities, mergedTags);
+    }
+
+    /// <summary>应用人工身份映射；重建 memberships 以保留同身份的全部作品。</summary>
+    private static (int Applied, int Merged) ApplyIdentityLinks(
+        SqliteConnection conn, IReadOnlyList<PlanLink> links, bool dryRun, Action<string>? log)
+    {
+        if (links.Count == 0) return (0, 0);
+        var current = new Dictionary<string, string>(StringComparer.Ordinal);
+        var games = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT entity_key,COALESCE(NULLIF(identity_key,''),entity_key)," +
+                "COALESCE(game_key,''),COALESCE(source_url,'') FROM catalog_entities";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var key = r.GetString(0);
+                current[key] = r.GetString(1);
+                games[key] = r.GetString(2);
+                sources[key] = r.GetString(3);
+            }
+        }
+
+        var next = new Dictionary<string, string>(current, StringComparer.Ordinal);
+        var origins = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        int applied = 0;
+        foreach (var link in links)
+        {
+            if (!current.ContainsKey(link.Member) || !current.ContainsKey(link.Identity))
+            {
+                log?.Invoke($"身份映射跳过（实体不存在）：{link.Member} -> {link.Identity}");
                 continue;
             }
-            if (hits.Count > 1)
+            next[link.Member] = link.Identity;
+            next[link.Identity] = link.Identity;
+            if (link.Origin.Length > 0)
             {
-                ambiguous++;
-                continue;
+                if (!origins.TryGetValue(link.Identity, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.Ordinal);
+                    origins[link.Identity] = set;
+                }
+                set.Add(link.Origin);
             }
-            if (existing.Contains(id) && !overwrite)
+            applied++;
+        }
+
+        var changed = new List<(string Key, string Identity)>();
+        foreach (var (key, identity) in next)
+            if (!current.TryGetValue(key, out var old) || old != identity)
+                changed.Add((key, identity));
+
+        if (changed.Count == 0 && origins.Count == 0) return (applied, 0);
+        if (dryRun)
+        {
+            log?.Invoke($"预演身份映射：{applied} 条，实体变更 {changed.Count} 条");
+            return (applied, changed.Count);
+        }
+
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE catalog_entities SET identity_key=$i WHERE entity_key=$k";
+            var pi = cmd.Parameters.Add("$i", SqliteType.Text);
+            var pk = cmd.Parameters.Add("$k", SqliteType.Text);
+            foreach (var (key, identity) in changed)
             {
-                kept++;
-                continue;
+                pi.Value = identity;
+                pk.Value = key;
+                cmd.ExecuteNonQuery();
             }
-            var hit = hits[0];
-            using var cmd = conn.CreateCommand();
+        }
+
+        // 同一身份的不同写法（简称/译名）挂到已关联该身份的标签上，搜索和 sidecar 重导都能命中。
+        foreach (var link in links)
+        {
+            if (link.Member == link.Identity) continue;
+            var memberZh = "";
+            var memberEn = "";
+            var memberAliases = new List<string>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = "SELECT COALESCE(zh,''),COALESCE(en,''),COALESCE(aliases,'[]') " +
+                                  "FROM catalog_entities WHERE entity_key=$k";
+                cmd.Parameters.AddWithValue("$k", link.Member);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) continue;
+                memberZh = r.GetString(0);
+                memberEn = r.GetString(1);
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<List<string>>(r.GetString(2));
+                    if (parsed is not null) memberAliases.AddRange(parsed);
+                }
+                catch
+                {
+                    // 别名 JSON 坏了就只用中/英文名。
+                }
+            }
+
+            var tagIds = new List<int>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText =
+                    "SELECT DISTINCT t.id FROM tags t JOIN tag_profiles p ON p.tag_id=t.id " +
+                    "WHERE p.entity_key IN (SELECT entity_key FROM catalog_entities WHERE identity_key=$i)";
+                cmd.Parameters.AddWithValue("$i", link.Identity);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) tagIds.Add(r.GetInt32(0));
+            }
+            if (tagIds.Count == 0) continue;
+
+            var names = new[] { memberZh, memberEn }.Concat(memberAliases)
+                .Select(n => (n ?? "").Trim()).Where(n => n.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            using var insert = conn.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText = "INSERT OR IGNORE INTO tag_aliases(tag_id,alias) VALUES($t,$a)";
+            var pt = insert.Parameters.Add("$t", SqliteType.Integer);
+            var pa = insert.Parameters.Add("$a", SqliteType.Text);
+            foreach (var tagId in tagIds)
+                foreach (var name in names)
+                {
+                    pt.Value = tagId;
+                    pa.Value = name;
+                    insert.ExecuteNonQuery();
+                }
+        }
+
+        var memberships = new HashSet<(string Identity, string Game, string Source)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT identity_key,game_key,COALESCE(source_url,'') FROM catalog_memberships";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var identity = r.GetString(0);
+                if (next.TryGetValue(identity, out var mapped)) identity = mapped;
+                memberships.Add((identity, r.GetString(1), r.GetString(2)));
+            }
+        }
+        foreach (var (key, identity) in next)
+        {
+            var game = games.GetValueOrDefault(key, "");
+            if (game.Length > 0)
+                memberships.Add((identity, game, sources.GetValueOrDefault(key, "")));
+        }
+        foreach (var (identity, set) in origins)
+            foreach (var game in set)
+                memberships.Add((identity, game, ""));
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM catalog_memberships";
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) VALUES($t,$z,$e,$k) " +
-                "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
-            cmd.Parameters.AddWithValue("$t", id);
-            cmd.Parameters.AddWithValue("$z", hit.Zh);
-            cmd.Parameters.AddWithValue("$e", hit.En);
-            cmd.Parameters.AddWithValue("$k", hit.Key);
-            cmd.ExecuteNonQuery();
-            matched++;
+                "INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url) " +
+                "VALUES($i,$g,$s)";
+            var pi = cmd.Parameters.Add("$i", SqliteType.Text);
+            var pg = cmd.Parameters.Add("$g", SqliteType.Text);
+            var ps = cmd.Parameters.Add("$s", SqliteType.Text);
+            foreach (var (identity, game, source) in memberships)
+            {
+                pi.Value = identity;
+                pg.Value = game;
+                ps.Value = source;
+                cmd.ExecuteNonQuery();
+            }
         }
         tx.Commit();
-        return new AlignReport(matched, ambiguous, unmatched, kept);
+        log?.Invoke($"身份映射：{applied} 条，实体变更 {changed.Count} 条");
+        return (applied, changed.Count);
+    }
+
+    /// <summary>只合并计划里 0 图 custom→character 的重复标签；有图的留给 TagMergeService。</summary>
+    private static int ApplyCustomTagMerges(
+        SqliteConnection conn, IReadOnlyList<PlanTagMerge> merges, bool dryRun, Action<string>? log)
+    {
+        int done = 0;
+        foreach (var merge in merges)
+        {
+            if (merge.LoserCategory != "custom" || merge.WinnerCategory != "character")
+            {
+                log?.Invoke($"标签合并跳过（只处理 0 图 custom→character）：{merge.LoserName}");
+                continue;
+            }
+            var loserId = TagId(conn, merge.LoserCategory, merge.LoserName);
+            var winnerId = TagId(conn, merge.WinnerCategory, merge.WinnerName);
+            if (loserId == 0)
+            {
+                log?.Invoke(winnerId > 0
+                    ? $"标签合并已处理过：{merge.LoserName} -> {merge.WinnerName}"
+                    : $"标签合并跳过（两个标签都不存在）：{merge.LoserName} -> {merge.WinnerName}");
+                continue;
+            }
+            if (winnerId == 0)
+            {
+                log?.Invoke($"标签合并跳过（winner 不存在）：{merge.LoserName} -> {merge.WinnerName}");
+                continue;
+            }
+            int images;
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM image_tags WHERE tag_id=$t";
+                cmd.Parameters.AddWithValue("$t", loserId);
+                images = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+            }
+            if (images > 0)
+            {
+                log?.Invoke($"标签合并跳过（{merge.LoserName} 有 {images} 张图，请用 --merge-tags）");
+                continue;
+            }
+            if (dryRun)
+            {
+                log?.Invoke($"[预演] 合并标签 custom/{merge.LoserName} -> character/{merge.WinnerName}");
+                done++;
+                continue;
+            }
+
+            var loserZh = ProfileValue(conn, loserId, "zh");
+            var loserEn = ProfileValue(conn, loserId, "en");
+            var loserEntity = ProfileValue(conn, loserId, "entity_key");
+            var winnerZh = ProfileValue(conn, winnerId, "zh");
+            var winnerEn = ProfileValue(conn, winnerId, "en");
+            var winnerEntity = ProfileValue(conn, winnerId, "entity_key");
+            var states = TagDisplayState.Load(conn);
+
+            using var tx = conn.BeginTransaction();
+            Exec(conn, tx, "INSERT OR IGNORE INTO tag_profiles(tag_id) VALUES($t)",
+                ("$t", winnerId));
+            if (loserZh.Length > 0 && winnerZh.Length == 0)
+                Exec(conn, tx, "UPDATE tag_profiles SET zh=$v WHERE tag_id=$t",
+                    ("$v", loserZh), ("$t", winnerId));
+            if (loserEn.Length > 0 && winnerEn.Length == 0)
+                Exec(conn, tx, "UPDATE tag_profiles SET en=$v WHERE tag_id=$t",
+                    ("$v", loserEn), ("$t", winnerId));
+            if (loserEntity.Length > 0 && winnerEntity.Length == 0)
+                Exec(conn, tx, "UPDATE tag_profiles SET entity_key=$v WHERE tag_id=$t",
+                    ("$v", loserEntity), ("$t", winnerId));
+            Exec(conn, tx,
+                "INSERT OR IGNORE INTO tag_aliases(tag_id,alias) VALUES($t,$a)",
+                ("$t", winnerId), ("$a", merge.LoserName));
+
+            var moved = false;
+            if (states.TryGetValue(loserId, out var loserState))
+            {
+                if (!states.ContainsKey(winnerId)) states[winnerId] = loserState;
+                states.Remove(loserId);
+                moved = true;
+            }
+            if (moved) TagDisplayState.Save(conn, states, tx);
+
+            Exec(conn, tx, "DELETE FROM tags WHERE id=$t", ("$t", loserId));
+            tx.Commit();
+            log?.Invoke($"已合并标签 custom/{merge.LoserName} -> character/{merge.WinnerName}（{merge.Note}）");
+            done++;
+        }
+        return done;
+    }
+
+    private static string ProfileValue(SqliteConnection conn, int tagId, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT COALESCE({column},'') FROM tag_profiles WHERE tag_id=$t";
+        cmd.Parameters.AddWithValue("$t", tagId);
+        return cmd.ExecuteScalar() as string ?? "";
     }
 
     /// <summary>同名多实体、需要人工消歧的标签：候选实体按作品排序，最多 6 个。</summary>
@@ -613,41 +1222,41 @@ public sealed class TagCatalogService
     /// <summary>列出歧义标签（与 AlignTags 的判定口径一致）。</summary>
     public List<AmbiguousTag> AmbiguousTags(int maxCandidates = 6, int limit = 500)
     {
-        var byTerm = new Dictionary<string, List<(string Key, string Zh, string En, string Game)>>(StringComparer.Ordinal);
+        var plan = LoadIdentityPlan();
         using var conn = Open();
-        using (var cmd = conn.CreateCommand())
+        var states = TagDisplayState.Load(conn);
+        foreach (var ps in plan.States)
         {
-            cmd.CommandText =
-                "SELECT n.term,COALESCE(e.zh,''),COALESCE(e.en,''),e.entity_key,COALESCE(e.game_key,'') " +
-                "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                var term = r.GetString(0);
-                if (term.Length == 0) continue;
-                if (!byTerm.TryGetValue(term, out var list))
-                {
-                    list = new List<(string, string, string, string)>();
-                    byTerm[term] = list;
-                }
-                list.Add((r.GetString(3), r.GetString(1), r.GetString(2), r.GetString(4)));
-            }
+            var id = TagId(conn, ps.Category, ps.Tag);
+            if (id > 0 && !states.ContainsKey(id))
+                states[id] = new TagDisplayState.State(ps.Status, ps.Identity, ps.Origin,
+                    ps.DisplayMode, ps.DisplayName, ps.Note);
         }
 
+        var byTerm = LoadNameIndex(conn);
         var result = new List<AmbiguousTag>();
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText =
-                "SELECT t.id,t.name FROM tags t " +
-                "LEFT JOIN tag_profiles p ON p.tag_id=t.id AND p.entity_key<>'' " +
-                "WHERE p.tag_id IS NULL ORDER BY t.name";
+                "SELECT t.id,t.name," +
+                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) " +
+                "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id AND p.entity_key<>'' " +
+                "WHERE COALESCE(t.category,'custom')='character' AND p.tag_id IS NULL " +
+                "ORDER BY t.name";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
                 var id = r.GetInt32(0);
                 var name = r.GetString(1);
+                if (r.GetInt32(2) == 0) continue;
+                // manual 且还没选身份 = 待人工处理，仍要出现在歧义列表里；
+                // 已经选了身份/明确外部/原创的才隐藏。
+                if (states.TryGetValue(id, out var st) && st.BlocksAutoAlign &&
+                    !(st.Status == "manual" && st.IdentityKey.Length == 0)) continue;
                 var term = Norm(BaseName(name));
-                if (term.Length == 0 || !byTerm.TryGetValue(term, out var hits) || hits.Count < 2) continue;
+                if (term.Length == 0 || !byTerm.TryGetValue(term, out var raw)) continue;
+                var hits = CollapseIdentities(raw);
+                if (hits.Count < 2) continue;
                 result.Add(new AmbiguousTag(id, name, hits
                     .OrderBy(h => h.Game, StringComparer.Ordinal)
                     .ThenBy(h => h.En, StringComparer.OrdinalIgnoreCase)
@@ -660,19 +1269,73 @@ public sealed class TagCatalogService
         return result;
     }
 
-    /// <summary>人工消歧：把某个标签直接接到指定身份上。</summary>
+    /// <summary>人工消歧：把某个标签直接接到指定身份上，并记为 manual（以后自动对齐不再覆盖）。</summary>
     public void LinkTagToEntity(int tagId, string entityKey)
     {
         if (string.IsNullOrWhiteSpace(entityKey)) return;
         using var conn = Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
-            "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_entities WHERE entity_key=$k " +
-            "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
-        cmd.Parameters.AddWithValue("$t", tagId);
-        cmd.Parameters.AddWithValue("$k", entityKey);
-        cmd.ExecuteNonQuery();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
+                "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_entities " +
+                "WHERE entity_key=$k " +
+                "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
+            cmd.Parameters.AddWithValue("$t", tagId);
+            cmd.Parameters.AddWithValue("$k", entityKey);
+            cmd.ExecuteNonQuery();
+        }
+
+        var identity = entityKey;
+        var origin = "";
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT COALESCE(NULLIF(identity_key,''),entity_key),COALESCE(game_key,'') " +
+                "FROM catalog_entities WHERE entity_key=$k";
+            cmd.Parameters.AddWithValue("$k", entityKey);
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                identity = r.GetString(0);
+                origin = r.GetString(1);
+            }
+        }
+
+        var states = TagDisplayState.Load(conn);
+        var st = states.GetValueOrDefault(tagId) ?? new TagDisplayState.State();
+        states[tagId] = st with
+        {
+            Status = "manual",
+            IdentityKey = identity,
+            OriginGame = origin,
+        };
+        TagDisplayState.Save(conn, states);
+    }
+
+    /// <summary>设置单个标签的状态/身份/显示方式；null 表示保持原值，空字符串表示清空。</summary>
+    public void SetTagDisplay(int tagId, string? status = null, string? identityKey = null,
+        string? originGame = null, string? displayMode = null, string? displayName = null)
+    {
+        using var conn = Open();
+        var states = TagDisplayState.Load(conn);
+        var st = states.GetValueOrDefault(tagId) ?? new TagDisplayState.State();
+        states[tagId] = st with
+        {
+            Status = status ?? st.Status,
+            IdentityKey = identityKey ?? st.IdentityKey,
+            OriginGame = originGame ?? st.OriginGame,
+            DisplayMode = displayMode ?? st.DisplayMode,
+            DisplayName = displayName ?? st.DisplayName,
+        };
+        TagDisplayState.Save(conn, states);
+    }
+
+    /// <summary>全局显示模式：zh_full / zh_short / alias / original / canonical。</summary>
+    public void SetGlobalDisplayMode(string mode)
+    {
+        using var conn = Open();
+        TagDisplayState.SetGlobalMode(conn, mode);
     }
 
     /// <summary>资料库浏览行：词库实体 + 关联标签的使用统计。</summary>

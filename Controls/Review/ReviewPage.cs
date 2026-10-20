@@ -427,11 +427,9 @@ public sealed class ReviewPage : Grid
                     {
                         lock (AppService.DbLock)
                         {
-                            var tags = AppService.Store!.SearchTags(query, 200).Where(t => t.Category == category)
-                                .Select(t => new TagSuggestion(t.Name, t.Display));
-                            var entities = AppService.Catalog?.SearchEntities(query, 30).Where(e => e.Kind == category)
-                                .Select(e => new TagSuggestion(e.Zh.Length > 0 ? e.Zh : e.En, e.Zh.Length > 0 ? e.Zh : e.En)) ?? [];
-                            return tags.Concat(entities).DistinctBy(t => t.Name).Take(12).ToList();
+                            return TagSearchService.Search(AppService.Store!, category, query)
+                                .Select(s => new TagSuggestion(s.Name, s.SearchDisplay))
+                                .ToList();
                         }
                     });
                     if (version == searchVersion && generation == _selectionGeneration && _active) search.ItemsSource = hits;

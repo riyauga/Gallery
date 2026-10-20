@@ -498,6 +498,14 @@ public partial class App : Application
             return;
         }
 
+        // --tag-repair [--apply]：按 tag_identity.json 修身份/状态/显示，默认只预演
+        if (cli.Contains("--tag-repair"))
+        {
+            RunTagRepair(cli.Contains("--apply"));
+            Exit();
+            return;
+        }
+
         // --merge-tags <plan.json> [--apply]：合并重复标签（作品/画师），默认只预演
         var mergeTags = Array.IndexOf(cli, "--merge-tags");
         if (mergeTags >= 0 && mergeTags + 1 < cli.Length)
@@ -986,6 +994,49 @@ public partial class App : Application
 
         report.AppendLine($"结果: PASS {pass} / FAIL {fail}");
         WriteVerifyReport("verify_relocate.txt", report);
+    }
+
+    /// <summary>
+    /// 按 assets/tag_catalog/tag_identity.json 修标签身份（--tag-repair [--apply]）。
+    /// 默认只预演；执行前自动备份库。报告写到 %TEMP%\ptv\tag_repair.txt。
+    /// </summary>
+    private static void RunTagRepair(bool apply)
+    {
+        var report = new StringBuilder();
+        var scope = AppPaths.Sandbox ?? AppPaths.LocalDataDir;
+        if (!SingleInstance.TryAcquire(scope))
+        {
+            report.AppendLine("有另一个 Gallery 实例正在运行，请先退出再修标签（重试一次即可）。");
+        }
+        else
+        {
+            try
+            {
+                var store = new StoreService(AppPaths.DbPath);
+                var catalog = new TagCatalogService(store);
+                if (apply) report.AppendLine("备份：" + FolderService.BackupBeforeChange());
+                var result = catalog.AlignTags(dryRun: !apply, log: line => report.AppendLine(line));
+                report.AppendLine();
+                report.AppendLine($"结果：新关联 {result.Matched} · 已有 {result.Existing} · " +
+                                  $"同名多实体 {result.Ambiguous} · 无对应 {result.Unmatched} · " +
+                                  $"外部/原创 {result.External} · 人工 {result.Manual} · " +
+                                  $"跳过(非角色/0图) {result.Skipped}");
+                report.AppendLine($"计划状态写入 {result.Seeded} · 身份映射 {result.IdentityLinks} · " +
+                                  $"合并实体 {result.MergedEntities} · 合并标签 {result.MergedTags}");
+                var ambiguous = catalog.AmbiguousTags(6, 50);
+                report.AppendLine($"待人工消歧：{ambiguous.Count} 条" +
+                                  (ambiguous.Count == 0 ? "" :
+                                   " · " + string.Join("、", ambiguous.Take(10).Select(t => t.TagName))));
+                report.AppendLine(apply ? "已执行。" : "预演结束，未改任何数据。");
+                store.Dispose();
+            }
+            catch (Exception ex)
+            {
+                report.AppendLine("ERROR: " + ex.GetType().Name + ": " + ex.Message);
+                report.AppendLine(ex.StackTrace ?? "");
+            }
+        }
+        WriteVerifyReport("tag_repair.txt", report);
     }
 
     /// <summary>

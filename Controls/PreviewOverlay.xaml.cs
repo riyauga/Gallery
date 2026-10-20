@@ -79,6 +79,7 @@ public sealed partial class PreviewOverlay : Grid
             FileActions.OpenImage(item.FullPath,
                 AppService.Settings.Settings.open_mode,
                 AppService.Settings.Settings.open_custom_exe);
+        Detail.ToastRequested += message => ToastRequested?.Invoke(message);
         SizeChanged += (_, _) => Relayout();
 
         // 百分比下拉（Photos 缩放条）：预设档位，当前缩放以占位文本显示

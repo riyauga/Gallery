@@ -54,8 +54,10 @@ public static class TagMergeService
         foreach (var item in plan)
         {
             var label = $"{item.LoserCategory}/{item.LoserName} → {item.WinnerCategory}/{item.WinnerName}";
-            if (!string.Equals(item.LoserCategory, item.WinnerCategory, StringComparison.Ordinal))
-                problems.Add($"{label}：分类不一致（只允许同分类合并）");
+            var sameCategory = string.Equals(item.LoserCategory, item.WinnerCategory, StringComparison.Ordinal);
+            var customToCharacter = item.LoserCategory == "custom" && item.WinnerCategory == "character";
+            if (!sameCategory && !customToCharacter)
+                problems.Add($"{label}：分类不一致（只允许同分类，或 custom→character）");
             if (item.LoserCategory.Length == 0 || item.LoserName.Length == 0 ||
                 item.WinnerName.Length == 0)
                 problems.Add($"{label}：分类或名字为空");
@@ -98,6 +100,10 @@ public static class TagMergeService
             var overlap = images.Count(winnerImages.Contains);
             var loserZh = Text(db, "SELECT zh FROM tag_profiles WHERE tag_id=$t", ("$t", loserId));
             var winnerZh = Text(db, "SELECT zh FROM tag_profiles WHERE tag_id=$t", ("$t", winnerId));
+            var loserEn = Text(db, "SELECT en FROM tag_profiles WHERE tag_id=$t", ("$t", loserId));
+            var winnerEn = Text(db, "SELECT en FROM tag_profiles WHERE tag_id=$t", ("$t", winnerId));
+            var loserEntity = Text(db, "SELECT entity_key FROM tag_profiles WHERE tag_id=$t", ("$t", loserId));
+            var winnerEntity = Text(db, "SELECT entity_key FROM tag_profiles WHERE tag_id=$t", ("$t", winnerId));
             var aliases = Rows(db, "SELECT alias FROM tag_aliases WHERE tag_id=$t ORDER BY alias",
                 ("$t", loserId)).Where(a => a.Length > 0).ToList();
 
@@ -144,6 +150,11 @@ public static class TagMergeService
                 if (zh.Length > 0)
                     store.Exec($"INSERT INTO tag_profiles(tag_id,zh) VALUES({winnerId},'{Esc(zh)}') " +
                                "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh");
+                store.Exec($"INSERT OR IGNORE INTO tag_profiles(tag_id) VALUES({winnerId})");
+                if (loserEn.Length > 0 && winnerEn.Length == 0)
+                    store.Exec($"UPDATE tag_profiles SET en='{Esc(loserEn)}' WHERE tag_id={winnerId}");
+                if (loserEntity.Length > 0 && winnerEntity.Length == 0)
+                    store.Exec($"UPDATE tag_profiles SET entity_key='{Esc(loserEntity)}' WHERE tag_id={winnerId}");
                 store.Exec($"DELETE FROM tags WHERE id={loserId}");
                 tx.Success = true;
             }
