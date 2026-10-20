@@ -95,6 +95,7 @@ Gallery/
 
 ## 通用控件
 
+- `Controls/SelectionDropDown.cs`：按钮式单选下拉与设置页主题选择共用 `DropDownButton + MenuFlyout(Placement=Bottom) + RadioMenuFlyoutItem`，按钮外观、选中标记、动画与边界定位均交给原生菜单，不改 ComboBox 内部模板、不手算偏移。设置页、筛选、待审核状态和预览缩放全部接入；右键菜单的鼠标定位不变。2026-10-20 用户确认本次展示效果；后续新增文本单选下拉沿用此组件，不恢复已废弃的 `AnchoredComboBox` 内部定位方案。该确认不代表全部窗口尺寸、DPI 和键盘路径已逐项验收。
 - `Controls/ContinuousScrollBar.cs`：可复用的连续滚动条。值始终是 `double`；拖动 1:1 跟手，点击轨道任意位置时滑块和内容一起短滑到点击处，不走原生 `ScrollBar` 的 `LargeChange`。支持竖向/横向、步长吸附、轨道/滑块厚度。待审核页用它替代原生滚动条。用法与约束见 `UI_CONVENTIONS.md`。
 - `Controls/ContinuousScrollBarPresenter.cs`：全局接管 WinUI 原生条的模板内容，沿用原滚动条外层位置、尺寸和内容留白；设置、资料库、详情、列表、对话框和下拉菜单内的 `ScrollViewer` 自动接入。日期时间线仍独立保留。待审核网页调参面板由 DOM 报告几何/范围，WinUI 宿主叠加同一个连续条，网页继续负责内容滚动。实际尺寸与交互观感由用户手动确认。
 - 自动隐藏统一由 `ContinuousScrollBar` 负责：活动时显示，悬停/拖动时保持，空闲 700ms 后淡出 200ms。WinUI 接入层、待审核圆环和网页调参条均使用该默认行为，宿主通过 `NotifyActivity()` 报告外部活动，通过 `HideIndicator()` 处理页面隐藏；不各自修改透明度或启动隐藏计时器。指示层隐藏不改变布局或命中范围。

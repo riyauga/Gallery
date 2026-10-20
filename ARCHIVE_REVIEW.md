@@ -12,6 +12,8 @@
 
 ## 当前接入
 
+- 队列状态下拉使用通用 `SelectionDropDown`，与设置页主题下拉共用原生 DropDownButton、单选 MenuFlyout 和边界定位，不改 ComboBox 内部几何；筛选项和切换状态的业务回调不变。右键来源/文件菜单仍使用鼠标位置，不套用按钮偏移。
+- 2026-10-20 用户确认本次统一下拉的展示效果；本页后续新增文本单选也复用 `SelectionDropDown`，不另写坐标避让。该确认不等于队列各状态、嵌套弹层和所有窗口边界已逐项验收。
 - 原生 WinUI 详情与操作页：`Controls/Review/ReviewPage.cs`。手风琴由现有 SDK 中的 WebView2 承载本地嵌入页面，不加载远程站点，不增加 NuGet 包。
 - 圆环预览：`Controls/Review/ReviewCarousel.cs` 与 `ReviewCarousel.html`，最多显示附近 9 张；16:9 画框；默认环面每层 10°、相邻遮挡约 67%、整组大小 95%。右下角调节遮挡 0–95%、大小 50–95%、转角 8–17°，保存于现有 `layout_options.review_carousel`。
 - 选中图完整显示，画框空余区域用该图平均色填充。后层按距离压暗（不做运行时高斯模糊），中心只在停稳后换清晰图；取消过期加载，离开页面释放预览。延续敏感／未知分级的主动揭示规则。

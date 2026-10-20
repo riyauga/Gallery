@@ -67,7 +67,7 @@ public sealed class ReviewPage : Grid
     private readonly Button _archiveAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _ignoreAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _restore = new() { Content = "恢复待处理", Visibility = Visibility.Collapsed };
-    private readonly ComboBox _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
+    private readonly SelectionDropDown _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid _body = new() { ColumnSpacing = 24 };
     private Tags.TagChip? _ratingBadge;
     // 右侧留 16 给浮层滚动条，否则它会压在标签行与归档目录输入框的右缘（UI_CONVENTIONS.md R1）。

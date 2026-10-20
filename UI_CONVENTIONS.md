@@ -127,6 +127,24 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 
 ## 五、通用组件与代码约定
 
+### 按钮锚定的二级下拉
+
+- 单选下拉统一使用 `SelectionDropDown`，实现直接复用主题下拉的 `DropDownButton + MenuFlyout + RadioMenuFlyoutItem`；菜单/筛选面板同样锚定触发按钮。右键菜单、托盘菜单继续按鼠标/托盘锚点定位，不属于按钮避让范围。
+- 默认 `Placement=Bottom`，与主题下拉一致。按钮样式、菜单间距、边界翻向、限高滚动、动画、焦点及轻触关闭均由 WinUI 原生控件负责；不再修改 ComboBox 的 Canvas、内部动画或逐帧计算弹层坐标。
+- 公共 API：`Items`（文本项或带 `Content/Tag` 的 `ComboBoxItem` 描述）、`SelectedItem`、`SelectedIndex`（默认 -1）、`PlaceholderText`（默认空）、`SelectionChanged`、`IsDropDownOpen`、`DropDownOpened/Closed`。宿主提供内容、尺寸和选择回调，例如 `<controls:SelectionDropDown MinWidth="140" SelectionChanged="OnSelectionChanged" />`，不自行调整弹层偏移。
+- 当前设置两处、筛选匹配模式、待审核状态和预览缩放全部接入。`ComboBoxItem` 仅用作现有文本/Tag 描述，不作为弹层视觉元素；选中标记和键盘导航与上方主题单选菜单一致，而非复刻 ComboBox 的覆盖式列表交互。
+- 限制：适用于当前文本/数值单选，不提供可编辑输入、ItemsSource、富内容模板或动态重排时保持选中对象等完整 ComboBox 能力；这些并非当前调用方契约。
+- 确认与后续约束（2026-10-20）：用户确认本次展示效果，后续文本单选下拉统一沿用此组合。已废弃 `AnchoredComboBox`：不要通过改 `Canvas.Top`、复制按钮文字或删除 ComboBox 内部动画来修补定位。全部窗口尺寸、DPI、键盘及嵌套弹层边界仍未逐项验收，不把本次确认扩大为全场景验证。
+
+```xml
+<controls:SelectionDropDown SelectedIndex="0" SelectionChanged="OnSelectionChanged">
+    <ComboBoxItem Content="照片" Tag="photos" />
+    <ComboBoxItem Content="系统默认程序" Tag="default" />
+</controls:SelectionDropDown>
+```
+
+### 通用组件原则
+
 - **位置**：通用控件放 `Controls/`，命名空间 `Gallery.Controls`，`public sealed`，与 `PaneResizer` / `TimelineScrollbar` 同级；不要埋在 feature 子目录。
 - **提取**：保持原调用方默认行为；把差异做成属性（`Orientation` / `Step` / `Thickness` 等），不是只改目录/命名空间；补 XML 注释、用法示例、已知限制。
 - **职责**：连续滚动条负责值/指针/动画及默认自动隐藏；宿主只报告内容活动、页面可用性并处理提交和业务，不维护重复的透明度或隐藏计时。事件用 `ValueChanged` / `InteractionStarted` / `InteractionCompleted` / `HoverChanged` 这类明确语义。

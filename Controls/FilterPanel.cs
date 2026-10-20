@@ -19,7 +19,7 @@ public sealed class FilterPanel
     private readonly StackPanel _chipHost = new() { Spacing = 6 };
     private readonly StackPanel _resultHost = new() { Spacing = 1 };
     private readonly TextBox _search = new() { PlaceholderText = "搜索标签", Width = 300 };
-    private readonly ComboBox _mode = new() { Width = 120 };
+    private readonly SelectionDropDown _mode = new() { Width = 120 };
     private readonly CheckBox _untagged = new() { Content = "只看没打标签的" };
     private readonly RadioButtons _media = new();
     private readonly CheckBox _subfolder = new() { Content = "显示子文件夹内容", Visibility = Visibility.Collapsed };
