@@ -752,10 +752,10 @@ public sealed partial class MainWindow : Window
     private void ShowContent(UIElement page)
     {
         _page.SetActive(ReferenceEquals(page, _page));
-        _reviewPage?.SetActive(ReferenceEquals(page, _reviewPage));
         if (!ContentHost.Children.Contains(page)) ContentHost.Children.Add(page);
         foreach (var child in ContentHost.Children)
             child.Visibility = ReferenceEquals(child, page) ? Visibility.Visible : Visibility.Collapsed;
+        _reviewPage?.SetActive(ReferenceEquals(page, _reviewPage));
     }
 
     private void ShowPage(int navIndex)

@@ -5,7 +5,7 @@
 :root{color-scheme:dark;--g-panel:light-dark(#fff,#292929);--g-text:light-dark(#202020,#f2f2f2);--g-line:light-dark(#ddd,#414141);--g-accent:light-dark(#006cbe,#9ad7ff)}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:var(--g-text);font:14px/1.5 'Segoe UI','Microsoft YaHei',sans-serif}
 button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel);padding:9px 13px;cursor:pointer}button:focus-visible{outline:3px solid var(--g-accent);outline-offset:3px}
-#deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:hidden;touch-action:none;user-select:none}
+#deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:clip;touch-action:none;user-select:none}
 /* 上下渐隐用普通渐变层，避免给整块 3D/滤镜层套 mask 拖慢窗口。 */
 #deck::before,#deck::after{content:'';position:absolute;left:0;right:0;height:8%;z-index:20;pointer-events:none}
 #deck::before{top:0;background:linear-gradient(to bottom,var(--g-surface,#1f1f1f),transparent)}
@@ -25,6 +25,25 @@ button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);bo
 img:not([src]),[hidden]{display:none!important}
 #tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;transition:opacity .16s}#tweak:hover,#tweak:focus-within,#tweak[open]{opacity:1}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;max-height:70vh;overflow:auto;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input[type=range]{display:block;width:100%;accent-color:var(--g-accent)}#tweak fieldset{margin:0 0 12px;padding:0;border:0}#tweak legend{margin-bottom:6px;opacity:.75}#tweak fieldset label{display:flex;align-items:center;gap:6px;margin:0 0 4px}#tweak input[type=radio]{accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
 #tweak .controls.continuous-scrollbar{scrollbar-width:none}#tweak .controls.continuous-scrollbar::-webkit-scrollbar{display:none}
+.batch #deck{perspective:none;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;scrollbar-width:none}
+.batch #deck::-webkit-scrollbar{display:none}
+.batch #deck::before,.batch #deck::after,.batch #tweak{display:none}
+#grid-space{height:0;pointer-events:none}
+.batch #deck .g-photo{left:0;top:0;margin:0;padding:7px 7px 29px;border:2px solid var(--g-line);border-radius:10px;box-shadow:0 2px 7px #0002;transform-origin:center}
+.batch #deck .g-photo.g-selected{border-color:var(--g-accent);box-shadow:0 0 0 1px var(--g-accent)}
+.batch #deck .g-art{object-fit:contain;filter:none;box-shadow:none;max-width:100%;max-height:100%}
+.g-check,.g-name{display:none;pointer-events:none}
+.batch #deck .g-check{display:flex;position:absolute;right:7px;top:7px;z-index:5;width:22px;height:22px;border:1px solid #ffffffb0;border-radius:6px;background:#24242499;align-items:center;justify-content:center;color:white}
+.batch #deck .g-selected .g-check{background:var(--g-accent);color:light-dark(white,#152331);border-color:var(--g-accent)}
+.batch #deck .g-selected .g-check::after{content:'✓';font-weight:700}
+.batch #deck .g-name{display:block;position:absolute;left:8px;right:8px;bottom:5px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;z-index:4}
+.batch #deck .message{bottom:25px;font-size:11px;padding:8px;text-align:center}
+.dealing #deck .g-photo{visibility:hidden}
+.deal-running #deck .g-photo{pointer-events:none;transition:none}
+.ring-entering #deck .g-photo{pointer-events:none}
+.ring-entering #deck .g-photo:not(.g-entered){visibility:hidden}
+#deal-layer{position:fixed;pointer-events:none;overflow:hidden;isolation:isolate;z-index:100}
+#selection-box{position:absolute;pointer-events:none;z-index:40;border:1px solid var(--g-accent);background:light-dark(#006cbe20,#9ad7ff25);display:none}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
@@ -42,6 +61,22 @@ img:not([src]),[hidden]{display:none!important}
 <script>
 (()=>{
 const deck=document.getElementById('deck'),tweak=document.getElementById('tweak'),cards=new Map();
+const gridSpace=document.createElement('div');gridSpace.id='grid-space';deck.append(gridSpace);
+let viewGeneration=0,ringEntry=null,ringFrame=0;
+let active=false,batch=false,motion=true,interactive=true,gridFrame=0,gridRange='',gridSize='medium',dealLayer=null,dealSerial=0,dealFrame=0,dealAnimations=[],dealCards=new Map();
+function gridGeometry(){const gap=12,pad=12,cols=Math.max(1,Math.floor((deck.clientWidth-2*pad+gap)/({small:112,medium:152,large:212}[gridSize]))),width=(deck.clientWidth-2*pad-gap*(cols-1))/cols;return {gap,pad,cols,width,height:Math.max(115,width*.72+28)};}
+function gridWindow(){
+ if(!active||!batch)return;
+ const g=gridGeometry(),step=g.height+g.gap;
+ gridSpace.style.height=(g.pad*2+Math.ceil(count/g.cols)*step-g.gap)+'px';
+ const first=Math.min(Math.max(0,count-1),Math.max(0,(Math.floor(deck.scrollTop/step)-1)*g.cols));
+ const last=Math.min(count-1,(Math.ceil((deck.scrollTop+deck.clientHeight)/step)+1)*g.cols-1);
+ const key=first+':'+last;
+ if(key!==gridRange){gridRange=key;send({type:'gridWindow',first,last:Math.max(first,last)});}
+ queuePanel();
+}
+function queueGrid(){if(!gridFrame)gridFrame=requestAnimationFrame(()=>{gridFrame=0;gridWindow();});}
+deck.addEventListener('scroll',()=>{if(batch){panelUserInput=true;queueGrid();}},{passive:true});
 let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,angle:10,scale:1.12,drag:1,ease:'out'};
 // 切入与切出共用同一条距离曲线：|d| 从 1 到 0 是切入，反向滚走时自然就是相反的切出。
 const EASES={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
@@ -55,11 +90,195 @@ const DRAG_GAIN=.006,DRAG_START=4,FLING_FRICTION=1.7,FLING_STOP=.45,SELECT_HYSTE
 const BRIGHTNESS=[1,.78,.57,.4,.28];
 const sample=(arr,at)=>{const i=Math.min(arr.length-1,Math.floor(at)),j=Math.min(arr.length-1,i+1);return arr[i]+(arr[j]-arr[i])*Math.min(1,at-i);};
 const clampGoal=()=>{goal=count>0?Math.max(0,Math.min(count-1,goal)):0;};
-const send=value=>window.chrome.webview.postMessage(value);
+const send=value=>window.chrome.webview.postMessage({...value,viewGeneration});
+function finishRing(notify=false){
+ const entry=ringEntry;ringEntry=null;
+ if(ringFrame){cancelAnimationFrame(ringFrame);ringFrame=0;}
+ if(entry)for(const animation of entry.animations.values())animation.cancel();
+ document.body.classList.remove('ring-entering');
+ for(const {element}of cards.values())element.classList.remove('g-entered');
+ if(notify&&active&&!batch&&entry)send({type:'settled',index:entry.index});
+}
+function startRing(){
+ finishRing();
+ if(!active||batch||!count)return;
+ deck.scrollTop=0;document.documentElement.scrollTop=0;document.body.scrollTop=0;
+ ringEntry={index:current,stable:0,geometry:'',level:0,lastLevel:Math.min(4,Math.max(current,count-1-current)),nextAt:0,animations:new Map()};
+ document.body.classList.add('ring-entering');
+ ringFrame=requestAnimationFrame(advanceRing);
+}
+function advanceRing(now){
+ ringFrame=0;const entry=ringEntry;
+ if(!entry||!active||batch)return;
+ const bounds=deck.getBoundingClientRect(),geometry=[bounds.left,bounds.top,bounds.width,bounds.height].join(':');
+ entry.stable=bounds.width>0&&bounds.height>20&&geometry===entry.geometry?entry.stable+1:0;entry.geometry=geometry;
+ if(entry.stable>=2){
+  // 先按稳定尺寸重排全部卡片，再从中心向上下两侧成对展开。
+  render();
+  const indices=entry.level===0?[entry.index]:[entry.index-entry.level,entry.index+entry.level].filter(index=>index>=0&&index<count);
+  const pair=indices.map(index=>[...cards.values()].find(item=>item.data.index===index));
+  const ready=item=>{
+   if(!item)return false;
+   const art=item.element.querySelector('.g-art');
+   return (art.hasAttribute('src')&&art.complete)||(!!item.data.status&&item.data.status!=='正在加载…');
+  };
+  if(entry.level<=entry.lastLevel&&now>=entry.nextAt&&pair.every(ready)){
+   for(const item of pair){
+    const card=item.element,d=item.data.index-entry.index,center=d===0;
+    const inner=[...cards.values()].find(other=>other.data.index===item.data.index-Math.sign(d));
+    const target=card.style.transform;
+    const from=center?target+' translateY(12px) scale(.96)':(inner?.element.style.transform||target)+' rotateX('+(d>0?65:-65)+'deg) scale(.94)';
+    const animation=card.animate([{transform:from,transformOrigin:center?'50% 50%':d>0?'50% 0%':'50% 100%',opacity:0},{transform:target,transformOrigin:'50% 50%',opacity:1}],{duration:center?220:300,easing:'cubic-bezier(.2,.75,.25,1)',fill:'both'});
+    entry.animations.set(item.data.id,animation);card.classList.add('g-entered');
+   }
+   entry.nextAt=now+(entry.level===0?140:85);entry.level++;
+   if(entry.level>entry.lastLevel){
+    Promise.all([...entry.animations.values()].map(animation=>animation.finished.catch(()=>{}))).then(()=>{if(ringEntry===entry)finishRing(true);});
+    return;
+   }
+  }
+ }
+ ringFrame=requestAnimationFrame(advanceRing);
+}
+const frameProperties=['paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','borderRadius','boxShadow'];
+const appearance=element=>{const style=getComputedStyle(element);return Object.fromEntries(frameProperties.map(key=>[key,style[key]]));};
+function captureRing(){
+ const box=deck.getBoundingClientRect(),style=getComputedStyle(deck),entries=new Map();
+ for(const [id,{element,data}]of cards){
+  const art=element.querySelector('.g-art'),image=getComputedStyle(art),frame=getComputedStyle(element);
+  entries.set(id,{element:element.cloneNode(true),data,transform:element.style.transform,width:parseFloat(frame.width),height:parseFloat(frame.height),appearance:appearance(element),shade:getComputedStyle(element,'::before').opacity,artWidth:image.width,artHeight:image.height,filter:image.filter,artShadow:image.boxShadow,artOpacity:image.opacity});
+ }
+ return {box,entries,perspective:style.perspective,variables:['--g-frame-width','--g-frame-height','--g-perspective','--g-surface'].map(key=>[key,style.getPropertyValue(key)])};
+}
+function finishDeal(){
+ dealSerial++;
+ if(dealFrame){cancelAnimationFrame(dealFrame);dealFrame=0;}
+ for(const animation of dealAnimations)animation.cancel();dealAnimations=[];dealCards.clear();
+ if(dealLayer){dealLayer.remove();dealLayer=null;}
+ deck.style.perspective='';deck.style.perspectiveOrigin='';
+ for(const {element}of cards.values())element.querySelector('.g-deal-art')?.remove();
+ document.body.classList.remove('dealing','deal-running');
+ queueGrid();
+}
+function startDeal(snapshot){
+ if(!snapshot||!cards.size)return;
+ finishDeal();cancelBox(false);
+ const serial=dealSerial,box=snapshot.box,layer=document.createElement('div');layer.id='deal-layer';
+ Object.assign(layer.style,{left:box.left+'px',top:box.top+'px',width:box.width+'px',height:box.height+'px',perspective:snapshot.perspective,perspectiveOrigin:'50% 50%'});
+ for(const [key,value]of snapshot.variables)layer.style.setProperty(key,value);
+ for(const source of snapshot.entries.values())layer.append(source.element);
+ document.body.append(layer);dealLayer=layer;document.body.classList.add('dealing','deal-running');
+ // 保留原圆环，等布局连续两帧稳定、宿主补齐整个窗口后再发牌。
+ let previous='',stable=0;
+ function prepare(){
+  dealFrame=0;if(serial!==dealSerial)return;
+  gridWindow();
+  const bounds=deck.getBoundingClientRect(),g=gridGeometry();
+  const last=Math.min(count-1,199,(Math.ceil(deck.clientHeight/(g.height+g.gap))+1)*g.cols-1);
+  const indices=new Set([...cards.values()].map(entry=>entry.data.index));
+  const complete=Array.from({length:last+1},(_,index)=>index).every(index=>indices.has(index));
+  const geometry=[bounds.left,bounds.top,bounds.width,bounds.height,g.cols,g.width,g.height].join(':');
+  stable=complete&&bounds.width>0&&bounds.height>0&&geometry===previous?stable+1:0;previous=geometry;
+  if(stable<2){dealFrame=requestAnimationFrame(prepare);return;}
+  animateGrid(bounds);
+ }
+ function animateGrid(bounds){
+  const dx=box.left-bounds.left,dy=box.top-bounds.top;
+  deck.style.perspective=snapshot.perspective;
+  deck.style.perspectiveOrigin=(dx+box.width/2)+'px '+(dy+box.height/2)+'px';
+  const animated=new Set();let order=0;
+  for(const [id,{element:card}]of cards){
+   const source=snapshot.entries.get(id),style=getComputedStyle(card),art=card.querySelector('.g-art'),image=getComputedStyle(art);
+   const width=parseFloat(style.width),height=parseFloat(style.height),end={...appearance(card),transform:card.style.transform,width:style.width,height:style.height,opacity:1};
+   const from=source?'translate('+(dx+box.width/2)+'px,'+(dy+box.height/2-source.height/2)+'px) '+source.transform:'translate('+(dx+box.width/2-width/2)+'px,'+(dy+box.height/2-height/2)+'px) rotate(-5deg)';
+   const spread='translate('+(dx+box.width/2-width/2+(order%4)*2)+'px,'+(dy+box.height/2-height/2+(order%4)*2)+'px) translateZ(0) rotate(-5deg)';
+   const timing={duration:460,delay:Math.min(order++*18,126),easing:'cubic-bezier(.2,.7,.2,1)',fill:'both'};
+   const start={...(source?.appearance||end),transform:from,width:(source?.width||width)+'px',height:(source?.height||height)+'px',opacity:source?1:0};
+   const frame=card.animate([{...start,offset:0},{...end,transform:spread,offset:.3},{...end,offset:1}],timing);dealAnimations.push(frame);
+   const tracked={frame,overlay:null,key:card.style.width+'|'+card.style.height+'|'+card.style.transform};dealCards.set(id,tracked);
+   dealAnimations.push(card.animate([{opacity:source?.shade||0},{opacity:0}],{...timing,pseudoElement:'::before'}));
+   for(const selector of ['.g-check','.g-name'])dealAnimations.push(card.querySelector(selector).animate([{opacity:0,offset:0},{opacity:0,offset:.3},{opacity:1,offset:1}],timing));
+   // 原圆环清晰图与网格缩略图在收拢阶段交叉过渡，不在结束帧换图。
+   if(source){
+    const oldArt=source.element.querySelector('.g-art').cloneNode(true);oldArt.classList.add('g-deal-art');
+    Object.assign(oldArt.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',maxWidth:'none',maxHeight:'none',pointerEvents:'none',transition:'none',objectFit:'contain'});card.append(oldArt);
+    tracked.overlay=oldArt.animate([{width:source.artWidth,height:source.artHeight,filter:source.filter,boxShadow:source.artShadow,opacity:source.artOpacity,offset:0},{width:image.width,height:image.height,filter:'none',boxShadow:'none',opacity:0,offset:.3},{width:image.width,height:image.height,opacity:0,offset:1}],timing);dealAnimations.push(tracked.overlay);
+   }
+   dealAnimations.push(art.animate([{opacity:source?0:1,offset:0},{opacity:1,offset:.3},{opacity:1,offset:1}],timing));
+   animated.add(id);
+  }
+  for(const [id,source]of snapshot.entries){
+   if(animated.has(id)){source.element.remove();continue;}
+   dealAnimations.push(source.element.animate([{opacity:1},{opacity:0}],{duration:138,fill:'both'}));
+  }
+  document.body.classList.remove('dealing');
+  Promise.all(dealAnimations.map(animation=>animation.finished.catch(()=>{}))).then(()=>{if(serial===dealSerial)finishDeal();});
+ }
+ dealFrame=requestAnimationFrame(prepare);
+}
+const selectionBox=document.createElement('div');selectionBox.id='selection-box';deck.append(selectionBox);
+let boxDrag=null,boxFrame=0;
+function boxIndices(){
+ const drag=boxDrag,rect=deck.getBoundingClientRect(),g=gridGeometry();
+ const x=Math.max(0,Math.min(deck.clientWidth,drag.clientX-rect.left)),y=Math.max(0,Math.min(deck.clientHeight,drag.clientY-rect.top))+deck.scrollTop;
+ const left=Math.min(drag.x,x),right=Math.max(drag.x,x),top=Math.min(drag.y,y),bottom=Math.max(drag.y,y);
+ Object.assign(selectionBox.style,{left:left+'px',top:top+'px',width:(right-left)+'px',height:(bottom-top)+'px',display:'block'});
+ const indices=[],first=Math.max(0,Math.floor((top-g.pad)/(g.height+g.gap))),last=Math.min(Math.ceil(count/g.cols)-1,Math.floor((bottom-g.pad)/(g.height+g.gap)));
+ for(let row=first;row<=last;row++)for(let col=0;col<g.cols;col++){
+  const index=row*g.cols+col,cx=g.pad+col*(g.width+g.gap),cy=g.pad+row*(g.height+g.gap);
+  if(index<count&&right>=cx&&left<=cx+g.width&&bottom>=cy&&top<=cy+g.height)indices.push(index);
+ }
+ return indices;
+}
+function publishBox(phase){
+ if(!boxDrag?.active)return;
+ const indices=boxIndices(),key=indices.join(',');
+ if(phase==='update'&&key===boxDrag.last)return;
+ boxDrag.last=key;send({type:'selectionBox',phase,indices,additive:boxDrag.additive});
+}
+function tickBox(now){
+ boxFrame=0;if(!boxDrag?.active)return;
+ const rect=deck.getBoundingClientRect(),local=boxDrag.clientY-rect.top,edge=28;
+ const speed=local<edge?-Math.min(900,(edge-local)*24):local>rect.height-edge?Math.min(900,(local-rect.height+edge)*24):0;
+ const dt=Math.min(.04,(now-(boxDrag.frameTime||now))/1000);boxDrag.frameTime=now;
+ if(speed)deck.scrollTop+=speed*dt;
+ publishBox('update');boxFrame=requestAnimationFrame(tickBox);
+}
+function cancelBox(notify){
+ if(boxDrag?.active&&notify)publishBox('cancel');
+ if(boxDrag&&deck.hasPointerCapture(boxDrag.pointer))deck.releasePointerCapture(boxDrag.pointer);
+ boxDrag=null;if(boxFrame){cancelAnimationFrame(boxFrame);boxFrame=0;}selectionBox.style.display='none';
+}
+deck.addEventListener('pointerdown',event=>{
+ if(!batch||!interactive||dealLayer||event.button!==0||event.pointerType!=='mouse'||event.target.closest('[data-reveal]'))return;
+ const rect=deck.getBoundingClientRect();
+ boxDrag={pointer:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top+deck.scrollTop,clientX:event.clientX,clientY:event.clientY,startX:event.clientX,startY:event.clientY,additive:event.ctrlKey||event.shiftKey,active:false,last:''};
+});
+window.addEventListener('pointermove',event=>{
+ if(!boxDrag||event.pointerId!==boxDrag.pointer)return;
+ boxDrag.clientX=event.clientX;boxDrag.clientY=event.clientY;
+ if(!boxDrag.active&&Math.hypot(event.clientX-boxDrag.startX,event.clientY-boxDrag.startY)>=4){
+  boxDrag.active=true;deck.setPointerCapture(event.pointerId);publishBox('start');boxFrame=requestAnimationFrame(tickBox);
+ }
+ if(boxDrag.active)event.preventDefault();
+});
+window.addEventListener('pointerup',event=>{
+ if(!boxDrag||event.pointerId!==boxDrag.pointer)return;
+ if(boxDrag.active){boxDrag.clientX=event.clientX;boxDrag.clientY=event.clientY;publishBox('end');suppressClick=true;setTimeout(()=>suppressClick=false,0);event.preventDefault();}
+ cancelBox(false);
+});
+window.addEventListener('pointercancel',()=>cancelBox(true));
+window.addEventListener('blur',()=>cancelBox(true));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&boxDrag){cancelBox(true);event.preventDefault();}});
 const settingsPanel=tweak.querySelector('.controls');
 let panelFrame=0,panelWidth=0,panelCommand=0,panelUserInput=false;
 function publishPanel(){
  panelFrame=0;
+ if(batch){
+  const box=deck.getBoundingClientRect();
+  send({type:'panelMetrics',visible:deck.scrollHeight>deck.clientHeight,x:box.right-12,y:box.top,width:12,height:deck.clientHeight,viewport:deck.clientHeight,maximum:Math.max(0,deck.scrollHeight-deck.clientHeight),value:deck.scrollTop,viewportWidth:innerWidth,viewportHeight:innerHeight,command:panelCommand,userInput:panelUserInput});
+  panelUserInput=false;return;
+ }
  if(!tweak.open){send({type:'panelMetrics',visible:false});return;}
  if(settingsPanel.scrollHeight<=settingsPanel.clientHeight){
   settingsPanel.classList.remove('continuous-scrollbar');settingsPanel.style.paddingRight='';
@@ -92,6 +311,27 @@ new ResizeObserver(queuePanel).observe(settingsPanel);
 window.addEventListener('resize',queuePanel);
 function settings(){for(const key of ['overlap','size','angle','scale','drag']){const percent=key==='scale'||key==='drag';document.getElementById(key).value=percent?Math.round(design[key]*100):design[key];document.getElementById(key+'-value').value=percent?Math.round(design[key]*100)+'%':design[key]+(key==='angle'?'°':'%');}for(const radio of document.querySelectorAll('input[name=ease]'))radio.checked=radio.value===design.ease;}
 function render(){
+ if(!active||deck.clientWidth<=0||deck.clientHeight<=0)return;
+ if(batch){
+  const g=gridGeometry();
+  for(const [id,{element:card,data}] of cards){
+   card.style.width=g.width+'px';card.style.height=g.height+'px';
+   card.style.transform='translate3d('+(g.pad+(data.index%g.cols)*(g.width+g.gap))+'px,'+(g.pad+Math.floor(data.index/g.cols)*(g.height+g.gap))+'px,0)';card.style.zIndex='1';
+   card.style.setProperty('--g-shade','0');card.classList.toggle('g-selected',!!data.selected);card.classList.toggle('g-blocked',!!data.blocked);card.setAttribute('aria-pressed',String(!!data.selected));card.setAttribute('aria-label',(data.selected?'取消选择 ':'选择 ')+data.inboxName);
+   const art=card.querySelector('.g-art');art.style.width='100%';art.style.height='100%';
+   const tracked=dealCards.get(id),key=card.style.width+'|'+card.style.height+'|'+card.style.transform;
+   if(tracked&&tracked.key!==key){
+    // 动画中尺寸变化时更新真实卡片的终点，结束时不释放到旧坐标。
+    const frames=tracked.frame.effect.getKeyframes();
+    for(const frame of frames.slice(1)){frame.width=card.style.width;frame.height=card.style.height;}
+    frames[frames.length-1].transform=card.style.transform;tracked.frame.effect.setKeyframes(frames);
+    if(tracked.overlay){const images=tracked.overlay.effect.getKeyframes();for(const frame of images.slice(1)){frame.width=Math.max(1,g.width-18)+'px';frame.height=Math.max(1,g.height-40)+'px';}tracked.overlay.effect.setKeyframes(images);}
+    tracked.key=key;
+   }
+   updateMessage(card,data,true);
+  }
+  queueGrid();return;
+ }
  const angleStep=design.angle*Math.PI/180;
  const radiusFactor=(0.5+(0.5-design.overlap/100)*Math.cos(angleStep))/Math.sin(angleStep);
  const cameraFactor=3.5;
@@ -103,6 +343,7 @@ function render(){
  const span=2*extent,frameHeight=Math.min(deck.clientWidth*.98/design.aspect,(deck.clientHeight-20)*design.size/100/span);
  deck.style.setProperty('--g-frame-height',frameHeight+'px');deck.style.setProperty('--g-frame-width',frameHeight*design.aspect+'px');deck.style.setProperty('--g-perspective',frameHeight*cameraFactor+'px');
  for(const {element:card,data} of cards.values()){
+  card.style.width='';card.style.height='';card.setAttribute('aria-label','查看 '+data.inboxName);
   const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);
   const theta=d*angleStep,y=frameHeight*radiusFactor*Math.sin(theta),z=frameHeight*radiusFactor*(Math.cos(theta)-1);
   const t=Math.max(0,1-a),scale=1+(design.scale-1)*EASES[design.ease](t);
@@ -111,16 +352,21 @@ function render(){
   card.style.setProperty('--g-shade',String(1-sample(BRIGHTNESS,a)));
   const art=card.querySelector('.g-art'),w=frameHeight*design.aspect-18,h=frameHeight-18,ratio=data.ratio;
   art.style.width=Math.min(w,h*ratio)+'px';art.style.height=Math.min(h,w/ratio)+'px';
-  const state=(data.status||'')+'|'+(data.blocked&&a<.5?1:0);
+  const entrance=ringEntry?.animations.get(data.id);
+  if(entrance){const frames=entrance.effect.getKeyframes();if(frames[frames.length-1].transform!==card.style.transform){frames[frames.length-1].transform=card.style.transform;entrance.effect.setKeyframes(frames);}}
+  updateMessage(card,data,a<.5);
+ }
+}
+function updateMessage(card,data,canReveal){
+  const state=(data.status||'')+'|'+(data.blocked&&canReveal?1:0);
   if(card.dataset.msgKey!==state){
    card.dataset.msgKey=state;
    const message=card.querySelector('.message');message.replaceChildren();
    if(data.status){const status=document.createElement('span');status.textContent=data.status;message.append(status);}
-   if(data.blocked&&a<.5){const text=document.createElement('span');text.textContent='NSFW / 未分级';const reveal=document.createElement('span');reveal.dataset.reveal='';reveal.setAttribute('role','button');reveal.tabIndex=0;reveal.textContent='显示预览';reveal.onclick=event=>{event.stopPropagation();send({type:'reveal',id:data.id});};reveal.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();send({type:'reveal',id:data.id});}};message.append(text,reveal);}
+   if(data.blocked&&canReveal){const text=document.createElement('span');text.textContent='NSFW / 未分级';const reveal=document.createElement('span');reveal.dataset.reveal='';reveal.setAttribute('role','button');reveal.tabIndex=0;reveal.textContent='显示预览';reveal.onclick=event=>{event.stopPropagation();send({type:'reveal',id:data.id});};reveal.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();send({type:'reveal',id:data.id});}};message.append(text,reveal);}
   }
- }
 }
-function context(data,x,y){if(Math.abs(data.index-pos)<.5)send({type:'context',id:data.id,x,y});}
+function context(data,x,y){if(batch||Math.abs(data.index-pos)<.5)send({type:'context',id:data.id,x,y});}
 // 拖入文件：把 File 对象作为附加对象交给宿主，由桌面端读取真实路径并走导入流程。
 let dragging=false,dragDepth=0;
 const hasFiles=event=>!!(event.dataTransfer&&event.dataTransfer.types.includes('Files'));
@@ -139,10 +385,12 @@ document.addEventListener('drop',event=>{
 window.chrome.webview.addEventListener('message',event=>{
  const state=event.data;
  if(state.type==='panelScroll'){
-  panelCommand=state.command;settingsPanel.scrollTop=state.value;queuePanel();return;
+  panelCommand=state.command;if(dealLayer){queuePanel();return;}if(batch)deck.scrollTop=state.value;else settingsPanel.scrollTop=state.value;queuePanel();return;
  }
  // 滚动轴：宿主已经算好连续位置，这里直接落位；跟随期间不发 select，停稳后由宿主提交。
  if(state.type==='scroll'){
+  if(!active||batch)return;
+  finishRing();
   if(count===0)return;
   if(raf){cancelAnimationFrame(raf);raf=0;}
   motionActive=false;deck.classList.remove('g-scrolling');
@@ -157,23 +405,52 @@ window.chrome.webview.addEventListener('message',event=>{
   return;
  }
  if(state.type!=='state')return;
- current=state.index;lastWindow=state.index;const first=!initialized;count=state.count;if(first){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;deck.style.setProperty('--g-surface',state.background);document.body.classList.toggle('ready',state.motion);
+ const resuming=state.active!==false&&!active;
+ viewGeneration=state.viewGeneration??0;
+ if(!state.active||state.batch||!state.motion||state.count===0||(ringEntry&&ringEntry.index!==state.index))finishRing();
+ active=state.active!==false;
+ if(!active||resuming){
+  // 隐藏时停止惯性；恢复时以宿主选中项为准，不能沿用旧滚动回声。
+  onDragEnd();
+  if(raf){cancelAnimationFrame(raf);raf=0;}
+  motionActive=false;hostScroll=false;scrollSettle=false;suppressClick=false;
+  deck.classList.remove('g-scrolling','g-dragging');
+  pos=goal=state.index;vel=0;mode='idle';lastSent=lastReported=state.index;
+ }
+ const entering=state.batch===true&&!batch,leaving=state.batch!==true&&batch;
+ const snapshot=entering?captureRing():null;
+ const oldGeometry=gridGeometry(),anchor=Math.floor(deck.scrollTop/(oldGeometry.height+oldGeometry.gap))*oldGeometry.cols;
+ const resized=gridSize!==(state.gridSize||'medium');
+ gridSize=state.gridSize||'medium';interactive=state.interactive!==false;
+ if(leaving||resized||!state.motion||state.active===false||state.count===0)finishDeal();
+ if(leaving||resized||!interactive||state.active===false)cancelBox(false);
+ motion=state.motion;
+ batch=state.batch===true;document.body.classList.toggle('batch',batch);deck.setAttribute('aria-label',batch?'待审核图片多选网格':'待归档图片圆环');
+ if(entering||leaving){
+  for(const {element}of cards.values())for(const animation of element.getAnimations())animation.cancel();
+  if(raf){cancelAnimationFrame(raf);raf=0;}onDragEnd();if(raf){cancelAnimationFrame(raf);raf=0;}
+  motionActive=false;hostScroll=false;suppressClick=false;deck.classList.remove('g-scrolling','g-dragging');
+  tweak.open=false;deck.scrollTop=0;gridRange='';pos=goal=state.index;vel=0;gridSpace.style.height='0px';
+
+ }
+ current=state.index;lastWindow=state.index;const first=!initialized,wasEmpty=count===0;count=state.count;if(first){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;deck.style.setProperty('--g-surface',state.background);document.body.classList.toggle('ready',state.motion);
  const ids=new Set(state.cards.map(card=>card.id));for(const [id,entry] of cards)if(!ids.has(id)){entry.element.remove();cards.delete(id);}
  for(const data of state.cards){
   let entry=cards.get(data.id);
   if(!entry){
    const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
-   const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';card.append(art,message);
+   const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';card.append(art,message,check,name);
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
-   card.onclick=()=>send({type:'select',id:entry.data.id});card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
+   card.onclick=()=>{if(interactive&&!ringEntry)send({type:'select',id:entry.data.id});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
    card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
   }
   entry.data=data;
+  entry.element.querySelector('.g-name').textContent=data.inboxName;
   // 卡片背景用图片平均色；图片加载前/失败时回退到面板色。
   if(data.avg){
    if(entry.element.dataset.avg!==data.avg){entry.element.dataset.avg=data.avg;entry.element.style.setProperty('--g-avg',data.avg);}
   }else if(entry.element.dataset.avg){delete entry.element.dataset.avg;entry.element.style.removeProperty('--g-avg');}
-  if(data.src!==null)for(const img of entry.element.querySelectorAll('img')){
+  if(data.src!==null)for(const img of entry.element.querySelectorAll('img:not(.g-deal-art)')){
    if(data.src){
     if(img.getAttribute('src')!==data.src){
      img.classList.remove('g-loaded');
@@ -187,17 +464,21 @@ window.chrome.webview.addEventListener('message',event=>{
  settings();queuePanel();
  if(first){pos=goal=state.index;lastReported=lastSent=state.index;}
  // 宿主主动选中（卡片点击/外部选中）直接生效；只有本地滚动的旧回声需要被过滤。
- else if(!hostScroll&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
+ else if(active&&!batch&&!hostScroll&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
  if(count===0){pos=goal=vel=0;}
  else{goal=Math.max(0,Math.min(count-1,goal));pos=Math.max(0,Math.min(count-1,pos));}
+ if(active&&!batch&&motion&&count>0&&(first||resuming||leaving||wasEmpty))startRing();
  render();
- if(first)send({type:'settled',index:state.index});
+ if(batch&&resized&&!entering){const g=gridGeometry();gridRange='';gridSpace.style.height=(g.pad*2+Math.ceil(count/g.cols)*(g.height+g.gap)-g.gap)+'px';deck.scrollTop=Math.floor(anchor/g.cols)*(g.height+g.gap);queueGrid();}
+ if(entering&&motion)startDeal(snapshot);
+ if(active&&(first||resuming||leaving||wasEmpty)&&!batch&&!ringEntry)send({type:'settled',index:state.index});
 });
 // 阻尼滚动：滚轮只累加目标位置，位置和速度用临界阻尼弹簧逐帧跟随（参数照搬 Flex Carousel），
 // 停手 150ms 后吸附到最近一张；不再把一次滚动拆成一堆离散步，所以不会滑很久。
-function wake(){if(!raf){lastT=performance.now();raf=requestAnimationFrame(frame);}}
+function wake(){if(active&&!raf){lastT=performance.now();raf=requestAnimationFrame(frame);}}
 function frame(now){
  raf=0;
+ if(!active)return;
  const dt=Math.min(.05,Math.max(.001,(now-lastT)/1000));lastT=now;
  // 松手后的惯性：速度按指数衰减，滚到足够慢再吸附到最近一张。
  if(mode==='fling'){
@@ -239,7 +520,7 @@ function finishMotion(){
  motionActive=false;deck.classList.remove('g-scrolling');
  const index=Math.max(0,Math.min(count-1,Math.round(pos)));
  hostScroll=false;
- send({type:'settled',index});
+ if(active)send({type:'settled',index});
 }
 function syncWindow(){
  const index=Math.max(0,Math.min(count-1,Math.round(pos)));
@@ -259,6 +540,9 @@ function syncSelection(){
  send({type:'select',id:entry.data.id,seq:++sentSeq});
 }
 deck.addEventListener('wheel',event=>{
+ if(!active)return;
+ if(ringEntry){event.preventDefault();return;}
+ if(batch){if(dealLayer)event.preventDefault();return;}
  if(initialized===false||count===0)return;
  const unit=event.deltaMode===1?16:event.deltaMode===2?deck.clientHeight:1;
  const raw=event.deltaY*unit;
@@ -305,6 +589,7 @@ function onDragEnd(){
  dragMoved=false;
 }
 deck.addEventListener('pointerdown',event=>{
+ if(!active||batch||ringEntry)return;
  if(event.button!==0||deckDrag||!initialized||count===0)return;
  if(event.target instanceof Element&&event.target.closest('[data-reveal]'))return;
  deckDrag=true;dragMoved=false;dragY=event.clientY;dragSamples=[{y:event.clientY,t:performance.now()}];
@@ -321,8 +606,20 @@ deck.addEventListener('click',event=>{
  if(!suppressClick)return;
  suppressClick=false;event.preventDefault();event.stopPropagation();
 },true);
+deck.addEventListener('click',event=>{
+ if(batch&&interactive&&!dealLayer&&event.target instanceof Element&&!event.target.closest('.g-photo'))send({type:'clearSelection'});
+});
 deck.addEventListener('dragstart',event=>event.preventDefault());
 deck.addEventListener('keydown',event=>{
+ if(dealLayer||ringEntry){event.preventDefault();return;}
+ if(batch){
+  if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(event.key))return;
+  const card=event.target.closest('.g-photo');if(!card)return;
+  const entry=[...cards.values()].find(item=>item.element===card);if(!entry)return;
+  event.preventDefault();const step=event.key==='ArrowDown'?gridGeometry().cols:event.key==='ArrowUp'?-gridGeometry().cols:event.key==='ArrowRight'?1:-1;
+  const next=Math.max(0,Math.min(count-1,entry.data.index+step));
+  const target=[...cards.values()].find(item=>item.data.index===next);if(target){target.element.focus({preventScroll:true});target.element.scrollIntoView({block:'nearest'});}return;
+ }
  if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
  event.preventDefault();
  hostScroll=false;scrollSettle=true;beginMotion();
@@ -335,6 +632,6 @@ document.getElementById('reset').onclick=()=>{design={overlap:67,size:95,aspect:
 // 点击设置面板以外的任何位置都收起，Esc 同样可以关闭。
 document.addEventListener('pointerdown',event=>{if(tweak.open&&!tweak.contains(event.target))tweak.open=false;},true);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&tweak.open){tweak.open=false;tweak.querySelector('summary').focus();}});
-new ResizeObserver(render).observe(deck);settings();send({type:'ready'});
+new ResizeObserver(()=>{render();}).observe(deck);settings();send({type:'ready'});
 })();
 </script></body></html>

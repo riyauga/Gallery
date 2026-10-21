@@ -37,12 +37,21 @@ internal sealed class ReviewCarousel : Grid
     private readonly HashSet<string> _placeholderLoading = [];
     private Preview? _clearPreview;
     private int _index, _selectSeq;
+    private int? _resumeCenterId;
+    private int _viewGeneration;
+    private bool _batchMode;
+    private readonly HashSet<int> _batchSelection = [];
+    private int _gridFirst, _gridLast = 35;
+    private string _gridSize = "medium";
+    private bool _interactionEnabled = true;
     private bool _active = true, _initializing, _ready, _clearAllowed;
     private bool _frozen, _freezing, _freezeRequested;
     private double _angle = 10, _overlap = 67, _size = 95, _scale = 1.12, _drag = 1;
     private string _ease = "out";
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public event Action<int>? SelectionRequested;
+    public event Action? ClearSelectionRequested;
+    public event Action<IReadOnlyList<int>, bool, string>? BoxSelectionRequested;
     public event Action<PhotoItem>? SelectedImageLoaded;
     public event Action<StoreService.PendingIngestRow, bool>? OpenRequested;
     public event Action<IReadOnlyList<string>>? FilesDropped;
@@ -133,6 +142,35 @@ internal sealed class ReviewCarousel : Grid
         }
         PublishState();
         StartLoads();
+        if (_batchMode && rows.Count > 0 && _previews.GetValueOrDefault(rows[_index].Id)?.Item is { } item)
+            SelectedImageLoaded?.Invoke(item);
+    }
+
+    public void SetBatchMode(bool enabled, IReadOnlyCollection<int> selected)
+    {
+        if (_batchMode != enabled)
+        {
+            _batchMode = enabled;
+            _gridFirst = 0; _gridLast = 35;
+            _clearAllowed = false;
+            _loading?.Cancel();
+        }
+        _batchSelection.Clear();
+        _batchSelection.UnionWith(selected);
+        PublishState();
+        StartLoads();
+    }
+
+    public void SetGridSize(string size)
+    {
+        _gridSize = size is "small" or "large" ? size : "medium";
+        PublishState();
+    }
+
+    public void SetInteractionEnabled(bool enabled)
+    {
+        _interactionEnabled = enabled;
+        PublishState();
     }
 
     /// <summary>连续滚动：只更新卡片窗口，不重建详情；详情由网页在停稳后发 settled 提交。</summary>
@@ -171,6 +209,16 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetActive(bool active)
     {
+        if (_active != active)
+        {
+            ++_viewGeneration;
+            if (!active && !_batchMode && _rows.Count > 0) _resumeCenterId = _rows[_index].Id;
+            if (active && !_batchMode && _resumeCenterId is { } centerId)
+            {
+                var index = _rows.ToList().FindIndex(row => row.Id == centerId);
+                if (index >= 0) _index = index;
+            }
+        }
         _active = active;
         if (!active)
         {
@@ -183,6 +231,7 @@ internal sealed class ReviewCarousel : Grid
             _prefetch?.Cancel();
             _prefetchedRows = null;
             _previews.Clear(); _clearPreview = null; _revealed.Clear();
+            _clearAllowed = false;
             UnfreezeWindow();
         }
         PublishState();
@@ -280,8 +329,11 @@ internal sealed class ReviewCarousel : Grid
     }
 
     private IEnumerable<(StoreService.PendingIngestRow Row, int Index)> Nearby()
-        => Enumerable.Range(Math.Max(0, _index - 4), Math.Max(0, Math.Min(_rows.Count, _index + 5) - Math.Max(0, _index - 4)))
-            .Select(index => (_rows[index], index));
+    {
+        var first = _batchMode ? Math.Min(_gridFirst, _rows.Count) : Math.Max(0, _index - 4);
+        var end = _batchMode ? Math.Min(_rows.Count, _gridLast + 1) : Math.Min(_rows.Count, _index + 5);
+        return Enumerable.Range(first, Math.Max(0, end - first)).Select(index => (_rows[index], index));
+    }
 
     private static bool Blurred(StoreService.PendingIngestRow row)
         => AppService.Settings.Settings.blur_nsfw && ArchiveService.NormalizeRating(row.Rating) is not ("g" or "s");
@@ -322,19 +374,20 @@ internal sealed class ReviewCarousel : Grid
             var placeholder = _previews.GetValueOrDefault(row.Id);
             var protectedNow = Protected(row);
             // 只有停稳后才把清晰图给中心卡片；滚动过程中所有卡片都用 256px 低清图 + 距离亮度。
-            var clear = _clearAllowed && index == _index && _clearPreview is not null && !_clearPreview.Protected
+            var clear = !_batchMode && _clearAllowed && index == _index && _clearPreview is not null && !_clearPreview.Protected
                 && _clearPreview.Key == ClearKey(row) ? _clearPreview : null;
             var preview = clear ?? (placeholder is not null && placeholder.Protected == protectedNow ? placeholder : null);
             var source = preview?.Source ?? "";
             var changed = !_sentSources.TryGetValue(row.Id, out var sent) || !ReferenceEquals(source, sent);
             _sentSources[row.Id] = source;
-            return new { row.Id, Index = index, row.InboxName, Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
+            return new { row.Id, Index = index, row.InboxName, Selected = _batchSelection.Contains(row.Id), Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
                 Blocked = protectedNow, Placeholder = preview?.Placeholder ?? true, Status = preview?.Status ?? "正在加载…",
                 Avg = preview?.Average ?? "" };
         }).ToArray();
         _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
-            type = "state", cards, index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,
+            type = "state", cards, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
+            index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,
             design = new { angle = _angle, overlap = _overlap, size = _size, scale = _scale, drag = _drag, ease = _ease, aspect = 16.0 / 9 },
             theme = ActualTheme == ElementTheme.Dark ? "dark" : "light",
             background = SurfaceColor(),
@@ -364,14 +417,21 @@ internal sealed class ReviewCarousel : Grid
 
     private void StartLoads()
     {
+        if (_batchMode)
+        {
+            if (!_active || !_ready) return;
+            var gridToken = _prefetch?.Token ?? CancellationToken.None;
+            foreach (var (row, _) in Nearby()) _ = EnsurePlaceholderAsync(row, gridToken);
+            return;
+        }
         _loading?.Cancel(); _loading?.Dispose();
         _loading = new CancellationTokenSource();
         if (!_active || !_ready) return;
         var token = _loading.Token;
-        var entries = Nearby().ToArray();
+        var entries = Nearby().OrderBy(entry => Math.Abs(entry.Index - _index)).ToArray();
         foreach (var (row, _) in entries) _ = EnsurePlaceholderAsync(row, token);
         // 只有停稳后才为当前中心加载清晰图；滚动过程中全部用低清占位。
-        if (_clearAllowed && _rows.Count > 0 && !Protected(_rows[_index]))
+        if (!_batchMode && _clearAllowed && _rows.Count > 0 && !Protected(_rows[_index]))
         {
             var center = _rows[_index];
             if (_clearPreview is null || _clearPreview.Key != ClearKey(center))
@@ -445,6 +505,7 @@ internal sealed class ReviewCarousel : Grid
             _previews[row.Id] = new Preview(key, encoded.Source,
                 (double)thumb.PixelWidth / thumb.PixelHeight, blocked, "", item, true, encoded.Average);
             PublishState();
+            if (_batchMode && _rows.Count > 0 && _rows[_index].Id == row.Id) SelectedImageLoaded?.Invoke(item);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException
@@ -454,7 +515,14 @@ internal sealed class ReviewCarousel : Grid
             _previews[row.Id] = new Preview(key, "", 1, blocked, "图片无法读取", null, true, "");
             PublishState(); AppService.DebugLog("review placeholder: " + ex.Message);
         }
-        finally { _placeholderLoading.Remove(key); }
+        finally
+        {
+            _placeholderLoading.Remove(key);
+            var retry = _batchMode ? _prefetch?.Token : _loading?.Token;
+            if (token.IsCancellationRequested && _active && retry is { IsCancellationRequested: false } nextToken
+                && Nearby().FirstOrDefault(entry => entry.Row.Id == row.Id).Row is { } nextRow)
+                _ = EnsurePlaceholderAsync(nextRow, nextToken);
+        }
     }
 
     private async Task LoadClearAsync(StoreService.PendingIngestRow row, int index, CancellationToken token)
@@ -551,6 +619,36 @@ internal sealed class ReviewCarousel : Grid
                 return;
             }
             if (!_active) return;
+            if (!message.TryGetProperty("viewGeneration", out var generation) || generation.GetInt32() != _viewGeneration) return;
+            if (type == "clearSelection")
+            {
+                if (_batchMode && _interactionEnabled) ClearSelectionRequested?.Invoke();
+                return;
+            }
+            if (type == "selectionBox")
+            {
+                if (!_batchMode || !_interactionEnabled) return;
+                var indices = message.GetProperty("indices").EnumerateArray().Select(value => value.GetInt32())
+                    .Where(index => index >= 0 && index < _rows.Count).Distinct().ToArray();
+                var phase = message.GetProperty("phase").GetString() ?? "update";
+                if (phase is "start" or "update" or "end" or "cancel")
+                    BoxSelectionRequested?.Invoke(indices, message.GetProperty("additive").GetBoolean(), phase);
+                return;
+            }
+            if (!_interactionEnabled && type is "select" or "reveal" or "context") return;
+            if (type == "gridWindow")
+            {
+                if (!_batchMode || _rows.Count == 0) return;
+                var first = Math.Clamp(message.GetProperty("first").GetInt32(), 0, _rows.Count - 1);
+                var last = Math.Clamp(message.GetProperty("last").GetInt32(), first, Math.Min(_rows.Count - 1, first + 199));
+                if (first == _gridFirst && last == _gridLast) return;
+                _gridFirst = first; _gridLast = last;
+                PublishState();
+                var token = _prefetch?.Token ?? CancellationToken.None;
+                foreach (var (row, _) in Nearby()) _ = EnsurePlaceholderAsync(row, token);
+                return;
+            }
+            if (_batchMode && type is "window" or "settled" or "step") return;
             if (type == "panelMetrics") { UpdateSettingsScroll(message); return; }
             if (type == "configure")
             {
@@ -585,7 +683,7 @@ internal sealed class ReviewCarousel : Grid
             }
             var id = message.GetProperty("id").GetInt32();
             var index = _rows.ToList().FindIndex(row => row.Id == id);
-            if (index < 0 || Math.Abs(index - _index) > 4) return;
+            if (index < 0 || (!_batchMode && Math.Abs(index - _index) > 4)) return;
             if (type == "select")
             {
                 // 网页端带序号的选择只回显最新一条；卡片点击没有序号，属于宿主主动选中，必须直接生效。
@@ -595,7 +693,7 @@ internal sealed class ReviewCarousel : Grid
                 SelectionRequested?.Invoke(index);
                 return;
             }
-            if (index != _index) return;
+            if (!_batchMode && index != _index) return;
             if (type == "reveal") { _revealed.Add(id); _clearAllowed = true; PublishState(); StartLoads(); }
             else if (type == "context")
             {
