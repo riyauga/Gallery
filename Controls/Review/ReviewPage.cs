@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Gallery.Services;
@@ -87,6 +88,13 @@ public sealed class ReviewPage : Grid
     private bool _batchTagsDirty;
     private HashSet<int>? _boxSelectionBase;
     private CancellationTokenSource? _batchClassifyCts;
+    private CancellationTokenSource? _basicsCts;
+    private Task? _basicsTask;
+    private bool _basicsDirty;
+    private int _basicsGeneration;
+    private readonly ConcurrentDictionary<int, byte> _basicsFailed = new();
+    private readonly ConcurrentQueue<int> _basicsExtras = new();
+    private Action? _ratingRebuild;
     private string _batchRatingSummary = "";
     private int _singleIndexBeforeBatch;
     private bool BatchMultiple => _batchMode && _batchSelected.Count > 1;
@@ -119,10 +127,16 @@ public sealed class ReviewPage : Grid
         else _workCompleted?.TrySetResult();
     }
 
-    public Task DrainWorkAsync()
+    public async Task DrainWorkAsync()
     {
         _batchClassifyCts?.Cancel();
-        return _workCompleted?.Task ?? Task.CompletedTask;
+        _basicsCts?.Cancel();
+        if (_workCompleted is { } work) await work.Task;
+        if (_basicsTask is { } basics)
+        {
+            try { await basics; }
+            catch (OperationCanceledException) { }
+        }
     }
     private bool _destinationEdited;   // 用户手改过当前这张的归档目录
     private bool _settingDestination;  // 程序正在往 _destination 里填内容
@@ -482,6 +496,161 @@ public sealed class ReviewPage : Grid
         }
         else Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1), false);
         UpdateButtons();
+        if (_state == "pending") StartBasicsEnrichment();
+    }
+
+    /// <summary>
+    /// 待归档列表刷新后启动一次基础标签补全：分辨率/横竖图 + 空分级的模型判定。
+    /// 同一时刻只跑一个后台任务；期间又有新记录进来就记脏，结束后再补一轮。
+    /// </summary>
+    private void StartBasicsEnrichment()
+    {
+        if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
+        if (_state != "pending" && _basicsExtras.IsEmpty) return;
+        if (_basicsTask is { IsCompleted: false })
+        {
+            _basicsDirty = true;
+            return;
+        }
+
+        var service = new IngestBasicsService(store, AppService.Settings.Settings.nsfw_model_dir);
+        var ids = _rows
+            .Where(row => row.State == "pending"
+                && !_basicsFailed.ContainsKey(row.Id)
+                && service.NeedsWork(row))
+            .OrderByDescending(row => row.ReceivedAt)
+            .ThenByDescending(row => row.Id)
+            .Select(row => row.Id)
+            .ToList();
+        while (_basicsExtras.TryDequeue(out var extraId))
+        {
+            if (_basicsFailed.ContainsKey(extraId)) continue;
+            var extra = store.IngestRow(extraId);
+            if (extra is null) continue;
+            if (ArchiveService.NormalizeRating(extra.Rating).Length > 0) continue;
+            if (IngestReview.RatingChecked(extra.Payload)) continue;
+            ids.Add(extraId);
+        }
+        ids = ids.Distinct().ToList();
+        _basicsDirty = false;
+        if (ids.Count == 0) return;
+
+        if (_basicsCts is null || _basicsCts.IsCancellationRequested)
+        {
+            _basicsCts?.Dispose();
+            _basicsCts = new CancellationTokenSource();
+        }
+        var token = _basicsCts.Token;
+        var generation = ++_basicsGeneration;
+        _basicsTask = Task.Run(() => RunBasics(service, ids, token, generation));
+    }
+
+    /// <summary>
+    /// 归档成功后补排一次基础分级。即使这张图在后台批次之外被归档，
+    /// 模型空下来后也会按图库里的当前位置补写。
+    /// </summary>
+    private void QueueBasics(int id)
+    {
+        if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
+        if (_basicsFailed.ContainsKey(id)) return;
+        if (!AppService.FakeNsfwScorer
+            && !NsfwScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir)) return;
+        var row = store.IngestRow(id);
+        if (row is null) return;
+        if (ArchiveService.NormalizeRating(row.Rating).Length > 0) return;
+        if (IngestReview.RatingChecked(row.Payload)) return;
+
+        _basicsExtras.Enqueue(id);
+        if (_basicsTask is { IsCompleted: false })
+        {
+            _basicsDirty = true;
+            return;
+        }
+        StartBasicsEnrichment();
+    }
+
+    private void RunBasics(IngestBasicsService service, List<int> ids,
+        CancellationToken token, int generation)
+    {
+        try
+        {
+            foreach (var id in ids)
+            {
+                token.ThrowIfCancellationRequested();
+                BasicOutcome outcome;
+                try
+                {
+                    outcome = service.Enrich(id, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _basicsFailed[id] = 0;
+                    AppService.DebugLog($"ingest basics #{id}: {ex.Message}");
+                    continue;
+                }
+
+                if (outcome.Error.Length > 0)
+                {
+                    _basicsFailed[id] = 0;
+                    AppService.DebugLog($"ingest basics #{id}: {outcome.Error}");
+                    continue;
+                }
+                if (outcome.Rating.Length == 0 && !outcome.ResolutionChanged) continue;
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (generation != _basicsGeneration) return;
+                    ApplyBasicsToUi(id);
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (generation != _basicsGeneration) return;
+                _basicsTask = null;
+                if (_basicsDirty && !AppService.IsShuttingDown)
+                {
+                    _basicsDirty = false;
+                    StartBasicsEnrichment();
+                }
+            });
+        }
+    }
+
+    /// <summary>单张模式下只把结果落到当前选中的那张；正在输入的其他标签不动。批量面板不跟着改。</summary>
+    private void ApplyBasicsToUi(int id)
+    {
+        if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
+        var index = _rows.FindIndex(row => row.Id == id);
+        if (index < 0) return;
+
+        StoreService.PendingIngestRow? updated;
+        try { updated = store.IngestRow(id); }
+        catch (Microsoft.Data.Sqlite.SqliteException ex)
+        {
+            AppService.DebugLog("ingest basics refresh: " + ex.Message);
+            return;
+        }
+        if (updated is null) return;
+        updated = updated with { ResolvedPath = _rows[index].ResolvedPath };
+        _rows[index] = updated;
+
+        if (!_active || _busy || _batchMode || _selected?.Id != id) return;
+        _selected = updated;
+        var rating = ArchiveService.NormalizeRating(updated.Rating);
+        if (rating.Length == 0 || !_tags.TryGetValue("rating", out var current) || current.Count > 0) return;
+
+        _tags["rating"] = [rating];
+        _ratingRebuild?.Invoke();
+        _carousel.RefreshPreview(preserveRevealed: true);
     }
 
     private string HistoryHint(StoreService store)
@@ -562,6 +731,7 @@ public sealed class ReviewPage : Grid
                 _tagGroups.Children.Clear();
                 _tagInputs.Clear();
                 _ratingBadge = null;
+                _ratingRebuild = null;
                 if (BatchMultiple)
                     for (var i = 0; i < IngestReview.Categories.Length; i++)
                         BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
@@ -592,6 +762,7 @@ public sealed class ReviewPage : Grid
             ++_selectionGeneration;
             _tagGroups.Children.Clear();
             _tagInputs.Clear();
+            _ratingRebuild = null;
             for (var i = 0; i < IngestReview.Categories.Length; i++)
                 BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
         }
@@ -633,6 +804,7 @@ public sealed class ReviewPage : Grid
                 _tagGroups.Children.Clear();
                 _tagInputs.Clear();
                 _ratingBadge = null;
+                _ratingRebuild = null;
                 for (var i = 0; i < IngestReview.Categories.Length; i++)
                     BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
             }
@@ -666,6 +838,7 @@ public sealed class ReviewPage : Grid
         _tagGroups.Children.Clear();
         _tagInputs.Clear();
         _ratingBadge = null;
+        _ratingRebuild = null;
         _destinationEdited = false;
         if (_selected is not { } row)
         {
@@ -770,6 +943,7 @@ public sealed class ReviewPage : Grid
         var chips = new TagWrapPanel();
         controls.Children.Add(chips);
         Rebuild();
+        if (category == "rating") _ratingRebuild = Rebuild;
         if (category != "rating")
         {
             var search = new SearchInputBox { PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
@@ -1136,6 +1310,7 @@ public sealed class ReviewPage : Grid
         UpdateButtons();
         var succeeded = 0;
         var failures = new List<string>();
+        var archived = new List<int>();
         try
         {
             foreach (var id in ids)
@@ -1144,7 +1319,8 @@ public sealed class ReviewPage : Grid
                 var target = DestOf(id);
                 if (target.Length == 0) { failures.Add($"#{id}：没有可用的归档目录"); continue; }
                 var result = await Task.Run(() => archiver.Archive(id, target));
-                if (result.Ok) succeeded++; else failures.Add($"#{id}：{result.Message}");
+                if (result.Ok) { succeeded++; archived.Add(id); }
+                else failures.Add($"#{id}：{result.Message}");
             }
             if (succeeded > 0 && !auto)
             {
@@ -1161,6 +1337,14 @@ public sealed class ReviewPage : Grid
         finally
         {
             SetBusy(false);
+            foreach (var id in archived)
+            {
+                try { QueueBasics(id); }
+                catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+                {
+                    AppService.DebugLog($"ingest basics queue #{id}: {ex.Message}");
+                }
+            }
             Reload();
             Changed?.Invoke();
             OpenDeferredNotification();
@@ -1346,7 +1530,7 @@ public sealed class ReviewPage : Grid
         else
         {
             var pending = _tagInputs.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
-            _tagGroups.Children.Clear(); _tagInputs.Clear(); _ratingBadge = null;
+            _tagGroups.Children.Clear(); _tagInputs.Clear(); _ratingBadge = null; _ratingRebuild = null;
             if (_selected is not null || BatchMultiple)
                 for (var i = 0; i < IngestReview.Categories.Length; i++)
                     BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);

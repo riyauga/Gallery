@@ -1525,11 +1525,34 @@ public sealed class StoreService : IDisposable
         }
     }
 
-    /// <summary>保存待归档图片的人工标签；只更新尚未处理的记录，不改扩展的幂等身份。</summary>
+    /// <summary>保存待归档图片的人工标签；只覆盖人工字段，保留后台刚写入的基础信息。</summary>
     public void UpdateIngestReview(int id, string payload, string rating)
     {
         lock (SyncRoot)
         {
+            string currentPayload, previousRating;
+            using (var read = _conn.CreateCommand())
+            {
+                read.CommandText = "SELECT payload,COALESCE(rating,'') FROM ingest_queue WHERE id=$id AND state='pending'";
+                read.Parameters.AddWithValue("$id", id);
+                using var reader = read.ExecuteReader();
+                if (!reader.Read()) return;
+                currentPayload = reader.GetString(0);
+                previousRating = reader.GetString(1);
+            }
+
+            // 用户明确清掉了一个已有分级：记下「分级已处理」，避免后台模型再补回来。
+            if (ArchiveService.NormalizeRating(rating).Length == 0
+                && ArchiveService.NormalizeRating(previousRating).Length > 0)
+            {
+                try { payload = IngestReview.WithRatingChecked(payload); }
+                catch (JsonException) { }
+            }
+
+            // 界面上的 payload 可能停在后台补基础信息之前，只把人工可改的部分叠到最新记录上。
+            try { payload = IngestReview.MergeReview(currentPayload, payload, rating); }
+            catch (JsonException) { }
+
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = "UPDATE ingest_queue SET payload=$p,rating=$r WHERE id=$id AND state='pending'";
             cmd.Parameters.AddWithValue("$p", payload);
@@ -1539,20 +1562,167 @@ public sealed class StoreService : IDisposable
         }
     }
 
-    /// <summary>
-    /// 归档成功：写最终文件路径，并把归档时的图片 id 记进 payload。
-    /// 历史视图靠这个 id 找到图片当前所在位置，而不是依赖会过期的归档路径。
-    /// </summary>
-    public void SetIngestArchived(int id, string destination, string payload)
+    /// <summary>入队后补分辨率/横竖图；只改 pending 记录，并保留并发写入的其他字段。</summary>
+    public bool UpdateIngestBasics(int id, int width, int height)
     {
         lock (SyncRoot)
         {
+            string? payload;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT payload FROM ingest_queue WHERE id=$id AND state='pending'";
+                cmd.Parameters.AddWithValue("$id", id);
+                payload = cmd.ExecuteScalar() as string;
+            }
+            if (string.IsNullOrEmpty(payload)) return false;
+
+            string updated;
+            try { updated = IngestReview.WithResolution(payload, width, height); }
+            catch (JsonException) { return false; }
+            if (string.Equals(updated, payload, StringComparison.Ordinal)) return false;
+
+            using var write = _conn.CreateCommand();
+            write.CommandText = "UPDATE ingest_queue SET payload=$p WHERE id=$id AND state='pending'";
+            write.Parameters.AddWithValue("$p", updated);
+            write.Parameters.AddWithValue("$id", id);
+            return write.ExecuteNonQuery() > 0;
+        }
+    }
+
+    /// <summary>
+    /// 写入模型分级：仍在队列里的只填空；已经归档的补到图片上，
+    /// 但图片已有分级（站点/人工/已有模型）时不覆盖。
+    /// </summary>
+    public string ApplyIngestRating(int id, string rating, NsfwProbs probs,
+        string modelName, string modelHash)
+    {
+        var normalized = ArchiveService.NormalizeRating(rating);
+        if (normalized.Length == 0) return "";
+
+        lock (SyncRoot)
+        {
+            string state, payload, currentRating;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT state,payload,COALESCE(rating,'') FROM ingest_queue WHERE id=$id";
+                cmd.Parameters.AddWithValue("$id", id);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) return "";
+                state = r.GetString(0);
+                payload = r.GetString(1);
+                currentRating = r.GetString(2);
+            }
+            if (state == "ignored") return "";
+            if (ArchiveService.NormalizeRating(currentRating).Length > 0) return "";
+            // rating 列偶发不同步时，payload 里的站点/人工分级同样是权威。
+            if (ArchiveService.NormalizeRating(IngestReview.RatingOf(payload)).Length > 0) return "";
+            // 推理期间用户可能已经清空分级并标记「已处理」：晚到的模型结果不再覆盖。
+            if (IngestReview.RatingChecked(payload)) return "";
+
+            if (state == "pending")
+            {
+                string updated;
+                try { updated = IngestReview.WithRating(payload, normalized, "model"); }
+                catch (JsonException) { return ""; }
+                using var write = _conn.CreateCommand();
+                write.CommandText = "UPDATE ingest_queue SET payload=$p,rating=$r WHERE id=$id AND state='pending'";
+                write.Parameters.AddWithValue("$p", updated);
+                write.Parameters.AddWithValue("$r", normalized);
+                write.Parameters.AddWithValue("$id", id);
+                return write.ExecuteNonQuery() > 0 ? normalized : "";
+            }
+            if (state != "done") return "";
+
+            var imageId = IngestReview.ArchivedImageId(payload);
+            if (imageId <= 0) return "";
+
+            string imageRating;
+            bool hasScore;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText =
+                    "SELECT COALESCE(i.nsfw,''), EXISTS(SELECT 1 FROM nsfw_scores s WHERE s.image_id=i.id) " +
+                    "FROM images i WHERE i.id=$i AND i.missing=0";
+                cmd.Parameters.AddWithValue("$i", imageId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) return "";
+                imageRating = r.GetString(0);
+                hasScore = r.GetInt32(1) != 0;
+            }
+            if (imageRating.Length > 0 || hasScore) return "";
+
+            var (_, confidence, margin) = probs.Verdict();
+            var detail = JsonSerializer.Serialize(new
+            {
+                g = Math.Round(probs.G, 4),
+                s = Math.Round(probs.S, 4),
+                q = Math.Round(probs.Q, 4),
+                e = Math.Round(probs.E, 4),
+            });
+            SetNsfwScore(imageId, "model", normalized, "", probs.NsfwProb,
+                confidence, margin, modelName, modelHash, detail, tagIt: true);
+            Commit();
+
+            try { payload = IngestReview.WithRating(payload, normalized, "model"); }
+            catch (JsonException) { return normalized; }
+            using (var write = _conn.CreateCommand())
+            {
+                write.CommandText = "UPDATE ingest_queue SET payload=$p,rating=$r WHERE id=$id";
+                write.Parameters.AddWithValue("$p", payload);
+                write.Parameters.AddWithValue("$r", normalized);
+                write.Parameters.AddWithValue("$id", id);
+                write.ExecuteNonQuery();
+            }
+            return normalized;
+        }
+    }
+
+    /// <summary>
+    /// 归档成功：写最终文件路径，并把归档时的图片 id 记进 payload。
+    /// 历史视图靠这个 id 找到图片当前所在位置，而不是依赖会过期的归档路径。
+    /// 归档开始后队列里才写入的分级会被合并进来，返回最终 payload 供调用方补写图片。
+    /// </summary>
+    public string SetIngestArchived(int id, string destination, string payload)
+    {
+        lock (SyncRoot)
+        {
+            var currentPayload = "";
+            var currentRating = "";
+            using (var read = _conn.CreateCommand())
+            {
+                read.CommandText = "SELECT payload,COALESCE(rating,'') FROM ingest_queue WHERE id=$id";
+                read.Parameters.AddWithValue("$id", id);
+                using var r = read.ExecuteReader();
+                if (r.Read())
+                {
+                    currentPayload = r.GetString(0);
+                    currentRating = r.GetString(1);
+                }
+            }
+
+            var finalPayload = payload;
+            var finalRating = IngestReview.RatingOf(payload);
+            if (ArchiveService.NormalizeRating(currentRating).Length > 0
+                && ArchiveService.NormalizeRating(finalRating).Length == 0)
+            {
+                // 只有 rating 列有值、payload 里没有：这是入队时站点带进来的分级；
+                // 人工改分会同时写 payload 的 rating，走不到这里。
+                var source = IngestReview.RatingSourceOf(currentPayload);
+                if (source.Length == 0) source = "danbooru";
+                finalRating = currentRating;
+                try { finalPayload = IngestReview.WithRating(payload, currentRating, source); }
+                catch (JsonException) { }
+            }
+
             using var cmd = _conn.CreateCommand();
-            cmd.CommandText = "UPDATE ingest_queue SET state='done',note=$n,payload=$p WHERE id=$id";
+            cmd.CommandText =
+                "UPDATE ingest_queue SET state='done',note=$n,payload=$p,rating=$r WHERE id=$id";
             cmd.Parameters.AddWithValue("$n", destination);
-            cmd.Parameters.AddWithValue("$p", payload);
+            cmd.Parameters.AddWithValue("$p", finalPayload);
+            cmd.Parameters.AddWithValue("$r", finalRating);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.ExecuteNonQuery();
+            return finalPayload;
         }
     }
 

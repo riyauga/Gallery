@@ -338,7 +338,8 @@ internal sealed class ReviewCarousel : Grid
     }
 
     private static bool Blurred(StoreService.PendingIngestRow row)
-        => AppService.Settings.Settings.blur_nsfw && ArchiveService.NormalizeRating(row.Rating) is not ("g" or "s");
+        => AppService.Settings.Settings.nsfw_display is "blur" or "hide"
+            && ArchiveService.NormalizeRating(row.Rating) is not ("g" or "s");
 
     private bool Protected(StoreService.PendingIngestRow row) => Blurred(row) && !_revealed.Contains(row.Id);
 

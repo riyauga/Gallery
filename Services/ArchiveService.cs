@@ -94,6 +94,10 @@ public sealed class ArchiveService(StoreService store)
             return new ArchiveResult(false, "搬文件失败：" + ex.Message, destination);
         }
 
+        // 复制期间基础分级可能刚好写入；索引前重读一次，避免丢掉刚到的分级。
+        var latest = store.IngestRow(row.Id);
+        if (latest is { State: "pending" }) row = latest;
+
         var (imageId, indexed) = IndexFile(rootId, dirRel, destination, row.Payload);
         if (indexed.Length > 0)
         {
@@ -131,7 +135,10 @@ public sealed class ArchiveService(StoreService store)
             }
         }
 
-        store.SetIngestArchived(row.Id, destination, IngestReview.WithArchivedImage(row.Payload, imageId));
+        var finalPayload = store.SetIngestArchived(
+            row.Id, destination, IngestReview.WithArchivedImage(row.Payload, imageId));
+        // 归档完成前最后一刻才写入的分级：补到刚入库的图片上（已有分级时不会覆盖）。
+        ApplyPayloadNsfw(imageId, finalPayload);
         return new ArchiveResult(true, $"已归档到 {Path.GetFileName(destination)}", destination);
     }
 
@@ -228,6 +235,7 @@ public sealed class ArchiveService(StoreService store)
             store.ApplyIngestOrigin(imageId, payload);
             ApplyPayloadTags(imageId, payload);
             ApplyPayloadNsfw(imageId, payload);
+            ApplyResolutionTags(imageId, meta?.Width, meta?.Height);
             return (imageId, "");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
@@ -241,21 +249,43 @@ public sealed class ArchiveService(StoreService store)
     /// 这样桥接进来的图不用等模型判定就能按「模糊 / 隐藏」处理。</summary>
     private void ApplyPayloadNsfw(int imageId, string payload)
     {
-        var rating = NormalizeRating(IngestRatingOf(payload));
+        var (ratingValue, source) = IngestRatingOf(payload);
+        var rating = NormalizeRating(ratingValue);
         if (rating.Length == 0) return;
         try
         {
+            var detail = source == "danbooru" ? "{\"from\":\"bridge\"}" : "{\"from\":\"review\"}";
             store.SetNsfwScore(
                 imageId: imageId,
-                source: "danbooru",
+                source: source,
                 rating: rating,
-                detail: "{\"from\":\"bridge\"}",
+                detail: detail,
                 tagIt: true);
             store.Commit();
         }
         catch (Microsoft.Data.Sqlite.SqliteException ex)
         {
             AppService.DebugLog("payload nsfw failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>归档时按真实像素补分辨率/横竖图；队列里的基础标签只作入队记录，尺寸以文件为准。</summary>
+    private void ApplyResolutionTags(int imageId, int? width, int? height)
+    {
+        var resolution = Taxonomy.ResolutionTags(width, height);
+        if (resolution.Count == 0) return;
+        try
+        {
+            var pairs = store.CategorizedTags(imageId)
+                .Where(pair => pair.Category != "resolution")
+                .ToList();
+            pairs.AddRange(resolution.Select(tag => ("resolution", tag)));
+            store.SetCategorizedTags([imageId], pairs);
+            store.Commit();
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException ex)
+        {
+            AppService.DebugLog("archive resolution failed: " + ex.Message);
         }
     }
 
@@ -273,19 +303,25 @@ public sealed class ArchiveService(StoreService store)
         };
     }
 
-    private static string IngestRatingOf(string payload)
+    private static (string Rating, string Source) IngestRatingOf(string payload)
     {
         try
         {
             using var doc = JsonDocument.Parse(payload);
-            if (doc.RootElement.TryGetProperty("rating", out var r) && r.ValueKind == JsonValueKind.String)
-                return r.GetString() ?? "";
+            var root = doc.RootElement;
+            var rating = root.TryGetProperty("rating", out var r) && r.ValueKind == JsonValueKind.String
+                ? r.GetString() ?? ""
+                : "";
+            var source = root.TryGetProperty("rating_source", out var s) && s.ValueKind == JsonValueKind.String
+                ? (s.GetString() ?? "").Trim()
+                : "";
+            if (source is not ("model" or "manual")) source = "danbooru";
+            return (rating, source);
         }
         catch (JsonException)
         {
+            return ("", "danbooru");
         }
-
-        return "";
     }
 
     /// <summary>把扩展带来的标签挂到新文件上（artist/copyright/character/general/meta）。</summary>

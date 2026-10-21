@@ -790,7 +790,7 @@ public partial class App : Application
             var job = store.ArchiveJob(result.Destination);
             report.AppendLine($"  archive_jobs = {(job is null ? "（没有）" : $"phase={job.Value.Phase} error='{job.Value.Error}'")}");
 
-            var rel = Path.GetFileName(result.Destination);
+            var rel = Path.GetRelativePath(root.Path, result.Destination).Replace('\\', '/');
             var image = store.QueryOne("SELECT * FROM images WHERE root_id=$r AND rel_path=$p",
                 ("$r", root.Id), ("$p", rel));
             report.AppendLine($"  images row = {(image is null ? "（没有）" : $"id={image.Id} dir={image.DirRel} size={image.Size}")}");
