@@ -1629,9 +1629,10 @@ public sealed class ReviewPage : Grid
 
     private void ApplyColors()
     {
+        // 深色审核页统一为中性炭灰，WebView 从此承载层读取同一底色。
+        Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark
+            ? Windows.UI.Color.FromArgb(255, 32, 33, 35) : Colors.Transparent);
         _archive.Style = _archiveAll.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
-        _ignoreAll.Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 64, 55, 43) : Windows.UI.Color.FromArgb(255, 247, 237, 223));
-        _ignoreAll.Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 225, 194, 145) : Windows.UI.Color.FromArgb(255, 128, 85, 26));
         _ignore.Opacity = .72;
         _revealAllText.Foreground = ResourceBrush("AccentTextFillColorPrimaryBrush");
     }

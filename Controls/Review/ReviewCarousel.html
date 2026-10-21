@@ -11,16 +11,16 @@ button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);bo
 #deck::before{top:0;background:linear-gradient(to bottom,var(--g-surface,#1f1f1f),transparent)}
 #deck::after{bottom:0;background:linear-gradient(to top,var(--g-surface,#1f1f1f),transparent)}
 #deck.g-dragging,#deck.g-dragging .g-photo{cursor:grabbing}
-/* 画框、滤镜、阴影和投影参数沿用 archive-review-sketch.html。 */
-.g-photo{position:absolute;left:50%;top:50%;width:var(--g-frame-width,98%);height:var(--g-frame-height,330px);margin-top:calc(var(--g-frame-height,330px) / -2);padding:8px;border:1px solid light-dark(#ffffffa0,#ffffff35);border-radius:13px;background:var(--g-avg,var(--g-panel));display:flex;justify-content:center;align-items:center;box-shadow:0 3px 7px #0002,0 10px 24px #0002;transform:translateX(-50%);transform-origin:center;overflow:hidden;isolation:isolate}
+/* 保留草图几何；平均色只作局部轻染色，不再铺满画框。 */
+.g-photo{position:absolute;left:50%;top:50%;width:var(--g-frame-width,98%);height:var(--g-frame-height,330px);margin-top:calc(var(--g-frame-height,330px) / -2);padding:8px;border:1px solid color-mix(in srgb,light-dark(#00000020,#dce5f138) calc(var(--g-brightness,1) * 100%),transparent);border-radius:13px;background:radial-gradient(ellipse at 65% 35%,color-mix(in srgb,var(--g-avg,#7b8798) 10%,transparent),transparent 75%),linear-gradient(115deg,light-dark(#f4f5f7,#2b2d31),light-dark(#eceef2,#34373d) 50%,light-dark(#f4f5f7,#292d32));display:flex;justify-content:center;align-items:center;box-shadow:0 3px 7px #0002,0 10px 24px #0002;transform:translateX(-50%);transform-origin:center;overflow:hidden;isolation:isolate}
 .ready .g-photo{transition:box-shadow .36s,border-color .36s}
-.g-photo.g-selected{border-color:light-dark(#ffffffd0,#ffffff70)}
+.g-photo.g-selected{border-color:light-dark(#00000028,#dce5f140)}
 .g-art{display:block;flex-shrink:0;pointer-events:none;object-fit:fill}
 /* 只做距离亮度衰减，不做高斯模糊；景深由 translateZ/rotateX/scale 负责。 */
 .g-art{position:relative;z-index:2;border-radius:3px;box-shadow:0 2px 10px #0002;filter:brightness(var(--g-brightness,1));opacity:0;transition:opacity .24s}
 .g-art.g-loaded{opacity:1}
-.g-photo::before{content:'';position:absolute;inset:0;z-index:1;background:#000;opacity:var(--g-shade,0);pointer-events:none}
-.g-photo::after{content:'';position:absolute;inset:0;z-index:1;background:light-dark(#ffffff20,#ffffff0d);pointer-events:none;box-shadow:inset 0 1px 0 #ffffff30}
+.g-photo::before{content:'';position:absolute;inset:0;z-index:1;background:var(--g-surface,var(--g-panel));opacity:var(--g-shade,0);pointer-events:none}
+.g-photo::after{content:'';position:absolute;inset:0;z-index:1;background:light-dark(#ffffff10,transparent);pointer-events:none;box-shadow:inset 0 1px 0 light-dark(#ffffff70,#ffffff0f)}
 .message{position:absolute;z-index:3;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 4px #000a;font-size:12px}.message [data-reveal]{pointer-events:auto;padding:5px 10px;background:#292929aa;color:white;border:1px solid #ffffff50;border-radius:6px}
 img:not([src]),[hidden]{display:none!important}
 #tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;transition:opacity .16s}#tweak:hover,#tweak:focus-within,#tweak[open]{opacity:1}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;max-height:70vh;overflow:auto;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input[type=range]{display:block;width:100%;accent-color:var(--g-accent)}#tweak fieldset{margin:0 0 12px;padding:0;border:0}#tweak legend{margin-bottom:6px;opacity:.75}#tweak fieldset label{display:flex;align-items:center;gap:6px;margin:0 0 4px}#tweak input[type=radio]{accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
@@ -446,7 +446,7 @@ window.chrome.webview.addEventListener('message',event=>{
   }
   entry.data=data;
   entry.element.querySelector('.g-name').textContent=data.inboxName;
-  // 卡片背景用图片平均色；图片加载前/失败时回退到面板色。
+  // 平均色仅作中性底板上的 10% 局部染色；无平均色时仍有完整底板。
   if(data.avg){
    if(entry.element.dataset.avg!==data.avg){entry.element.dataset.avg=data.avg;entry.element.style.setProperty('--g-avg',data.avg);}
   }else if(entry.element.dataset.avg){delete entry.element.dataset.avg;entry.element.style.removeProperty('--g-avg');}
