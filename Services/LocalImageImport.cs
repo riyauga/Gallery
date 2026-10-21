@@ -10,11 +10,9 @@ public static class LocalImageImport
         var files = new List<string>();
         if (!Directory.Exists(folder)) return files;
 
-        var pending = new Stack<string>();
-        pending.Push(Path.GetFullPath(folder));
-        while (pending.Count > 0)
+        var root = Path.GetFullPath(folder);
+        foreach (var dir in recursive ? ScannerService.EnumerateDirs(root) : [root])
         {
-            var dir = pending.Pop();
             try
             {
                 foreach (var file in Directory.EnumerateFiles(dir))
@@ -25,11 +23,6 @@ public static class LocalImageImport
                         continue;
                     if (ScannerService.ImageExts.Contains(Path.GetExtension(file))) files.Add(file);
                 }
-
-                if (!recursive) continue;
-                foreach (var sub in Directory.EnumerateDirectories(dir))
-                    if (!ScannerService.ShouldSkipDir(Path.GetFileName(sub), sub))
-                        pending.Push(sub);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }

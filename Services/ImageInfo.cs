@@ -38,7 +38,7 @@ public static class ImageInfo
             if (SwapOrientations.Contains(orientation)) (w, h) = (h, w);
             return new ImageMeta(w, h, takenAt);
         }
-        catch (Exception ex) when (ex is IOException
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
             or SixLabors.ImageSharp.UnknownImageFormatException
             or SixLabors.ImageSharp.InvalidImageContentException)
         {

@@ -277,12 +277,16 @@ public sealed partial class MainWindow : Window
     {
         if (_quitting) return;
         _quitting = true;
+        AppService.BeginShutdown();
         _ingestCard?.Dismiss();
         RootGrid.IsHitTestVisible = false;
         _tray?.UpdateTip("Gallery · 正在完成保存并退出");
         try
         {
+            DialogService.Dismiss();
             await _settingsPage.StopBackgroundWorkAsync();
+            if (_reviewPage is not null) await _reviewPage.DrainWorkAsync();
+            await Task.WhenAll(_folderOperations.ToArray());
             await _page.DrainFileOperationsAsync();
             await AppService.ShutdownAsync();
             _tray?.Dispose();
@@ -293,6 +297,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             _quitting = false;
+            AppService.CancelShutdown();
             RootGrid.IsHitTestVisible = true;
             BringToFront();
             ShowToast("退出失败：" + ex.Message);
@@ -576,6 +581,7 @@ public sealed partial class MainWindow : Window
     private void OnLibraryChanged(IReadOnlyCollection<(int RootId, string DirRel)> changes)
         => DispatcherQueue.TryEnqueue(() =>
         {
+            if (_quitting) return;
             AppService.Recount();
             BuildDirectoryTree();
             _page.RefreshFromStore();
@@ -669,6 +675,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async System.Threading.Tasks.Task HandleUiRequestAsync(string view, string path)
     {
+        if (_quitting) return;
         ActivateWindow();
 
         if (view is "pending" or "review")
@@ -699,6 +706,7 @@ public sealed partial class MainWindow : Window
         var target = Path.GetFullPath(path);
         for (var attempt = 0; attempt < 40; attempt++)
         {
+            if (_quitting) return;
             if (_page.RevealPath(target)) return;
             await System.Threading.Tasks.Task.Delay(50);
         }
@@ -778,6 +786,25 @@ public sealed partial class MainWindow : Window
 
     /// <summary>photos 的「添加文件夹」：选目录 → 备份 → 事务入库 → 首扫。</summary>
     private async void AddFolderButton_Click(object sender, RoutedEventArgs e)
+        => await TrackFolderOperationAsync(AddFolderAsync);
+
+    private readonly HashSet<Task> _folderOperations = [];
+
+    private async Task TrackFolderOperationAsync(Func<Task> operation)
+    {
+        if (_quitting) return;
+        var task = operation();
+        _folderOperations.Add(task);
+        try { await task; }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("folder operation failed: " + ex);
+            ShowToast("文件夹操作失败：" + ex.Message, ToastKind.Pending);
+        }
+        finally { _folderOperations.Remove(task); }
+    }
+
+    private async Task AddFolderAsync()
     {
         if (AppService.Folders is null)
         {
@@ -799,19 +826,13 @@ public sealed partial class MainWindow : Window
             var path = folder.Path;
             var outcome = await Task.Run(() =>
             {
-                lock (AppService.DbLock)
+                try
                 {
-                    try
-                    {
-                        var (root, scan) = AppService.Folders.AddRootAndScan(path);
-                        AppService.Scanner?.Thumbs.PruneOrphans();
-                        return AddRootOutcome.Ok(root, scan);
-                    }
-                    catch (Exception ex)
-                    {
-                        return AddRootOutcome.Fail(ex.Message);
-                    }
+                    var (root, scan) = AppService.Folders.AddRootAndScan(path);
+                    AppService.Scanner?.Thumbs.PruneOrphans();
+                    return AddRootOutcome.Ok(root, scan);
                 }
+                catch (Exception ex) { return AddRootOutcome.Fail(ex.Message); }
         });
         AddFolderButton.IsEnabled = true;
         if (outcome.Error is not null)
@@ -1053,6 +1074,9 @@ public sealed partial class MainWindow : Window
 
     /// <summary>photos 的 RemoveFolderDialog 语义：从图库移除，磁盘文件不受影响。</summary>
     private async Task RemoveFolderAsync(int rootId, string target)
+        => await TrackFolderOperationAsync(() => RemoveFolderCoreAsync(rootId, target));
+
+    private async Task RemoveFolderCoreAsync(int rootId, string target)
     {
         var dialog = new ContentDialog
         {
@@ -1063,7 +1087,7 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Secondary,
             XamlRoot = Content.XamlRoot,
         };
-        var result = await dialog.ShowAsync();
+        var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
         var error = await Task.Run(() =>
         {
@@ -1094,6 +1118,9 @@ public sealed partial class MainWindow : Window
     }
 
     private async Task CreateChildFolderAsync(int rootId, string parentRel)
+        => await TrackFolderOperationAsync(() => CreateChildFolderCoreAsync(rootId, parentRel));
+
+    private async Task CreateChildFolderCoreAsync(int rootId, string parentRel)
     {
         var input = new TextBox { PlaceholderText = "文件夹名称" };
         var dialog = new ContentDialog
@@ -1105,7 +1132,7 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Content.XamlRoot,
         };
-        var result = await dialog.ShowAsync();
+        var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary || input.Text.Trim().Length == 0) return;
         var name = input.Text.Trim();
         if (name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
@@ -1120,8 +1147,7 @@ public sealed partial class MainWindow : Window
         try
         {
             Directory.CreateDirectory(target);
-            lock (AppService.DbLock)
-                AppService.Scanner!.ScanRoot(rootId);
+            await Task.Run(() => AppService.Scanner!.ScanRoot(rootId));
             BuildDirectoryTree();
             ShowToast($"已创建文件夹：{name}", ToastKind.Success);
         }
@@ -1132,6 +1158,9 @@ public sealed partial class MainWindow : Window
     }
 
     private async Task DeleteFolderAsync(int rootId, string dirRel, string target)
+        => await TrackFolderOperationAsync(() => DeleteFolderCoreAsync(rootId, dirRel, target));
+
+    private async Task DeleteFolderCoreAsync(int rootId, string dirRel, string target)
     {
         var dialog = new ContentDialog
         {
@@ -1142,7 +1171,7 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Secondary, // 取消为默认
             XamlRoot = Content.XamlRoot,
         };
-        var result = await dialog.ShowAsync();
+        var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
         var ok = await Task.Run(() => FileActions.DeleteToRecycle(target));
         if (!ok)
@@ -1150,8 +1179,7 @@ public sealed partial class MainWindow : Window
             ShowToast("删除失败", ToastKind.Pending);
             return;
         }
-        lock (AppService.DbLock)
-            AppService.Scanner!.ScanRoot(rootId); // mark_missing
+        await Task.Run(() => AppService.Scanner!.ScanRoot(rootId)); // mark_missing
         BuildDirectoryTree();
         _page.SetDirectory(null, null);
         Nav.SelectedItem = Nav.MenuItems[0];

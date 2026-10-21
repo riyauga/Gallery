@@ -18,7 +18,7 @@ public sealed class WatcherService : IDisposable
     private readonly object _gate = new();
     private readonly HashSet<(int RootId, string DirRel)> _pending = [];
     private bool _flushing;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public event Action<IReadOnlyCollection<(int RootId, string DirRel)>>? Changed;
     public event Action<string>? Failed;
@@ -127,12 +127,10 @@ public sealed class WatcherService : IDisposable
             {
                 try
                 {
-                    lock (_store.SyncRoot)
-                    {
-                        if (!_store.Roots().Any(root => root.Id == rootId && root.Enabled)) continue;
-                        var result = _scanner.ScanRoot(rootId);
-                        if (result.Errors.Count > 0) Failed?.Invoke(result.Errors[0]);
-                    }
+                    if (_disposed) break;
+                    if (!_store.Roots().Any(root => root.Id == rootId && root.Enabled)) continue;
+                    var result = _scanner.ScanRoot(rootId, cancel: () => _disposed);
+                    if (result.Errors.Count > 0) Failed?.Invoke(result.Errors[0]);
                 }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException
                     or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)

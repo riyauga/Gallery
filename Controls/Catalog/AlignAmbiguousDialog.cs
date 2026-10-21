@@ -68,7 +68,7 @@ public sealed class AlignAmbiguousDialog
         foreach (var tag in _pending) _list.Children.Add(BuildRow(tag));
 
         dialog.Content = body;
-        await dialog.ShowAsync();
+        await Gallery.Services.DialogService.ShowAsync(dialog);
     }
 
     private UIElement BuildRow(TagCatalogService.AmbiguousTag tag)

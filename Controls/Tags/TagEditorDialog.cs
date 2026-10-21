@@ -103,7 +103,7 @@ public sealed class TagEditorDialog
     public static async Task<bool> ShowAsync(
         XamlRoot root, IReadOnlyList<PhotoItem> items, Action<string, ToastKind, string?>? toast = null)
     {
-        if (items.Count == 0) return false;
+        if (items.Count == 0 || DialogService.IsShowing || AppService.IsShuttingDown) return false;
         var editor = new TagEditorDialog(items, toast);
         var dialog = new ContentDialog
         {
@@ -114,11 +114,14 @@ public sealed class TagEditorDialog
             XamlRoot = root,
             Content = editor.Build(root),
         };
-        editor.LoadCurrent();
-        var result = await dialog.ShowAsync();
-        editor.OnClosed();
-        if (result != ContentDialogResult.Primary) return false;
-        return editor.Save();
+        try
+        {
+            editor.LoadCurrent();
+            var result = await DialogService.ShowAsync(dialog);
+            if (result != ContentDialogResult.Primary) return false;
+            return editor.Save();
+        }
+        finally { editor.OnClosed(); }
     }
 
     private UIElement Build(XamlRoot root)

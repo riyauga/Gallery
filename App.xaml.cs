@@ -17,16 +17,20 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        UnhandledException += (_, e) =>
+        UnhandledException += (_, e) => WriteCrash("XAML", e.Exception?.ToString() ?? e.Message);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => WriteCrash("AppDomain", e.ExceptionObject.ToString() ?? "unknown");
+        TaskScheduler.UnobservedTaskException += (_, e) => AppService.DebugLog("unobserved task: " + e.Exception);
+    }
+
+    private static void WriteCrash(string source, string error)
+    {
+        try
         {
-            try
-            {
-                System.IO.File.WriteAllText(
-                    System.IO.Path.Combine(AppContext.BaseDirectory, "crash.log"),
-                    e.Exception?.ToString() ?? e.Message);
-            }
-            catch { }
-        };
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"),
+                $"{DateTimeOffset.Now:O} pid={Environment.ProcessId} source={source}{Environment.NewLine}{error}");
+        }
+        catch { }
+        AppService.DebugLog($"unhandled {source}: {error}");
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

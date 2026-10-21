@@ -156,7 +156,7 @@ public sealed partial class SettingsPage : UserControl
                 CloseButtonText = "取消",
                 DefaultButton = ContentDialogButton.Close,
             };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            if (await Gallery.Services.DialogService.ShowAsync(dialog) != ContentDialogResult.Primary)
             {
                 ThumbCacheClearButton.IsEnabled = true;
                 return;
@@ -332,7 +332,7 @@ public sealed partial class SettingsPage : UserControl
             Content = new ScrollViewer { Content = body, MaxHeight = 420, MinWidth = 520, Padding = new Thickness(0, 0, 16, 0) },
             CloseButtonText = "关闭",
         };
-        await dialog.ShowAsync();
+        await Gallery.Services.DialogService.ShowAsync(dialog);
     }
 
     private void SyncErrorClear_Click(object sender, RoutedEventArgs e)

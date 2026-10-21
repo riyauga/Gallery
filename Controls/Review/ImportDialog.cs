@@ -58,7 +58,7 @@ public static class ImportDialog
             XamlRoot = root,
         };
 
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        if (await Gallery.Services.DialogService.ShowAsync(dialog) != ContentDialogResult.Primary) return null;
         return new ImportOptions(keep.IsChecked == true, recursive.IsChecked == true);
     }
 }

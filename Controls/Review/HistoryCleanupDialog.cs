@@ -70,7 +70,7 @@ public static class HistoryCleanupDialog
             }
         };
 
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        if (await Gallery.Services.DialogService.ShowAsync(dialog) != ContentDialogResult.Primary) return null;
         return new HistoryCleanupChoice(Days(), deleteAll.IsChecked == true, includeExisting.IsChecked == true);
 
         int Days()

@@ -37,6 +37,7 @@ public static class AppService
     public static string BridgeStatus { get; private set; } = "桥接未启动";
 
     public static bool DbReady { get; private set; }
+    public static bool IsShuttingDown { get; private set; }
     public static string InitError { get; private set; } = "";
     public static int RootCount { get; private set; }
     public static int ImageCount { get; private set; }
@@ -45,14 +46,19 @@ public static class AppService
     /// <summary>
     /// 自动化验收用的一行日志：只写 %TEMP%\ptv\gallery-log.txt（托盘/单实例这类看不清的行为靠它断言）。
     /// </summary>
+    private static readonly object LogGate = new();
+
     public static void DebugLog(string line)
     {
         try
         {
             var dir = Path.Combine(Path.GetTempPath(), "ptv");
-            Directory.CreateDirectory(dir);
-            File.AppendAllText(Path.Combine(dir, "gallery-log.txt"),
-                $"{DateTime.Now:HH:mm:ss.fff} {line}{Environment.NewLine}");
+            lock (LogGate)
+            {
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "gallery-log.txt"),
+                    $"{DateTimeOffset.Now:O} {line}{Environment.NewLine}");
+            }
         }
         catch
         {
@@ -92,9 +98,9 @@ public static class AppService
     private static void InitCore()
     {
         InitError = "";
-        Settings.Load();
         try
         {
+            Settings.Load();
             AppPaths.EnsureDirs();
             Store = new StoreService(AppPaths.DbPath);
         Catalog = new TagCatalogService(Store);
@@ -190,11 +196,15 @@ public static class AppService
     /// <summary>设置页切换插件开关或端口后重启监听。</summary>
     public static void RestartBridge()
     {
+        if (IsShuttingDown) return;
         var old = Bridge;
         Bridge = null;
-        old?.Dispose();
+        _retiredBridgeTasks.RemoveAll(task => task.IsCompletedSuccessfully);
+        if (old is not null) _retiredBridgeTasks.Add(old.StopAsync());
         StartBridge();
     }
+
+    private static readonly List<Task> _retiredBridgeTasks = [];
 
     /// <summary>桥接诊断日志（写 %APPDATA%\Gallery\bridge.log，失败不影响主流程）。</summary>
     private static void LogBridge(string message)
@@ -249,27 +259,30 @@ public static class AppService
     /// <summary>扫描/入库/手改标签后，后台补一次对齐；同一时间只跑一个。</summary>
     public static void RequestCatalogAlign()
     {
-        var catalog = Catalog;
-        if (catalog is null || Store is null) return;
-        if (Interlocked.Exchange(ref _catalogAlignRunning, 1) == 1) return;
-        _ = Task.Run(() =>
+        lock (CatalogWorkGate)
         {
-            try
+            var catalog = Catalog;
+            if (IsShuttingDown || catalog is null || Store is null || _catalogAlignTask is { IsCompleted: false }) return;
+            _catalogAlignTask = Task.Run(() =>
             {
-                catalog.AlignTags();
-            }
-            catch
-            {
-                // 对齐失败不打扰正常使用；下次启动/扫描会再试。
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _catalogAlignRunning, 0);
-            }
-        });
+                try { catalog.AlignTags(); }
+                catch (Exception ex) { DebugLog("catalog align failed: " + ex); }
+            });
+        }
     }
 
-    private static int _catalogAlignRunning;
+    private static readonly object CatalogWorkGate = new();
+    private static Task? _catalogAlignTask;
+
+    public static void BeginShutdown()
+    {
+        lock (CatalogWorkGate) IsShuttingDown = true;
+    }
+
+    public static void CancelShutdown()
+    {
+        lock (CatalogWorkGate) IsShuttingDown = false;
+    }
 
     public static int CatalogImported { get; private set; }
     private static Task? _catalogTask;
@@ -277,11 +290,16 @@ public static class AppService
     /// <summary>对应 Gallery_Old quit_app/check_quit：停止新输入、等待已有工作，再关闭数据库。</summary>
     public static async Task ShutdownAsync()
     {
+        BeginShutdown();
         Settings.Save();
         await Task.WhenAll(Watcher?.StopAsync() ?? Task.CompletedTask,
             Bridge?.StopAsync() ?? Task.CompletedTask);
+        await Task.WhenAll(_retiredBridgeTasks.ToArray());
         await StopIngestReconciliationAsync();
         if (_catalogTask is not null) await _catalogTask;
+        Task? align;
+        lock (CatalogWorkGate) align = _catalogAlignTask;
+        if (align is not null) await align;
         if (Store is { } store)
         {
             lock (store.SyncRoot) store.Dispose();

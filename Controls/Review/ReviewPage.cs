@@ -91,6 +91,16 @@ public sealed class ReviewPage : Grid
     private const int HistoryLimit = 200;
     private int _index, _selectionGeneration;
     private bool _busy, _active = true;
+    private TaskCompletionSource? _workCompleted;
+
+    private void SetBusy(bool busy)
+    {
+        _busy = busy;
+        if (busy) _workCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        else _workCompleted?.TrySetResult();
+    }
+
+    public Task DrainWorkAsync() => _workCompleted?.Task ?? Task.CompletedTask;
     private bool _destinationEdited;   // 用户手改过当前这张的归档目录
     private bool _settingDestination;  // 程序正在往 _destination 里填内容
     public event Action? Changed;
@@ -341,7 +351,7 @@ public sealed class ReviewPage : Grid
 
     public void Reload()
     {
-        if (_busy || AppService.Store is not { } store) return;
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store) return;
         var keep = _selected?.Id;
         var history = _state == "history";
         _rows = history
@@ -387,7 +397,7 @@ public sealed class ReviewPage : Grid
         var total = stats.GetValueOrDefault("done") + stats.GetValueOrDefault("ignored");
         return total > _rows.Count
             ? $"历史仅显示最近 {_rows.Count} 条，共 {total} 条；更早的用「清理历史」处理"
-            : "已归档与已忽略的队列记录；图片本身请在图库查看";
+            : "已归档与已忽略的队列记录；可跳回图库查看原图";
     }
 
     private void Select(int index, bool revealScroll = true)
@@ -602,8 +612,8 @@ public sealed class ReviewPage : Grid
     /// <summary>只判定当前待归档文件，后台推理期间锁定编辑，结果写回同一条队列记录。</summary>
     private async Task ClassifyAsync()
     {
-        if (_busy || _selected is not { State: "pending" } row) return;
-        _busy = true;
+        if (_busy || AppService.IsShuttingDown || _selected is not { State: "pending" } row) return;
+        SetBusy(true);
         UpdateButtons();
         _status.Text = "正在自动判断…";
         try
@@ -624,7 +634,7 @@ public sealed class ReviewPage : Grid
         { _status.Text = "自动判断失败：" + ex.Message; }
         finally
         {
-            _busy = false;
+            SetBusy(false);
             UpdateButtons();
             OpenDeferredNotification();
         }
@@ -725,7 +735,7 @@ public sealed class ReviewPage : Grid
 
     private async Task ArchiveAsync(bool all)
     {
-        if (_busy || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
         var destination = _destination.Text.Trim();
         var auto = AppService.Settings.Settings.archive_auto_by_tags;
         // 开着自动分目录、且这张没被手改过时，每张图用自己算出来的目录，不再校验框里那一个
@@ -755,7 +765,7 @@ public sealed class ReviewPage : Grid
         var ids = all ? store.IngestRows("pending", int.MaxValue).Select(r => r.Id).ToArray()
             : _selected is { State: "pending" } row ? [row.Id] : Array.Empty<int>();
         if (ids.Length == 0) return;
-        _busy = true;
+        SetBusy(true);
         UpdateButtons();
         var succeeded = 0;
         var failures = new List<string>();
@@ -783,7 +793,7 @@ public sealed class ReviewPage : Grid
         }
         finally
         {
-            _busy = false;
+            SetBusy(false);
             Reload();
             Changed?.Invoke();
             OpenDeferredNotification();
@@ -793,7 +803,7 @@ public sealed class ReviewPage : Grid
 
     private void Ignore(bool all)
     {
-        if (_busy || AppService.Store is not { } store) return;
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store) return;
         var rows = all
             ? store.IngestRows("pending", int.MaxValue)
             : _selected is { State: "pending" or "missing" } row
@@ -807,7 +817,7 @@ public sealed class ReviewPage : Grid
 
     private void Restore()
     {
-        if (_busy || _selected is not { } row || AppService.Store is not { } store) return;
+        if (_busy || AppService.IsShuttingDown || _selected is not { } row || AppService.Store is not { } store) return;
         if (row.State == "done") { _status.Text = "已归档记录无需重复归档"; return; }
         store.SetIngestState(row.Id, "pending", "");
         Reload();
@@ -816,7 +826,7 @@ public sealed class ReviewPage : Grid
 
     private async Task ShowInGalleryAsync()
     {
-        if (_busy || _selected is not { } row) return;
+        if (_busy || AppService.IsShuttingDown || _selected is not { } row) return;
         var path = IngestReview.CurrentPath(row);
         if (path.Length == 0) { _status.Text = "没有可定位的当前文件"; return; }
         if (_owner is not MainWindow main) return;
@@ -847,7 +857,7 @@ public sealed class ReviewPage : Grid
 
     private async Task CleanHistoryAsync()
     {
-        if (_busy || AppService.Store is not { } store) return;
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store) return;
         var root = XamlRoot ?? _owner.Content?.XamlRoot;
         if (root is null) return;
         var choice = await HistoryCleanupDialog.ShowAsync(root, AppService.Settings.Settings.history_keep_days);
@@ -866,7 +876,7 @@ public sealed class ReviewPage : Grid
         var cutoff = choice.DeleteAll
             ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0
             : DateTimeOffset.UtcNow.AddDays(-choice.Days).ToUnixTimeMilliseconds() / 1000.0;
-        _busy = true;
+        SetBusy(true);
         UpdateButtons();
         StoreService.IngestHistoryCleanup? result = null;
         try
@@ -883,7 +893,7 @@ public sealed class ReviewPage : Grid
         }
         finally
         {
-            _busy = false;
+            SetBusy(false);
             Reload();
             Changed?.Invoke();
         }
@@ -914,7 +924,8 @@ public sealed class ReviewPage : Grid
         _destination.IsEnabled = _pickFolder.IsEnabled = !_busy && _state == "pending";
         _tagGroups.IsHitTestVisible = !_busy;
         var current = _selected is { } row ? IngestReview.CurrentPath(row) : "";
-        _showInGallery.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        var done = _selected is { State: "done" };
+        _showInGallery.Visibility = history && done ? Visibility.Visible : Visibility.Collapsed;
         _showInGallery.IsEnabled = !_busy && current.Length > 0;
         _showInExplorer.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
         _showInExplorer.IsEnabled = !_busy && current.Length > 0 && File.Exists(current);
@@ -940,24 +951,39 @@ public sealed class ReviewPage : Grid
     /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>
     public async Task ImportAsync(IReadOnlyList<string> sources)
     {
-        if (_busy || sources.Count == 0) return;
+        if (_busy || AppService.IsShuttingDown || sources.Count == 0) return;
+        SetBusy(true);
+        UpdateButtons();
+        try
+        {
+            if (await ImportCoreAsync(sources))
+            {
+                SetBusy(false);
+                Reload();
+                Changed?.Invoke();
+            }
+        }
+        finally { SetBusy(false); UpdateButtons(); OpenDeferredNotification(); }
+    }
+
+    private async Task<bool> ImportCoreAsync(IReadOnlyList<string> sources)
+    {
         var root = XamlRoot ?? _owner.Content?.XamlRoot;
-        if (root is null) return;
+        if (root is null) return false;
         var result = await LocalImportFlow.RunAsync(root, sources);
-        if (result is null) return;
+        if (result is null) return false;
         if (result.Added == 0 && result.Skipped == 0)
         {
             _status.Text = "这些位置里没有可导入的图片";
-            return;
+            return false;
         }
 
         _state = "pending";
         _states.SelectedIndex = 0;
-        Reload();
-        Changed?.Invoke();
         _status.Text = result.Skipped > 0
             ? $"已导入 {result.Added} 张，跳过重复或不可用 {result.Skipped} 张"
             : $"已导入 {result.Added} 张";
+        return true;
     }
 
     private void OnDragOver(object sender, DragEventArgs e)

@@ -116,7 +116,7 @@ public sealed class NsfwPreviewDialog
 
         dialog.CloseButtonClick += (_, _) => cts.Cancel();
 
-        var ok = await dialog.ShowAsync();
+        var ok = await Gallery.Services.DialogService.ShowAsync(dialog);
         cts.Cancel();
         await scan;
         if (ok != ContentDialogResult.Primary || rows.Count == 0) return false;

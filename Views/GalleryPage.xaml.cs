@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Input;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -1068,7 +1068,7 @@ public sealed partial class GalleryPage : UserControl
         };
         confirm.Resources["ContentDialogButton1BackgroundBrush"] =
             new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4));
-        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        if (await Gallery.Services.DialogService.ShowAsync(confirm) != ContentDialogResult.Primary) return;
 
         var (done, errors) = await RunFileOperationAsync(() =>
         {
@@ -1095,7 +1095,7 @@ public sealed partial class GalleryPage : UserControl
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = XamlRoot,
         };
-        var result = await dialog.ShowAsync();
+        var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
         var newName = input.Text.Trim();
         if (newName.Length == 0 || newName == stem) return;
@@ -1136,7 +1136,7 @@ public sealed partial class GalleryPage : UserControl
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
             };
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            if (await Gallery.Services.DialogService.ShowAsync(confirm) != ContentDialogResult.Primary) return;
         }
         else
         {
@@ -1150,7 +1150,7 @@ public sealed partial class GalleryPage : UserControl
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = XamlRoot,
             };
-            var result = await dialog.ShowAsync();
+            var result = await Gallery.Services.DialogService.ShowAsync(dialog);
             if (result == ContentDialogResult.None) return;
             move = result == ContentDialogResult.Primary;
         }

@@ -44,15 +44,17 @@ public static class IngestReview
     public static string ResolveCurrentPath(StoreService store, StoreService.PendingIngestRow row)
     {
         var recorded = LocalPath(row);
-        if (recorded.Length > 0 && File.Exists(recorded)) return recorded;
-        if (row.State != "done") return "";
 
-        var imageId = ArchivedImageId(row.Payload);
+        // 新记录优先信归档时的图片 id：即使原路径上又出现同名文件，也不会认错。
+        var imageId = row.State == "done" ? ArchivedImageId(row.Payload) : 0;
         if (imageId > 0)
         {
             var byId = store.QueryOne("SELECT * FROM images WHERE id=$i", ("$i", imageId));
             if (byId is { Missing: false } && File.Exists(byId.AbsPath)) return byId.AbsPath;
         }
+
+        if (recorded.Length > 0 && File.Exists(recorded)) return recorded;
+        if (row.State != "done") return "";
 
         if (recorded.Length > 0)
         {

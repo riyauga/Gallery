@@ -119,6 +119,9 @@ public sealed partial class BridgeServer : IDisposable
 
     private async Task HandleAsync(TcpClient client, CancellationToken token)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        token = timeout.Token;
         using (client)
         {
             client.ReceiveTimeout = 5000;
