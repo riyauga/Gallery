@@ -73,12 +73,6 @@
       "note": "卢西娅 / Lucia Elowen 的简写"
     },
     {
-      "member": "zenless-zone-zero-wiki:zenless-zone-zero:page:2869",
-      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
-      "origin": "zenless_zone_zero",
-      "note": "Luciana Auxesis Theodoro de Montefio 是 Lucia Elowen 的全名"
-    },
-    {
       "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5306",
       "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:46899",
       "origin": "zenless_zone_zero",
@@ -2104,15 +2098,15 @@
       "status": "resolved",
       "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
       "origin": "zenless_zone_zero",
-      "note": "ZZZ 的 Lucia Elowen 简写；和 lucia_elowen、luciana_de_montefio 同一身份"
+      "note": "ZZZ 的 Lucia Elowen 简写；和 lucia_elowen 同一身份"
     },
     {
       "tag": "luciana_de_montefio",
       "category": "character",
       "status": "resolved",
-      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:2869",
       "origin": "zenless_zone_zero",
-      "note": "ZZZ 的 Lucia Elowen 全名写法；图片作品全是 ZZZ"
+      "note": "ZZZ 的露西（Lucy）全名；与卢西娅 / Lucia Elowen 不是同一角色"
     },
     {
       "tag": "sharkboo",

@@ -20,6 +20,9 @@ public sealed partial class GalleryPage : UserControl
     private readonly Library _library;
     private readonly List<PhotoItem> _items = new();
     private readonly HashSet<int> _selected = new();
+    private int? _selectionAnchorId;
+    private int? _keyboardFocusId;
+    private bool _showKeyboardFocus;
 
     // 示例素材没有数据库 ID，使用其在固定 manifest 中的负数索引。
     private int SelectionId(PhotoItem item) => item.ImageId > 0 ? item.ImageId : -_library.All.IndexOf(item) - 1;
@@ -210,6 +213,8 @@ public sealed partial class GalleryPage : UserControl
         _favoritesMode = favorites;
         _rebuildPending = true;
         _selected.Clear();
+        _selectionAnchorId = null;
+        _keyboardFocusId = null;
         if (!IsLoaded) return;
         _ = FadeSwapAsync();
     }
@@ -328,6 +333,10 @@ public sealed partial class GalleryPage : UserControl
         SaveAnchor();
         _items.Clear(); _items.AddRange(items);
         _selected.IntersectWith(_items.Select(SelectionId));
+        if (_selectionAnchorId is int anchor && !_items.Any(item => SelectionId(item) == anchor))
+            _selectionAnchorId = null;
+        if (_keyboardFocusId is int focus && !_items.Any(item => SelectionId(item) == focus))
+            _keyboardFocusId = null;
         Panel.SetItems(_items);
         if (_items.Count == 0) ImageLoader.SetViewport([], []);
         ScheduleViewport();
@@ -411,6 +420,7 @@ public sealed partial class GalleryPage : UserControl
     {
         tile.SelectMode = _selectMode;
         tile.Selected = _selected.Contains(SelectionId(item));
+        tile.KeyboardFocused = _showKeyboardFocus && _keyboardFocusId == SelectionId(item);
         if (tile.EventsWired) return;
         tile.EventsWired = true;
         tile.ThumbnailInvalidated += ScheduleViewport;
@@ -464,8 +474,16 @@ public sealed partial class GalleryPage : UserControl
     /// <summary>拖拽外发：文件 URI 交给系统（CF_HDROP），复制语义防同盘搬移。</summary>
     private async System.Threading.Tasks.Task StartDragOutAsync(PhotoTile tile, Microsoft.UI.Input.PointerPoint start)
     {
+        int id = SelectionId(tile.Item);
+        if (_selectMode && !_selected.Contains(id))
+        {
+            _selected.Clear();
+            _selected.Add(id);
+            _selectionAnchorId = id;
+            SyncSelection();
+        }
         var items = new List<PhotoItem>();
-        if (tile.Selected && _selected.Count > 0)
+        if (_selected.Contains(id))
             items.AddRange(SelectedItems());
         else
             items.Add(tile.Item);
@@ -485,8 +503,6 @@ public sealed partial class GalleryPage : UserControl
             }
         }
 
-        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage
-        { RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy };
         // 模糊保护中拒绝拖出：拖出到资源管理器等于绕过遮罩看到原图
         if (IsBlurBlocked(items, out var blockedMessage))
         {
@@ -494,8 +510,16 @@ public sealed partial class GalleryPage : UserControl
             return;
         }
 
-        dp.SetStorageItems(storageFiles);
-        await tile.StartDragAsync(start);
+        // StartDragAsync 使用 DragStarting 的数据包；局部创建的 DataPackage 不会交给系统。
+        void OnDragStarting(UIElement sender, DragStartingEventArgs args)
+        {
+            args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            args.Data.SetStorageItems(storageFiles);
+        }
+        tile.DragStarting += OnDragStarting;
+        try { await tile.StartDragAsync(start); }
+        finally { tile.DragStarting -= OnDragStarting; }
     }
 
     /// <summary>
@@ -526,6 +550,8 @@ public sealed partial class GalleryPage : UserControl
             _restoreAnchor = null;
         }
         Timeline.Refresh();
+        if (_showKeyboardFocus && _keyboardFocusId is int focus)
+            DispatcherQueue.TryEnqueue(() => RevealKeyboardFocus(_items.FindIndex(item => SelectionId(item) == focus)));
         UpdateScrollbarType();
         ScheduleViewport();
     }
@@ -758,46 +784,176 @@ public sealed partial class GalleryPage : UserControl
         => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(CoreVirtualKeyStates.Down);
 
-    /// <summary>
-    /// 文件操作快捷键（galleryold）：Delete 删除 / F2 重命名 / F3 资源管理器 /
-    /// Ctrl+C 复制 / Ctrl+Shift+C 复制路径 / Enter 打开详情。
-    /// </summary>
-    private async void FileOps_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
-                .HasFlag(CoreVirtualKeyStates.Down);
-        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
-                .HasFlag(CoreVirtualKeyStates.Down);
-        var first = SelectedItems().FirstOrDefault();
+    private static bool IsShiftDown()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(CoreVirtualKeyStates.Down);
 
+    /// <summary>窗口预览按键的唯一图库入口；输入/弹层隔离由窗口负责。</summary>
+    public async Task HandleGalleryKeyAsync(KeyRoutedEventArgs e, bool contentFocus)
+    {
+        bool ctrl = IsCtrlDown(), shift = IsShiftDown();
+        bool arrow = e.Key is VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down;
+        if ((arrow || e.Key == VirtualKey.Space) && !contentFocus) return;
+        if (!(arrow || e.Key is VirtualKey.Space or VirtualKey.Enter or VirtualKey.Delete or VirtualKey.F2 or VirtualKey.F3
+            || ctrl && e.Key is VirtualKey.A or VirtualKey.C)) return;
+        if (_items.Count == 0) return;
+        e.Handled = true; // 文件/剪贴板操作的首个 await 前截断路由。
+        int previous = _keyboardFocusId is int focusId ? _items.FindIndex(item => SelectionId(item) == focusId) : -1;
+        int index = previous;
+        if (index < 0)
+        {
+            index = _items.FindIndex(item => _selected.Contains(SelectionId(item)));
+            if (index < 0) index = Math.Clamp(Panel.FirstVisibleIndex(Scroller.VerticalOffset), 0, _items.Count - 1);
+        }
+        Root.Focus(FocusState.Keyboard);
+        if (arrow)
+        {
+            if (previous >= 0) index = NeighborIndex(index, e.Key);
+            if (shift && previous >= 0)
+            {
+                _selectionAnchorId ??= SelectionId(_items[previous]);
+                SelectRange(index, ctrl);
+            }
+            SetKeyboardFocus(index);
+            return;
+        }
+        SetKeyboardFocus(index);
+        var focusItem = _items[index];
+        var targets = SelectedItems().ToList();
+        if (targets.Count == 0) targets.Add(focusItem);
         switch (e.Key)
         {
+            case VirtualKey.A when ctrl:
+                SelectAll_Click(this, new RoutedEventArgs());
+                _selectionAnchorId ??= _keyboardFocusId;
+                break;
+            case VirtualKey.Space:
+                SetSelectMode(true);
+                int id = SelectionId(focusItem);
+                if (!_selected.Add(id)) _selected.Remove(id);
+                _selectionAnchorId = id;
+                SyncSelection();
+                break;
+            case VirtualKey.Enter:
+                RevealPath(focusItem.FullPath);
+                break;
             case VirtualKey.Delete:
-                e.Handled = true;
-                await DeleteSelectedAsync();
+                await DeleteAsync(targets.Where(item => item.ImageId > 0).Select(item => item.ImageId).ToArray());
                 break;
-            case VirtualKey.F2 when first is not null:
-                e.Handled = true;
-                await RenameAsync(first);
+            case VirtualKey.F2:
+                await RenameAsync(focusItem);
                 break;
-            case VirtualKey.F3 when first is not null:
-                e.Handled = true;
-                FileActions.RevealInExplorer(first.FullPath);
+            case VirtualKey.F3:
+                FileActions.RevealInExplorer(focusItem.FullPath);
                 break;
-            case VirtualKey.C when ctrl && shift && first is not null:
-                e.Handled = true;
+            case VirtualKey.C when ctrl && shift:
+                var paths = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                paths.SetText(string.Join("\n", targets.Select(item => item.FullPath)));
+                try
                 {
-                    var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
-                    dp.SetText(string.Join("\n", SelectedPaths()));
-                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(paths);
                     SendToast("已复制路径", Gallery.Controls.ToastKind.Success);
                 }
+                catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException)
+                { SendToast("剪贴板暂不可用，复制路径失败", Gallery.Controls.ToastKind.Pending, ex.Message); }
                 break;
-            case VirtualKey.C when ctrl && first is not null:
-                e.Handled = true;
-                await CopyImageToClipboardAsync(first);
+            case VirtualKey.C when ctrl:
+                await CopyFilesToClipboardAsync(targets);
                 break;
         }
+    }
+
+    public bool HasContentKeyboardFocus(DependencyObject? focused)
+    {
+        if (ReferenceEquals(focused, Root)) return true;
+        for (var current = focused; current is not null && current != Root;
+            current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current))
+        {
+            if (current is ButtonBase or RangeBase or PaneResizer or TimelineScrollbar or ContinuousScrollBar) return false;
+            if (ReferenceEquals(current, Scroller) || current is PhotoTile) return true;
+        }
+        return false;
+    }
+
+    private void SetKeyboardFocus(int index)
+    {
+        _keyboardFocusId = SelectionId(_items[index]);
+        _showKeyboardFocus = true;
+        _restoreAnchor = null;
+        SyncSelection();
+        RevealKeyboardFocus(index);
+    }
+
+    private void RevealKeyboardFocus(int index)
+    {
+        if (Panel.IsBuilding || index < 0 || index >= Panel.Rects.Count) return;
+        var rect = Panel.TransformToVisual(Scroller).TransformBounds(Panel.Rects[index]);
+        double top = rect.Top - PhotoTile.KeyboardFocusOutset;
+        double bottom = rect.Bottom + PhotoTile.KeyboardFocusOutset;
+        double offset = Scroller.VerticalOffset;
+        if (top < 0) offset += top;
+        else if (bottom > Scroller.ViewportHeight)
+            offset += bottom - top > Scroller.ViewportHeight ? top : bottom - Scroller.ViewportHeight;
+        offset = Math.Clamp(offset, 0, Scroller.ScrollableHeight);
+        if (Math.Abs(offset - Scroller.VerticalOffset) > .5) Scroller.ChangeView(null, offset, null, true);
+    }
+
+    private int NeighborIndex(int index, VirtualKey key)
+    {
+        var rects = Panel.Rects;
+        if (Panel.IsBuilding || rects.Count != _items.Count) return index;
+        var rect = rects[index];
+        if (key == VirtualKey.Left) return Math.Max(0, index - 1);
+        if (key == VirtualKey.Right) return Math.Min(_items.Count - 1, index + 1);
+        int step = key == VirtualKey.Up ? -1 : 1;
+        int next = index + step;
+        while (next >= 0 && next < rects.Count && rects[next].Top == rect.Top) next += step;
+        if (next < 0 || next >= rects.Count) return index;
+        double row = rects[next].Top, center = rect.Left + rect.Width / 2, bestDistance = double.MaxValue;
+        int best = next;
+        for (int i = next; i >= 0 && i < rects.Count && rects[i].Top == row; i += step)
+        {
+            double distance = Math.Abs(rects[i].Left + rects[i].Width / 2 - center);
+            if (distance < bestDistance || distance == bestDistance && i < best)
+            { best = i; bestDistance = distance; }
+        }
+        return best;
+    }
+
+    private void SelectRange(int index, bool additive)
+    {
+        int anchor = _selectionAnchorId is int id ? _items.FindIndex(item => SelectionId(item) == id) : -1;
+        if (anchor < 0) { anchor = index; _selectionAnchorId = SelectionId(_items[index]); }
+        SetSelectMode(true);
+        if (!additive) _selected.Clear();
+        for (int i = Math.Min(anchor, index); i <= Math.Max(anchor, index); i++)
+            _selected.Add(SelectionId(_items[i]));
+        SyncSelection();
+    }
+
+    private async Task CopyFilesToClipboardAsync(IReadOnlyList<PhotoItem> items)
+    {
+        var files = new List<Windows.Storage.StorageFile>();
+        foreach (var item in items)
+        {
+            try { files.Add(await Windows.Storage.StorageFile.GetFileFromPathAsync(item.FullPath)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                or System.Runtime.InteropServices.COMException)
+            {
+                SendToast($"{item.Name}：文件无法读取，复制已取消", Gallery.Controls.ToastKind.Pending, ex.Message);
+                return;
+            }
+        }
+        var data = new Windows.ApplicationModel.DataTransfer.DataPackage
+        { RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy };
+        data.SetStorageItems(files, true);
+        try
+        {
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(data);
+            SendToast($"已复制 {files.Count} 个文件", Gallery.Controls.ToastKind.Success);
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException)
+        { SendToast("剪贴板暂不可用，复制失败", Gallery.Controls.ToastKind.Pending, ex.Message); }
     }
 
     /// <summary>标签编辑器（批次 3）：Photos 弹窗形态，单图/多图共用；保存后刷新标签与卡片徽章。</summary>
@@ -814,30 +970,38 @@ public sealed partial class GalleryPage : UserControl
         TagsEdited?.Invoke();
     }
 
-    private List<string> SelectedPaths()
-        => SelectedItems().Select(item => item.FullPath).ToList();
-
     /// <summary>
     /// photos 语义：正常模式单击=打开查看器；选择模式单击=切换选中；
-    /// Ctrl+单击=进入选择模式并选中该张。
+    /// Ctrl+单击切换单张；Shift 按当前完整列表选范围，Ctrl+Shift 追加范围。
     /// </summary>
     private void OnTileTapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is not PhotoTile tile) return;
-        if (_selectMode)
-        {
-            int id = SelectionId(tile.Item);
-            if (!_selected.Add(id)) _selected.Remove(id);
-            SyncSelection();
-            return;
-        }
-        if (IsCtrlDown())
+        int id = SelectionId(tile.Item);
+        _keyboardFocusId = id;
+        _showKeyboardFocus = false;
+        SyncSelection();
+        Root.Focus(FocusState.Pointer);
+        bool ctrl = IsCtrlDown(), shift = IsShiftDown();
+        if (_selectMode || ctrl || shift)
         {
             SetSelectMode(true);
-            _selected.Add(SelectionId(tile.Item));
+            if (shift)
+            {
+                int index = _items.FindIndex(item => SelectionId(item) == id);
+                if (index < 0) return; // 列表刷新后旧瓦片的点击不再参与范围计算。
+                SelectRange(index, ctrl);
+            }
+            else
+            {
+                if (!_selected.Add(id)) _selected.Remove(id);
+                _selectionAnchorId = id;
+            }
             SyncSelection();
+            e.Handled = true;
             return;
         }
+        _selectionAnchorId = id;
         OpenPreview(tile);
     }
 
@@ -918,17 +1082,24 @@ public sealed partial class GalleryPage : UserControl
     private void SyncSelection()
     {
         foreach (var tile in Panel.Children.OfType<PhotoTile>())
+        {
             tile.Selected = _selected.Contains(SelectionId(tile.Item));
+            tile.KeyboardFocused = _showKeyboardFocus && _keyboardFocusId == SelectionId(tile.Item);
+        }
         UpdateHeader();
     }
 
     private void OnTileRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         if (sender is not PhotoTile tile) return;
+        _keyboardFocusId = SelectionId(tile.Item);
+        _showKeyboardFocus = false;
+        SyncSelection();
         if (!tile.Selected)
         {
             _selected.Clear();
             _selected.Add(SelectionId(tile.Item));
+            _selectionAnchorId = SelectionId(tile.Item);
             SyncSelection();
         }
 
@@ -978,7 +1149,7 @@ public sealed partial class GalleryPage : UserControl
         if (!batching)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(Item("复制", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
+            menu.Items.Add(Item("复制图片内容", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
             menu.Items.Add(Item("复制为路径", "\uE71B", () =>
             {
                 var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
@@ -1051,8 +1222,6 @@ public sealed partial class GalleryPage : UserControl
     }
 
     /// <summary>删除选中（回收站 + 二次确认，取消为默认，红 #ff99a4）。</summary>
-    private Task DeleteSelectedAsync() => DeleteAsync(SelectedIds());
-
     public async Task DeleteAsync(IReadOnlyCollection<int> targets)
     {
         var ids = targets.Where(id => id > 0).Distinct().ToArray();
@@ -1220,6 +1389,7 @@ public sealed partial class GalleryPage : UserControl
         if (!on)
         {
             _selected.Clear();
+            _selectionAnchorId = null;
             SyncSelection();
         }
         UpdateHeader();
@@ -1231,6 +1401,8 @@ public sealed partial class GalleryPage : UserControl
     /// </summary>
     public bool ExitSelection()
     {
+        _showKeyboardFocus = false;
+        SyncSelection();
         if (!_selectMode && _selected.Count == 0) return false;
         SetSelectMode(false); // 内部清空选区并同步
         return true;
@@ -1238,13 +1410,16 @@ public sealed partial class GalleryPage : UserControl
 
     private void SelectAll_Click(object sender, RoutedEventArgs e)
     {
+        SetSelectMode(true);
         _selected.UnionWith(_items.Select(SelectionId));
+        Root.Focus(FocusState.Keyboard);
         SyncSelection();
     }
 
     private void SelectNone_Click(object sender, RoutedEventArgs e)
     {
         _selected.Clear();
+        _selectionAnchorId = null;
         SyncSelection();
     }
 

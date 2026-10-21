@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <DataTemplate x:Key="PhotoTileTemplate"><controls:PhotoTile /></DataTemplate>
     </UserControl.Resources>
-    <Grid x:Name="Root" IsTabStop="True" UseSystemFocusVisuals="False" KeyDown="FileOps_KeyDown">
+    <Grid x:Name="Root" IsTabStop="True" UseSystemFocusVisuals="False">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -435,13 +435,15 @@
         <Grid Grid.Row="2" Margin="32,0,0,0">
             <ScrollViewer
                 x:Name="Scroller"
+                Margin="-6,-6,0,-6"
                 HorizontalScrollBarVisibility="Disabled"
                 HorizontalScrollMode="Disabled"
                 IsTabStop="False"
                 VerticalScrollBarVisibility="Hidden"
                 VerticalScrollMode="Enabled"
                 ZoomMode="Disabled">
-                <controls:PhotoGalleryPanel x:Name="Panel" Margin="0,0,48,0" />
+                <!-- 扩大视口并以等量内容边距抵消，保留图片几何，为 6 DIP 外焦点框留空间。 -->
+                <controls:PhotoGalleryPanel x:Name="Panel" Margin="6,6,48,6" />
             </ScrollViewer>
 
             <controls:TimelineScrollbar x:Name="Timeline" />

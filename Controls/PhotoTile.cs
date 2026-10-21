@@ -19,6 +19,7 @@ namespace Gallery.Controls;
 public sealed class PhotoTile : Grid
 {
     private const double CornerRadiusValue = 4;
+    internal const double KeyboardFocusOutset = 6;
     private const double PressScale = 0.98;
     private const int PressDurationMs = 100;
 
@@ -26,6 +27,7 @@ public sealed class PhotoTile : Grid
     private readonly Image _image;
     private readonly Rectangle _hover;
     private readonly Rectangle _selectionBorder;
+    private readonly Border _keyboardFocusBorder;
     private readonly CheckBox _check;
     private readonly FavoriteButton _favorite;
     private readonly Storyboard _selectIn;
@@ -122,6 +124,7 @@ public sealed class PhotoTile : Grid
         _pointerOver = false;
         _favorite.Opacity = 0;
         _favorite.IsHitTestVisible = false;
+        KeyboardFocused = false;
         var visual = ElementCompositionPreview.GetElementVisual(this);
         visual.StopAnimation("Scale"); visual.Scale = System.Numerics.Vector3.One;
         ReleasePointerCaptures();
@@ -142,6 +145,13 @@ public sealed class PhotoTile : Grid
     }
 
     private bool _selected;
+    /// <summary>图库逻辑键盘焦点，与勾选独立；不参与虚拟化布局测量。</summary>
+    public bool KeyboardFocused
+    {
+        get => _keyboardFocusBorder.Visibility == Visibility.Visible;
+        set => _keyboardFocusBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public bool Selected
     {
         get => _selected;
@@ -238,6 +248,15 @@ public sealed class PhotoTile : Grid
         Children.Add(_frame);
         Children.Add(_hover);
         Children.Add(_selectionBorder);
+        _keyboardFocusBorder = new Border
+        {
+            BorderThickness = new Thickness(4),
+            CornerRadius = new CornerRadius(CornerRadiusValue + KeyboardFocusOutset),
+            Margin = new Thickness(-KeyboardFocusOutset),
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+        };
+        Children.Add(_keyboardFocusBorder);
         Children.Add(_check);
         Children.Add(_favorite);
 
@@ -294,6 +313,8 @@ public sealed class PhotoTile : Grid
         _hoverBrush = new SolidColorBrush(dark ? Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x19, 0x00, 0x00, 0x00));
         _pressedBrush = new SolidColorBrush(dark ? Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x33, 0x00, 0x00, 0x00));
         _hover.Fill = _hoverBrush;
+        _keyboardFocusBorder.BorderBrush = Brush("AccentTextFillColorPrimaryBrush",
+            dark ? Color.FromArgb(255, 153, 217, 255) : Color.FromArgb(255, 0, 95, 184));
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)

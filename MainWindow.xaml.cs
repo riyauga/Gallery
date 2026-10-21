@@ -514,6 +514,8 @@ public sealed partial class MainWindow : Window
         Preview.FavoriteRequested = _page.ToggleFavoriteAsync;
         Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         ContentHost.Children.Add(_page);
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnGalleryBlankPointerPressed), true);
+        RootGrid.PreviewKeyDown += OnGalleryPreviewKeyDown;
         RootGrid.SizeChanged += (_, _) => UpdateTitleBarRegions();
         TitleBar.SizeChanged += (_, _) => UpdateTitleBarRegions();
         SearchBox.SizeChanged += (_, _) => UpdateTitleBarRegions();
@@ -779,7 +781,7 @@ public sealed partial class MainWindow : Window
 
     private void OnSearchInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (Preview.IsOpen) return;
+        if (Preview.IsOpen || HasKeyboardPopup()) return;
         SearchBox.FocusSearch();
         args.Handled = true;
     }
@@ -888,13 +890,52 @@ public sealed partial class MainWindow : Window
         public static AddRootOutcome Fail(string error) => new(null, null, error);
     }
 
+    private bool HasKeyboardPopup()
+        => DialogService.IsShowing || RootGrid.XamlRoot is { } root
+            && VisualTreeHelper.GetOpenPopupsForXamlRoot(root).Any(popup => popup.IsOpen && popup.Child is not ToolTip);
+
+    private static bool IsTextKeyboardFocus(DependencyObject? focused)
+    {
+        for (var current = focused; current is not null; current = VisualTreeHelper.GetParent(current))
+            if (current is TextBox or PasswordBox or RichEditBox or AutoSuggestBox or SearchInputBox
+                or TextBlock { IsTextSelectionEnabled: true }) return true;
+        return false;
+    }
+
+    private async void OnGalleryPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled || _page.Visibility != Visibility.Visible || Preview.IsOpen || HasKeyboardPopup()) return;
+        var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject;
+        if (IsTextKeyboardFocus(focused)
+            || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
+        await _page.HandleGalleryKeyAsync(e, _page.HasContentKeyboardFocus(focused));
+    }
+
+    private void OnGalleryBlankPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_page.Visibility != Visibility.Visible || Preview.IsOpen
+            || !e.GetCurrentPoint(RootGrid).Properties.IsLeftButtonPressed) return;
+        // 窗口 XAML 内非交互空白（含卡片间隙、工具栏及侧栏留白）统一退出。
+        for (var current = e.OriginalSource as DependencyObject; current is not null && current != RootGrid;
+            current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is PhotoTile or ButtonBase or TextBox or PasswordBox or AutoSuggestBox or SearchInputBox
+                or RangeBase or ToggleSwitch or SelectorItem or NavigationViewItem or PaneResizer
+                or TimelineScrollbar or ContinuousScrollBar or ContentDialog
+                or TextBlock { IsTextSelectionEnabled: true }) return;
+        }
+        _page.ExitSelection();
+    }
+
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         // Esc 优先给查看器（退全屏/关闭），其次退出图库多选。
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
+        if (HasKeyboardPopup() || IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
         if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Escape); args.Handled = true; return; }
-        if (_page.ExitSelection()) args.Handled = true;
+        if (_page.Visibility == Visibility.Visible && _page.ExitSelection()) args.Handled = true;
     }
 
     private void OnLeftInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
