@@ -54,12 +54,19 @@ public sealed class ReviewPage : Grid
     };
     private readonly TextBlock _summary = Caption();
     private readonly TextBlock _title = new() { FontSize = 21, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stateBadge = new() { FontSize = 12, Opacity = .7, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 6, 0, 0), Visibility = Visibility.Collapsed };
     private readonly TextBlock _time = Caption();
     private readonly TextBlock _spec = Caption();
     private readonly TextBlock _pageUrl = Caption();
+    private readonly TextBlock _pathLabel = new() { Text = "本地文件", FontSize = 12, Opacity = .6 };
     private readonly TextBlock _path = Caption();
+    private readonly TextBlock _currentPathLabel = new() { Text = "当前位置", FontSize = 12, Opacity = .6, Visibility = Visibility.Collapsed };
+    private readonly TextBlock _currentPath = Caption();
+    private RowDefinition? _currentPathRow;
+    private readonly TextBlock _scopeHint = new() { FontSize = 11, Opacity = .65, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Text = "批量操作范围：全部待归档图片" };
     private readonly TextBlock _status = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
     private readonly StackPanel _tagGroups = new() { Spacing = 15 };
+    private readonly StackPanel _archiveDirGroup = new() { Spacing = 10 };
     private readonly TextBox _destination = new() { PlaceholderText = "选择图库内的归档目录", MinWidth = 0 };
     private readonly Button _pickFolder = new() { Content = "选择文件夹…", Padding = new Thickness(10, 6, 10, 6) };
     private readonly Button _archive = new() { Content = "归档此图，并查看下一张", HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -67,6 +74,9 @@ public sealed class ReviewPage : Grid
     private readonly Button _archiveAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _ignoreAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _restore = new() { Content = "恢复待处理", Visibility = Visibility.Collapsed };
+    private readonly Button _showInGallery = new() { Content = "在图库中查看", HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
+    private readonly Button _showInExplorer = new() { Content = "打开所在文件夹", HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
+    private readonly Button _cleanHistory = new() { Content = "清理历史…", HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
     private readonly SelectionDropDown _states = new() { MinWidth = 115, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid _body = new() { ColumnSpacing = 24 };
     private Tags.TagChip? _ratingBadge;
@@ -77,6 +87,8 @@ public sealed class ReviewPage : Grid
     private Dictionary<string, List<string>> _tags = [];
     private readonly Dictionary<string, string> _imageSpecs = new(StringComparer.OrdinalIgnoreCase);
     private string _state = "pending";
+    // 历史只加载最近这么多条；更早的交给「清理历史」处理，避免一次拉几万条。
+    private const int HistoryLimit = 200;
     private int _index, _selectionGeneration;
     private bool _busy, _active = true;
     private bool _destinationEdited;   // 用户手改过当前这张的归档目录
@@ -124,7 +136,7 @@ public sealed class ReviewPage : Grid
         Children.Add(_body);
         _revealAll.Content = _revealAllText;
         _carousel.SelectionRequested += index => Select(index);
-        _carousel.OpenRequested += (row, source) => Open(source ? row.PageUrl : IngestReview.LocalPath(row), source);
+        _carousel.OpenRequested += (row, source) => Open(source ? row.PageUrl : IngestReview.CurrentPath(row), source);
         _carousel.FilesDropped += async paths => await ImportAsync(paths);
         _carousel.DragStateChanged += over => _dropOverlay.Visibility = over ? Visibility.Visible : Visibility.Collapsed;
         // 连续滚动轴：拖动 1:1 跟随；点击轨道由控件自己做同步短动画，详情在松手/动画结束后提交。
@@ -147,7 +159,7 @@ public sealed class ReviewPage : Grid
         {
             var text = $"{item.PixelWidth} × {item.PixelHeight} · {item.Extension} · {item.FileSize / 1024.0 / 1024:0.##} MB";
             _imageSpecs[item.FullPath] = text;
-            if (_selected is { } row && string.Equals(IngestReview.LocalPath(row), item.FullPath, StringComparison.OrdinalIgnoreCase))
+            if (_selected is { } row && string.Equals(IngestReview.CurrentPath(row), item.FullPath, StringComparison.OrdinalIgnoreCase))
                 _spec.Text = text;
         };
         _destination.TextChanged += (_, _) =>
@@ -165,6 +177,9 @@ public sealed class ReviewPage : Grid
         _ignore.Click += (_, _) => Ignore(false);
         _ignoreAll.Click += (_, _) => Ignore(true);
         _restore.Click += (_, _) => Restore();
+        _showInGallery.Click += async (_, _) => await ShowInGalleryAsync();
+        _showInExplorer.Click += (_, _) => RevealInExplorer();
+        _cleanHistory.Click += async (_, _) => await CleanHistoryAsync();
         _pickFolder.Click += async (_, _) => await PickFolderAsync();
         Loaded += (_, _) => { _active = true; _carousel.SetActive(true); Reload(); };
         Unloaded += (_, _) => SetActive(false);
@@ -223,7 +238,8 @@ public sealed class ReviewPage : Grid
         actions.Children.Add(_ignoreAll);
         footer.Children.Add(actions);
         footer.Children.Add(_revealAll);
-        footer.Children.Add(new TextBlock { Text = "批量操作范围：全部待归档图片", FontSize = 11, Opacity = .65, HorizontalAlignment = HorizontalAlignment.Center });
+        footer.Children.Add(_cleanHistory);
+        footer.Children.Add(_scopeHint);
         Grid.SetRow(footer, 2);
         panel.Children.Add(footer);
         return panel;
@@ -237,7 +253,7 @@ public sealed class ReviewPage : Grid
         var panel = new StackPanel { Spacing = 12 };
         var top = new Grid { MinHeight = 34 };
         top.Children.Add(new TextBlock { Text = "图片详情", FontSize = 12, Opacity = .65, VerticalAlignment = VerticalAlignment.Center });
-        foreach (var (key, title) in new[] { ("pending", "待归档"), ("missing", "文件丢失"), ("done", "已归档"), ("ignored", "已忽略") })
+        foreach (var (key, title) in new[] { ("pending", "待归档"), ("missing", "文件丢失"), ("history", "历史") })
             _states.Items.Add(new ComboBoxItem { Tag = key, Content = title });
         _states.SelectedIndex = 0;
         _states.SelectionChanged += (_, _) =>
@@ -252,15 +268,25 @@ public sealed class ReviewPage : Grid
         };
         top.Children.Add(_states);
         panel.Children.Add(top);
-        panel.Children.Add(_title);
+        var titleRow = new Grid { ColumnSpacing = 8, Margin = new Thickness(0, 0, 0, 2) };
+        titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        titleRow.Children.Add(_title);
+        Grid.SetColumn(_stateBadge, 1);
+        titleRow.Children.Add(_stateBadge);
+        panel.Children.Add(titleRow);
         var facts = new Grid { RowSpacing = 7, ColumnSpacing = 12 };
         facts.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         facts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         AddFact("加入时间", _time);
         AddFact("图片规格", _spec);
         AddFact("来源页面", _pageUrl);
-        AddFact("本地文件", _path);
+        AddFact(_pathLabel, _path);
+        var currentRow = facts.RowDefinitions.Count;
+        AddFact(_currentPathLabel, _currentPath);
+        _currentPathRow = facts.RowDefinitions[currentRow];
         panel.Children.Add(facts);
+        SetCurrentPathVisible(false);
         panel.Children.Add(new Border { Height = 1, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 6, 0, 4) });
         panel.Children.Add(new TextBlock { Text = "标签", FontSize = 18, FontWeight = FontWeights.SemiBold });
         panel.Children.Add(_tagGroups);
@@ -268,19 +294,22 @@ public sealed class ReviewPage : Grid
         host.Children.Add(_detailScroll);
         var archivePanel = new StackPanel { Spacing = 10 };
         archivePanel.Children.Add(new Border { Height = 1, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 0, 0, 6) });
-        archivePanel.Children.Add(new TextBlock { Text = "归档目录", FontSize = 12, Opacity = .7 });
+        _archiveDirGroup.Children.Add(new TextBlock { Text = "归档目录", FontSize = 12, Opacity = .7 });
         var folder = new Grid { ColumnSpacing = 8 };
         folder.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         folder.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         folder.Children.Add(_destination);
         Grid.SetColumn(_pickFolder, 1);
         folder.Children.Add(_pickFolder);
-        archivePanel.Children.Add(folder);
+        _archiveDirGroup.Children.Add(folder);
+        archivePanel.Children.Add(_archiveDirGroup);
         var actions = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
         _archive.MinHeight = _ignore.MinHeight = 40;
         actions.Children.Add(_archive);
         actions.Children.Add(_ignore);
         archivePanel.Children.Add(actions);
+        actions.Children.Add(_showInGallery);
+        actions.Children.Add(_showInExplorer);
         archivePanel.Children.Add(_restore);
         archivePanel.Children.Add(_status);
         Grid.SetRow(archivePanel, 1);
@@ -288,10 +317,12 @@ public sealed class ReviewPage : Grid
         return host;
 
         void AddFact(string title, TextBlock value)
+            => AddFact(new TextBlock { Text = title, FontSize = 12, Opacity = .6 }, value);
+
+        void AddFact(TextBlock label, TextBlock value)
         {
             var row = facts.RowDefinitions.Count;
             facts.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var label = new TextBlock { Text = title, FontSize = 12, Opacity = .6 };
             Grid.SetRow(label, row);
             Grid.SetRow(value, row);
             Grid.SetColumn(value, 1);
@@ -300,17 +331,39 @@ public sealed class ReviewPage : Grid
         }
     }
 
+    private void SetCurrentPathVisible(bool visible)
+    {
+        var visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        _currentPathLabel.Visibility = _currentPath.Visibility = visibility;
+        if (_currentPathRow is not null)
+            _currentPathRow.Height = visible ? GridLength.Auto : new GridLength(0);
+    }
+
     public void Reload()
     {
         if (_busy || AppService.Store is not { } store) return;
         var keep = _selected?.Id;
-        _rows = store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
+        var history = _state == "history";
+        _rows = history
+            ? store.IngestHistory(HistoryLimit)
+            : store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
+        if (history)
+        {
+            lock (AppService.DbLock)
+                _rows = _rows.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(store, row) }).ToList();
+        }
         var pending = store.PendingIngestCount();
         _summary.Text = _state switch
         {
             "pending" => "待归档",
             "missing" => "文件丢失",
-            _ => "历史记录",
+            _ => "历史",
+        };
+        _scopeHint.Text = _state switch
+        {
+            "pending" => "批量操作范围：全部待归档图片",
+            "missing" => "源文件不可用；找回后可点「恢复待处理」",
+            _ => HistoryHint(store),
         };
         _archiveAll.Content = $"一键归档（{pending}）";
         _ignoreAll.Content = $"一键忽略（{pending}）";
@@ -326,6 +379,15 @@ public sealed class ReviewPage : Grid
         var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
         Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1), false);
         UpdateButtons();
+    }
+
+    private string HistoryHint(StoreService store)
+    {
+        var stats = store.IngestStats();
+        var total = stats.GetValueOrDefault("done") + stats.GetValueOrDefault("ignored");
+        return total > _rows.Count
+            ? $"历史仅显示最近 {_rows.Count} 条，共 {total} 条；更早的用「清理历史」处理"
+            : "已归档与已忽略的队列记录；图片本身请在图库查看";
     }
 
     private void Select(int index, bool revealScroll = true)
@@ -354,9 +416,12 @@ public sealed class ReviewPage : Grid
             {
                 "pending" => "没有待归档图片",
                 "missing" => "没有文件丢失记录",
-                _ => "没有此类记录",
+                _ => "没有历史记录",
             };
-            _time.Text = _spec.Text = _pageUrl.Text = _path.Text = "";
+            _time.Text = _spec.Text = _pageUrl.Text = _path.Text = _currentPath.Text = "";
+            _pathLabel.Text = "本地文件";
+            _stateBadge.Visibility = Visibility.Collapsed;
+            SetCurrentPathVisible(false);
             _status.Text = "";
             _tags = [];
             UpdateButtons();
@@ -364,10 +429,34 @@ public sealed class ReviewPage : Grid
         }
         _title.Text = row.InboxName.Length > 0 ? row.InboxName : Path.GetFileName(IngestReview.LocalPath(row));
         _time.Text = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-        _spec.Text = _imageSpecs.GetValueOrDefault(IngestReview.LocalPath(row), "—");
+        _spec.Text = _imageSpecs.GetValueOrDefault(IngestReview.CurrentPath(row), "—");
         _pageUrl.Text = row.PageUrl.Length == 0 ? "未记录" : row.PageUrl;
         var local = IngestReview.LocalPath(row);
-        _path.Text = local.Length == 0 ? "记录没有本地路径" : local + (File.Exists(local) ? "" : "（不可用）");
+        _pathLabel.Text = row.State switch
+        {
+            "done" => "归档位置",
+            "ignored" => "原文件",
+            _ => "本地文件",
+        };
+        var suffix = File.Exists(local) ? "" : _state == "history" ? "（已不在原位置）" : "（不可用）";
+        _path.Text = local.Length == 0 ? "记录没有本地路径" : local + suffix;
+        _stateBadge.Text = row.State switch
+        {
+            "done" => "已归档",
+            "ignored" => "已忽略",
+            _ => "",
+        };
+        _stateBadge.Visibility = _state == "history" ? Visibility.Visible : Visibility.Collapsed;
+        var showCurrent = row.State == "done";
+        SetCurrentPathVisible(showCurrent);
+        if (showCurrent)
+        {
+            var current = IngestReview.CurrentPath(row);
+            _currentPath.Text = current.Length == 0
+                ? "未能在图库中定位（可能已改名或移出图库）"
+                : current;
+            ToolTipService.SetToolTip(_currentPath, current);
+        }
         if (row.State == "missing")
             _status.Text = row.Note.Length > 0 ? row.Note : "源文件不可用";
         else if (_state != "pending")
@@ -575,6 +664,7 @@ public sealed class ReviewPage : Grid
     /// <summary>开启「按标签自动分目录」时，当前这张的目录随标签走；用户手改过就不覆盖。</summary>
     private void RefreshDestination()
     {
+        if (_state != "pending") return;
         if (_selected is null || _destinationEdited) return;
         if (!AppService.Settings.Settings.archive_auto_by_tags) return;
         var target = ArchiveTargetFor(_tags);
@@ -728,11 +818,13 @@ public sealed class ReviewPage : Grid
     {
         var pending = _selected is { State: "pending" };
         var missing = _selected is { State: "missing" };
+        var ignored = _selected is { State: "ignored" };
+        var history = _state == "history";
         _archive.IsEnabled = !_busy && pending;
         _archive.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _ignore.IsEnabled = !_busy && (pending || missing);
         _ignore.Visibility = _state is "pending" or "missing" ? Visibility.Visible : Visibility.Collapsed;
-        _restore.Visibility = _state is "ignored" or "missing" ? Visibility.Visible : Visibility.Collapsed;
+        _restore.Visibility = ignored || missing ? Visibility.Visible : Visibility.Collapsed;
         _restore.IsEnabled = !_busy && _selected is not null;
         _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
         _archiveAll.Visibility = _ignoreAll.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
@@ -740,8 +832,16 @@ public sealed class ReviewPage : Grid
         _revealAll.IsEnabled = !_busy;
         _revealAllText.Text = _carousel.AllPreviewsRevealed ? "一键隐藏预览" : "一键显示预览";
         _states.IsEnabled = !_busy;
+        _archiveDirGroup.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _destination.IsEnabled = _pickFolder.IsEnabled = !_busy && _state == "pending";
         _tagGroups.IsHitTestVisible = !_busy;
+        var current = _selected is { } row ? IngestReview.CurrentPath(row) : "";
+        _showInGallery.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        _showInGallery.IsEnabled = !_busy && current.Length > 0;
+        _showInExplorer.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        _showInExplorer.IsEnabled = !_busy && current.Length > 0 && File.Exists(current);
+        _cleanHistory.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        _cleanHistory.IsEnabled = !_busy && _rows.Count > 0;
     }
 
     public void SetActive(bool active)

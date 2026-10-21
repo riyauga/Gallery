@@ -94,7 +94,7 @@ public sealed class ArchiveService(StoreService store)
             return new ArchiveResult(false, "搬文件失败：" + ex.Message, destination);
         }
 
-        var indexed = IndexFile(rootId, dirRel, destination, row.Payload);
+        var (imageId, indexed) = IndexFile(rootId, dirRel, destination, row.Payload);
         if (indexed.Length > 0)
         {
             // 索引没成功就当这次没归档：删掉刚复制的副本，保留源文件，状态仍是 pending
@@ -131,7 +131,7 @@ public sealed class ArchiveService(StoreService store)
             }
         }
 
-        store.SetIngestState(row.Id, "done", destination);
+        store.SetIngestArchived(row.Id, destination, IngestReview.WithArchivedImage(row.Payload, imageId));
         return new ArchiveResult(true, $"已归档到 {Path.GetFileName(destination)}", destination);
     }
 
@@ -203,8 +203,8 @@ public sealed class ArchiveService(StoreService store)
         return Path.Combine(dir, $"{stem}-{Guid.NewGuid():n}{ext}");
     }
 
-    /// <summary>把新文件登记进 images（与扫描器同一套 UpsertImage 调用）。</summary>
-    private string IndexFile(int rootId, string dirRel, string absPath, string payload)
+    /// <summary>把新文件登记进 images（与扫描器同一套 UpsertImage 调用）。返回图片 id，失败时 id 为 0。</summary>
+    private (int ImageId, string Error) IndexFile(int rootId, string dirRel, string absPath, string payload)
     {
         try
         {
@@ -228,12 +228,12 @@ public sealed class ArchiveService(StoreService store)
             store.ApplyIngestOrigin(imageId, payload);
             ApplyPayloadTags(imageId, payload);
             ApplyPayloadNsfw(imageId, payload);
-            return "";
+            return (imageId, "");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
             or Microsoft.Data.Sqlite.SqliteException)
         {
-            return ex.Message;
+            return (0, ex.Message);
         }
     }
 

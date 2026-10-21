@@ -1394,33 +1394,54 @@ public sealed class StoreService : IDisposable
     public sealed record PendingIngestRow(
         int Id, double ReceivedAt, string State, string InboxPath, string InboxName,
         string PageUrl, string ImageUrl, string PostId, string Md5, string Rating,
-        string Source, string Payload, string Note);
+        string Source, string Payload, string Note)
+    {
+        /// <summary>历史记录解析出的当前文件位置；null = 尚未解析（待归档/丢失不解析）。</summary>
+        public string? ResolvedPath { get; init; }
+    }
+
+    private const string IngestColumns =
+        "id,received_at,state,COALESCE(inbox_path,''),COALESCE(inbox_name,'')," +
+        "COALESCE(page_url,''),COALESCE(image_url,''),COALESCE(post_id,''),COALESCE(md5,'')," +
+        "COALESCE(rating,''),COALESCE(source,''),payload,COALESCE(note,'')";
+
+    private static PendingIngestRow ReadIngest(SqliteDataReader r) => new(
+        r.GetInt32(0), r.GetDouble(1), r.GetString(2), r.GetString(3), r.GetString(4),
+        r.GetString(5), r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
+        r.GetString(10), r.GetString(11), r.GetString(12));
 
     /// <summary>按状态取记录；state 为空表示只看 pending。</summary>
     public List<PendingIngestRow> IngestRows(string state = "pending", int limit = 500)
     {
-        var list = new List<PendingIngestRow>();
         lock (SyncRoot)
         {
             using var cmd = _conn.CreateCommand();
             var where = state.Length > 0 ? "WHERE state=$s " : "";
-            cmd.CommandText =
-                "SELECT id,received_at,state,COALESCE(inbox_path,''),COALESCE(inbox_name,'')," +
-                "COALESCE(page_url,''),COALESCE(image_url,''),COALESCE(post_id,''),COALESCE(md5,'')," +
-                "COALESCE(rating,''),COALESCE(source,''),payload,COALESCE(note,'') FROM ingest_queue " + where +
+            cmd.CommandText = "SELECT " + IngestColumns + " FROM ingest_queue " + where +
                 "ORDER BY received_at DESC LIMIT $n";
             if (state.Length > 0) cmd.Parameters.AddWithValue("$s", state);
             cmd.Parameters.AddWithValue("$n", limit);
             using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                list.Add(new PendingIngestRow(
-                    r.GetInt32(0), r.GetDouble(1), r.GetString(2), r.GetString(3), r.GetString(4),
-                    r.GetString(5), r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
-                    r.GetString(10), r.GetString(11), r.GetString(12)));
-            }
+            var list = new List<PendingIngestRow>();
+            while (r.Read()) list.Add(ReadIngest(r));
+            return list;
         }
-        return list;
+    }
+
+    /// <summary>历史视图：已归档 + 已忽略，按接收时间倒序。</summary>
+    public List<PendingIngestRow> IngestHistory(int limit = 200)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT " + IngestColumns + " FROM ingest_queue " +
+                "WHERE state IN ('done','ignored') ORDER BY received_at DESC, id DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", limit);
+            using var r = cmd.ExecuteReader();
+            var list = new List<PendingIngestRow>();
+            while (r.Read()) list.Add(ReadIngest(r));
+            return list;
+        }
     }
 
     /// <summary>按 id 取一条记录（归档用）。</summary>
@@ -1429,17 +1450,10 @@ public sealed class StoreService : IDisposable
         lock (SyncRoot)
         {
             using var cmd = _conn.CreateCommand();
-            cmd.CommandText =
-                "SELECT id,received_at,state,COALESCE(inbox_path,''),COALESCE(inbox_name,'')," +
-                "COALESCE(page_url,''),COALESCE(image_url,''),COALESCE(post_id,''),COALESCE(md5,'')," +
-                "COALESCE(rating,''),COALESCE(source,''),payload,COALESCE(note,'') FROM ingest_queue WHERE id=$id";
+            cmd.CommandText = "SELECT " + IngestColumns + " FROM ingest_queue WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", id);
             using var r = cmd.ExecuteReader();
-            if (!r.Read()) return null;
-            return new PendingIngestRow(
-                r.GetInt32(0), r.GetDouble(1), r.GetString(2), r.GetString(3), r.GetString(4),
-                r.GetString(5), r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
-                r.GetString(10), r.GetString(11), r.GetString(12));
+            return r.Read() ? ReadIngest(r) : null;
         }
     }
 
@@ -1525,6 +1539,23 @@ public sealed class StoreService : IDisposable
         }
     }
 
+    /// <summary>
+    /// 归档成功：写最终文件路径，并把归档时的图片 id 记进 payload。
+    /// 历史视图靠这个 id 找到图片当前所在位置，而不是依赖会过期的归档路径。
+    /// </summary>
+    public void SetIngestArchived(int id, string destination, string payload)
+    {
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE ingest_queue SET state='done',note=$n,payload=$p WHERE id=$id";
+            cmd.Parameters.AddWithValue("$n", destination);
+            cmd.Parameters.AddWithValue("$p", payload);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// <summary>彻底删掉一条记录（不动磁盘文件）。</summary>
     public void DeleteIngest(int id)
     {
@@ -1534,6 +1565,47 @@ public sealed class StoreService : IDisposable
             cmd.CommandText = "DELETE FROM ingest_queue WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.ExecuteNonQuery();
+        }
+    }
+
+    public readonly record struct IngestHistoryCleanup(int Deleted, int KeptExistingSource);
+
+    /// <summary>
+    /// 删除早于 cutoff 的已归档/已忽略记录，只动队列、不动文件。
+    /// 默认跳过“原文件仍在”的已归档记录：删掉后同一路径能再次导入，会生成重复副本。
+    /// </summary>
+    public IngestHistoryCleanup DeleteIngestHistory(double cutoffUnix, bool includeExistingSources)
+    {
+        lock (SyncRoot)
+        {
+            var candidates = new List<(int Id, string State, string InboxPath)>();
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT id,state,COALESCE(inbox_path,'') FROM ingest_queue " +
+                                  "WHERE state IN ('done','ignored') AND received_at < $c";
+                cmd.Parameters.AddWithValue("$c", cutoffUnix);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) candidates.Add((r.GetInt32(0), r.GetString(1), r.GetString(2)));
+            }
+
+            var deleted = 0;
+            var kept = 0;
+            using var tx = Transaction();
+            using var del = _conn.CreateCommand();
+            del.CommandText = "DELETE FROM ingest_queue WHERE id=$id";
+            del.Parameters.AddWithValue("$id", 0);
+            foreach (var (id, state, inbox) in candidates)
+            {
+                if (!includeExistingSources && state == "done" && inbox.Length > 0 && File.Exists(inbox))
+                {
+                    kept++;
+                    continue;
+                }
+                del.Parameters["$id"].Value = id;
+                deleted += del.ExecuteNonQuery();
+            }
+            tx.Success = true;
+            return new IngestHistoryCleanup(deleted, kept);
         }
     }
 

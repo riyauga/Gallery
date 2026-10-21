@@ -659,6 +659,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>审阅页「在图库中查看」：把窗口唤到前台并定位到当前文件。</summary>
+    public System.Threading.Tasks.Task ShowInGalleryAsync(string path)
+        => HandleUiRequestAsync("gallery", path);
+
     /// <summary>
     /// 浏览器扩展的 /ui/open：把窗口唤到前台并切到对应视图；
     /// 带 path 时定位到文件所在目录并直接打开查看器。

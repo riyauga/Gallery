@@ -33,6 +33,78 @@ public static class IngestReview
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return ""; }
     }
 
+    /// <summary>展示/加载预览用的路径：历史行优先用解析出的当前位置，其余沿用记录路径。</summary>
+    public static string CurrentPath(StoreService.PendingIngestRow row)
+        => row.ResolvedPath ?? LocalPath(row);
+
+    /// <summary>
+    /// 历史记录的文件当前位置：先按归档时记下的图片 id 找图库记录，再按原路径，最后按文件名唯一匹配。
+    /// 找不到或同名不唯一时返回空串，不做猜测。
+    /// </summary>
+    public static string ResolveCurrentPath(StoreService store, StoreService.PendingIngestRow row)
+    {
+        var recorded = LocalPath(row);
+        if (recorded.Length > 0 && File.Exists(recorded)) return recorded;
+        if (row.State != "done") return "";
+
+        var imageId = ArchivedImageId(row.Payload);
+        if (imageId > 0)
+        {
+            var byId = store.QueryOne("SELECT * FROM images WHERE id=$i", ("$i", imageId));
+            if (byId is { Missing: false } && File.Exists(byId.AbsPath)) return byId.AbsPath;
+        }
+
+        if (recorded.Length > 0)
+        {
+            var byPath = store.QueryOne(
+                "SELECT * FROM images WHERE abs_path=$a COLLATE NOCASE AND missing=0",
+                ("$a", recorded));
+            if (byPath is not null && File.Exists(byPath.AbsPath)) return byPath.AbsPath;
+        }
+
+        var name = recorded.Length > 0 ? Path.GetFileName(recorded) : "";
+        if (name.Length == 0) return "";
+        var matches = store.QueryAll(
+                "SELECT * FROM images WHERE name=$n COLLATE NOCASE AND missing=0",
+                ("$n", name))
+            .Where(candidate => File.Exists(candidate.AbsPath))
+            .ToList();
+        return matches.Count == 1 ? matches[0].AbsPath : "";
+    }
+
+    /// <summary>归档成功时把图片 id 补进 payload；解析不了原 payload 就原样返回。</summary>
+    public static string WithArchivedImage(string payload, int imageId)
+    {
+        if (imageId <= 0) return payload;
+        try
+        {
+            if (JsonNode.Parse(payload) is not JsonObject root) return payload;
+            root["archived_image_id"] = imageId;
+            return root.ToJsonString();
+        }
+        catch (JsonException)
+        {
+            return payload;
+        }
+    }
+
+    private static int ArchivedImageId(string payload)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("archived_image_id", out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var id)
+                ? id
+                : 0;
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
+    }
+
     public static Dictionary<string, List<string>> Tags(string payload, string rating)
     {
         var result = Categories.ToDictionary(c => c, _ => new List<string>());

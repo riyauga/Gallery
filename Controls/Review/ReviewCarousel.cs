@@ -306,10 +306,10 @@ internal sealed class ReviewCarousel : Grid
     }
 
     private string PlaceholderKey(StoreService.PendingIngestRow row)
-        => $"{IngestReview.LocalPath(row)}|{Protected(row)}|ph";
+        => $"{IngestReview.CurrentPath(row)}|{Protected(row)}|ph";
 
     private string ClearKey(StoreService.PendingIngestRow row)
-        => $"{IngestReview.LocalPath(row)}|{Protected(row)}|clear";
+        => $"{IngestReview.CurrentPath(row)}|{Protected(row)}|clear";
 
     private void PublishState()
     {
@@ -428,10 +428,13 @@ internal sealed class ReviewCarousel : Grid
         var blocked = Protected(row);
         try
         {
-            var path = IngestReview.LocalPath(row);
+            var path = IngestReview.CurrentPath(row);
             if (path.Length == 0 || !File.Exists(path))
             {
-                _previews[row.Id] = new Preview(key, "", 1, blocked, "本地文件不可用", null, true, "");
+                var status = row.ResolvedPath is not null && row.State == "done"
+                    ? "文件已移走，未能在图库中定位"
+                    : "本地文件不可用";
+                _previews[row.Id] = new Preview(key, "", 1, blocked, status, null, true, "");
                 PublishState(); return;
             }
             var item = await ReadItemAsync(row, token);
@@ -462,7 +465,7 @@ internal sealed class ReviewCarousel : Grid
         if (_clearPreview is not null && _clearPreview.Key == key) return;
         try
         {
-            var path = IngestReview.LocalPath(row);
+            var path = IngestReview.CurrentPath(row);
             if (path.Length == 0 || !File.Exists(path)) return;
             var item = await ReadItemAsync(row, token);
             var bitmap = (WriteableBitmap)await ImageLoader.LoadPreviewAsync(item, 1024, token);
@@ -486,7 +489,7 @@ internal sealed class ReviewCarousel : Grid
 
     private static Task<PhotoItem> ReadItemAsync(StoreService.PendingIngestRow row, CancellationToken token)
     {
-        var path = IngestReview.LocalPath(row);
+        var path = IngestReview.CurrentPath(row);
         return Task.Run(() =>
         {
             var meta = Gallery.Services.ImageInfo.ReadMeta(path);
@@ -600,7 +603,7 @@ internal sealed class ReviewCarousel : Grid
                 var menu = new MenuFlyout();
                 var source = new MenuFlyoutItem { Text = "打开来源", IsEnabled = row.PageUrl.Length > 0 };
                 source.Click += (_, _) => OpenRequested?.Invoke(row, true);
-                var file = new MenuFlyoutItem { Text = "打开文件", IsEnabled = File.Exists(IngestReview.LocalPath(row)) };
+                var file = new MenuFlyoutItem { Text = "打开文件", IsEnabled = File.Exists(IngestReview.CurrentPath(row)) };
                 file.Click += (_, _) => OpenRequested?.Invoke(row, false);
                 menu.Items.Add(source); menu.Items.Add(file);
                 menu.ShowAt(_browser, new Windows.Foundation.Point(ReadNumber(message, "x", 0, 0, ActualWidth), ReadNumber(message, "y", 0, 0, ActualHeight)));
