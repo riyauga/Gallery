@@ -176,6 +176,25 @@
                         <ToggleSwitch x:Name="ArchiveAutoByTagsToggle" Toggled="ArchiveAutoByTagsToggle_Toggled" />
                     </ctc:SettingsCard>
 
+                    <ctc:SettingsCard
+                        Description="清理历史时的默认保留范围；只删队列记录，不删文件"
+                        Header="历史保留">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE81C;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <controls:SelectionDropDown
+                            x:Name="HistoryKeepBox"
+                            MinWidth="140"
+                            SelectionChanged="HistoryKeep_SelectionChanged">
+                            <ComboBoxItem Content="永久（不清理）" Tag="0" />
+                            <ComboBoxItem Content="最近 7 天" Tag="7" />
+                            <ComboBoxItem Content="最近 30 天" Tag="30" />
+                            <ComboBoxItem Content="最近 90 天" Tag="90" />
+                            <ComboBoxItem Content="最近 180 天" Tag="180" />
+                            <ComboBoxItem Content="最近 365 天" Tag="365" />
+                        </controls:SelectionDropDown>
+                    </ctc:SettingsCard>
+
                     <!--  标签  -->
                     <TextBlock
                         Margin="1,24,0,6"

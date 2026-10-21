@@ -69,6 +69,9 @@ public sealed class AppSettings
 
     /// <summary>归档时按标签自动算「作品/画师」两级目录（关掉则用 archive_root + archive_sub 那一个固定目录）。</summary>
     public bool archive_auto_by_tags { get; set; } = true;
+
+    /// <summary>清理历史时的默认保留天数；0 = 永久保留（不清理）。</summary>
+    public int history_keep_days { get; set; }
 }
 
 public sealed class AppPaths
@@ -155,6 +158,7 @@ public sealed class SettingsStore
         s.thumbbar_size = Math.Clamp(s.thumbbar_size, 64, 512);
         s.gallery_mode = s.gallery_mode is "square" or "justified" ? s.gallery_mode : "justified";
         s.media_filter = s.media_filter is "photos" or "videos" or "all" ? s.media_filter : "all";
+        s.history_keep_days = Math.Clamp(s.history_keep_days, 0, 3650);
         s.created_folders = s.created_folders.Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p).Distinct().ToList();
         s.roots = s.roots.Where(p => !string.IsNullOrWhiteSpace(p))

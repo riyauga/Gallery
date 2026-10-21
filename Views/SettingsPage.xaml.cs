@@ -245,6 +245,7 @@ public sealed partial class SettingsPage : UserControl
         AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
         AutoNsfwTagToggle.IsOn = settings.auto_nsfw_tag;
         SelectAutoTagDepth(settings.auto_tag_depth);
+        SelectHistoryKeep(settings.history_keep_days);
         _sysSyncing = false;
         _nsfwSyncing = false;
 
@@ -433,6 +434,29 @@ public sealed partial class SettingsPage : UserControl
             Services.AppService.Settings.Settings.auto_tag_depth = depth;
             Services.AppService.Settings.Save();
         }
+    }
+
+    private void HistoryKeep_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        if (HistoryKeepBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out var days))
+        {
+            Services.AppService.Settings.Settings.history_keep_days = days;
+            Services.AppService.Settings.Save();
+        }
+    }
+
+    private void SelectHistoryKeep(int days)
+    {
+        foreach (var item in HistoryKeepBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && int.TryParse(tag, out var value) && value == days)
+            {
+                HistoryKeepBox.SelectedItem = item;
+                return;
+            }
+        }
+        HistoryKeepBox.SelectedIndex = 0;
     }
 
     private void SelectAutoTagDepth(int depth)

@@ -58,6 +58,7 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 时间线宽 / 箭头高 | 48 / 17 | `TimelineScrollbar.cs` |
 | 时间线标记 | 26 × 3，圆角 2 | XAML |
 | 时间线淡入 / 淡出 | 30ms / 200ms；2s 自动隐藏 | 同上 |
+| 时间线标记移动 | 100ms；相同目标不重播，目标变化时从当前显示位置衔接；拖动仍直接定位，连续滚动效果待人工核对 | `TimelineScrollbar.cs` |
 | 工具栏元素间距 | `CommandBarElementMargin = 2,0,2,0` | `CommandBarStyles.xaml` |
 | 工具栏按钮宽 | 普通 52 / 带 chevron 62（`AppBarButtonWithChevronWidth`）/ 溢出 48 | `CommandBarStyles.xaml` |
 | 选择按钮文字 | 可见「选择」/「取消选择」 | `GetSelectionText()` → `CommandBar_SelectSelectionText` / `_CancelSelectionText` |

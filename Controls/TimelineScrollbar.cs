@@ -66,6 +66,7 @@ public sealed class TimelineScrollbar : Grid
     private readonly Grid _secondaryPopup;
     private readonly TextBlock _secondaryText;
     private readonly TranslateTransform _markerTransform = new();
+    private double _markerTargetTop = double.NaN;
     private readonly Storyboard _markerStoryboard = new();
     private readonly DoubleAnimation _markerAnimation = new()
     {
@@ -371,16 +372,18 @@ public sealed class TimelineScrollbar : Grid
     private void MoveAnchoredMarkerToPosition(int position, bool animate = false)
     {
         double top = Math.Clamp(position - MarkerHeight / 2, 0, Math.Max(0, _areaHeight - MarkerHeight));
-        if (animate && Math.Abs(_markerTransform.Y - top) > 0.5)
+        if (animate && top == _markerTargetTop) return;
+
+        // 停止前保存正在显示的位置；基础值跟随目标，后续重播不退回旧位置。
+        double current = _markerTransform.Y;
+        _markerTargetTop = top;
+        _markerStoryboard.Stop();
+        _markerTransform.Y = top;
+        if (animate && Math.Abs(current - top) > 0.5)
         {
-            _markerStoryboard.Stop();
+            _markerAnimation.From = current;
             _markerAnimation.To = top;
             _markerStoryboard.Begin();
-        }
-        else
-        {
-            _markerStoryboard.Stop();
-            _markerTransform.Y = top;
         }
     }
 

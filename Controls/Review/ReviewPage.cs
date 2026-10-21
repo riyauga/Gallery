@@ -281,9 +281,9 @@ public sealed class ReviewPage : Grid
         AddFact("加入时间", _time);
         AddFact("图片规格", _spec);
         AddFact("来源页面", _pageUrl);
-        AddFact(_pathLabel, _path);
+        AddFactWithLabel(_pathLabel, _path);
         var currentRow = facts.RowDefinitions.Count;
-        AddFact(_currentPathLabel, _currentPath);
+        AddFactWithLabel(_currentPathLabel, _currentPath);
         _currentPathRow = facts.RowDefinitions[currentRow];
         panel.Children.Add(facts);
         SetCurrentPathVisible(false);
@@ -317,9 +317,9 @@ public sealed class ReviewPage : Grid
         return host;
 
         void AddFact(string title, TextBlock value)
-            => AddFact(new TextBlock { Text = title, FontSize = 12, Opacity = .6 }, value);
+            => AddFactWithLabel(new TextBlock { Text = title, FontSize = 12, Opacity = .6 }, value);
 
-        void AddFact(TextBlock label, TextBlock value)
+        void AddFactWithLabel(TextBlock label, TextBlock value)
         {
             var row = facts.RowDefinitions.Count;
             facts.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -812,6 +812,84 @@ public sealed class ReviewPage : Grid
         store.SetIngestState(row.Id, "pending", "");
         Reload();
         Changed?.Invoke();
+    }
+
+    private async Task ShowInGalleryAsync()
+    {
+        if (_busy || _selected is not { } row) return;
+        var path = IngestReview.CurrentPath(row);
+        if (path.Length == 0) { _status.Text = "没有可定位的当前文件"; return; }
+        if (_owner is not MainWindow main) return;
+        try
+        {
+            await main.ShowInGalleryAsync(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _status.Text = "无法在图库中定位：" + ex.Message;
+        }
+    }
+
+    private void RevealInExplorer()
+    {
+        if (_selected is not { } row) return;
+        var path = IngestReview.CurrentPath(row);
+        if (path.Length == 0 || !File.Exists(path)) { _status.Text = "没有可定位的当前文件"; return; }
+        try
+        {
+            FileActions.RevealInExplorer(path);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            _status.Text = "无法打开所在文件夹：" + ex.Message;
+        }
+    }
+
+    private async Task CleanHistoryAsync()
+    {
+        if (_busy || AppService.Store is not { } store) return;
+        var root = XamlRoot ?? _owner.Content?.XamlRoot;
+        if (root is null) return;
+        var choice = await HistoryCleanupDialog.ShowAsync(root, AppService.Settings.Settings.history_keep_days);
+        if (choice is null) return;
+        if (!choice.DeleteAll && choice.Days <= 0)
+        {
+            _status.Text = "保留天数为 0（永久），没有删除任何记录。";
+            return;
+        }
+        if (!choice.DeleteAll)
+        {
+            AppService.Settings.Settings.history_keep_days = choice.Days;
+            AppService.Settings.Save();
+        }
+
+        var cutoff = choice.DeleteAll
+            ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0
+            : DateTimeOffset.UtcNow.AddDays(-choice.Days).ToUnixTimeMilliseconds() / 1000.0;
+        _busy = true;
+        UpdateButtons();
+        StoreService.IngestHistoryCleanup? result = null;
+        try
+        {
+            _status.Text = "正在清理历史…";
+            result = await Task.Run(() =>
+            {
+                lock (AppService.DbLock) return store.DeleteIngestHistory(cutoff, choice.IncludeExistingSources);
+            });
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+        {
+            _status.Text = "清理失败：" + ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+            Reload();
+            Changed?.Invoke();
+        }
+        if (result is { } cleanup)
+            _status.Text = $"已删除 {cleanup.Deleted} 条历史" +
+                (cleanup.KeptExistingSource > 0 ? $"；保留 {cleanup.KeptExistingSource} 条（原文件仍存在）" : "");
     }
 
     private void UpdateButtons()

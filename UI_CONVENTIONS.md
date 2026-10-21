@@ -106,6 +106,8 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 
 图库右侧那条自绘时间线滚动条（`TimelineScrollbar`，48 宽）按要求不动：它本来就在内容留白之后，不覆盖可点内容。待审核圆环的 `ContinuousScrollBar` 是 16 宽，放在圆环与分割线之间的列间距里，同样不压卡片。
 
+`TimelineScrollbar` 的横杠移动保留 100ms 缓动；连续滚动算出相同目标时不重播，目标变化时保存当前显示位置作为新动画起点，并同步基础位置到目标，避免停止动画后退回旧位置。拖动及刷新等无动画调用仍立即定位。该调整仅作用于时间线标记，连续滚动、反向滚动、拖动和长跳表现待人工核对。
+
 修完请把「已修」改成带日期的字样，并在下面补一行说明改了什么；发现新的滚动区照此表追加。
 
 ---
