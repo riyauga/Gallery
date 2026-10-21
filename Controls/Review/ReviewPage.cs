@@ -674,7 +674,7 @@ public sealed class ReviewPage : Grid
         _boxSelectionBase = null;
         _batchRatingSummary = "";
         _batchTagsDirty = false;
-        _carousel.SetBatchMode(enabled, _batchSelected);
+        _carousel.SetBatchMode(enabled, _batchSelected, enabled ? null : _singleIndexBeforeBatch);
         if (enabled) RenderBatchSelection(true);
         else Select(Math.Clamp(_singleIndexBeforeBatch, 0, Math.Max(0, _rows.Count - 1)), false);
         UpdateButtons();

@@ -146,8 +146,11 @@ internal sealed class ReviewCarousel : Grid
             SelectedImageLoaded?.Invoke(item);
     }
 
-    public void SetBatchMode(bool enabled, IReadOnlyCollection<int> selected)
+    public void SetBatchMode(bool enabled, IReadOnlyCollection<int> selected, int? singleIndex = null)
     {
+        // 退出批量时先恢复圆环索引，避免首个状态仍带着网格索引启动入场。
+        if (!enabled && singleIndex is int index && _rows.Count > 0)
+            _index = Math.Clamp(index, 0, _rows.Count - 1);
         if (_batchMode != enabled)
         {
             _batchMode = enabled;
