@@ -1822,6 +1822,11 @@ public sealed class StoreService : IDisposable
             }
         }
 
+        return ApplyTagDisplayNames(tags);
+    }
+
+    private List<TagInfo> ApplyTagDisplayNames(List<TagInfo> tags)
+    {
         // 中文短名要跨「同一身份」的所有写法取最短；只有真的用到时才扫实体表。
         Dictionary<string, string>? entityIdentity = null;
         Dictionary<string, string>? shortNames = null;
@@ -1885,6 +1890,21 @@ public sealed class StoreService : IDisposable
             tags[i] = tag with { DisplayOverride = display };
         }
         return tags;
+    }
+
+    /// <summary>待审核原始标签也复用贴纸显示规则；只读名称解析，不写入标签或身份关联。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public Dictionary<(string Category, string Name), string> ResolveTagLabels(IEnumerable<(string Category, string Name)> names)
+    {
+        var requested = names.Distinct().ToArray();
+        var known = AllTags().ToDictionary(tag => (tag.Category, tag.Name));
+        var mode = TagDisplayState.GlobalMode(_conn);
+        var tags = requested.Select(key => known.TryGetValue(key, out var tag) ? tag
+            : new TagInfo { Id = 0, Category = key.Category, Name = key.Name,
+                DisplayMode = key.Category is "character" or "work" ? mode : TagDisplayState.DefaultGlobalMode }).ToList();
+        var catalog = new TagCatalogService(this);
+        tags = catalog.ResolveDisplayNames(tags);
+        return ApplyTagDisplayNames(tags).ToDictionary(tag => (tag.Category, tag.Name), tag => tag.Display);
     }
 
     private static string? ShortDisplay(TagInfo tag,

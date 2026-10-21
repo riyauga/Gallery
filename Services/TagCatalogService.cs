@@ -14,6 +14,9 @@ public sealed class TagCatalogService
 {
     private static readonly string[] ValidStatus = ["released", "announced", "unknown"];
     private static readonly Regex WorkSuffix = new(@"_\([^()]*\)$", RegexOptions.Compiled);
+    private static readonly Regex NamePrefix = new(
+        @"^(?:(?:角色|人物|干员|作品|游戏|敌人|宠物|character(?:s)?|work(?:s)?|game(?:s)?|npc|enem(?:y|ies)|pet(?:s)?|キャラクター|登場人物)\s*[/：:]\s*)+",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private readonly StoreService _store;
 
@@ -61,12 +64,40 @@ public sealed class TagCatalogService
         return stripped.Replace('_', ' ').Trim();
     }
 
+    /// <summary>所有来源及人工词库编辑共用的入库名称格式；不改来源实体键和用户标签原名。</summary>
+    public static string CanonicalName(string text)
+    {
+        var value = (text ?? "").Normalize(NormalizationForm.FormKC);
+        value = string.Concat(value.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format));
+        value = Regex.Replace(value.Replace('_', ' '), @"\s+", " ").Trim();
+        value = NamePrefix.Replace(value, "").Trim();
+        // 已确认的抓取字段错误：这是表格说明，不能作为任何来源的名字或别名。
+        return value == "的攻击范围" ? "" : value;
+    }
+
+    private static List<string> CanonicalAliases(IEnumerable<string> aliases, params string[] names)
+        => aliases.Select(CanonicalName).Where(name => name.Length > 0 && !names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    private static string CanonicalGameKey(string key)
+        => Regex.Replace((key ?? "").Normalize(NormalizationForm.FormKC).Trim().ToLowerInvariant(), @"[\s-]+", "_");
+
+    private static string CanonicalKind(string kind) => kind.Trim().ToLowerInvariant() switch
+    {
+        "角色" or "人物" or "干员" or "characters" => "character",
+        "作品" or "游戏" or "works" or "games" => "work",
+        "敌人" or "enemies" => "enemy",
+        "宠物" or "pets" => "pet",
+        "character" or "work" or "enemy" or "pet" or "npc" or "artist" => kind.Trim().ToLowerInvariant(),
+        _ => throw new InvalidOperationException("词库实体分类无效：" + kind),
+    };
+
     private static string Sha256Hex(byte[] bytes)
         => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
 
     /// <summary>策略摘要：内容摘要再哈希一次，policy 变了可以强制重导。</summary>
     public static string PolicyDigest(string digest)
-        => Sha256Hex(Encoding.UTF8.GetBytes(digest + ":explicit-identity-v2"));
+        => Sha256Hex(Encoding.UTF8.GetBytes(digest + ":canonical-names-v3"));
 
     public sealed record Bundle(string Path, string Digest, JsonElement Root);
 
@@ -230,11 +261,15 @@ public sealed class TagCatalogService
         foreach (var r in records.EnumerateArray())
         {
             if (r.ValueKind != JsonValueKind.Object) continue;
+            var zh = CanonicalName(Str(r, "zh"));
+            var en = CanonicalName(Str(r, "en"));
             yield return new Rec(
-                Str(r, "key"), Str(r, "game"), Str(r, "kind", "character"),
-                Str(r, "zh"), Str(r, "en"),
-                List(r, "aliases"), List(r, "source_tags"), List(r, "works"),
-                Str(r, "status"), r.TryGetProperty("source_url", out var su) ? su.GetString() : null,
+                Str(r, "key").Trim(), CanonicalGameKey(Str(r, "game")), CanonicalKind(Str(r, "kind", "character")),
+                zh, en,
+                CanonicalAliases(List(r, "aliases"), zh, en),
+                List(r, "source_tags").Select(name => CanonicalName(name).ToLowerInvariant().Replace(' ', '_')).Where(name => name.Length > 0).Distinct().ToList(),
+                List(r, "works").Select(CanonicalGameKey).Where(key => key.Length > 0).Distinct().ToList(),
+                Str(r, "status").Trim().ToLowerInvariant(), r.TryGetProperty("source_url", out var su) ? su.GetString()?.Trim() : null,
                 r.TryGetProperty("identity_key", out var ik) ? ik.GetString() : null);
         }
     }
@@ -317,14 +352,16 @@ public sealed class TagCatalogService
             foreach (var g in games.EnumerateArray())
             {
                 if (g.ValueKind != JsonValueKind.Object) continue;
-                var gk = Str(g, "key");
+                var gk = CanonicalGameKey(Str(g, "key"));
                 if (gk.Length == 0) continue;
+                var zh = CanonicalName(Str(g, "zh"));
+                var en = CanonicalName(Str(g, "en"));
                 Exec(conn, tx,
                     "INSERT INTO catalog_games(game_key,zh,en,aliases,source_url) VALUES($k,$z,$e,$a,$u) " +
                     "ON CONFLICT(game_key) DO UPDATE SET zh=excluded.zh,en=excluded.en," +
                     "aliases=excluded.aliases,source_url=excluded.source_url",
-                    ("$k", gk), ("$z", Str(g, "zh")), ("$e", Str(g, "en")),
-                    ("$a", JsonSerializer.Serialize(List(g, "aliases"))),
+                    ("$k", gk), ("$z", zh), ("$e", en),
+                    ("$a", JsonSerializer.Serialize(CanonicalAliases(List(g, "aliases"), zh, en))),
                     ("$u", g.TryGetProperty("source_url", out var gsu) ? gsu.GetString() ?? sourceUrl : sourceUrl));
             }
         }
@@ -495,6 +532,8 @@ public sealed class TagCatalogService
     /// <summary>写入人工资料（zh/en/entity_key），词库更新不会覆盖这些。</summary>
     public void SetProfile(int tagId, string zh = "", string en = "", string entityKey = "")
     {
+        zh = CanonicalName(zh);
+        en = CanonicalName(en);
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
@@ -529,6 +568,54 @@ public sealed class TagCatalogService
             result[name] = (r.GetString(0), r.GetString(1), r.GetString(2));
         }
         return result;
+    }
+
+    /// <summary>按分类和完整原名精确补全显示资料；歧义身份保留原名，不写回关联。</summary>
+    public List<StoreService.TagInfo> ResolveDisplayNames(IEnumerable<StoreService.TagInfo> tags)
+    {
+        using var conn = Open();
+        var games = GameNames();
+        return tags.Select(tag =>
+        {
+            if (tag.Category is not ("character" or "work") || tag.DisplayName.Length > 0
+                || tag.DisplayMode == "canonical") return tag;
+            if (tag.Category == "work" && tag.EntityKey.Length == 0)
+            {
+                var name = Norm(tag.Name);
+                var works = games.Where(game => Norm(game.Key) == name || Norm(game.Value.Zh) == name || Norm(game.Value.En) == name).ToArray();
+                if (works.Length == 1)
+                    return tag with { ZhName = tag.ZhName.Length > 0 ? tag.ZhName : works[0].Value.Zh,
+                        EnName = tag.EnName.Length > 0 ? tag.EnName : works[0].Value.En };
+            }
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.aliases,'[]')," +
+                "COALESCE(NULLIF(e.identity_key,''),e.entity_key),COALESCE(e.game_key,'') FROM catalog_entities e " +
+                "WHERE e.kind=$category AND (( $key<>'' AND e.entity_key=$key) OR ($key='' AND EXISTS " +
+                "(SELECT 1 FROM catalog_names n WHERE n.entity_key=e.entity_key AND n.term=$name)))";
+            cmd.Parameters.AddWithValue("$category", tag.Category);
+            cmd.Parameters.AddWithValue("$key", tag.EntityKey);
+            cmd.Parameters.AddWithValue("$name", Norm(tag.Name));
+            using var reader = cmd.ExecuteReader();
+            var hits = new List<(string Key, string Zh, string En, string Aliases, string Identity, string Game)>();
+            while (reader.Read()) hits.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5)));
+            if (hits.Count == 0) return tag;
+            var sameSource = hits.All(hit => hit.Game.Length > 0 && hit.En.Length > 0)
+                && hits.Select(hit => (hit.Game, Name: Norm(hit.En))).Distinct().Count() == 1;
+            if (hits.Select(hit => hit.Identity).Distinct(StringComparer.Ordinal).Count() != 1 && !sameSource) return tag;
+            var own = hits.OrderByDescending(hit => hit.Zh.Length > 0).ThenByDescending(hit => hit.En.Length > 0)
+                .ThenBy(hit => hit.Key, StringComparer.Ordinal).First();
+            IReadOnlyList<string> aliases = tag.Aliases;
+            if (aliases.Count == 0)
+            {
+                try { aliases = JsonSerializer.Deserialize<List<string>>(own.Aliases) ?? []; }
+                catch (JsonException) { }
+            }
+            return tag with { EntityKey = own.Key, IdentityKey = own.Identity,
+                ZhName = tag.ZhName.Length > 0 ? tag.ZhName : hits.Select(hit => hit.Zh).FirstOrDefault(name => name.Length > 0) ?? "",
+                EnName = tag.EnName.Length > 0 ? tag.EnName : hits.Select(hit => hit.En).FirstOrDefault(name => name.Length > 0) ?? "",
+                Aliases = aliases };
+        }).ToList();
     }
 
     /// <summary>给标签补中文名/英文名/身份键（人工资料优先，词库只补空缺），对应 CharacterCatalog.enrich。</summary>
@@ -1121,16 +1208,16 @@ public sealed class TagCatalogService
         return (applied, changed.Count);
     }
 
-    /// <summary>只合并计划里 0 图 custom→character 的重复标签；有图的留给 TagMergeService。</summary>
+    /// <summary>只合并计划里 0 图 custom→明确分类的重复标签；有图的留给 TagMergeService。</summary>
     private static int ApplyCustomTagMerges(
         SqliteConnection conn, IReadOnlyList<PlanTagMerge> merges, bool dryRun, Action<string>? log)
     {
         int done = 0;
         foreach (var merge in merges)
         {
-            if (merge.LoserCategory != "custom" || merge.WinnerCategory != "character")
+            if (merge.LoserCategory != "custom" || merge.WinnerCategory is not ("character" or "artist" or "work" or "kind"))
             {
-                log?.Invoke($"标签合并跳过（只处理 0 图 custom→character）：{merge.LoserName}");
+                log?.Invoke($"标签合并跳过（只处理计划内 0 图 custom→角色/画师/作品/类型）：{merge.LoserName}");
                 continue;
             }
             var loserId = TagId(conn, merge.LoserCategory, merge.LoserName);
@@ -1161,7 +1248,7 @@ public sealed class TagCatalogService
             }
             if (dryRun)
             {
-                log?.Invoke($"[预演] 合并标签 custom/{merge.LoserName} -> character/{merge.WinnerName}");
+                log?.Invoke($"[预演] 合并标签 custom/{merge.LoserName} -> {merge.WinnerCategory}/{merge.WinnerName}");
                 done++;
                 continue;
             }
@@ -1186,6 +1273,8 @@ public sealed class TagCatalogService
             if (loserEntity.Length > 0 && winnerEntity.Length == 0)
                 Exec(conn, tx, "UPDATE tag_profiles SET entity_key=$v WHERE tag_id=$t",
                     ("$v", loserEntity), ("$t", winnerId));
+            Exec(conn, tx, "INSERT OR IGNORE INTO tag_aliases(tag_id,alias) SELECT $w,alias FROM tag_aliases WHERE tag_id=$l",
+                ("$w", winnerId), ("$l", loserId));
             Exec(conn, tx,
                 "INSERT OR IGNORE INTO tag_aliases(tag_id,alias) VALUES($t,$a)",
                 ("$t", winnerId), ("$a", merge.LoserName));
@@ -1201,7 +1290,7 @@ public sealed class TagCatalogService
 
             Exec(conn, tx, "DELETE FROM tags WHERE id=$t", ("$t", loserId));
             tx.Commit();
-            log?.Invoke($"已合并标签 custom/{merge.LoserName} -> character/{merge.WinnerName}（{merge.Note}）");
+            log?.Invoke($"已合并标签 custom/{merge.LoserName} -> {merge.WinnerCategory}/{merge.WinnerName}（{merge.Note}）");
             done++;
         }
         return done;
@@ -1402,8 +1491,10 @@ public sealed class TagCatalogService
     public int UpdateEntity(string entityKey, string zh, string en, IEnumerable<string> aliases)
     {
         if (string.IsNullOrWhiteSpace(entityKey)) return 0;
-        var aliasList = aliases.Select(a => a.Trim()).Where(a => a.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        zh = CanonicalName(zh);
+        en = CanonicalName(en);
+        if (zh.Length == 0 && en.Length == 0) throw new ArgumentException("词库名称不能为空");
+        var aliasList = CanonicalAliases(aliases, zh, en);
         var aliasJson = JsonSerializer.Serialize(aliasList);
 
         using var conn = Open();

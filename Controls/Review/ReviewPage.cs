@@ -638,7 +638,7 @@ public sealed class ReviewPage : Grid
             }
             SetBusy(false);
             Reload();
-            _carousel.RefreshPreview();
+            _carousel.RefreshPreview(preserveRevealed: true);
             _status.Text = clear ? $"已清空 {applied} 张图片的全部标签" : $"已合并应用 {applied} 张图片的标签";
         }
         catch (Exception ex) when (ex is JsonException or Microsoft.Data.Sqlite.SqliteException)
@@ -741,6 +741,22 @@ public sealed class ReviewPage : Grid
     }
 
     private int? _pendingNotificationId;
+
+    private int _tagLabelGeneration = -1;
+    private readonly Dictionary<(string Category, string Name), string> _tagLabels = [];
+
+    private string TagLabel(string category, string name)
+    {
+        if (category is not ("character" or "work") || AppService.Store is not { } store) return name;
+        if (_tagLabelGeneration != _selectionGeneration) { _tagLabels.Clear(); _tagLabelGeneration = _selectionGeneration; }
+        if (!_tagLabels.ContainsKey((category, name)))
+        {
+            var names = _tags.Where(pair => pair.Key is "character" or "work")
+                .SelectMany(pair => pair.Value.Select(value => (Category: pair.Key, Name: value)));
+            foreach (var (key, label) in store.ResolveTagLabels(names)) _tagLabels[key] = label;
+        }
+        return _tagLabels.GetValueOrDefault((category, name), name);
+    }
 
     private void BuildTagGroup(string category, string title)
     {
@@ -848,7 +864,10 @@ public sealed class ReviewPage : Grid
                         SaveTags(false);
                         Rebuild();
                     };
-                    chips.Children.Add(new Tags.TagChip(category, name, remove));
+                    var label = TagLabel(category, name);
+                    var chip = new Tags.TagChip(category, label, remove);
+                    ToolTipService.SetToolTip(chip, label == name ? name : $"{label} · {name}");
+                    chips.Children.Add(chip);
                 }
             }
             if (category == "rating")
@@ -959,7 +978,7 @@ public sealed class ReviewPage : Grid
             SetBusy(false);
             var status = _status.Text;
             Reload();
-            _carousel.RefreshPreview();
+            _carousel.RefreshPreview(preserveRevealed: true);
             _status.Text = status;
             UpdateButtons();
             OpenDeferredNotification();
@@ -995,7 +1014,7 @@ public sealed class ReviewPage : Grid
             RefreshDestination();
             if (refreshProtection)
             {
-                _carousel.RefreshPreview();
+                _carousel.RefreshPreview(preserveRevealed: true);
                 _carousel.SetItems(_rows, _index);
             }
         }
@@ -1324,7 +1343,17 @@ public sealed class ReviewPage : Grid
         }
         _carousel.SetActive(active);
         if (!active) _imageSpecs.Clear();
-        else UpdateButtons();
+        else
+        {
+            var pending = _tagInputs.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
+            _tagGroups.Children.Clear(); _tagInputs.Clear(); _ratingBadge = null;
+            if (_selected is not null || BatchMultiple)
+                for (var i = 0; i < IngestReview.Categories.Length; i++)
+                    BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+            foreach (var (category, text) in pending)
+                if (_tagInputs.TryGetValue(category, out var input)) input.Text = text;
+            UpdateButtons();
+        }
     }
 
     /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>

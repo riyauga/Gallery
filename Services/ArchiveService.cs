@@ -301,7 +301,6 @@ public sealed class ArchiveService(StoreService store)
                     .ToList();
                 if (edited.Count > 0)
                 {
-                    store.AddTags([imageId], edited.Select(t => t.Name).Distinct().ToList());
                     store.SetCategorizedTags([imageId], edited);
                     store.Commit();
                     AppService.RequestCatalogAlign();
@@ -334,7 +333,6 @@ public sealed class ArchiveService(StoreService store)
 
             if (pairs.Count == 0) return;
 
-            store.AddTags([imageId], pairs.Select(p => p.Name).Distinct().ToList());
             store.SetCategorizedTags([imageId], pairs);
             store.Commit();
             AppService.RequestCatalogAlign();

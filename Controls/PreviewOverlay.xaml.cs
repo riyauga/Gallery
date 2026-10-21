@@ -547,6 +547,7 @@ public sealed partial class PreviewOverlay : Grid
     public void RefreshCurrentTags()
     {
         if (!IsOpen || _items.Count == 0) return;
+        RefreshTagDisplay();
         Detail.SetTags(LoadTagPairs(_items[_index].ImageId));
     }
     public void RefreshItems(IReadOnlyList<PhotoItem> items)
@@ -679,6 +680,7 @@ public sealed partial class PreviewOverlay : Grid
     /// <summary>把标签原名 → 展示名（有中文名用中文）缓存下来，供详情面板贴纸用。</summary>
     private void RefreshTagDisplay()
     {
+        _tagDisplay.Clear();
         if (AppService.Store is not { } store) return;
         try
         {

@@ -246,9 +246,11 @@ internal sealed class ReviewCarousel : Grid
         }
     }
 
-    public void RefreshPreview()
+    public void RefreshPreview(bool preserveRevealed = false)
     {
-        _revealed.Clear(); _previews.Clear(); _clearPreview = null;
+        if (preserveRevealed) _revealed.IntersectWith(_rows.Select(row => row.Id));
+        else _revealed.Clear();
+        _previews.Clear(); _clearPreview = null;
         _prefetchedRows = _rows;
         PublishState(); StartLoads(); StartPrefetch(_rows);
     }

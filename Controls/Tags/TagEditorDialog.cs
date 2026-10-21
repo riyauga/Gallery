@@ -424,6 +424,8 @@ public sealed class TagEditorDialog
         var clean = (name ?? "").Trim();
         if (clean.Length == 0) return;
         var cat = category.Length == 0 ? "custom" : category;
+        if (display.Length == 0 && (cat is "character" or "work") && AppService.Store is { } store)
+            display = store.ResolveTagLabels([(cat, clean)]).GetValueOrDefault((cat, clean), clean);
 
         if (_entries.TryGetValue(clean, out var existing))
         {
