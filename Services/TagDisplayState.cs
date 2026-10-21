@@ -14,9 +14,7 @@ public static class TagDisplayState
 {
     public const string StateKey = "tag_state";
     public const string GlobalModeKey = "tag_display_mode";
-    public const string SearchNameModeKey = "tag_search_name_mode";
     public const string DefaultGlobalMode = "zh_full";
-    public const string DefaultSearchNameMode = "en_source";
 
     public sealed record State(
         string Status = "",
@@ -106,33 +104,4 @@ public static class TagDisplayState
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>搜索候选单独使用来源原名；和标签贴纸的显示设置互不影响。</summary>
-    public static string SearchNameMode(SqliteConnection conn)
-    {
-        try
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT value FROM meta WHERE key=$k";
-            cmd.Parameters.AddWithValue("$k", SearchNameModeKey);
-            var value = cmd.ExecuteScalar() as string;
-            return string.IsNullOrWhiteSpace(value) ? DefaultSearchNameMode : value.Trim();
-        }
-        catch
-        {
-            return DefaultSearchNameMode;
-        }
-    }
-
-    public static void SetSearchNameMode(SqliteConnection conn, string mode)
-    {
-        var clean = (mode ?? "").Trim();
-        if (clean is not ("en_source" or "zh_source")) clean = DefaultSearchNameMode;
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            "INSERT INTO meta(key,value) VALUES($k,$v) " +
-            "ON CONFLICT(key) DO UPDATE SET value=excluded.value";
-        cmd.Parameters.AddWithValue("$k", SearchNameModeKey);
-        cmd.Parameters.AddWithValue("$v", clean);
-        cmd.ExecuteNonQuery();
-    }
 }

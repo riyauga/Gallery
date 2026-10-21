@@ -1797,7 +1797,7 @@ public sealed class StoreService : IDisposable
                 states.TryGetValue(id, out var state);
                 var mode = state is not null && state.DisplayMode.Length > 0
                     ? state.DisplayMode
-                    : globalMode;
+                    : r.GetString(3) is "character" or "work" ? globalMode : TagDisplayState.DefaultGlobalMode;
                 tags.Add(new TagInfo
                 {
                     Id = id,
@@ -1917,14 +1917,6 @@ public sealed class StoreService : IDisposable
     [MethodImpl(MethodImplOptions.Synchronized)]
     public void SetGlobalTagDisplayMode(string mode) =>
         TagDisplayState.SetGlobalMode(_conn, mode);
-
-    /// <summary>搜索候选的来源名语言；与标签贴纸显示设置分开。</summary>
-    [MethodImpl(MethodImplOptions.Synchronized)]
-    public string GlobalTagSearchNameMode() => TagDisplayState.SearchNameMode(_conn);
-
-    [MethodImpl(MethodImplOptions.Synchronized)]
-    public void SetGlobalTagSearchNameMode(string mode) =>
-        TagDisplayState.SetSearchNameMode(_conn, mode);
 
     /// <summary>
     /// 照搬 store.py search_tags：空格折叠成下划线后做包含匹配（名或别名），

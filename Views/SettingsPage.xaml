@@ -224,24 +224,10 @@
                         </StackPanel>
                     </ctc:SettingsCard>
 
-                    <ctc:SettingsCard
-                        Description="搜索候选显示来源原名并带作品名，例如 kafka_(honkai:_star_rail) 或 卡芙卡_(崩坏：星穹铁道)；不影响标签贴纸显示"
-                        Header="角色搜索候选">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE721;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <controls:SelectionDropDown
-                            x:Name="TagSearchNameBox"
-                            MinWidth="180"
-                            SelectionChanged="TagSearchName_SelectionChanged">
-                            <ComboBoxItem Content="英文来源原名" Tag="en_source" />
-                            <ComboBoxItem Content="中文来源原名" Tag="zh_source" />
-                        </controls:SelectionDropDown>
-                    </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="只影响标签贴纸和评审页标签；没有中文名时回退英文来源名；搜索候选在上方单独设置"
-                        Header="角色标签显示">
+                        Description="只影响角色、作品的标签贴纸和评审页标签；搜索候选自动跟随输入语言，缺少对应语言名称时回退"
+                        Header="标签显示">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8D2;" />
                         </ctc:SettingsCard.HeaderIcon>

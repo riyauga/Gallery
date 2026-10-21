@@ -13,7 +13,7 @@ using Windows.Foundation;
 
 namespace Gallery.Controls.Review;
 
-/// <summary>归档审阅页：圆环单图审阅与网格多选；多选标签草稿显式覆盖应用。</summary>
+/// <summary>归档审阅页：圆环单图审阅与网格多选；多选标签草稿显式合并应用，另提供清空标签。</summary>
 public sealed class ReviewPage : Grid
 {
     private readonly Window _owner;
@@ -76,7 +76,8 @@ public sealed class ReviewPage : Grid
     private readonly ToggleButton _batchToggle = new() { Content = "批量审核", Padding = new Thickness(12, 6, 12, 6) };
     private readonly Button _selectAll = new() { Content = "全选", Visibility = Visibility.Collapsed };
     private readonly SelectionDropDown _cardSize = new() { Visibility = Visibility.Collapsed, MinWidth = 70 };
-    private readonly Button _applyTags = new() { Content = "应用到所选图片", HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
+    private readonly Button _applyTags = new() { Content = "应用标签", HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
+    private readonly Button _clearTags = new() { Content = "清空标签", Visibility = Visibility.Collapsed };
     private readonly TextBlock _batchHint = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = .7, Visibility = Visibility.Collapsed };
     private readonly StackPanel _imageDetails = new() { Spacing = 12 };
     private readonly StackPanel _tagSection = new() { Spacing = 12 };
@@ -87,7 +88,6 @@ public sealed class ReviewPage : Grid
     private HashSet<int>? _boxSelectionBase;
     private CancellationTokenSource? _batchClassifyCts;
     private string _batchRatingSummary = "";
-    private readonly Dictionary<int, string> _batchModelRatings = [];
     private int _singleIndexBeforeBatch;
     private bool BatchMultiple => _batchMode && _batchSelected.Count > 1;
     private readonly Button _restore = new() { Content = "恢复待处理", Visibility = Visibility.Collapsed };
@@ -245,6 +245,7 @@ public sealed class ReviewPage : Grid
             RenderBatchSelection(!wasMultiple);
         };
         _applyTags.Click += async (_, _) => await ApplyBatchTagsAsync();
+        _clearTags.Click += async (_, _) => await ApplyBatchTagsAsync(true);
         foreach (var (key, label) in new[] { ("small", "小"), ("medium", "中"), ("large", "大") })
             _cardSize.Items.Add(new ComboBoxItem { Tag = key, Content = label });
         _cardSize.SelectedIndex = 1;
@@ -382,7 +383,10 @@ public sealed class ReviewPage : Grid
         panel.Children.Add(_batchHint);
         _tagSection.Children.Add(new TextBlock { Text = "标签", FontSize = 18, FontWeight = FontWeights.SemiBold });
         _tagSection.Children.Add(_tagGroups);
-        _tagSection.Children.Add(_applyTags);
+        var tagActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        tagActions.Children.Add(_applyTags);
+        tagActions.Children.Add(_clearTags);
+        _tagSection.Children.Add(tagActions);
         panel.Children.Add(_tagSection);
         _detailScroll.Content = panel;
         host.Children.Add(_detailScroll);
@@ -500,7 +504,6 @@ public sealed class ReviewPage : Grid
         _batchSelected.Clear();
         _boxSelectionBase = null;
         _batchRatingSummary = "";
-        _batchModelRatings.Clear();
         _batchTagsDirty = false;
         _carousel.SetBatchMode(enabled, _batchSelected);
         if (enabled) RenderBatchSelection(true);
@@ -552,7 +555,6 @@ public sealed class ReviewPage : Grid
                 _tags = IngestReview.Categories.ToDictionary(category => category, _ => new List<string>());
                 _batchTagsDirty = false;
                 _batchRatingSummary = "";
-                _batchModelRatings.Clear();
             }
             if (rebuildTags)
             {
@@ -575,26 +577,28 @@ public sealed class ReviewPage : Grid
         UpdateButtons();
     }
 
-    private async Task ApplyBatchTagsAsync()
+    private async Task ApplyBatchTagsAsync(bool clear = false)
     {
         if (_busy || !BatchMultiple || AppService.IsShuttingDown || AppService.Store is not { } store) return;
         // 应用也接收输入框里尚未按回车的标签，不让可见输入被漏掉。
-        foreach (var (category, input) in _tagInputs)
+        if (!clear) foreach (var (category, input) in _tagInputs)
         {
             var name = input.Text.Trim();
             if (name.Length > 0 && !_tags[category].Contains(name, StringComparer.OrdinalIgnoreCase))
                 _tags[category].Add(name);
         }
-        ++_selectionGeneration;
-        _tagGroups.Children.Clear();
-        _tagInputs.Clear();
-        for (var i = 0; i < IngestReview.Categories.Length; i++)
-            BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+        if (!clear)
+        {
+            ++_selectionGeneration;
+            _tagGroups.Children.Clear();
+            _tagInputs.Clear();
+            for (var i = 0; i < IngestReview.Categories.Length; i++)
+                BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+        }
         var ids = _batchSelected.ToArray();
         var tags = _tags.ToDictionary(pair => pair.Key, pair => pair.Value.ToList());
         var rating = tags["rating"].FirstOrDefault() ?? "";
-        var modelRatings = new Dictionary<int, string>(_batchModelRatings);
-        _batchTagsDirty = true;
+        if (!clear) _batchTagsDirty = true;
         SetBusy(true);
         UpdateButtons();
         try
@@ -606,9 +610,14 @@ public sealed class ReviewPage : Grid
                 foreach (var id in ids)
                 {
                     if (store.IngestRow(id) is not { State: "pending" } row) continue;
-                    var itemRating = modelRatings.GetValueOrDefault(id, rating);
-                    var itemTags = new Dictionary<string, List<string>>(tags)
-                        { ["rating"] = itemRating.Length > 0 ? [itemRating] : [] };
+                    var itemRating = clear ? "" : rating.Length > 0 ? rating : ArchiveService.NormalizeRating(row.Rating);
+                    var itemTags = clear
+                        ? IngestReview.Categories.ToDictionary(category => category, _ => new List<string>())
+                        : IngestReview.Tags(row.Payload, row.Rating);
+                    if (!clear)
+                        foreach (var category in IngestReview.Categories.Where(category => category != "rating"))
+                            itemTags[category] = itemTags[category].Concat(tags[category]).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    itemTags["rating"] = itemRating.Length > 0 ? [itemRating] : [];
                     store.UpdateIngestReview(id, IngestReview.UpdatePayload(row.Payload, itemTags, itemRating), itemRating);
                     count++;
                 }
@@ -616,13 +625,24 @@ public sealed class ReviewPage : Grid
                 return count;
             });
             _batchTagsDirty = false;
+            if (clear)
+            {
+                _tags = IngestReview.Categories.ToDictionary(category => category, _ => new List<string>());
+                _batchRatingSummary = "";
+                ++_selectionGeneration;
+                _tagGroups.Children.Clear();
+                _tagInputs.Clear();
+                _ratingBadge = null;
+                for (var i = 0; i < IngestReview.Categories.Length; i++)
+                    BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+            }
             SetBusy(false);
             Reload();
             _carousel.RefreshPreview();
-            _status.Text = $"已覆盖 {applied} 张图片的标签";
+            _status.Text = clear ? $"已清空 {applied} 张图片的全部标签" : $"已合并应用 {applied} 张图片的标签";
         }
         catch (Exception ex) when (ex is JsonException or Microsoft.Data.Sqlite.SqliteException)
-        { _status.Text = "批量应用失败：" + ex.Message; }
+        { _status.Text = (clear ? "批量清空失败：" : "批量应用失败：") + ex.Message; }
         finally { SetBusy(false); UpdateButtons(); OpenDeferredNotification(); }
     }
 
@@ -813,7 +833,6 @@ public sealed class ReviewPage : Grid
                         _tags[category].Clear();
                         _tags[category].Add(name);
                         _batchRatingSummary = "";
-                        _batchModelRatings.Clear();
                         SaveTags(true);
                         Rebuild();
                     };
@@ -882,7 +901,6 @@ public sealed class ReviewPage : Grid
         using var cancellation = new CancellationTokenSource();
         _batchClassifyCts = cancellation;
         var modelDir = AppService.Settings.Settings.nsfw_model_dir;
-        _batchModelRatings.Clear();
         _batchRatingSummary = "";
         SetBusy(true);
         UpdateButtons();
@@ -898,7 +916,6 @@ public sealed class ReviewPage : Grid
                 var scorer = NsfwScorer.TryCreate(modelDir, out var error)
                     ?? throw new InvalidOperationException(error);
                 var ratings = new Dictionary<string, int>();
-                var byImage = new Dictionary<int, string>();
                 var failures = new List<string>();
                 var done = 0;
                 foreach (var id in ids)
@@ -918,7 +935,6 @@ public sealed class ReviewPage : Grid
                         store.UpdateIngestReview(id, IngestReview.UpdatePayload(current.Payload, tags, rating), rating);
                         tx.Success = true;
                         ratings[rating] = ratings.GetValueOrDefault(rating) + 1;
-                        byImage[id] = rating;
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException
                         or ArgumentException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException
@@ -926,9 +942,8 @@ public sealed class ReviewPage : Grid
                     { failures.Add($"#{id}：{ex.Message}"); }
                     finally { ((IProgress<(int Done, int Failed)>)progress).Report((++done, failures.Count)); }
                 }
-                return (Ratings: ratings, ByImage: byImage, Failures: failures);
+                return (Ratings: ratings, Failures: failures);
             }, cancellation.Token);
-            foreach (var (id, rating) in result.ByImage) _batchModelRatings[id] = rating;
             _tags["rating"].Clear();
             _batchRatingSummary = string.Join(" · ", result.Ratings.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}：{pair.Value} 张"));
             _status.Text = $"已逐图分级 {result.Ratings.Values.Sum()} 张，失败 {result.Failures.Count} 张"
@@ -963,7 +978,7 @@ public sealed class ReviewPage : Grid
         if (BatchMultiple)
         {
             _batchTagsDirty = true;
-            _status.Text = "标签尚未应用；点击“应用到所选图片”覆盖所选图片的标签。";
+            _status.Text = "标签尚未应用；点击“应用标签”追加合并到所选图片。";
             RefreshDestination();
             UpdateButtons();
             return;
@@ -1271,11 +1286,13 @@ public sealed class ReviewPage : Grid
         _detailsHeading.Text = _batchMode ? "批量审核" : "图片详情";
         _batchHint.Visibility = _batchMode && _batchSelected.Count != 1 ? Visibility.Visible : Visibility.Collapsed;
         _batchHint.Text = BatchMultiple
-            ? $"已选择 {_batchSelected.Count} 张 · 输入标签后点击应用，整套覆盖所选图片的原标签（空分类也会清空）。"
+            ? $"已选择 {_batchSelected.Count} 张 · “应用标签”追加合并并去重；“清空标签”清除全部标签及分级。"
             : "点击左侧卡片选择图片，或使用全选。";
         _tagSection.Visibility = _batchMode && _batchSelected.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         _applyTags.Visibility = BatchMultiple ? Visibility.Visible : Visibility.Collapsed;
         _applyTags.IsEnabled = !_busy;
+        _clearTags.Visibility = BatchMultiple ? Visibility.Visible : Visibility.Collapsed;
+        _clearTags.IsEnabled = !_busy;
         if (_batchMode) _scopeHint.Text = $"操作范围：已选择的 {_batchSelected.Count} 张图片";
         else if (_state == "pending") _scopeHint.Text = "批量操作范围：全部待归档图片";
         _revealAll.Visibility = _state == "pending" && _carousel.HasBlurredRows ? Visibility.Visible : Visibility.Collapsed;

@@ -1,8 +1,10 @@
+using System.Text;
+
 namespace Gallery.Services;
 
 /// <summary>
 /// 标签候选：同一个人物只留一条。
-/// Display 是标签贴纸显示名，SearchDisplay 是搜索候选专用的“来源原名_(作品名)”。
+/// Display 是标签贴纸显示名；角色、作品的 SearchDisplay 跟随输入语言，角色附带作品名。
 /// </summary>
 public sealed record TagSearchSuggestion(
     string Name, string Display, string SearchDisplay, string EntityKey, int Count, bool IsEntity);
@@ -19,7 +21,7 @@ public static class TagSearchService
         StoreService store, string category, string query, int limit = 12)
     {
         var displayMode = store.GlobalTagDisplayMode();
-        var searchNameMode = store.GlobalTagSearchNameMode();
+        var searchNameMode = HasHan(query) ? "zh_source" : "en_source";
         var catalog = new TagCatalogService(store);
         var games = catalog.GameNames();
         var tags = store.SearchTags(query, 200)
@@ -97,7 +99,7 @@ public static class TagSearchService
             var key = "id:" + identity;
             if (indexes.ContainsKey(key)) continue;
             var name = entity.Zh.Length > 0 ? entity.Zh : entity.En;
-            var display = EntityDisplay(entity, displayMode);
+            var display = EntityDisplay(entity, category is "character" or "work" ? displayMode : TagDisplayState.DefaultGlobalMode);
             var searchDisplay = EntitySearchDisplay(entity, category, searchNameMode, games, identities);
             if (name.Length == 0 || display.Length == 0 || searchDisplay.Length == 0) continue;
             if (dedupeBySearchDisplay && !searchDisplays.Add(searchDisplay)) continue;
@@ -126,16 +128,23 @@ public static class TagSearchService
     private static string Norm(string? text) => TagCatalogService.Norm(text ?? "");
 
     /// <summary>
-    /// 搜索候选只使用来源原名，并强制带作品名。
+    /// 角色候选使用来源原名并带作品名，作品候选使用作品名。
     /// 英文风格与示例一致：kafka_(honkai:_star_rail)；中文：卡芙卡_(崩坏：星穹铁道)。
-    /// 选中的语言缺失时退回另一种来源名；两种都缺失或没有绑定作品时显式标记，不伪造。
+    /// 输入语言对应的名称缺失时退回另一种来源名；两种都缺失或没有绑定作品时显式标记，不伪造。
     /// </summary>
     private static string TagSearchDisplay(
         StoreService.TagInfo tag, string category, string mode,
         IReadOnlyDictionary<string, (string Zh, string En)> games,
         IReadOnlyDictionary<string, TagCatalogService.IdentityNames>? identities)
     {
-        if (category != "character") return tag.Display;
+        if (category is not ("character" or "work")) return tag.Display;
+        if (category == "work")
+        {
+            var workZh = FirstNonEmpty(tag.ZhName, HasHan(tag.Name) ? tag.Name : "", tag.Aliases.FirstOrDefault(HasHan));
+            var workEn = FirstNonEmpty(tag.EnName, HasAsciiLetter(tag.Name) && !HasHan(tag.Name) ? tag.Name : "",
+                tag.Aliases.FirstOrDefault(name => HasAsciiLetter(name) && !HasHan(name)));
+            return PreferredName(workZh, workEn, mode, tag.Display);
+        }
         // 标签名本身就是来源原名（通常是英文小写下划线）；中文标签名只在没有中文名时作为中文来源。
         var asciiName = HasAsciiLetter(tag.Name);
         var zh = tag.ZhName;
@@ -146,6 +155,14 @@ public static class TagSearchService
             tag.Display, games, identity);
     }
 
+    // 中英混输含汉字时优先中文；纯英文、数字和符号输入优先英文，缺失时回退。
+    private static bool HasHan(string text) => text.EnumerateRunes().Any(rune =>
+        rune.Value is >= 0x3400 and <= 0x4DBF or >= 0x4E00 and <= 0x9FFF
+            or >= 0xF900 and <= 0xFAFF or >= 0x20000 and <= 0x2FA1F or >= 0x30000 and <= 0x323AF);
+
+    private static string PreferredName(string zh, string en, string mode, string fallback) =>
+        mode == "zh_source" ? FirstNonEmpty(zh, en, fallback) : FirstNonEmpty(en, zh, fallback);
+
     private static bool HasAsciiLetter(string text) =>
         text.Any(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z');
 
@@ -154,7 +171,9 @@ public static class TagSearchService
         IReadOnlyDictionary<string, (string Zh, string En)> games,
         IReadOnlyDictionary<string, TagCatalogService.IdentityNames>? identities)
     {
-        var display = EntityDisplay(entity, mode);
+        var display = EntityDisplay(entity, TagDisplayState.DefaultGlobalMode);
+        if (category == "work") return PreferredName(FirstNonEmpty(entity.Zh, entity.Aliases.FirstOrDefault(HasHan)),
+            FirstNonEmpty(entity.En, entity.Aliases.FirstOrDefault(name => HasAsciiLetter(name) && !HasHan(name))), mode, display);
         if (category != "character") return display;
         var identity = FindIdentity(identities, entity.IdentityKey);
         return BuildSourceLabel(entity.Zh, entity.En, entity.GameKey, "", mode,
