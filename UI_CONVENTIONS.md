@@ -145,6 +145,13 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 - 落点：`Controls/Viewer/PhotoCanvasState.cs` 的 `Clamp()` / `ClampAxis()`，由 `SetViewport`（非适应态）、`Actual`、`ZoomAt`、`Pan` 四处调用。**新增或改动缩放/平移入口时必须一并调用**，否则那条路径会绕开边界。
 - 自查：改动后跑几何断言，至少覆盖「放大后拖到边缘正好贴边」「继续拖被夹住」「反方向拖到底不留空白」「图小于视口时拖不动或回中」。
 
+### 视频（mp4）预览
+
+- 视频与图片互斥显示：视频用独立 `MediaPlayerElement`，不参与图片缩放/平移，也不参与缩略图飞入/飞回变换；打开时只做遮罩淡入。
+- 视频打开自动播放、带声音，传输控件交给系统；底部图片缩放条在视频时隐藏。
+- `Space` 播放/暂停，`←/→` 翻页，`Esc` 关闭；删除/重命名/移动前先暂停并释放文件句柄。
+- 卡片右下角显示时长（`m:ss` / `h:mm:ss`）；系统封面取不到时显示胶片占位，不阻塞网格。
+
 ---
 
 ## 三、待审核页交互与布局

@@ -167,6 +167,8 @@ public static class ImageLoader
     private static long Estimate(Request request)
     {
         if (Cache.ContainsKey(request.Key with { Edge = 256, Blur = 0, Purpose = Purpose.ProtectedBase })) return 256L * 256 * 8;
+        // 视频这里只解系统封面（<= edge），不按原始分辨率占解码预算。
+        if (request.Item.IsVideo) return 512L * 512 * 8;
         long width = request.Item.PixelWidth, height = request.Item.PixelHeight;
         return width <= 0 || height <= 0 ? ScratchLimit : Math.Clamp(width * height * 8, 1, ScratchLimit);
     }

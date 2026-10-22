@@ -37,6 +37,8 @@
 - 平均色从已加载像素采样，仅作为中性卡片底板上的 10% 局部染色，不直接填满画框；缺失时保留中性底板，不新增取色解码，也不用放大模糊底图。
 - 运行时不用 CSS `filter: blur()`；模糊来自预模糊/低清放大 + 亮度/遮罩。
 
+视频封面（mp4）不进入图片解码主路径：`ImageLoader.ReadPixelsAsync` 遇到 `IsVideo` 直接调用 `ThumbnailService.GetOrBuildVideo`，用 Windows Shell 的 `VideosView` 首帧转 WebP（沿用同一 `path|mtime|size|edge` 缓存键）；取不到时卡片显示胶片占位，绝不用 ImageSharp 解 mp4 本体。视频预览由 `VideoViewer`（`MediaPlayerElement`）接管，不走 `LoadPreviewAsync`，因此不参与预览解码预算和飞入变换。
+
 ## 当前实现
 
 - 图库独立键盘焦点按稳定 ID 保存，由 `PhotoTile.KeyboardFocused` 显示画框外 4 DIP 高亮粗框（净距 2 DIP）；视口和内容预留等量 6 DIP 空间抵消，不改变图片几何，自动滚动按外框范围计算；虚拟化回收清除样式，绑定时恢复。方向导航只读取现有 `PhotoGalleryPanel.Rects`，左右按当前列表索引前后移动并跨排衔接、列表首尾停止且不循环；上下在相邻排按横向距离定位，无相邻行时停止，不重建几何快照；滚动可见性复用 `Scroller.ChangeView`，尺寸变化后在布局完成时恢复。Ctrl+A、范围扩选及文件复制均使用完整当前列表，不以已实现瓦片为范围。Ctrl+C 读取 StorageFile 列表写剪贴板，无新增位图解码、预取、缓存或数据库变更；敏感显示策略不变。键盘路由、焦点/选区及粘贴行为见 `UI_CONVENTIONS.md`，实际效果待人工确认。

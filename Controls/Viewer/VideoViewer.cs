@@ -96,5 +96,6 @@ public sealed class VideoViewer : Grid
         try { _player.Source = null; } catch (InvalidOperationException) { }
         _source?.Dispose();
         _source = null;
+        LoadingChanged?.Invoke(false);
     }
 }

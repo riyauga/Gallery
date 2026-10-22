@@ -1,6 +1,6 @@
 # 视频接入（mp4）— 计划与交接
 
-> 状态：进行中。每完成一步更新本文件的「进度」与「验证记录」。
+> 状态：代码与构建完成，**待用户手动播放验收**。每完成一步更新本文件的「进度」与「验证记录」。
 > 验收标准（用户口径）：**能正常把 mp4 导入图库，并在图库主页看到缩略卡片、点开能正常播放。**
 
 ## 一、范围（已与用户确认）
@@ -29,12 +29,14 @@
 ## 三、进度
 
 - [x] 0. 现状核对、范围确认、计划文档
-- [ ] 1. 数据层：schema v5、迁移、`ImageRow`/`QuerySpec`、扫描白名单与视频元数据
-- [ ] 2. 图库主页：媒体类型筛选接线、`PhotoItem` 字段、计数/空状态文案
-- [ ] 3. 缩略封面：系统封面抽取 + WebP 缓存 + 失败占位 + 时长角标
-- [ ] 4. 预览浮层：`VideoViewer`、自动播放、切页/关闭释放、键盘、错误提示
-- [ ] 5. 图片功能兼容：右键复制、删除/重命名前暂停、NSFW/整理排除视频
-- [ ] 6. 文档同步（README / IMAGE_LOADING / UI_CONVENTIONS）+ 构建 + 验证记录
+- [x] 1. 数据层：schema v5、迁移、`ImageRow`/`QuerySpec`、扫描白名单与视频元数据
+- [x] 2. 图库主页：媒体类型筛选接线、`PhotoItem` 字段、计数/空状态文案
+- [x] 3. 缩略封面：系统封面抽取 + WebP 缓存 + 失败占位 + 时长角标
+- [x] 4. 预览浮层：`VideoViewer`、自动播放、切页/关闭释放、键盘、错误提示
+- [x] 5. 图片功能兼容：右键复制、删除/重命名前释放视频、NSFW/分辨率标签排除视频
+- [x] 6. 文档同步（README / IMAGE_LOADING / UI_CONVENTIONS）+ 构建 + 验证记录
+
+> 代码与构建已完成；**实际播放手感、长视频、系统传输控件仍待用户手动验收**（助手不启动应用做 UI 验收）。
 
 ## 四、实施要点
 
@@ -65,8 +67,9 @@
 
 - 新增 `Controls/Viewer/VideoViewer.cs`：`MediaPlayerElement` + 自管 `MediaPlayer`，`AutoPlay=true`、音量 1、系统传输控件。
 - `PreviewOverlay`：图片/视频互斥显示；视频跳过缩略图飞入动画（避免播放表面参与变换）；底部缩放条隐藏。
-- 键盘：`←/→` 翻页、`Esc` 关闭保持；视频时 `Space` 播放/暂停；`Delete/F2` 前先暂停。
+- 键盘：`←/→` 翻页、`Esc` 关闭保持；视频时 `Space` 播放/暂停；删除/重命名/移动在真正执行文件操作前由 `GalleryPage.FileOperationStarting` 通知浮层释放视频。
 - 失败：显示「无法播放，可能缺少系统编解码器」，仍可翻页/关闭。
+- 已知边界：整理与去重是显式维护操作，仍按原文件级逻辑处理视频（不额外解码）；本期没有为视频做整理/去重界面适配。
 
 ## 五、文件地图
 
@@ -85,12 +88,18 @@
 | `Controls/PhotoTile.cs` | 时长角标、封面占位 |
 | `Controls/Viewer/VideoViewer.cs` | 播放控件（新增） |
 | `Controls/PreviewOverlay.xaml(.cs)` | 浮层内图片/视频切换与生命周期 |
+| `App.xaml.cs` | `--verify-video` 沙箱验收入口（新增） |
+| `README.md` / `IMAGE_LOADING.md` / `UI_CONVENTIONS.md` | 用户与实现约定同步 |
 
 ## 六、验证记录
 
 （每步完成后追加：构建结果、可复现检查、尚未验证项。）
 
 - 2026-10-22：现状核对完成。确认 `ScannerService.ImageExts` 无 mp4、`GalleryPage` 视频筛选返回空、预览浮层为自绘图片查看器、数据库锁定 v4、待审核导入共用图片白名单。
+- 2026-10-22：代码完成，`dotnet build Gallery.csproj -c Debug` 0 警告 0 错误，输出 `bin\Debug\net9.0-windows10.0.19041.0\win-x64`。
+- 2026-10-22：在 `--dataroot` 沙箱复制真实 v4 库后运行 `--verify-db`：`schema_version=5`，1080 张图完整，迁移备份 `local\backups\library-v4-*.db` 已生成；`--verify-query` 8 键排序/搜索均正常，说明迁移后的旧行可读。
+- 2026-10-22：空沙箱生成 3 秒 H.264/AAC mp4 后运行 `--verify-video`：首次扫描 `added=1`，二次扫描 `added=0 updated=1`（幂等）；`videos=1 images=0`；入库字段 `kind=video duration=3 size=640x360`；系统封面已生成 WebP 且文件存在。
+- 2026-10-22：**未验证**：实际打开视频的自动播放/声音/传输控件、长视频拖动、切页释放文件、删除/重命名时的文件占用、不同 DPI/全屏表现。需用户用真实图库手动确认。
 
 ## 七、交接注意事项
 
