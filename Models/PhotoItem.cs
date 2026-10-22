@@ -22,6 +22,8 @@ public sealed class PhotoItem
     public long FileSize { get; init; }
     public string? PageUrl { get; set; }       // 来源页（详情面板）
     public string? SourceUrl { get; set; }     // 原图地址
+    public bool IsVideo { get; init; }
+    public double? DurationSeconds { get; init; }
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];
     // Gallery_Old/store.py:_mark_nsfw + ui/grid.py:_needs_protection：以人工可见的分级标签为准。
     public bool IsSfw => Tags.Any(t => t.Category == "rating" && t.Name == "SFW");
@@ -30,6 +32,6 @@ public sealed class PhotoItem
 
     public string Name => System.IO.Path.GetFileNameWithoutExtension(File);
     public string Extension => System.IO.Path.GetExtension(File).TrimStart('.').ToUpperInvariant();
-    public double AspectRatio => PixelHeight <= 0 ? 1.0 : (double)PixelWidth / PixelHeight;
+    public double AspectRatio => PixelHeight <= 0 ? (IsVideo ? 16.0 / 9.0 : 1.0) : (double)PixelWidth / PixelHeight;
 
 }

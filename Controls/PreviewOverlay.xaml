@@ -38,6 +38,7 @@
                     <CompositeTransform x:Name="FlightTransform" />
                 </Grid.RenderTransform>
                 <viewer:ImageViewer x:Name="Viewer" />
+                <viewer:VideoViewer x:Name="VideoPlayer" Visibility="Collapsed" />
             </Grid>
 
             <!--  全屏时左右边缘感应带：指针贴边才唤醒翻页箭头  -->

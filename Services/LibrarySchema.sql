@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS images (
     taken_at REAL,
     width    INTEGER,
     height   INTEGER,
+    -- v5：视频支持（image | video）；duration 单位秒，图片为 NULL
+    media_kind TEXT NOT NULL DEFAULT 'image',
+    duration   REAL,
     rating   INTEGER NOT NULL DEFAULT 0,
     missing  INTEGER NOT NULL DEFAULT 0,
     added_at REAL NOT NULL,
@@ -190,4 +193,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_id ON ingest_queue(ingest_id) WHERE
 CREATE INDEX IF NOT EXISTS idx_ingest_path ON ingest_queue(path_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_image_uuid ON images(image_uuid);
 CREATE INDEX IF NOT EXISTS idx_file_key ON images(file_key);
-INSERT INTO meta(key,value) VALUES('schema_version','4');
+INSERT INTO meta(key,value) VALUES('schema_version','5');

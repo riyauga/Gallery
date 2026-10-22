@@ -43,6 +43,17 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
         ".tif", ".tiff", ".avif", ".heic", ".heif", ".ico", ".jxl", ".psd",
     };
 
+    /// <summary>
+    /// 只给图库扫描用的视频白名单。不要并进 <see cref="ImageExts"/>：
+    /// 待审核导入（LocalImageImport）共用图片白名单，并进去会把视频送进尚未适配的审核队列。
+    /// </summary>
+    public static readonly HashSet<string> VideoExts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4",
+    };
+
+    public static readonly HashSet<string> MediaExts = new(ImageExts.Concat(VideoExts), StringComparer.OrdinalIgnoreCase);
+
     private readonly ThumbnailService _thumbs =
         new(AppPaths.ThumbCacheDir, settings.thumb_quality);
 
@@ -78,7 +89,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
                 var name = Path.GetFileName(entry);
                 if (name == StoreService.SidecarName || name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (ImageExts.Contains(Path.GetExtension(entry))) files.Add(entry);
+                if (MediaExts.Contains(Path.GetExtension(entry))) files.Add(entry);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -145,14 +156,23 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
                         "SELECT id,size,mtime FROM images WHERE root_id=$r AND rel_path=$p",
                         ("$r", rootId), ("$p", rel));
                     ImageMeta? meta = null;
+                    VideoMeta? video = null;
+                    bool isVideo = VideoExts.Contains(Path.GetExtension(entry));
                     if (known is null || known.Size != size || Math.Abs(known.Mtime - mtime) > 1e-6)
-                        meta = ImageInfo.ReadMeta(entry);
+                    {
+                        if (isVideo) video = VideoInfo.ReadMeta(entry);
+                        else meta = ImageInfo.ReadMeta(entry);
+                    }
                     var (imageId, created) = store.UpsertImage(
                         rootId: rootId, relPath: rel, absPath: entry, dirRel: dirRel,
                         name: name, ext: Path.GetExtension(entry).ToLowerInvariant(),
                         size: size, mtime: mtime,
                         ctime: ToUnix(stat.CreationTimeUtc),
-                        width: meta?.Width, height: meta?.Height, takenAt: meta?.TakenAt);
+                        width: isVideo ? video?.Width : meta?.Width,
+                        height: isVideo ? video?.Height : meta?.Height,
+                        takenAt: isVideo ? null : meta?.TakenAt,
+                        mediaKind: isVideo ? "video" : "image",
+                        duration: video?.Duration);
                     if (created) { res.Added++; newIds.Add(imageId); }
                     else res.Updated++;
                 }
@@ -258,7 +278,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
     private void SyncManaged(int rootId)
     {
         var rows = store.QueryAll(
-            "SELECT id,dir_rel,width,height FROM images WHERE root_id=$r AND managed=1 AND missing=0",
+            "SELECT id,dir_rel,width,height FROM images WHERE root_id=$r AND managed=1 AND missing=0 AND media_kind='image'",
             ("$r", rootId));
         var directories = new HashSet<string>();
         foreach (var row in rows)

@@ -14,7 +14,8 @@ public sealed record ImageRow(
     double? TakenAt, int? Width, int? Height, int Rating, bool Missing,
     double AddedAt, double UpdatedAt, string? OrigMd5, string? ContentMd5,
     string? PageUrl, string? SourceUrl, string? Nsfw, string? PostId,
-    string? ImageUuid, string? FileKey, bool Managed)
+    string? ImageUuid, string? FileKey, bool Managed,
+    string MediaKind = "image", double? Duration = null)
 {
     /// <summary>由 AttachTags 填充（批次 1 查询路径）。</summary>
     public List<(string Category, string Name)> Tags { get; set; } = [];
@@ -287,7 +288,8 @@ public sealed class StoreService : IDisposable
     public (int ImageId, bool Created) UpsertImage(
         int rootId, string relPath, string absPath, string dirRel,
         string name, string ext, long size, double mtime, double? ctime,
-        int? width, int? height, double? takenAt, double? now = null)
+        int? width, int? height, double? takenAt, double? now = null,
+        string mediaKind = "image", double? duration = null)
     {
         var ts = now ?? Now();
         var key = FileIdentity.IdentityOf(absPath);
@@ -355,9 +357,11 @@ public sealed class StoreService : IDisposable
             using var cmd = _conn.CreateCommand();
             cmd.CommandText =
                 "INSERT INTO images(root_id,rel_path,abs_path,dir_rel,name,ext,size," +
-                "mtime,ctime,taken_at,width,height,added_at,updated_at,missing) " +
-                "VALUES($r,$p,$a,$d,$n,$e,$s,$m,$c,$t,$w,$h,$at,$ut,0); SELECT last_insert_rowid();";
+                "mtime,ctime,taken_at,width,height,media_kind,duration,added_at,updated_at,missing) " +
+                "VALUES($r,$p,$a,$d,$n,$e,$s,$m,$c,$t,$w,$h,$k,$du,$at,$ut,0); SELECT last_insert_rowid();";
             Fill(cmd, rootId, relPath, absPath, dirRel, name, ext, size, mtime, ctime, takenAt, width, height, ts, ts);
+            cmd.Parameters.AddWithValue("$k", mediaKind);
+            cmd.Parameters.AddWithValue("$du", (object?)duration ?? DBNull.Value);
             var id = Convert.ToInt32(cmd.ExecuteScalar());
             Exec($"UPDATE images SET image_uuid='{Guid.NewGuid()}',file_key='{Esc(key)}' WHERE id={id}");
             return (id, true);
@@ -371,8 +375,11 @@ public sealed class StoreService : IDisposable
             cmd.CommandText =
                 "UPDATE images SET abs_path=$a,name=$n,ext=$e,size=$s,mtime=$m,ctime=$c," +
                 "width=COALESCE($w,width),height=COALESCE($h,height)," +
-                "taken_at=COALESCE(taken_at,$t),missing=0,updated_at=$ut WHERE id=$i";
+                "taken_at=COALESCE(taken_at,$t),media_kind=$k,duration=COALESCE($du,duration)," +
+                "missing=0,updated_at=$ut WHERE id=$i";
             Fill(cmd, 0, null, absPath, null, name, ext, size, mtime, ctime, takenAt, width, height, null, ts, row.Id);
+            cmd.Parameters.AddWithValue("$k", mediaKind);
+            cmd.Parameters.AddWithValue("$du", (object?)duration ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
         else
@@ -381,8 +388,11 @@ public sealed class StoreService : IDisposable
             cmd.CommandText =
                 "UPDATE images SET abs_path=$a,missing=0," +
                 "width=COALESCE(width,$w),height=COALESCE(height,$h)," +
-                "taken_at=COALESCE(taken_at,$t),ctime=COALESCE(ctime,$c) WHERE id=$i";
+                "taken_at=COALESCE(taken_at,$t),ctime=COALESCE(ctime,$c)," +
+                "media_kind=$k,duration=COALESCE(duration,$du) WHERE id=$i";
             Fill(cmd, 0, null, absPath, null, null, null, 0, 0, ctime, takenAt, width, height, null, null, row.Id);
+            cmd.Parameters.AddWithValue("$k", mediaKind);
+            cmd.Parameters.AddWithValue("$du", (object?)duration ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
         Exec($"UPDATE images SET file_key='{Esc(key)}' WHERE id={row.Id}");
@@ -515,7 +525,9 @@ public sealed class StoreService : IDisposable
             V("post_id", r.GetString, null),
             V("image_uuid", r.GetString, null),
             V("file_key", r.GetString, null),
-            V("managed", o => r.GetInt64(o) != 0, false))
+            V("managed", o => r.GetInt64(o) != 0, false),
+            V("media_kind", r.GetString, "image"),
+            V("duration", o => (double?)r.GetDouble(o), (double?)null))
         { Tags = [] };
     }
 
@@ -571,6 +583,8 @@ public sealed class StoreService : IDisposable
         public bool Untagged { get; init; }
         /// <summary>「隐藏」时仅保留明确 SFW 标签，与旧版查询和保护策略一致。</summary>
         public bool HideNsfw { get; init; }
+        /// <summary>媒体类型：null = 全部；image / video。</summary>
+        public string? MediaKind { get; init; }
     }
 
     private static string LikeEscape(string s)
@@ -617,6 +631,11 @@ public sealed class StoreService : IDisposable
         if (spec.FavoritesOnly)
         {
             where.Add("EXISTS(SELECT 1 FROM favorites f WHERE f.image_id=i.id)");
+        }
+        if (spec.MediaKind is "image" or "video")
+        {
+            where.Add($"i.media_kind = $p{args.Count}");
+            args.Add(spec.MediaKind);
         }
 
         // 标签 IN 列表：顺序占位符，参数按出现顺序追加
@@ -1027,9 +1046,9 @@ public sealed class StoreService : IDisposable
             cmd.CommandText = onlyStale
                 ? "SELECT i.id, r.path, i.rel_path FROM images i JOIN roots r ON r.id=i.root_id " +
                   "LEFT JOIN nsfw_scores s ON s.image_id=i.id " +
-                  "WHERE i.missing=0 AND (s.image_id IS NULL OR s.model_hash<>$h) ORDER BY i.id"
+                  "WHERE i.missing=0 AND i.media_kind='image' AND (s.image_id IS NULL OR s.model_hash<>$h) ORDER BY i.id"
                 : "SELECT i.id, r.path, i.rel_path FROM images i JOIN roots r ON r.id=i.root_id " +
-                  "WHERE i.missing=0 ORDER BY i.id";
+                  "WHERE i.missing=0 AND i.media_kind='image' ORDER BY i.id";
             if (onlyStale) cmd.Parameters.AddWithValue("$h", modelHash);
 
             var list = new List<KeyValuePair<int, string>>();
@@ -1165,7 +1184,7 @@ public sealed class StoreService : IDisposable
             {
                 cmd.CommandText =
                     "SELECT i.id,i.width,i.height FROM images i " +
-                    "WHERE i.missing=0 AND i.width>0 AND i.height>0 AND NOT EXISTS(" +
+                    "WHERE i.missing=0 AND i.media_kind='image' AND i.width>0 AND i.height>0 AND NOT EXISTS(" +
                     "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
                     "WHERE it.image_id=i.id AND t.category='resolution')";
                 using var r = cmd.ExecuteReader();
@@ -1227,7 +1246,7 @@ public sealed class StoreService : IDisposable
             cmd.CommandText =
                 "SELECT COUNT(*) FILTER (WHERE nsfw IS NOT NULL AND nsfw<>'')," +
                 "COUNT(*) FILTER (WHERE nsfw IN ('q','e'))," +
-                "COUNT(*) FILTER (WHERE nsfw IS NULL OR nsfw='') FROM images";
+                "COUNT(*) FILTER (WHERE nsfw IS NULL OR nsfw='') FROM images WHERE media_kind='image'";
             using var r = cmd.ExecuteReader();
             return r.Read() ? (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2)) : (0, 0, 0);
         }

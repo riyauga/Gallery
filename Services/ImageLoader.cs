@@ -213,7 +213,17 @@ public static class ImageLoader
     private static async Task<Pixels> ReadPixelsAsync(PhotoItem item, int edge, bool thumbnail, CancellationToken token)
     {
         string path = item.FullPath;
-        if (thumbnail && AppService.Scanner is { } scanner)
+        var scanner = AppService.Scanner;
+        if (item.IsVideo && scanner is not null)
+        {
+            // 视频本身没有可交给 BitmapDecoder 的静态帧；统一走系统封面缓存。
+            // 正常预览由 VideoViewer 接管，这里主要服务卡片缩略图。
+            double mtime = item.ModifiedAtUnix ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(path));
+            token.ThrowIfCancellationRequested(); Interlocked.Increment(ref _builds);
+            path = scanner.Thumbs.GetOrBuildVideo(path, mtime, item.FileSize, edge)
+                ?? throw new IOException("视频封面不可用");
+        }
+        else if (thumbnail && scanner is not null)
         {
             double mtime = item.ModifiedAtUnix ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(path));
             var destination = scanner.Thumbs.CachePath(path, mtime, item.FileSize, edge);

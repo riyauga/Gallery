@@ -30,6 +30,9 @@ public sealed class PhotoTile : Grid
     private readonly Border _keyboardFocusBorder;
     private readonly CheckBox _check;
     private readonly FavoriteButton _favorite;
+    private readonly FontIcon _videoPlaceholder;
+    private readonly Border _durationBadge;
+    private readonly TextBlock _durationText;
     private readonly Storyboard _selectIn;
     private readonly Storyboard _selectOut;
 
@@ -65,6 +68,7 @@ public sealed class PhotoTile : Grid
             if (Detached || token != _thumbnailToken) return;
             _image.Source = bitmap;
             _loadedEdge = edge;
+            UpdateVideoOverlay();
         }
         catch (OperationCanceledException) { if (token == _thumbnailToken) _requestedEdge = _loadedEdge; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or UriFormatException
@@ -86,9 +90,10 @@ public sealed class PhotoTile : Grid
     {
         if (Detached || Item is null) return;
         int edge = ImageLoader.ThumbnailEdge(Item, pixels);
-        if (edge == 0) { _image.Source = null; return; }
+        if (edge == 0) { _image.Source = null; _videoPlaceholder.Visibility = Visibility.Collapsed; return; }
         if (edge <= _requestedEdge) return;
         _image.Source ??= ImageLoader.FindThumbnail(Item, edge, ImageLoader.BlurStrength(Item));
+        UpdateVideoOverlay();
         _requestedEdge = edge;
         _ = LoadThumbnailAsync(edge, ++_thumbnailToken, priority);
     }
@@ -112,6 +117,25 @@ public sealed class PhotoTile : Grid
         _favorite.Favorite = item.Favorite;
         _favorite.Opacity = _pointerOver ? 1 : 0;
         _favorite.IsHitTestVisible = _pointerOver;
+        UpdateVideoOverlay();
+    }
+
+    /// <summary>视频时长角标 + 无封面时的胶片占位；图片保持隐藏。</summary>
+    private void UpdateVideoOverlay()
+    {
+        bool video = Item is not null && Item.IsVideo;
+        bool known = video && Item!.DurationSeconds is > 0;
+        _durationText.Text = known ? FormatDuration(Item!.DurationSeconds!.Value) : "";
+        _durationBadge.Visibility = known ? Visibility.Visible : Visibility.Collapsed;
+        _videoPlaceholder.Visibility = video && _image.Source is null && !ImageLoader.IsHidden(Item!)
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static string FormatDuration(double seconds)
+    {
+        var total = (int)Math.Round(seconds);
+        int h = total / 3600, m = total % 3600 / 60, s = total % 60;
+        return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
     }
     public void Recycle()
     {
@@ -124,6 +148,8 @@ public sealed class PhotoTile : Grid
         _pointerOver = false;
         _favorite.Opacity = 0;
         _favorite.IsHitTestVisible = false;
+        _durationBadge.Visibility = Visibility.Collapsed;
+        _videoPlaceholder.Visibility = Visibility.Collapsed;
         KeyboardFocused = false;
         var visual = ElementCompositionPreview.GetElementVisual(this);
         visual.StopAnimation("Scale"); visual.Scale = System.Numerics.Vector3.One;
@@ -245,7 +271,36 @@ public sealed class PhotoTile : Grid
         _favorite.ToggleRequested += favorite =>
             FavoriteRequested is null ? Task.FromResult(Item.Favorite) : FavoriteRequested(Item, favorite);
 
+        _videoPlaceholder = new FontIcon
+        {
+            Glyph = "\uE714",
+            FontSize = 34,
+            Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+        };
+        _durationText = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Colors.White),
+        };
+        _durationBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xB3, 0x00, 0x00, 0x00)),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6, 1, 6, 2),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(6),
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+            Child = _durationText,
+        };
+
         Children.Add(_frame);
+        Children.Add(_videoPlaceholder);
         Children.Add(_hover);
         Children.Add(_selectionBorder);
         _keyboardFocusBorder = new Border
@@ -259,6 +314,7 @@ public sealed class PhotoTile : Grid
         Children.Add(_keyboardFocusBorder);
         Children.Add(_check);
         Children.Add(_favorite);
+        Children.Add(_durationBadge);
 
         _selectIn = BuildOpacityStoryboard(1);
         _selectOut = BuildOpacityStoryboard(0);

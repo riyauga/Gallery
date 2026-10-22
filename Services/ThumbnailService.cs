@@ -74,6 +74,31 @@ public sealed class ThumbnailService
         return dest;
     }
 
+    /// <summary>
+    /// 视频封面：取系统缩略图（VideosView）首帧，转 WebP 落同一套缓存。
+    /// 失败返回 null，卡片显示占位图标；不会解 mp4 本体。
+    /// </summary>
+    public string? GetOrBuildVideo(string src, double mtime, long size, int edge = CacheEdge)
+    {
+        var dest = CachePath(src, mtime, size, edge);
+        if (File.Exists(dest)) return dest;
+        var data = BuildVideoCoverBytes(src, edge, _quality);
+        if (data is null) return null;
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+        var tmp = dest + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllBytes(tmp, data);
+            File.Move(tmp, dest, overwrite: true);
+        }
+        catch (IOException)
+        {
+            try { File.Delete(tmp); } catch (IOException) { }
+            return null;
+        }
+        return dest;
+    }
+
     /// <summary>缓存超过上限时按修改时间删最旧。返回删除数。</summary>
     public int PruneOrphans(int maxFiles = 200_000)
     {
@@ -113,6 +138,51 @@ public sealed class ThumbnailService
             try { f.Delete(); removed++; } catch (IOException) { }
         }
         return removed;
+    }
+
+    private static byte[]? BuildVideoCoverBytes(string src, int edge, int quality)
+    {
+        try
+        {
+            // 缩略图接口是 WinRT 异步；调用方可能在 UI 线程，放到线程池等待避免死锁。
+            using var thumb = Task.Run(() =>
+            {
+                var file = Windows.Storage.StorageFile.GetFileFromPathAsync(src)
+                    .AsTask().GetAwaiter().GetResult();
+                return file.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.VideosView, (uint)edge,
+                    Windows.Storage.FileProperties.ThumbnailOptions.ResizeThumbnail)
+                    .AsTask().GetAwaiter().GetResult();
+            }).GetAwaiter().GetResult();
+            if (thumb is null || thumb.Size == 0) return null;
+
+            using var stream = thumb.AsStreamForRead();
+            using var image = SixLabors.ImageSharp.Image.Load(new DecoderOptions
+            {
+                Configuration = ThumbnailConfiguration,
+                MaxFrames = 1,
+            }, stream);
+            if (image.Width > edge || image.Height > edge)
+            {
+                var scale = Math.Min((double)edge / image.Width, (double)edge / image.Height);
+                var w = Math.Max(1, (int)Math.Round(image.Width * scale));
+                var h = Math.Max(1, (int)Math.Round(image.Height * scale));
+                image.Mutate(ctx => ctx.Resize(w, h, KnownResamplers.Lanczos3));
+            }
+            using var ms = new MemoryStream();
+            image.SaveAsWebp(ms, new WebpEncoder
+            {
+                FileFormat = WebpFileFormatType.Lossy, Quality = quality, Method = WebpEncodingMethod.Level0,
+            });
+            return ms.ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or ArgumentException or InvalidOperationException
+            or System.Runtime.InteropServices.COMException
+            or SixLabors.ImageSharp.UnknownImageFormatException
+            or SixLabors.ImageSharp.InvalidImageContentException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

@@ -1,0 +1,101 @@
+# 视频接入（mp4）— 计划与交接
+
+> 状态：进行中。每完成一步更新本文件的「进度」与「验证记录」。
+> 验收标准（用户口径）：**能正常把 mp4 导入图库，并在图库主页看到缩略卡片、点开能正常播放。**
+
+## 一、范围（已与用户确认）
+
+| 项 | 决定 |
+|---|---|
+| 入口 | 只走**已添加图库根目录的扫描**；`待审核` 队列本期不接视频 |
+| 格式 | 只 `mp4`（H.264/AAC），用系统解码 |
+| 播放位置 | 现有全屏预览浮层（点缩略图弹出的那个） |
+| 打开行为 | 自动播放，带声音 |
+| 卡片 | 首帧封面 + 时长角标 |
+| 必须可用 | 收藏、排序、搜索、删除、重命名、右键打开、标签编辑 |
+| 本期不做 | 待审核/归档、NSFW 自动识别或模糊、整理/去重、多格式、自绘播放皮肤 |
+| 播放控件 | 系统传输控件（`MediaPlayerElement`） |
+
+## 二、硬约束（改代码前必读）
+
+1. `Gallery.exe` 运行时会锁输出文件，构建前先关进程。
+2. 交付构建只写 `bin\Debug\net9.0-windows10.0.19041.0\win-x64`，必须 0 警告 0 错误。
+3. **不要**把 `.mp4` 加进 `ScannerService.ImageExts`：待审核导入（`LocalImageImport`）也共用这份白名单，加进去会让视频进入尚未适配的审核流程。扫描单独用 `MediaExts`。
+4. 数据库当前 `schema_version=5`；旧库（v4）打开时先备份再迁移，v3 先走 v4 再走 v5，其他版本拒绝打开。
+5. `images` 表同时承载标签、收藏、NSFW、整理等图片语义。视频入库后，图片专属批处理必须显式排除 `media_kind='video'`，不要让 ImageSharp 去解 mp4。
+6. 视频播放会持有文件句柄：切图、关闭、删除、重命名前必须暂停并释放 `MediaSource`。
+7. 助手不启动应用做 UI 验收；播放手感、拖动、长视频内存由用户手动确认。
+
+## 三、进度
+
+- [x] 0. 现状核对、范围确认、计划文档
+- [ ] 1. 数据层：schema v5、迁移、`ImageRow`/`QuerySpec`、扫描白名单与视频元数据
+- [ ] 2. 图库主页：媒体类型筛选接线、`PhotoItem` 字段、计数/空状态文案
+- [ ] 3. 缩略封面：系统封面抽取 + WebP 缓存 + 失败占位 + 时长角标
+- [ ] 4. 预览浮层：`VideoViewer`、自动播放、切页/关闭释放、键盘、错误提示
+- [ ] 5. 图片功能兼容：右键复制、删除/重命名前暂停、NSFW/整理排除视频
+- [ ] 6. 文档同步（README / IMAGE_LOADING / UI_CONVENTIONS）+ 构建 + 验证记录
+
+## 四、实施要点
+
+### 1. 数据层
+
+- `images` 新增：`media_kind TEXT NOT NULL DEFAULT 'image'`、`duration REAL`（秒）。
+- 空库：`Services/LibrarySchema.sql` 直接建 v5。
+- 旧库：`Services/LibraryMigrationV5.cs` 用 `VACUUM INTO` 备份 → 单事务 `ALTER TABLE` → `meta.schema_version=5`，幂等。
+- `Db.cs`：v3→v4→v5，目标版本改为 5。
+- `StoreService`：`ImageRow` 增加 `MediaKind`、`Duration`；`QuerySpec.MediaKind`（`null`/`image`/`video`）；`UpsertImage` 写入两列。
+- `ScannerService`：新增 `VideoExts={".mp4"}`、`MediaExts`；视频元数据读取失败不阻断入库。
+- 安全：`NsfwService` 的候选查询加 `media_kind='image'`；其它图片专属批处理只加过滤条件，不改行为。
+
+### 2. 主页
+
+- `FilterKind` → `QuerySpec.MediaKind`；删除 `videos ? empty : ...` 的占位分支。
+- `PhotoItem` 增加 `IsVideo`、`DurationSeconds`；`SameItem` 同步比较。
+- 计数：全图片时仍显示「N 张照片」，含视频时显示「N 个项目」。
+- 视频不提供「复制图片内容」。
+
+### 3. 封面与角标
+
+- 封面走 `StorageFile.GetThumbnailAsync(ThumbnailMode.VideosView, edge, ResizeThumbnail)`，用 ImageSharp 转 WebP 落现有缓存（key 仍是 path|mtime|size|edge）。
+- 取不到封面时卡片显示胶片占位图标，不阻断网格。
+- 时长角标右下角，`m:ss` / `h:mm:ss`，仅视频显示。
+
+### 4. 播放
+
+- 新增 `Controls/Viewer/VideoViewer.cs`：`MediaPlayerElement` + 自管 `MediaPlayer`，`AutoPlay=true`、音量 1、系统传输控件。
+- `PreviewOverlay`：图片/视频互斥显示；视频跳过缩略图飞入动画（避免播放表面参与变换）；底部缩放条隐藏。
+- 键盘：`←/→` 翻页、`Esc` 关闭保持；视频时 `Space` 播放/暂停；`Delete/F2` 前先暂停。
+- 失败：显示「无法播放，可能缺少系统编解码器」，仍可翻页/关闭。
+
+## 五、文件地图
+
+| 文件 | 作用 |
+|---|---|
+| `Services/LibrarySchema.sql` | 新建库结构（v5） |
+| `Services/Db.cs` | 版本判断与迁移入口 |
+| `Services/LibraryMigrationV5.cs` | v4→v5 增量迁移（新增） |
+| `Services/StoreService.cs` | 数据模型、查询筛选、Upsert |
+| `Services/VideoInfo.cs` | 视频宽高/时长读取（新增） |
+| `Services/ScannerService.cs` | 扫描白名单、视频元数据 |
+| `Services/ThumbnailService.cs` | 视频封面抽取与缓存 |
+| `Services/ImageLoader.cs` | 视频缩略图走封面路径 |
+| `Models/PhotoItem.cs` | `IsVideo` / `DurationSeconds` |
+| `Views/GalleryPage.xaml.cs` | 媒体筛选、映射、右键菜单、计数 |
+| `Controls/PhotoTile.cs` | 时长角标、封面占位 |
+| `Controls/Viewer/VideoViewer.cs` | 播放控件（新增） |
+| `Controls/PreviewOverlay.xaml(.cs)` | 浮层内图片/视频切换与生命周期 |
+
+## 六、验证记录
+
+（每步完成后追加：构建结果、可复现检查、尚未验证项。）
+
+- 2026-10-22：现状核对完成。确认 `ScannerService.ImageExts` 无 mp4、`GalleryPage` 视频筛选返回空、预览浮层为自绘图片查看器、数据库锁定 v4、待审核导入共用图片白名单。
+
+## 七、交接注意事项
+
+- 不要把视频加进待审核链路；`LocalImageImport` 和 `ArchiveService` 本期保持图片语义。
+- 改 `images` 查询时注意 `ReadImage` 按列名容错，新增列必须给默认值，避免旧行读出异常。
+- 迁移必须可重入；已升到 v5 的库再次打开不得重复备份/改结构。
+- 任何涉及播放器的文件操作，先 `Pause` 再释放，否则 Windows 会锁文件。
+- 构建产物只在约定目录，不要在其它位置留可运行副本。

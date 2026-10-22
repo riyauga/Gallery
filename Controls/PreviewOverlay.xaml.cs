@@ -64,6 +64,21 @@ public sealed partial class PreviewOverlay : Grid
             LoadingText.Visibility = Visibility.Visible;
             ToastRequested?.Invoke("图片加载失败：" + message);
         };
+        VideoPlayer.LoadingChanged += loading =>
+        {
+            if (loading)
+            {
+                LoadingText.Text = "正在打开视频…";
+                LoadingText.Visibility = Visibility.Visible;
+            }
+            else LoadingText.Visibility = Visibility.Collapsed;
+        };
+        VideoPlayer.Failed += message =>
+        {
+            LoadingText.Text = "无法播放这个视频";
+            LoadingText.Visibility = Visibility.Visible;
+            ToastRequested?.Invoke("视频播放失败：" + message);
+        };
         Detail.EditTagsRequested += async item =>
         {
             if (XamlRoot is null) return;
@@ -391,6 +406,7 @@ public sealed partial class PreviewOverlay : Grid
     private Windows.Foundation.Rect _lastSourceRect;
     private Storyboard? _animation;
     private bool _closing;
+    private string? _shownPath;
 
     public void Open(GalleryPage.PreviewRequest request)
     {
@@ -406,6 +422,7 @@ public sealed partial class PreviewOverlay : Grid
         _items = request.Items;
         _index = Math.Max(0, request.Items.ToList().IndexOf(request.Item));
         if (_items.Count == 0) return;
+        _shownPath = null;
 
         Visibility = Visibility.Visible;
         Opacity = 0;
@@ -430,7 +447,7 @@ public sealed partial class PreviewOverlay : Grid
         Storyboard.SetTargetProperty(fade, "Opacity");
         sb.Children.Add(fade);
 
-        if (hostW > 0 && hostH > 0 && request.SourceRect.Width > 0)
+        if (hostW > 0 && hostH > 0 && request.SourceRect.Width > 0 && !request.Item.IsVideo)
         {
             FlightTransform.ScaleX = request.SourceRect.Width / hostW;
             FlightTransform.ScaleY = request.SourceRect.Height / hostH;
@@ -511,9 +528,33 @@ public sealed partial class PreviewOverlay : Grid
     private void ShowCurrent(Microsoft.UI.Xaml.Media.ImageSource? thumbnail = null)
     {
         var item = _items[_index];
+        bool video = item.IsVideo;
+        // 收藏/标签刷新会重复调到这里；同一段视频不能因此从头播。
+        bool restart = _shownPath != item.FullPath;
+        _shownPath = item.FullPath;
+
         Detail.SetItem(item);
         TopFileName.Text = System.IO.Path.GetFileName(item.FullPath);
-        Viewer.SetSource(item, thumbnail);
+        Viewer.Visibility = video ? Visibility.Collapsed : Visibility.Visible;
+        VideoPlayer.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
+        ZoomBarHost.Visibility = video ? Visibility.Collapsed : Visibility.Visible;
+
+        if (video)
+        {
+            ZoomBar.Visibility = Visibility.Collapsed;
+            if (restart)
+            {
+                Viewer.Clear();
+                Viewer.IsAnimating = false;
+                VideoPlayer.SetSource(item);
+            }
+        }
+        else
+        {
+            VideoPlayer.Clear();
+            Viewer.SetSource(item, thumbnail);
+        }
+
         if (_fullscreen)
         {
             ShowEdgeArrows(_pointerX);
@@ -572,6 +613,9 @@ public sealed partial class PreviewOverlay : Grid
             case VirtualKey.Escape: Close(); break;
             case VirtualKey.Left: Move(-1); break;
             case VirtualKey.Right: Move(1); break;
+            case VirtualKey.Space when _items.Count > 0 && _items[_index].IsVideo:
+                VideoPlayer.TogglePlayPause();
+                break;
             case VirtualKey.Delete when _items.Count > 0:
                 if (DeleteRequested is { } delete) _ = delete(new[] { _items[_index].ImageId });
                 break;
@@ -583,11 +627,28 @@ public sealed partial class PreviewOverlay : Grid
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.Space)
+        {
+            if (!_closing && _items.Count > 0 && _items[_index].IsVideo)
+            {
+                VideoPlayer.TogglePlayPause();
+                e.Handled = true;
+            }
+            return;
+        }
         if (e.Key is VirtualKey.Escape or VirtualKey.Left or VirtualKey.Right or VirtualKey.Delete or VirtualKey.F2)
         {
             HandleKey(e.Key);
             e.Handled = true;
         }
+    }
+
+    /// <summary>删除/重命名/移动前由宿主调用：暂停并释放视频文件句柄。</summary>
+    public void ReleaseVideo()
+    {
+        if (!IsOpen || _items.Count == 0 || !_items[_index].IsVideo) return;
+        VideoPlayer.Clear();
+        _shownPath = null;
     }
 
     /// <summary>查看器内右键：菜单与外部一致，但无「打开」（photos 语义）。</summary>
@@ -614,8 +675,9 @@ public sealed partial class PreviewOverlay : Grid
         if (_items.Count > 0)
             _lastSourceRect = _request?.ResolveSourceRect(_items[_index]) ?? default;
         else _lastSourceRect = default;
-        // 动画统一飞回（用户裁决）；遮罩同步淡出 300ms
-        bool flyBack = _lastSourceRect.Width > 0;
+        // 动画统一飞回（用户裁决）；遮罩同步淡出 300ms。视频只淡出，不让播放表面参与缩放。
+        bool flyBack = _lastSourceRect.Width > 0 && _items.Count > 0 && !_items[_index].IsVideo;
+        if (_items.Count > 0) VideoPlayer.Pause();
         var sb = new Storyboard();
 
         var fade = new DoubleAnimation
@@ -664,6 +726,8 @@ public sealed partial class PreviewOverlay : Grid
             RestoreChrome();
             Viewer.Clear();
             Viewer.IsAnimating = false;
+            VideoPlayer.Clear();
+            _shownPath = null;
             _items = Array.Empty<PhotoItem>();
             _request = null;
             _animation = null;

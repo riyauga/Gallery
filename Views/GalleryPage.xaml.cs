@@ -62,6 +62,9 @@ public sealed partial class GalleryPage : UserControl
     public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
     public event Action? TagsEdited;
 
+    /// <summary>删除/重命名/移动真正开始前触发（查看器用来释放视频文件句柄）。</summary>
+    public event Action? FileOperationStarting;
+
     /// <summary>当前结果集快照（查看器翻页/标签刷新共用）。</summary>
     public IReadOnlyList<PhotoItem> CurrentItems => _items;
     public UIElement FocusAnchor => Root;
@@ -252,8 +255,8 @@ public sealed partial class GalleryPage : UserControl
             src = src.Where(i => i.Name.Contains(_query, StringComparison.OrdinalIgnoreCase));
         src = _filter switch
         {
-            FilterKind.Photos => src.Where(i => i.PixelWidth > 0),
-            FilterKind.Videos => Array.Empty<PhotoItem>(),
+            FilterKind.Photos => src.Where(i => !i.IsVideo),
+            FilterKind.Videos => src.Where(i => i.IsVideo),
             _ => src
         };
 
@@ -290,12 +293,18 @@ public sealed partial class GalleryPage : UserControl
             ExcludedTagIds = _filterPanel.Exclude.Select(x => x.Id).ToList(),
             TagMode = _filterPanel.Mode, Untagged = _filterPanel.UntaggedOnly,
             HideNsfw = AppService.Settings.Settings.nsfw_display == "hide",
+            MediaKind = _filter switch
+            {
+                FilterKind.Photos => "image",
+                FilterKind.Videos => "video",
+                _ => null,
+            },
         };
-        QueryCompletion = QueryAsync(AppService.Store.DbPath, spec, _sortKey, _filter == FilterKind.Videos, version);
+        QueryCompletion = QueryAsync(AppService.Store.DbPath, spec, _sortKey, version);
     }
 
     // 每次后台查询独占自己的只读连接；排队的旧版本在打开连接前退出。
-    private async Task QueryAsync(string path, StoreService.QuerySpec spec, string sortKey, bool videos, long version)
+    private async Task QueryAsync(string path, StoreService.QuerySpec spec, string sortKey, long version)
     {
         await _queryGate.WaitAsync();
         try
@@ -305,7 +314,7 @@ public sealed partial class GalleryPage : UserControl
             var items = await Task.Run(() =>
             {
                 using var store = new StoreService(path, readOnly: true);
-                return videos ? new List<PhotoItem>() : MapRows(store.Query(spec), store.FavoriteIds(), sortKey);
+                return MapRows(store.Query(spec), store.FavoriteIds(), sortKey);
             });
             if (version != _queryVersion) return;
             if (!_active) { _rebuildPending = true; return; }
@@ -320,9 +329,11 @@ public sealed partial class GalleryPage : UserControl
 
     private static bool SameItem(PhotoItem a, PhotoItem b) =>
         (a.ImageId, a.FullPath, a.PixelWidth, a.PixelHeight, a.Date, a.ModifiedAtUnix, a.FileSize, a.Favorite,
-         a.RootId, a.DirRel, a.RelPath, a.TakenAtUnix, a.CreatedAtUnix, a.Rating, a.Nsfw, a.PageUrl, a.SourceUrl, a.Missing) ==
+         a.RootId, a.DirRel, a.RelPath, a.TakenAtUnix, a.CreatedAtUnix, a.Rating, a.Nsfw, a.PageUrl, a.SourceUrl, a.Missing,
+         a.IsVideo, a.DurationSeconds) ==
         (b.ImageId, b.FullPath, b.PixelWidth, b.PixelHeight, b.Date, b.ModifiedAtUnix, b.FileSize, b.Favorite,
-         b.RootId, b.DirRel, b.RelPath, b.TakenAtUnix, b.CreatedAtUnix, b.Rating, b.Nsfw, b.PageUrl, b.SourceUrl, b.Missing)
+         b.RootId, b.DirRel, b.RelPath, b.TakenAtUnix, b.CreatedAtUnix, b.Rating, b.Nsfw, b.PageUrl, b.SourceUrl, b.Missing,
+         b.IsVideo, b.DurationSeconds)
         && a.Tags.SequenceEqual(b.Tags);
     private static string ItemKey(PhotoItem item) => item.ImageId > 0 ? $"id:{item.ImageId}" : ImageLoader.Identity(item);
     private void ApplyItems(List<PhotoItem> items)
@@ -379,6 +390,8 @@ public sealed partial class GalleryPage : UserControl
                 FileSize = row.Size,
                 PageUrl = row.PageUrl,
                 SourceUrl = row.SourceUrl,
+                IsVideo = row.MediaKind == "video",
+                DurationSeconds = row.Duration,
                 Missing = row.Missing,
                 Tags = row.Tags,
             });
@@ -698,7 +711,9 @@ public sealed partial class GalleryPage : UserControl
         int n = _selected.Count;
         string pageName = _favoritesMode ? "收藏夹" : _dirTitle ?? "图库";
         IconAndTitleHeader.Title = n > 0 ? $"已选择 {n} 个项目" : pageName;
-        SubtitleText.Text = n > 0 ? pageName : $"{_items.Count} 张照片";
+        SubtitleText.Text = n > 0
+            ? pageName
+            : $"{_items.Count} {(_items.Any(i => i.IsVideo) ? "个项目" : "张照片")}";
         // 可见文案来自 GetSelectionText()（CommandBar_SelectSelectionText / _CancelSelectionText）
         // → 「选择」/「取消选择」；UIA 的 Name 才是「选择项目」（GetSelectionButtonFriendlyName）
         SelectButton.Label = n > 0 ? "取消选择" : "选择";
@@ -1149,7 +1164,8 @@ public sealed partial class GalleryPage : UserControl
         if (!batching)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(Item("复制图片内容", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
+            if (!item.IsVideo)
+                menu.Items.Add(Item("复制图片内容", "\uE8C8", () => _ = CopyImageToClipboardAsync(item)));
             menu.Items.Add(Item("复制为路径", "\uE71B", () =>
             {
                 var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
@@ -1239,6 +1255,7 @@ public sealed partial class GalleryPage : UserControl
             new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4));
         if (await Gallery.Services.DialogService.ShowAsync(confirm) != ContentDialogResult.Primary) return;
 
+        FileOperationStarting?.Invoke();
         var (done, errors) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)
@@ -1268,6 +1285,7 @@ public sealed partial class GalleryPage : UserControl
         if (result != ContentDialogResult.Primary) return;
         var newName = input.Text.Trim();
         if (newName.Length == 0 || newName == stem) return;
+        FileOperationStarting?.Invoke();
         var (ok, error) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)
@@ -1323,6 +1341,7 @@ public sealed partial class GalleryPage : UserControl
             if (result == ContentDialogResult.None) return;
             move = result == ContentDialogResult.Primary;
         }
+        if (move) FileOperationStarting?.Invoke();
         var (count, firstError) = await RunFileOperationAsync(() =>
         {
             lock (AppService.DbLock)

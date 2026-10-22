@@ -50,6 +50,14 @@ public partial class App : Application
             return;
         }
 
+        // --verify-video：沙箱内验收 mp4 扫描入库、媒体筛选与封面缓存（不出窗口）
+        if (cli.Contains("--verify-video"))
+        {
+            RunVerifyVideo();
+            Exit();
+            return;
+        }
+
         // --verify-query：批次 1 验收（8 键排序 + 搜索，写报告后退出）
         if (cli.Contains("--verify-query"))
         {
@@ -627,6 +635,68 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "verify_db.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// 视频接入验收：只在 --dataroot 沙箱里跑，扫 <c>video-src</c> 下的 mp4，
+    /// 检查入库字段、媒体筛选、重复扫描幂等与封面缓存。播放仍需人工验收。
+    /// </summary>
+    private static void RunVerifyVideo()
+    {
+        var report = new StringBuilder();
+        try
+        {
+            if (AppPaths.Sandbox is null)
+            {
+                report.AppendLine("ERROR: --verify-video 必须在 --dataroot 沙箱内运行");
+            }
+            else
+            {
+                var settings = new SettingsStore();
+                settings.Load();
+                var store = new StoreService(AppPaths.DbPath);
+                report.AppendLine($"schema_version = {store.SchemaVersion}（期望 5）");
+                var sample = store.QueryOne("SELECT * FROM images LIMIT 1");
+                report.AppendLine(sample is null
+                    ? "images = 空库"
+                    : $"columns ok: media_kind={sample.MediaKind} duration={sample.Duration}");
+
+                var src = Path.Combine(AppPaths.Sandbox, "video-src");
+                Directory.CreateDirectory(src);
+                var mp4Count = Directory.EnumerateFiles(src, "*.mp4", SearchOption.AllDirectories).Count();
+                report.AppendLine($"video-src mp4 = {mp4Count}");
+
+                var folders = new FolderService(store, settings);
+                var (root, scan) = folders.AddRootAndScan(src);
+                report.AppendLine($"scan#1 = {scan.Summary()}");
+                report.AppendLine($"  added={scan.Added} updated={scan.Updated} errors={scan.Errors.Count}");
+                var again = new ScannerService(store, settings.Settings).ScanRoot(root.Id);
+                report.AppendLine($"scan#2 幂等 = {again.Summary()}");
+                report.AppendLine($"  added={again.Added} updated={again.Updated}");
+
+                var videos = store.Query(new StoreService.QuerySpec { MediaKind = "video", Sort = "name" });
+                var images = store.Query(new StoreService.QuerySpec { MediaKind = "image", Sort = "name" });
+                report.AppendLine($"videos = {videos.Count}；images = {images.Count}");
+                var video = videos.FirstOrDefault();
+                if (video is not null)
+                {
+                    report.AppendLine($"  {video.Name}: kind={video.MediaKind} duration={video.Duration:0.###} " +
+                                      $"size={video.Width}x{video.Height}");
+                    var cover = new ScannerService(store, settings.Settings).Thumbs.GetOrBuildVideo(
+                        video.AbsPath, video.Mtime, video.Size, ThumbnailService.CacheEdge);
+                    report.AppendLine($"  cover = {(cover is null ? "未生成（显示占位）" : cover)}");
+                    report.AppendLine($"  cover exists = {cover is not null && File.Exists(cover)}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("ERROR: " + ex);
+        }
+        var outDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+        Directory.CreateDirectory(outDir);
+        File.WriteAllText(Path.Combine(outDir, "verify_video.txt"), report.ToString());
     }
 
     /// <summary>
