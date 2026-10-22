@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "harry-potter-wiki",
+    "url": "https://harrypotter.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "harry_potter",
+      "zh": "哈利·波特",
+      "en": "Harry Potter",
+      "source_url": "https://harrypotter.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:hermione",
+      "game": "harry_potter",
+      "zh": "赫敏·格兰杰",
+      "en": "Hermione Granger",
+      "aliases": [
+        "赫敏",
+        "Hermione"
+      ],
+      "kind": "character",
+      "source_url": "https://harrypotter.fandom.com/wiki/Hermione_Granger",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:luna",
+      "game": "harry_potter",
+      "zh": "卢娜·洛夫古德",
+      "en": "Luna Lovegood",
+      "aliases": [
+        "卢娜",
+        "Luna"
+      ],
+      "kind": "character",
+      "source_url": "https://harrypotter.fandom.com/wiki/Luna_Lovegood",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ginny",
+      "game": "harry_potter",
+      "zh": "金妮·韦斯莱",
+      "en": "Ginny Weasley",
+      "aliases": [
+        "金妮",
+        "Ginny"
+      ],
+      "kind": "character",
+      "source_url": "https://harrypotter.fandom.com/wiki/Ginny_Weasley",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fleur",
+      "game": "harry_potter",
+      "zh": "芙蓉·德拉库尔",
+      "en": "Fleur Delacour",
+      "aliases": [
+        "芙蓉",
+        "Fleur"
+      ],
+      "kind": "character",
+      "source_url": "https://harrypotter.fandom.com/wiki/Fleur_Delacour",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:bellatrix",
+      "game": "harry_potter",
+      "zh": "贝拉特里克斯·莱斯特兰奇",
+      "en": "Bellatrix Lestrange",
+      "aliases": [
+        "贝拉",
+        "Bellatrix"
+      ],
+      "kind": "character",
+      "source_url": "https://harrypotter.fandom.com/wiki/Bellatrix_Lestrange",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

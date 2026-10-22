@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "attack-on-titan-wiki",
+    "url": "https://attackontitan.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "shingeki_no_kyojin",
+      "zh": "进击的巨人",
+      "en": "Attack on Titan",
+      "source_url": "https://attackontitan.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:mikasa",
+      "game": "shingeki_no_kyojin",
+      "zh": "三笠·阿克曼",
+      "en": "Mikasa Ackerman",
+      "aliases": [
+        "三笠",
+        "Mikasa"
+      ],
+      "kind": "character",
+      "source_url": "https://attackontitan.fandom.com/wiki/Mikasa_Ackerman",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:annie",
+      "game": "shingeki_no_kyojin",
+      "zh": "阿妮·利昂哈特",
+      "en": "Annie Leonhart",
+      "aliases": [
+        "阿妮",
+        "Annie"
+      ],
+      "kind": "character",
+      "source_url": "https://attackontitan.fandom.com/wiki/Annie_Leonhart",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:historia",
+      "game": "shingeki_no_kyojin",
+      "zh": "希斯特利亚·雷斯",
+      "en": "Historia Reiss",
+      "aliases": [
+        "希斯特利亚",
+        "Historia"
+      ],
+      "kind": "character",
+      "source_url": "https://attackontitan.fandom.com/wiki/Historia_Reiss",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sasha",
+      "game": "shingeki_no_kyojin",
+      "zh": "萨莎·布劳斯",
+      "en": "Sasha Blouse",
+      "aliases": [
+        "萨莎",
+        "Sasha"
+      ],
+      "kind": "character",
+      "source_url": "https://attackontitan.fandom.com/wiki/Sasha_Blouse",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

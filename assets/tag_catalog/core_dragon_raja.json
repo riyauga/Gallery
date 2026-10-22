@@ -1,0 +1,72 @@
+{
+  "source": {
+    "id": "dragon-raja-wiki",
+    "url": "https://dragonraja.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "dragon_raja",
+      "zh": "龙族",
+      "en": "Dragon Raja",
+      "source_url": "https://dragonraja.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:eri",
+      "game": "dragon_raja",
+      "zh": "上杉绘梨衣",
+      "en": "Uesugi Eri",
+      "aliases": [
+        "绘梨衣",
+        "Eri"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonraja.fandom.com/wiki/Uesugi_Eri",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nono",
+      "game": "dragon_raja",
+      "zh": "诺诺",
+      "en": "Nono",
+      "aliases": [
+        "Nono"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonraja.fandom.com/wiki/Nono",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:xiami",
+      "game": "dragon_raja",
+      "zh": "夏弥",
+      "en": "Xia Mi",
+      "aliases": [
+        "Xia Mi"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonraja.fandom.com/wiki/Xia_Mi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chu_zihang",
+      "game": "dragon_raja",
+      "zh": "楚子航",
+      "en": "Chu Zihang",
+      "aliases": [
+        "Chu Zihang"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonraja.fandom.com/wiki/Chu_Zihang",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

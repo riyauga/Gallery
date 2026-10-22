@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "yosuga-no-sora-wiki",
+    "url": "https://yosuganosora.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first"
+  },
+  "games": [
+    {
+      "key": "yosuga_no_sora",
+      "zh": "缘之空",
+      "en": "Yosuga no Sora",
+      "source_url": "https://yosuganosora.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:sora",
+      "game": "yosuga_no_sora",
+      "zh": "春日野穹",
+      "en": "Kasugano Sora",
+      "aliases": [
+        "穹",
+        "Sora"
+      ],
+      "kind": "character",
+      "source_url": "https://yosuganosora.fandom.com/wiki/Sora_Kasugano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nao",
+      "game": "yosuga_no_sora",
+      "zh": "依媛奈绪",
+      "en": "Yorihime Nao",
+      "aliases": [
+        "奈绪",
+        "Nao"
+      ],
+      "kind": "character",
+      "source_url": "https://yosuganosora.fandom.com/wiki/Nao_Yorihime",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akira",
+      "game": "yosuga_no_sora",
+      "zh": "天女目瑛",
+      "en": "Amanome Akira",
+      "aliases": [
+        "瑛",
+        "Akira"
+      ],
+      "kind": "character",
+      "source_url": "https://yosuganosora.fandom.com/wiki/Akira_Amanome",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kazuha",
+      "game": "yosuga_no_sora",
+      "zh": "渚一叶",
+      "en": "Nagisa Kazuha",
+      "aliases": [
+        "一叶",
+        "Kazuha"
+      ],
+      "kind": "character",
+      "source_url": "https://yosuganosora.fandom.com/wiki/Kazuha_Nagisa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

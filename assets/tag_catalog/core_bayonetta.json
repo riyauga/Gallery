@@ -1,0 +1,44 @@
+{
+  "source": {
+    "id": "bayonetta-wiki",
+    "url": "https://bayonetta.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "bayonetta",
+      "zh": "猎天使魔女",
+      "en": "Bayonetta",
+      "source_url": "https://bayonetta.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:bayonetta",
+      "game": "bayonetta",
+      "zh": "贝优妮塔",
+      "en": "Bayonetta",
+      "aliases": [
+        "贝姐",
+        "Bayonetta"
+      ],
+      "kind": "character",
+      "source_url": "https://bayonetta.fandom.com/wiki/Bayonetta",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:jeanne",
+      "game": "bayonetta",
+      "zh": "贞德",
+      "en": "Jeanne",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://bayonetta.fandom.com/wiki/Jeanne",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

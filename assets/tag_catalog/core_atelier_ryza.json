@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "atelier-wiki",
+    "url": "https://atelier.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "atelier_ryza",
+      "zh": "莱莎的炼金工房",
+      "en": "Atelier Ryza",
+      "source_url": "https://atelier.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ryza",
+      "game": "atelier_ryza",
+      "zh": "莱莎琳·斯托特",
+      "en": "Ryza",
+      "aliases": [
+        "莱莎",
+        "Ryza"
+      ],
+      "kind": "character",
+      "source_url": "https://atelier.fandom.com/wiki/Ryza_(Atelier_Ryza)",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:klaudia",
+      "game": "atelier_ryza",
+      "zh": "科洛蒂娅·巴兰茨",
+      "en": "Klaudia Valentz",
+      "aliases": [
+        "科洛蒂娅",
+        "Klaudia"
+      ],
+      "kind": "character",
+      "source_url": "https://atelier.fandom.com/wiki/Klaudia_Valentz",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:plachta",
+      "game": "atelier_ryza",
+      "zh": "普拉芙妲",
+      "en": "Plachta",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://atelier.fandom.com/wiki/Plachta",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

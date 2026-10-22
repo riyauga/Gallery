@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "lotm-wiki",
+    "url": "https://lordofthemysteries.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "lord_of_the_mysteries",
+      "zh": "诡秘之主",
+      "en": "Lord of the Mysteries",
+      "source_url": "https://lordofthemysteries.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:audrey",
+      "game": "lord_of_the_mysteries",
+      "zh": "奥黛丽·霍尔",
+      "en": "Audrey Hall",
+      "aliases": [
+        "奥黛丽",
+        "Audrey"
+      ],
+      "kind": "character",
+      "source_url": "https://lordofthemysteries.fandom.com/wiki/Audrey_Hall",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fors",
+      "game": "lord_of_the_mysteries",
+      "zh": "佛尔思·沃尔",
+      "en": "Fors Wall",
+      "aliases": [
+        "佛尔思",
+        "Fors"
+      ],
+      "kind": "character",
+      "source_url": "https://lordofthemysteries.fandom.com/wiki/Fors_Wall",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:bernadette",
+      "game": "lord_of_the_mysteries",
+      "zh": "贝尔纳黛·古斯塔夫",
+      "en": "Bernadette Gustav",
+      "aliases": [
+        "贝尔纳黛",
+        "Bernadette"
+      ],
+      "kind": "character",
+      "source_url": "https://lordofthemysteries.fandom.com/wiki/Bernadette_Gustav",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:cattleya",
+      "game": "lord_of_the_mysteries",
+      "zh": "嘉德丽雅",
+      "en": "Cattleya",
+      "aliases": [
+        "嘉德丽雅",
+        "Cattleya"
+      ],
+      "kind": "character",
+      "source_url": "https://lordofthemysteries.fandom.com/wiki/Cattleya",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

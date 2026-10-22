@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "tsuki-otome-wiki",
+    "url": "https://tsukiniyorisou.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "tsuki_ni_yorisou_otome_no_sahou",
+      "zh": "近月少女的礼仪",
+      "en": "Tsuki ni Yorisou Otome no Sahou",
+      "source_url": "https://tsukiniyorisou.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:luna",
+      "game": "tsuki_ni_yorisou_otome_no_sahou",
+      "zh": "樱小路露娜",
+      "en": "Sakurakouji Luna",
+      "aliases": [
+        "露娜",
+        "Luna"
+      ],
+      "kind": "character",
+      "source_url": "https://tsukiniyorisou.fandom.com/wiki/Luna_Sakurakouji",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ursule",
+      "game": "tsuki_ni_yorisou_otome_no_sahou",
+      "zh": "尤尔修尔",
+      "en": "Ursule",
+      "aliases": [
+        "尤尔修尔",
+        "Ursule"
+      ],
+      "kind": "character",
+      "source_url": "https://tsukiniyorisou.fandom.com/wiki/Ursule",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mizuho",
+      "game": "tsuki_ni_yorisou_otome_no_sahou",
+      "zh": "花之宫瑞穗",
+      "en": "Hananomiya Mizuho",
+      "aliases": [
+        "瑞穗",
+        "Mizuho"
+      ],
+      "kind": "character",
+      "source_url": "https://tsukiniyorisou.fandom.com/wiki/Mizuho_Hananomiya",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:minato",
+      "game": "tsuki_ni_yorisou_otome_no_sahou",
+      "zh": "柳之濑凑",
+      "en": "Yanase Minato",
+      "aliases": [
+        "凑",
+        "Minato"
+      ],
+      "kind": "character",
+      "source_url": "https://tsukiniyorisou.fandom.com/wiki/Minato_Yanase",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

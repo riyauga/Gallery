@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "saekano-wiki",
+    "url": "https://saekano.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "saenai_heroine_no_sodatekata",
+      "zh": "路人女主的养成方法",
+      "en": "Saekano: How to Raise a Boring Girlfriend",
+      "source_url": "https://saekano.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:megumi",
+      "game": "saenai_heroine_no_sodatekata",
+      "zh": "加藤惠",
+      "en": "Kato Megumi",
+      "aliases": [
+        "惠",
+        "Megumi"
+      ],
+      "kind": "character",
+      "source_url": "https://saekano.fandom.com/wiki/Megumi_Kato",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:eriri",
+      "game": "saenai_heroine_no_sodatekata",
+      "zh": "泽村·斯宾塞·英梨梨",
+      "en": "Sawamura Spencer Eriri",
+      "aliases": [
+        "英梨梨",
+        "Eriri"
+      ],
+      "kind": "character",
+      "source_url": "https://saekano.fandom.com/wiki/Eriri_Spencer_Sawamura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:utaha",
+      "game": "saenai_heroine_no_sodatekata",
+      "zh": "霞之丘诗羽",
+      "en": "Kasumigaoka Utaha",
+      "aliases": [
+        "诗羽",
+        "Utaha"
+      ],
+      "kind": "character",
+      "source_url": "https://saekano.fandom.com/wiki/Utaha_Kasumigaoka",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

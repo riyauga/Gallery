@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "bocchi-wiki",
+    "url": "https://bocchi-the-rock.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "bocchi_the_rock",
+      "zh": "孤独摇滚！",
+      "en": "Bocchi the Rock!",
+      "source_url": "https://bocchi-the-rock.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:bocchi",
+      "game": "bocchi_the_rock",
+      "zh": "后藤一里",
+      "en": "Hitori Gotoh",
+      "aliases": [
+        "波奇",
+        "Bocchi"
+      ],
+      "kind": "character",
+      "source_url": "https://bocchi-the-rock.fandom.com/wiki/Hitori_Gotoh",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nijika",
+      "game": "bocchi_the_rock",
+      "zh": "伊地知虹夏",
+      "en": "Nijika Ijichi",
+      "aliases": [
+        "虹夏",
+        "Nijika"
+      ],
+      "kind": "character",
+      "source_url": "https://bocchi-the-rock.fandom.com/wiki/Nijika_Ijichi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kita",
+      "game": "bocchi_the_rock",
+      "zh": "喜多郁代",
+      "en": "Ikuyo Kita",
+      "aliases": [
+        "喜多",
+        "Kita"
+      ],
+      "kind": "character",
+      "source_url": "https://bocchi-the-rock.fandom.com/wiki/Ikuyo_Kita",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ryo",
+      "game": "bocchi_the_rock",
+      "zh": "山田凉",
+      "en": "Ryo Yamada",
+      "aliases": [
+        "凉",
+        "Ryo"
+      ],
+      "kind": "character",
+      "source_url": "https://bocchi-the-rock.fandom.com/wiki/Ryo_Yamada",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

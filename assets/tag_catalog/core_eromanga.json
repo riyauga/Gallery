@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "eromanga-wiki",
+    "url": "https://eromanga-sensei.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "eromanga_sensei",
+      "zh": "埃罗芒阿老师",
+      "en": "Eromanga Sensei",
+      "source_url": "https://eromanga-sensei.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:sagiri",
+      "game": "eromanga_sensei",
+      "zh": "和泉纱雾",
+      "en": "Sagiri Izumi",
+      "aliases": [
+        "纱雾",
+        "Sagiri"
+      ],
+      "kind": "character",
+      "source_url": "https://eromanga-sensei.fandom.com/wiki/Sagiri_Izumi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:elf",
+      "game": "eromanga_sensei",
+      "zh": "山田妖精",
+      "en": "Elf Yamada",
+      "aliases": [
+        "妖精",
+        "Elf"
+      ],
+      "kind": "character",
+      "source_url": "https://eromanga-sensei.fandom.com/wiki/Elf_Yamada",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:senju",
+      "game": "eromanga_sensei",
+      "zh": "千寿村征",
+      "en": "Senju Muramasa",
+      "aliases": [
+        "村征",
+        "Senju"
+      ],
+      "kind": "character",
+      "source_url": "https://eromanga-sensei.fandom.com/wiki/Senju_Muramasa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

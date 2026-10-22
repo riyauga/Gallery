@@ -1,0 +1,46 @@
+{
+  "source": {
+    "id": "metal-gear-wiki",
+    "url": "https://metalgear.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "metal_gear",
+      "zh": "合金装备",
+      "en": "Metal Gear",
+      "source_url": "https://metalgear.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:quiet",
+      "game": "metal_gear",
+      "zh": "静寂",
+      "en": "Quiet",
+      "aliases": [
+        "Quiet"
+      ],
+      "kind": "character",
+      "source_url": "https://metalgear.fandom.com/wiki/Quiet",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:meryl",
+      "game": "metal_gear",
+      "zh": "梅丽尔·西尔弗伯格",
+      "en": "Meryl Silverburgh",
+      "aliases": [
+        "梅丽尔",
+        "Meryl"
+      ],
+      "kind": "character",
+      "source_url": "https://metalgear.fandom.com/wiki/Meryl_Silverburgh",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

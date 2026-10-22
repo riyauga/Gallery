@@ -183,6 +183,18 @@ public sealed class TagCatalogService
 
         Backup(conn);
 
+        // 成员关系要按“全部来源”重建，只按本次新增来源重建会丢掉旧来源的作品关系。
+        var allSources = new List<(Bundle Bundle, string SourceId, string SourceUrl)>();
+        foreach (var bundle in bundles)
+        {
+            var root = bundle.Root;
+            if (!root.TryGetProperty("source", out var source)) continue;
+            var sid = source.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+            if (sid.Length == 0) continue;
+            var url = source.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+            allSources.Add((bundle, sid, url));
+        }
+
         var reports = new List<ImportReport>();
         using (var tx = conn.BeginTransaction())
         {
@@ -195,12 +207,14 @@ public sealed class TagCatalogService
 
                 // 成员关系整体重建：身份只认记录里显式写出的 identity_key
                 Exec(conn, tx, "DELETE FROM catalog_memberships");
-                foreach (var (bundle, sid, sourceUrl, _, _) in pending)
+                foreach (var (bundle, sid, sourceUrl) in allSources)
                 {
                     foreach (var rec in Records(bundle))
                     {
                         var key = sid + ":" + rec.Key;
-                        var identity = IdentityKey(conn, tx, key) ?? key;
+                        // 已清理掉的条目不要再凭空生成身份/作品关系。
+                        var identity = IdentityKey(conn, tx, key);
+                        if (identity is null) continue;
                         var games = new List<string> { rec.Game };
                         games.AddRange(rec.Works);
                         foreach (var game in games.Distinct())
@@ -209,6 +223,17 @@ public sealed class TagCatalogService
                                 ("$i", identity), ("$g", game), ("$s", rec.SourceUrl ?? sourceUrl));
                     }
                 }
+
+                // 新导入的来源条目也要有独立身份记录，否则标签关联会指向不存在的身份。
+                var now = (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds
+                    .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Exec(conn, tx,
+                    "INSERT OR IGNORE INTO identities(identity_key,kind,zh,en,primary_entity_key,created_at,updated_at) " +
+                    "SELECT COALESCE(NULLIF(identity_key,''),entity_key)," +
+                    "MIN(COALESCE(NULLIF(kind,''),'character')),MAX(COALESCE(zh,'')),MAX(COALESCE(en,''))," +
+                    "MIN(entity_key)," + now + "," + now + " FROM catalog_entities " +
+                    "WHERE COALESCE(NULLIF(identity_key,''),entity_key)<>'' " +
+                    "GROUP BY COALESCE(NULLIF(identity_key,''),entity_key)");
                 tx.Commit();
             }
             catch
@@ -733,7 +758,8 @@ public sealed class TagCatalogService
     public sealed record AlignReport(
         int Matched, int Ambiguous, int Unmatched, int Existing,
         int External = 0, int Manual = 0, int Skipped = 0,
-        int Seeded = 0, int IdentityLinks = 0, int MergedEntities = 0, int MergedTags = 0);
+        int Seeded = 0, int IdentityLinks = 0, int MergedEntities = 0, int MergedTags = 0,
+        int Conflicting = 0);
 
     private sealed record PlanLink(string Member, string Identity, string Origin, string Note);
     private sealed record PlanTagState(string Tag, string Category, string Status, string Identity,
@@ -975,8 +1001,51 @@ public sealed class TagCatalogService
             while (r.Read()) existing.Add(r.GetInt32(0));
         }
 
+        // 新模型里的锁 / 独立状态：自动对齐一律不碰。
+        var protectedTags = new HashSet<int>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT tag_id FROM tag_identities WHERE locked<>0 OR link_status='independent'";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) protectedTags.Add(r.GetInt32(0));
+        }
+
+        // 每张图实际带的 work 标签：候选身份必须覆盖这些作品，否则算冲突。
+        var worksByTag = new Dictionary<int, HashSet<string>>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT DISTINCT src.tag_id,w.name FROM image_tags src " +
+                "JOIN image_tags wi ON wi.image_id=src.image_id " +
+                "JOIN tags w ON w.id=wi.tag_id AND COALESCE(w.category,'custom')='work' " +
+                "JOIN tags st ON st.id=src.tag_id AND COALESCE(st.category,'custom')='character'";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var tagId = r.GetInt32(0);
+                if (!worksByTag.TryGetValue(tagId, out var set))
+                    worksByTag[tagId] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                set.Add(r.GetString(1));
+            }
+        }
+
+        var gamesByIdentity = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT identity_key,game_key FROM catalog_memberships WHERE game_key<>''";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var identity = r.GetString(0);
+                if (!gamesByIdentity.TryGetValue(identity, out var set))
+                    gamesByIdentity[identity] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                set.Add(r.GetString(1));
+            }
+        }
+
         int matched = 0, ambiguous = 0, unmatched = 0, kept = 0;
-        int external = 0, manual = 0, skipped = 0;
+        int external = 0, manual = 0, skipped = 0, conflicting = 0;
         SqliteTransaction? writeTx = dryRun ? null : conn.BeginTransaction();
         try
         {
@@ -984,6 +1053,11 @@ public sealed class TagCatalogService
             {
                 if (category != "character") { skipped++; continue; }
                 if (images == 0) { skipped++; continue; }
+                if (protectedTags.Contains(id))
+                {
+                    manual++;
+                    continue;
+                }
                 if (states.TryGetValue(id, out var st) && st.BlocksAutoAlign)
                 {
                     if (st.Status is "external" or "original") external++;
@@ -1005,6 +1079,13 @@ public sealed class TagCatalogService
                     continue;
                 }
                 var hit = hits[0];
+                // 名字唯一还不够：候选身份的作品必须覆盖图片实际的作品标签，否则不自动绑。
+                if (!WorksAgree(worksByTag, gamesByIdentity, id, hit))
+                {
+                    conflicting++;
+                    log?.Invoke($"身份冲突跳过：{category}/{name} -> {hit.Key} @ {hit.Game}");
+                    continue;
+                }
                 if (dryRun)
                 {
                     log?.Invoke($"[预演] {category}/{name} -> {hit.Key} | {hit.Zh}/{hit.En} @ {hit.Game}");
@@ -1012,6 +1093,8 @@ public sealed class TagCatalogService
                     continue;
                 }
                 WriteProfile(conn, writeTx!, id, hit.Key, log);
+                WriteTagIdentity(conn, id, hit.Identity, "linked", locked: false,
+                    source: "auto-align", note: $"作品一致：{hit.Game}", tx: writeTx);
                 matched++;
             }
             writeTx?.Commit();
@@ -1022,7 +1105,45 @@ public sealed class TagCatalogService
         }
 
         return new AlignReport(matched, ambiguous, unmatched, kept, external, manual, skipped,
-            seeded, identityLinks, mergedEntities, mergedTags);
+            seeded, identityLinks, mergedEntities, mergedTags, conflicting);
+    }
+
+    /// <summary>
+    /// 候选身份覆盖图片实际作品标签才算一致；图片没有任何作品标签时无法判断，按允许处理。
+    /// 同一身份跨作品（如鸣潮联动）时，成员表里任一作品匹配即可。
+    /// </summary>
+    private static bool WorksAgree(
+        IReadOnlyDictionary<int, HashSet<string>> worksByTag,
+        IReadOnlyDictionary<string, HashSet<string>> gamesByIdentity,
+        int tagId, NameHit hit)
+    {
+        if (!worksByTag.TryGetValue(tagId, out var works) || works.Count == 0) return true;
+
+        var games = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (hit.Game.Length > 0) games.Add(hit.Game);
+        if (gamesByIdentity.TryGetValue(hit.Identity, out var members))
+            foreach (var game in members) games.Add(game);
+        if (games.Count == 0) return false;
+
+        foreach (var work in works)
+            if (!games.Any(game => GameMatchesWork(game, work)))
+                return false;
+        return true;
+    }
+
+    /// <summary>游戏键与作品标签名的容错匹配：忽略大小写/标点，允许 genshin ↔ genshin_impact 这类包含关系。</summary>
+    private static bool GameMatchesWork(string game, string work)
+    {
+        static string Key(string text) =>
+            new(text.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+
+        var g = Key(game);
+        var w = Key(work);
+        if (g.Length == 0 || w.Length == 0) return false;
+        if (g == w) return true;
+        if (g.Length >= 4 && w.Contains(g, StringComparison.Ordinal)) return true;
+        if (w.Length >= 4 && g.Contains(w, StringComparison.Ordinal)) return true;
+        return false;
     }
 
     /// <summary>应用人工身份映射；重建 memberships 以保留同身份的全部作品。</summary>
@@ -1400,6 +1521,29 @@ public sealed class TagCatalogService
             OriginGame = origin,
         };
         TagDisplayState.Save(conn, states);
+        WriteTagIdentity(conn, tagId, identity, "linked", locked: true, source: "manual");
+    }
+
+    /// <summary>身份关联的唯一落点；旧状态字段只留作显示与兼容读取。</summary>
+    private static void WriteTagIdentity(SqliteConnection conn, int tagId, string identityKey,
+        string linkStatus, bool locked, string source, string note = "", SqliteTransaction? tx = null)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "INSERT INTO tag_identities(tag_id,identity_key,link_status,source,locked,note,updated_at) " +
+            "VALUES($t,$i,$s,$src,$l,$n,$now) " +
+            "ON CONFLICT(tag_id) DO UPDATE SET identity_key=excluded.identity_key," +
+            "link_status=excluded.link_status,source=excluded.source,locked=excluded.locked," +
+            "note=excluded.note,updated_at=excluded.updated_at";
+        cmd.Parameters.AddWithValue("$t", tagId);
+        cmd.Parameters.AddWithValue("$i", identityKey ?? "");
+        cmd.Parameters.AddWithValue("$s", linkStatus);
+        cmd.Parameters.AddWithValue("$src", source);
+        cmd.Parameters.AddWithValue("$l", locked ? 1 : 0);
+        cmd.Parameters.AddWithValue("$n", note);
+        cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>设置单个标签的状态/身份/显示方式；null 表示保持原值，空字符串表示清空。</summary>
@@ -1409,15 +1553,28 @@ public sealed class TagCatalogService
         using var conn = Open();
         var states = TagDisplayState.Load(conn);
         var st = states.GetValueOrDefault(tagId) ?? new TagDisplayState.State();
+        var nextStatus = status ?? st.Status;
+        var nextIdentity = identityKey ?? st.IdentityKey;
         states[tagId] = st with
         {
-            Status = status ?? st.Status,
-            IdentityKey = identityKey ?? st.IdentityKey,
+            Status = nextStatus,
+            IdentityKey = nextIdentity,
             OriginGame = originGame ?? st.OriginGame,
             DisplayMode = displayMode ?? st.DisplayMode,
             DisplayName = displayName ?? st.DisplayName,
         };
         TagDisplayState.Save(conn, states);
+
+        if (identityKey is not null || status is not null)
+        {
+            // 旧状态按实际关联迁移：original=独立；其余有身份即已关联，无身份保持待关联并保留保护。
+            var linkStatus = nextStatus == "original"
+                ? "independent"
+                : nextIdentity.Length > 0 ? "linked" : "pending";
+            WriteTagIdentity(conn, tagId, nextIdentity, linkStatus,
+                locked: nextStatus is "manual" or "resolved" or "external" or "original",
+                source: "manual", note: nextStatus.Length > 0 ? "legacy " + nextStatus : "");
+        }
     }
 
     /// <summary>全局显示模式：zh_full / zh_short / alias / original / canonical。</summary>

@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "tales-wiki",
+    "url": "https://aselia.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "tales_of",
+      "zh": "传说系列",
+      "en": "Tales of Series",
+      "source_url": "https://aselia.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:milla",
+      "game": "tales_of",
+      "zh": "米拉·麦克斯韦",
+      "en": "Milla Maxwell",
+      "aliases": [
+        "米拉",
+        "Milla"
+      ],
+      "kind": "character",
+      "source_url": "https://aselia.fandom.com/wiki/Milla_Maxwell",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tear",
+      "game": "tales_of",
+      "zh": "缇雅·格兰兹",
+      "en": "Tear Grants",
+      "aliases": [
+        "缇雅",
+        "Tear"
+      ],
+      "kind": "character",
+      "source_url": "https://aselia.fandom.com/wiki/Tear_Grants",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rutee",
+      "game": "tales_of",
+      "zh": "露蒂·卡特雷亚",
+      "en": "Rutee Katrea",
+      "aliases": [
+        "露蒂",
+        "Rutee"
+      ],
+      "kind": "character",
+      "source_url": "https://aselia.fandom.com/wiki/Rutee_Katrea",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:velvet",
+      "game": "tales_of",
+      "zh": "贝露贝特·克劳",
+      "en": "Velvet Crowe",
+      "aliases": [
+        "贝露贝特",
+        "Velvet"
+      ],
+      "kind": "character",
+      "source_url": "https://aselia.fandom.com/wiki/Velvet_Crowe",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

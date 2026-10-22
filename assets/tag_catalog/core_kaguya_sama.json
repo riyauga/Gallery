@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "kaguya-wiki",
+    "url": "https://kaguya-sama.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "kaguya_sama",
+      "zh": "辉夜大小姐想让我告白",
+      "en": "Kaguya-sama: Love Is War",
+      "source_url": "https://kaguya-sama.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kaguya",
+      "game": "kaguya_sama",
+      "zh": "四宫辉夜",
+      "en": "Kaguya Shinomiya",
+      "aliases": [
+        "辉夜",
+        "Kaguya"
+      ],
+      "kind": "character",
+      "source_url": "https://kaguya-sama.fandom.com/wiki/Kaguya_Shinomiya",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chika",
+      "game": "kaguya_sama",
+      "zh": "藤原千花",
+      "en": "Chika Fujiwara",
+      "aliases": [
+        "千花",
+        "Chika"
+      ],
+      "kind": "character",
+      "source_url": "https://kaguya-sama.fandom.com/wiki/Chika_Fujiwara",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hayasaka",
+      "game": "kaguya_sama",
+      "zh": "早坂爱",
+      "en": "Ai Hayasaka",
+      "aliases": [
+        "早坂",
+        "Hayasaka"
+      ],
+      "kind": "character",
+      "source_url": "https://kaguya-sama.fandom.com/wiki/Ai_Hayasaka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:miko",
+      "game": "kaguya_sama",
+      "zh": "伊井野弥子",
+      "en": "Miko Iino",
+      "aliases": [
+        "弥子",
+        "Miko"
+      ],
+      "kind": "character",
+      "source_url": "https://kaguya-sama.fandom.com/wiki/Miko_Iino",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

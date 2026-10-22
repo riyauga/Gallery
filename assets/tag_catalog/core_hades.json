@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "hades-wiki",
+    "url": "https://hades.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "hades",
+      "zh": "哈迪斯",
+      "en": "Hades",
+      "source_url": "https://hades.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:megaera",
+      "game": "hades",
+      "zh": "墨纪拉",
+      "en": "Megaera",
+      "aliases": [
+        "Megaera"
+      ],
+      "kind": "character",
+      "source_url": "https://hades.fandom.com/wiki/Megaera",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:artemis",
+      "game": "hades",
+      "zh": "阿尔忒弥斯",
+      "en": "Artemis",
+      "aliases": [
+        "Artemis"
+      ],
+      "kind": "character",
+      "source_url": "https://hades.fandom.com/wiki/Artemis",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aphrodite",
+      "game": "hades",
+      "zh": "阿佛洛狄忒",
+      "en": "Aphrodite",
+      "aliases": [
+        "Aphrodite"
+      ],
+      "kind": "character",
+      "source_url": "https://hades.fandom.com/wiki/Aphrodite",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

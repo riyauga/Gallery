@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "atri-wiki",
+    "url": "https://atri.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "atri",
+      "zh": "ATRI -My Dear Moments-",
+      "en": "ATRI -My Dear Moments-",
+      "source_url": "https://atri.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:atri",
+      "game": "atri",
+      "zh": "亚托莉",
+      "en": "Atri",
+      "aliases": [
+        "亚托莉",
+        "Atri"
+      ],
+      "kind": "character",
+      "source_url": "https://atri.fandom.com/wiki/Atri",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

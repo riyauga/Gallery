@@ -1,0 +1,69 @@
+{
+  "source": {
+    "id": "onmyoji-wiki",
+    "url": "https://onmyoji.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "onmyoji",
+      "zh": "阴阳师",
+      "en": "Onmyoji",
+      "source_url": "https://onmyoji.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:shiranui",
+      "game": "onmyoji",
+      "zh": "不知火",
+      "en": "Shiranui",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://onmyoji.fandom.com/wiki/Shiranui",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kagura",
+      "game": "onmyoji",
+      "zh": "神乐",
+      "en": "Kagura",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://onmyoji.fandom.com/wiki/Kagura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kaguya",
+      "game": "onmyoji",
+      "zh": "辉夜姬",
+      "en": "Kaguya",
+      "aliases": [
+        "辉夜姬",
+        "Kaguya"
+      ],
+      "kind": "character",
+      "source_url": "https://onmyoji.fandom.com/wiki/Kaguya",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ootengu",
+      "game": "onmyoji",
+      "zh": "大天狗",
+      "en": "Ootengu",
+      "aliases": [
+        "大天狗",
+        "Ootengu"
+      ],
+      "kind": "character",
+      "source_url": "https://onmyoji.fandom.com/wiki/Ootengu",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

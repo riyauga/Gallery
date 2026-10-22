@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "seirei-wiki",
+    "url": "https://seireitsukai.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "seireitsukai_no_blade_dance",
+      "zh": "精灵使的剑舞",
+      "en": "Blade Dance of the Elementalers",
+      "source_url": "https://seireitsukai.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:claire",
+      "game": "seireitsukai_no_blade_dance",
+      "zh": "克蕾儿·露裘",
+      "en": "Claire Rouge",
+      "aliases": [
+        "克蕾儿",
+        "Claire"
+      ],
+      "kind": "character",
+      "source_url": "https://seireitsukai.fandom.com/wiki/Claire_Rouge",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

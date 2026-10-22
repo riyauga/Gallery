@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "doupo-wiki",
+    "url": "https://doupo.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "doupo_cangqiong",
+      "zh": "斗破苍穹",
+      "en": "Battle Through the Heavens",
+      "source_url": "https://doupo.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:medusa",
+      "game": "doupo_cangqiong",
+      "zh": "美杜莎",
+      "en": "Medusa",
+      "aliases": [
+        "美杜莎",
+        "Medusa"
+      ],
+      "kind": "character",
+      "source_url": "https://doupo.fandom.com/wiki/Medusa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:xun'er",
+      "game": "doupo_cangqiong",
+      "zh": "萧薰儿",
+      "en": "Xiao Xun'er",
+      "aliases": [
+        "薰儿",
+        "Xun'er"
+      ],
+      "kind": "character",
+      "source_url": "https://doupo.fandom.com/wiki/Xiao_Xun%27er",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yunyun",
+      "game": "doupo_cangqiong",
+      "zh": "云韵",
+      "en": "Yun Yun",
+      "aliases": [
+        "云韵",
+        "Yun Yun"
+      ],
+      "kind": "character",
+      "source_url": "https://doupo.fandom.com/wiki/Yun_Yun",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:xiaoyixian",
+      "game": "doupo_cangqiong",
+      "zh": "小医仙",
+      "en": "Xiao Yixian",
+      "aliases": [
+        "小医仙",
+        "Xiao Yixian"
+      ],
+      "kind": "character",
+      "source_url": "https://doupo.fandom.com/wiki/Xiao_Yixian",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

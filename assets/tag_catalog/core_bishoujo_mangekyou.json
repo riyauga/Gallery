@@ -1,0 +1,132 @@
+{
+  "source": {
+    "id": "bishoujo-mangekyou-wiki",
+    "url": "https://bishoujo-mirror.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first"
+  },
+  "games": [
+    {
+      "key": "bishoujo_mangekyou",
+      "zh": "美少女万华镜",
+      "en": "Bishoujo Mangekyou",
+      "source_url": "https://bishoujo-mirror.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:renge",
+      "game": "bishoujo_mangekyou",
+      "zh": "莲华",
+      "en": "Renge",
+      "aliases": [
+        "蓮華",
+        "Ren"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E8%8E%B2%E5%8D%8E(%E7%BE%8E%E5%B0%91%E5%A5%B3%E4%B8%87%E5%8D%8E%E9%95%9C)",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kirie",
+      "game": "bishoujo_mangekyou",
+      "zh": "篝之雾枝",
+      "en": "Kagarino Kirie",
+      "aliases": [
+        "雾枝",
+        "Kirie"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E7%AF%9D%E4%B9%8B%E9%9B%BE%E6%9E%9D",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shizuku",
+      "game": "bishoujo_mangekyou",
+      "zh": "泽渡雫",
+      "en": "Sawatari Shizuku",
+      "aliases": [
+        "雫",
+        "Shizuku"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E6%B3%BD%E6%B8%A1%E9%9B%AB",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:haru",
+      "game": "bishoujo_mangekyou",
+      "zh": "稻森春",
+      "en": "Inamori Haru",
+      "aliases": [
+        "春",
+        "Haru"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E7%A8%BB%E6%A3%AE%E6%98%A5",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:arisu",
+      "game": "bishoujo_mangekyou",
+      "zh": "亚璃子",
+      "en": "Arisu",
+      "aliases": [
+        "Alice",
+        "亚璃子"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E4%BA%9A%E7%92%83%E5%AD%90",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:dorothy",
+      "game": "bishoujo_mangekyou",
+      "zh": "灯露椎",
+      "en": "Dorothy",
+      "aliases": [
+        "Doroshi",
+        "灯露椎",
+        "多萝西"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E7%81%AF%E9%9C%B2%E6%A4%8E",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yuuri",
+      "game": "bishoujo_mangekyou",
+      "zh": "觋夕莉",
+      "en": "Kannagi Yuuri",
+      "aliases": [
+        "夕莉",
+        "Yuuri"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E8%A7%8B%E5%A4%95%E8%8E%89",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shirayuki",
+      "game": "bishoujo_mangekyou",
+      "zh": "白雪姬",
+      "en": "Shirayuki Hime",
+      "aliases": [
+        "白雪姬",
+        "Hime"
+      ],
+      "kind": "character",
+      "source_url": "https://zh.moegirl.org.cn/%E7%99%BD%E9%9B%AA%E5%A7%AC(%E7%BE%8E%E5%B0%91%E5%A5%B3%E4%B8%87%E5%8D%8E%E9%95%9C)",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

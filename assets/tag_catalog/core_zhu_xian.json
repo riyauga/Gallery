@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "zhuxian-wiki",
+    "url": "https://zhuxian.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "zhu_xian",
+      "zh": "诛仙",
+      "en": "Zhu Xian",
+      "source_url": "https://zhuxian.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:bi_yao",
+      "game": "zhu_xian",
+      "zh": "碧瑶",
+      "en": "Bi Yao",
+      "aliases": [
+        "碧瑶",
+        "Bi Yao"
+      ],
+      "kind": "character",
+      "source_url": "https://zhuxian.fandom.com/wiki/Bi_Yao",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:lu_xueqi",
+      "game": "zhu_xian",
+      "zh": "陆雪琪",
+      "en": "Lu Xueqi",
+      "aliases": [
+        "雪琪",
+        "Xueqi"
+      ],
+      "kind": "character",
+      "source_url": "https://zhuxian.fandom.com/wiki/Lu_Xueqi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

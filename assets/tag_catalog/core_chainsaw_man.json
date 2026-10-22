@@ -1,0 +1,63 @@
+{
+  "source": {
+    "id": "chainsaw-man-wiki",
+    "url": "https://chainsaw-man.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "chainsaw_man",
+      "zh": "电锯人",
+      "en": "Chainsaw Man",
+      "source_url": "https://chainsaw-man.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:makima",
+      "game": "chainsaw_man",
+      "zh": "玛奇玛",
+      "en": "Makima",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://chainsaw-man.fandom.com/wiki/Makima",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:power",
+      "game": "chainsaw_man",
+      "zh": "帕瓦",
+      "en": "Power",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://chainsaw-man.fandom.com/wiki/Power",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:himeno",
+      "game": "chainsaw_man",
+      "zh": "姬野",
+      "en": "Himeno",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://chainsaw-man.fandom.com/wiki/Himeno",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:reze",
+      "game": "chainsaw_man",
+      "zh": "蕾塞",
+      "en": "Reze",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://chainsaw-man.fandom.com/wiki/Reze",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "jx3-wiki",
+    "url": "https://jx3.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "jian_wang_3",
+      "zh": "剑网3",
+      "en": "Jian Wang 3",
+      "source_url": "https://jx3.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:quyun",
+      "game": "jian_wang_3",
+      "zh": "曲云",
+      "en": "Qu Yun",
+      "aliases": [
+        "曲云",
+        "Qu Yun"
+      ],
+      "kind": "character",
+      "source_url": "https://jx3.fandom.com/wiki/Qu_Yun",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yezhiqing",
+      "game": "jian_wang_3",
+      "zh": "叶芷青",
+      "en": "Ye Zhiqing",
+      "aliases": [
+        "叶芷青",
+        "Ye Zhiqing"
+      ],
+      "kind": "character",
+      "source_url": "https://jx3.fandom.com/wiki/Ye_Zhiqing",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

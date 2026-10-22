@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "danganronpa-wiki",
+    "url": "https://danganronpa.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "danganronpa",
+      "zh": "弹丸论破",
+      "en": "Danganronpa",
+      "source_url": "https://danganronpa.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kyoko",
+      "game": "danganronpa",
+      "zh": "雾切响子",
+      "en": "Kyoko Kirigiri",
+      "aliases": [
+        "响子",
+        "Kyoko"
+      ],
+      "kind": "character",
+      "source_url": "https://danganronpa.fandom.com/wiki/Kyoko_Kirigiri",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chiaki",
+      "game": "danganronpa",
+      "zh": "七海千秋",
+      "en": "Chiaki Nanami",
+      "aliases": [
+        "七海",
+        "Chiaki"
+      ],
+      "kind": "character",
+      "source_url": "https://danganronpa.fandom.com/wiki/Chiaki_Nanami",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:junko",
+      "game": "danganronpa",
+      "zh": "江之岛盾子",
+      "en": "Junko Enoshima",
+      "aliases": [
+        "盾子",
+        "Junko"
+      ],
+      "kind": "character",
+      "source_url": "https://danganronpa.fandom.com/wiki/Junko_Enoshima",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

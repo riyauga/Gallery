@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "oregairu-wiki",
+    "url": "https://oregairu.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "yahari_ore_no_seishun_love_comedy_wa_machigatteiru",
+      "zh": "我的青春恋爱物语果然有问题",
+      "en": "My Teen Romantic Comedy SNAFU",
+      "source_url": "https://oregairu.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yukino",
+      "game": "yahari_ore_no_seishun_love_comedy_wa_machigatteiru",
+      "zh": "雪之下雪乃",
+      "en": "Yukino Yukinoshita",
+      "aliases": [
+        "雪乃",
+        "Yukino"
+      ],
+      "kind": "character",
+      "source_url": "https://oregairu.fandom.com/wiki/Yukino_Yukinoshita",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yui",
+      "game": "yahari_ore_no_seishun_love_comedy_wa_machigatteiru",
+      "zh": "由比滨结衣",
+      "en": "Yui Yuigahama",
+      "aliases": [
+        "结衣",
+        "Yui"
+      ],
+      "kind": "character",
+      "source_url": "https://oregairu.fandom.com/wiki/Yui_Yuigahama",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:iroha",
+      "game": "yahari_ore_no_seishun_love_comedy_wa_machigatteiru",
+      "zh": "一色彩羽",
+      "en": "Iroha Isshiki",
+      "aliases": [
+        "彩羽",
+        "Iroha"
+      ],
+      "kind": "character",
+      "source_url": "https://oregairu.fandom.com/wiki/Iroha_Isshiki",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

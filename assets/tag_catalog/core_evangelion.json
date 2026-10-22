@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "evangelion-wiki",
+    "url": "https://evangelion.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "neon_genesis_evangelion",
+      "zh": "新世纪福音战士",
+      "en": "Neon Genesis Evangelion",
+      "source_url": "https://evangelion.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:rei",
+      "game": "neon_genesis_evangelion",
+      "zh": "绫波丽",
+      "en": "Rei Ayanami",
+      "aliases": [
+        "绫波",
+        "Rei"
+      ],
+      "kind": "character",
+      "source_url": "https://evangelion.fandom.com/wiki/Rei_Ayanami",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:asuka",
+      "game": "neon_genesis_evangelion",
+      "zh": "明日香",
+      "en": "Asuka Langley Soryu",
+      "aliases": [
+        "惣流·明日香·兰格雷",
+        "Asuka"
+      ],
+      "kind": "character",
+      "source_url": "https://evangelion.fandom.com/wiki/Asuka_Langley_Soryu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mari",
+      "game": "neon_genesis_evangelion",
+      "zh": "真希波·玛丽·伊兰崔亚斯",
+      "en": "Mari Makinami Illustrious",
+      "aliases": [
+        "真希波",
+        "Mari"
+      ],
+      "kind": "character",
+      "source_url": "https://evangelion.fandom.com/wiki/Mari_Makinami_Illustrious",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:misato",
+      "game": "neon_genesis_evangelion",
+      "zh": "葛城美里",
+      "en": "Misato Katsuragi",
+      "aliases": [
+        "美里",
+        "Misato"
+      ],
+      "kind": "character",
+      "source_url": "https://evangelion.fandom.com/wiki/Misato_Katsuragi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

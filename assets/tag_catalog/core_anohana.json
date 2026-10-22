@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "anohana-wiki",
+    "url": "https://anohana.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "ano_hi_mita_hana_no_namae_wo_bokutachi_wa_mada_shiranai",
+      "zh": "我们仍未知道那天所看见的花的名字",
+      "en": "Anohana: The Flower We Saw That Day",
+      "source_url": "https://anohana.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:menma",
+      "game": "ano_hi_mita_hana_no_namae_wo_bokutachi_wa_mada_shiranai",
+      "zh": "本间芽衣子",
+      "en": "Meiko Honma",
+      "aliases": [
+        "面码",
+        "Menma"
+      ],
+      "kind": "character",
+      "source_url": "https://anohana.fandom.com/wiki/Meiko_Honma",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:naruko",
+      "game": "ano_hi_mita_hana_no_namae_wo_bokutachi_wa_mada_shiranai",
+      "zh": "安城鸣子",
+      "en": "Naruko Anjo",
+      "aliases": [
+        "鸣子",
+        "Anaru"
+      ],
+      "kind": "character",
+      "source_url": "https://anohana.fandom.com/wiki/Naruko_Anjo",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chiriko",
+      "game": "ano_hi_mita_hana_no_namae_wo_bokutachi_wa_mada_shiranai",
+      "zh": "鹤见知利子",
+      "en": "Chiriko Tsurumi",
+      "aliases": [
+        "知利子",
+        "Tsuruko"
+      ],
+      "kind": "character",
+      "source_url": "https://anohana.fandom.com/wiki/Chiriko_Tsurumi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -41,7 +41,10 @@ public sealed class Db : IDisposable
         }
     }
 
-    /// <summary>只初始化空库；已有库必须为兼容的 v3，不在 C# 侧改写旧库结构。</summary>
+    /// <summary>
+    /// 空库直接建 v4；v3 旧库先备份再用 <see cref="LibraryMigrationV4"/> 单事务升级；
+    /// 其他版本一律拒绝打开，避免误改用户数据。
+    /// </summary>
     private void EnsureSchema()
     {
         using var command = Connection.CreateCommand();
@@ -65,8 +68,18 @@ public sealed class Db : IDisposable
             return;
         }
         command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='meta'";
-        if (Convert.ToInt32(command.ExecuteScalar()) == 0 || SchemaVersion != 3)
-            throw new InvalidDataException("图库数据库版本不兼容；需要 schema v3，未修改原有数据结构。");
+        if (Convert.ToInt32(command.ExecuteScalar()) == 0)
+            throw new InvalidDataException("图库数据库缺少 meta 表，无法确认结构版本。");
+
+        var version = SchemaVersion;
+        if (version == 3)
+        {
+            LibraryMigrationV4.Upgrade(Connection, DbPath);
+            version = SchemaVersion;
+        }
+        if (version != LibraryMigrationV4.TargetVersion)
+            throw new InvalidDataException(
+                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV4.TargetVersion}），未修改原有数据结构。");
     }
 
     public int SchemaVersion

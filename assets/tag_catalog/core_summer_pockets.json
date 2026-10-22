@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "summer-pockets-wiki",
+    "url": "https://summerpockets.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "summer_pockets",
+      "zh": "夏日口袋",
+      "en": "Summer Pockets",
+      "source_url": "https://summerpockets.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:shiroha",
+      "game": "summer_pockets",
+      "zh": "鸣濑白羽",
+      "en": "Naruse Shiroha",
+      "aliases": [
+        "白羽",
+        "Shiroha"
+      ],
+      "kind": "character",
+      "source_url": "https://summerpockets.fandom.com/wiki/Shiroha_Naruse",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ao",
+      "game": "summer_pockets",
+      "zh": "空门苍",
+      "en": "Sorakado Ao",
+      "aliases": [
+        "苍",
+        "Ao"
+      ],
+      "kind": "character",
+      "source_url": "https://summerpockets.fandom.com/wiki/Ao_Sorakado",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kamome",
+      "game": "summer_pockets",
+      "zh": "久岛鸥",
+      "en": "Kushima Kamome",
+      "aliases": [
+        "鸥",
+        "Kamome"
+      ],
+      "kind": "character",
+      "source_url": "https://summerpockets.fandom.com/wiki/Kamome_Kushima",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

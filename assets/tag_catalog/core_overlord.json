@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "overlord-wiki",
+    "url": "https://overlordmaruyama.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "overlord",
+      "zh": "不死者之王",
+      "en": "Overlord",
+      "source_url": "https://overlordmaruyama.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:albedo",
+      "game": "overlord",
+      "zh": "雅儿贝德",
+      "en": "Albedo",
+      "aliases": [
+        "雅儿贝德",
+        "Albedo"
+      ],
+      "kind": "character",
+      "source_url": "https://overlordmaruyama.fandom.com/wiki/Albedo",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shalltear",
+      "game": "overlord",
+      "zh": "夏提雅·布拉德弗伦",
+      "en": "Shalltear Bloodfallen",
+      "aliases": [
+        "夏提雅",
+        "Shalltear"
+      ],
+      "kind": "character",
+      "source_url": "https://overlordmaruyama.fandom.com/wiki/Shalltear_Bloodfallen",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

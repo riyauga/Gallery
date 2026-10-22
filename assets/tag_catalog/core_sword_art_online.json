@@ -1,0 +1,71 @@
+{
+  "source": {
+    "id": "sword-art-online-wiki",
+    "url": "https://swordartonline.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "sword_art_online",
+      "zh": "刀剑神域",
+      "en": "Sword Art Online",
+      "source_url": "https://swordartonline.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:asuna",
+      "game": "sword_art_online",
+      "zh": "亚丝娜",
+      "en": "Asuna",
+      "aliases": [
+        "结城明日奈"
+      ],
+      "kind": "character",
+      "source_url": "https://swordartonline.fandom.com/wiki/Asuna_Yuuki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sinon",
+      "game": "sword_art_online",
+      "zh": "诗乃",
+      "en": "Sinon",
+      "aliases": [
+        "朝田诗乃"
+      ],
+      "kind": "character",
+      "source_url": "https://swordartonline.fandom.com/wiki/Sinon",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:alice",
+      "game": "sword_art_online",
+      "zh": "爱丽丝·辛赛西斯·萨蒂",
+      "en": "Alice Synthesis Thirty",
+      "aliases": [
+        "爱丽丝"
+      ],
+      "kind": "character",
+      "source_url": "https://swordartonline.fandom.com/wiki/Alice_Zuberg",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:leafa",
+      "game": "sword_art_online",
+      "zh": "莉法",
+      "en": "Leafa",
+      "aliases": [
+        "桐谷直叶"
+      ],
+      "kind": "character",
+      "source_url": "https://swordartonline.fandom.com/wiki/Leafa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

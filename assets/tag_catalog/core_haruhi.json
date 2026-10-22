@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "haruhi-wiki",
+    "url": "https://haruhi.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "suzumiya_haruhi_no_yuuutsu",
+      "zh": "凉宫春日的忧郁",
+      "en": "The Melancholy of Haruhi Suzumiya",
+      "source_url": "https://haruhi.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:haruhi",
+      "game": "suzumiya_haruhi_no_yuuutsu",
+      "zh": "凉宫春日",
+      "en": "Haruhi Suzumiya",
+      "aliases": [
+        "春日",
+        "Haruhi"
+      ],
+      "kind": "character",
+      "source_url": "https://haruhi.fandom.com/wiki/Haruhi_Suzumiya",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mikuru",
+      "game": "suzumiya_haruhi_no_yuuutsu",
+      "zh": "朝比奈实玖瑠",
+      "en": "Mikuru Asahina",
+      "aliases": [
+        "实玖瑠",
+        "Mikuru"
+      ],
+      "kind": "character",
+      "source_url": "https://haruhi.fandom.com/wiki/Mikuru_Asahina",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yuki",
+      "game": "suzumiya_haruhi_no_yuuutsu",
+      "zh": "长门有希",
+      "en": "Yuki Nagato",
+      "aliases": [
+        "有希",
+        "Yuki"
+      ],
+      "kind": "character",
+      "source_url": "https://haruhi.fandom.com/wiki/Yuki_Nagato",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

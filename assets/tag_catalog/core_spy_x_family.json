@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "spy-x-family-wiki",
+    "url": "https://spy-x-family.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "spy_x_family",
+      "zh": "间谍过家家",
+      "en": "Spy x Family",
+      "source_url": "https://spy-x-family.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yor_forger",
+      "game": "spy_x_family",
+      "zh": "约尔·福杰",
+      "en": "Yor Forger",
+      "aliases": [
+        "约尔",
+        "Yor"
+      ],
+      "kind": "character",
+      "source_url": "https://spy-x-family.fandom.com/wiki/Yor_Forger",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:anya_forger",
+      "game": "spy_x_family",
+      "zh": "阿尼亚·福杰",
+      "en": "Anya Forger",
+      "aliases": [
+        "阿尼亚",
+        "Anya"
+      ],
+      "kind": "character",
+      "source_url": "https://spy-x-family.fandom.com/wiki/Anya_Forger",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fiona_frost",
+      "game": "spy_x_family",
+      "zh": "菲奥娜·弗罗斯特",
+      "en": "Fiona Frost",
+      "aliases": [
+        "夜帷",
+        "Nightfall"
+      ],
+      "kind": "character",
+      "source_url": "https://spy-x-family.fandom.com/wiki/Fiona_Frost",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

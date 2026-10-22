@@ -1,15 +1,10 @@
 {
   "source": {
-    "id": "path-to-nowhere-wiki",
+    "id": "ptn-characters-wiki",
     "url": "https://path-to-nowhere.fandom.com/",
     "kind": "community",
-    "retrieved_at": "2026-10-15",
-    "version": "Live public MediaWiki snapshot; individual revision IDs retained; category members only",
-    "category_counts": {
-      "Sinners": 0,
-      "Characters": 0,
-      "Enemies": 4
-    }
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
   },
   "games": [
     {
@@ -21,79 +16,60 @@
   ],
   "records": [
     {
-      "key": "path-to-nowhere:page:2436",
+      "key": "character:chief",
       "game": "path_to_nowhere",
-      "zh": "",
-      "en": "Brand - Deteriorated",
-      "aliases": [],
-      "kind": "enemy",
-      "source_url": "https://path-to-nowhere.fandom.com/wiki/Brand_-_Deteriorated",
+      "zh": "局长",
+      "en": "Chief",
+      "aliases": [
+        "局长",
+        "Chief"
+      ],
+      "kind": "character",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Chief",
       "source_tags": [],
-      "status": "unknown",
-      "source_revision": 4910,
-      "source_title": "Brand - Deteriorated"
+      "status": "released"
     },
     {
-      "key": "path-to-nowhere:page:2438",
+      "key": "character:hacate",
       "game": "path_to_nowhere",
-      "zh": "",
-      "en": "Gang Thug",
-      "aliases": [],
-      "kind": "enemy",
-      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gang_Thug",
+      "zh": "赫卡蒂",
+      "en": "Hacate",
+      "aliases": [
+        "赫卡蒂",
+        "Hacate"
+      ],
+      "kind": "character",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Hacate",
       "source_tags": [],
-      "status": "unknown",
-      "source_revision": 4933,
-      "source_title": "Gang Thug"
+      "status": "released"
     },
     {
-      "key": "path-to-nowhere:page:2439",
+      "key": "character:langley",
       "game": "path_to_nowhere",
-      "zh": "",
-      "en": "Gang Thug - Elite",
-      "aliases": [],
-      "kind": "enemy",
-      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gang_Thug_-_Elite",
+      "zh": "兰利",
+      "en": "Langley",
+      "aliases": [
+        "兰利",
+        "Langley"
+      ],
+      "kind": "character",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Langley",
       "source_tags": [],
-      "status": "unknown",
-      "source_revision": 4935,
-      "source_title": "Gang Thug - Elite"
+      "status": "released"
     },
     {
-      "key": "path-to-nowhere:page:2437",
+      "key": "character:zoya",
       "game": "path_to_nowhere",
-      "zh": "",
-      "en": "Gonzales",
-      "aliases": [],
-      "kind": "enemy",
-      "source_url": "https://path-to-nowhere.fandom.com/wiki/Gonzales",
+      "zh": "卓娅",
+      "en": "Zoya",
+      "aliases": [
+        "卓娅",
+        "Zoya"
+      ],
+      "kind": "character",
+      "source_url": "https://path-to-nowhere.fandom.com/wiki/Zoya",
       "source_tags": [],
-      "status": "unknown",
-      "source_revision": 4916,
-      "source_title": "Gonzales"
+      "status": "released"
     }
-  ],
-  "gaps": [
-    {
-      "category": "Sinners",
-      "reason": "No direct entity pages; category may use another name or subcategories."
-    },
-    {
-      "category": "Characters",
-      "reason": "No direct entity pages; category may use another name or subcategories."
-    },
-    {
-      "reason": "Chinese name missing or contains unaudited template markup",
-      "record_keys": [
-        "path-to-nowhere:page:2436",
-        "path-to-nowhere:page:2438",
-        "path-to-nowhere:page:2439",
-        "path-to-nowhere:page:2437"
-      ]
-    },
-    {
-      "reason": "Direct categories and audited infoboxes only; not a proof of exhaustive NPC/species/variant coverage. Published community pages may need individual release/identity verification; unknown is deliberate."
-    }
-  ],
-  "quarantine": []
+  ]
 }

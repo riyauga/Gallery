@@ -1,0 +1,30 @@
+{
+  "source": {
+    "id": "saya-wiki",
+    "url": "https://saya-no-uta.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "saya_no_uta",
+      "zh": "沙耶之歌",
+      "en": "Saya no Uta",
+      "source_url": "https://saya-no-uta.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:saya",
+      "game": "saya_no_uta",
+      "zh": "沙耶",
+      "en": "Saya",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://saya-no-uta.fandom.com/wiki/Saya",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

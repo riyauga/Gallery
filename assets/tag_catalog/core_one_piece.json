@@ -1,0 +1,86 @@
+{
+  "source": {
+    "id": "one-piece-wiki",
+    "url": "https://onepiece.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "one_piece",
+      "zh": "海贼王",
+      "en": "One Piece",
+      "source_url": "https://onepiece.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nami",
+      "game": "one_piece",
+      "zh": "娜美",
+      "en": "Nami",
+      "aliases": [
+        "娜美"
+      ],
+      "kind": "character",
+      "source_url": "https://onepiece.fandom.com/wiki/Nami",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:robin",
+      "game": "one_piece",
+      "zh": "妮可·罗宾",
+      "en": "Nico Robin",
+      "aliases": [
+        "罗宾",
+        "Robin"
+      ],
+      "kind": "character",
+      "source_url": "https://onepiece.fandom.com/wiki/Nico_Robin",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hancock",
+      "game": "one_piece",
+      "zh": "波雅·汉库克",
+      "en": "Boa Hancock",
+      "aliases": [
+        "汉库克",
+        "Hancock",
+        "女帝"
+      ],
+      "kind": "character",
+      "source_url": "https://onepiece.fandom.com/wiki/Boa_Hancock",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yamato",
+      "game": "one_piece",
+      "zh": "大和",
+      "en": "Yamato",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://onepiece.fandom.com/wiki/Yamato",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:luffy",
+      "game": "one_piece",
+      "zh": "蒙奇·D·路飞",
+      "en": "Monkey D. Luffy",
+      "aliases": [
+        "路飞",
+        "Luffy"
+      ],
+      "kind": "character",
+      "source_url": "https://onepiece.fandom.com/wiki/Monkey_D._Luffy",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

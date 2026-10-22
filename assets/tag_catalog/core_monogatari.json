@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "monogatari-wiki",
+    "url": "https://bakemonogatari.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "monogatari",
+      "zh": "物语系列",
+      "en": "Monogatari Series",
+      "source_url": "https://bakemonogatari.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:senjougahara",
+      "game": "monogatari",
+      "zh": "战场原黑仪",
+      "en": "Hitagi Senjougahara",
+      "aliases": [
+        "战场原",
+        "Senjougahara"
+      ],
+      "kind": "character",
+      "source_url": "https://bakemonogatari.fandom.com/wiki/Hitagi_Senjougahara",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shinobu",
+      "game": "monogatari",
+      "zh": "忍野忍",
+      "en": "Shinobu Oshino",
+      "aliases": [
+        "忍",
+        "Shinobu"
+      ],
+      "kind": "character",
+      "source_url": "https://bakemonogatari.fandom.com/wiki/Shinobu_Oshino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hachikuji",
+      "game": "monogatari",
+      "zh": "八九寺真宵",
+      "en": "Mayoi Hachikuji",
+      "aliases": [
+        "真宵",
+        "Hachikuji"
+      ],
+      "kind": "character",
+      "source_url": "https://bakemonogatari.fandom.com/wiki/Mayoi_Hachikuji",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nadeko",
+      "game": "monogatari",
+      "zh": "千石抚子",
+      "en": "Nadeko Sengoku",
+      "aliases": [
+        "抚子",
+        "Nadeko"
+      ],
+      "kind": "character",
+      "source_url": "https://bakemonogatari.fandom.com/wiki/Nadeko_Sengoku",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hanekawa",
+      "game": "monogatari",
+      "zh": "羽川翼",
+      "en": "Tsubasa Hanekawa",
+      "aliases": [
+        "羽川",
+        "Hanekawa"
+      ],
+      "kind": "character",
+      "source_url": "https://bakemonogatari.fandom.com/wiki/Tsubasa_Hanekawa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

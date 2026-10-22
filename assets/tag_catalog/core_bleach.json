@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "bleach-wiki",
+    "url": "https://bleach.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "bleach",
+      "zh": "死神",
+      "en": "Bleach",
+      "source_url": "https://bleach.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:rukia",
+      "game": "bleach",
+      "zh": "朽木露琪亚",
+      "en": "Rukia Kuchiki",
+      "aliases": [
+        "露琪亚",
+        "Rukia"
+      ],
+      "kind": "character",
+      "source_url": "https://bleach.fandom.com/wiki/Rukia_Kuchiki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:orihime",
+      "game": "bleach",
+      "zh": "井上织姬",
+      "en": "Orihime Inoue",
+      "aliases": [
+        "织姬",
+        "Orihime"
+      ],
+      "kind": "character",
+      "source_url": "https://bleach.fandom.com/wiki/Orihime_Inoue",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yoruichi",
+      "game": "bleach",
+      "zh": "四枫院夜一",
+      "en": "Yoruichi Shihoin",
+      "aliases": [
+        "夜一",
+        "Yoruichi"
+      ],
+      "kind": "character",
+      "source_url": "https://bleach.fandom.com/wiki/Yoruichi_Shih%C5%8Din",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

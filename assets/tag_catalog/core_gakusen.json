@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "gakusen-wiki",
+    "url": "https://gakusentoshi.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "gakusen_toshi_asterisk",
+      "zh": "学战都市Asterisk",
+      "en": "The Asterisk War",
+      "source_url": "https://gakusentoshi.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:julis",
+      "game": "gakusen_toshi_asterisk",
+      "zh": "尤莉丝-阿莱克西亚·冯·里斯妃特",
+      "en": "Julis-Alexia von Riessfeld",
+      "aliases": [
+        "尤莉丝",
+        "Julis"
+      ],
+      "kind": "character",
+      "source_url": "https://gakusentoshi.fandom.com/wiki/Julis-Alexia_von_Riessfeld",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

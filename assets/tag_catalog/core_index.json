@@ -1,0 +1,32 @@
+{
+  "source": {
+    "id": "toaru-index-wiki",
+    "url": "https://toarumajutsunoindex.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "toaru_majutsu_no_index",
+      "zh": "魔法禁书目录",
+      "en": "A Certain Magical Index",
+      "source_url": "https://toarumajutsunoindex.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:index",
+      "game": "toaru_majutsu_no_index",
+      "zh": "茵蒂克丝",
+      "en": "Index",
+      "aliases": [
+        "Index"
+      ],
+      "kind": "character",
+      "source_url": "https://toarumajutsunoindex.fandom.com/wiki/Index",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

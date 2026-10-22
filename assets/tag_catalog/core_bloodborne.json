@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "bloodborne-wiki",
+    "url": "https://bloodborne.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "bloodborne",
+      "zh": "血源诅咒",
+      "en": "Bloodborne",
+      "source_url": "https://bloodborne.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:doll",
+      "game": "bloodborne",
+      "zh": "人偶",
+      "en": "The Doll",
+      "aliases": [
+        "猎人梦境人偶",
+        "Doll"
+      ],
+      "kind": "character",
+      "source_url": "https://bloodborne.fandom.com/wiki/The_Doll",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:maria",
+      "game": "bloodborne",
+      "zh": "玛利亚",
+      "en": "Lady Maria of the Astral Clocktower",
+      "aliases": [
+        "星辰钟塔的玛利亚",
+        "Maria"
+      ],
+      "kind": "character",
+      "source_url": "https://bloodborne.fandom.com/wiki/Lady_Maria_of_the_Astral_Clocktower",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

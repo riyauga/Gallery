@@ -1,0 +1,74 @@
+{
+  "source": {
+    "id": "street-fighter-wiki",
+    "url": "https://streetfighter.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "street_fighter",
+      "zh": "街头霸王",
+      "en": "Street Fighter",
+      "source_url": "https://streetfighter.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:chunli",
+      "game": "street_fighter",
+      "zh": "春丽",
+      "en": "Chun-Li",
+      "aliases": [
+        "Chun Li"
+      ],
+      "kind": "character",
+      "source_url": "https://streetfighter.fandom.com/wiki/Chun-Li",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:cammy",
+      "game": "street_fighter",
+      "zh": "嘉米·怀特",
+      "en": "Cammy White",
+      "aliases": [
+        "嘉米",
+        "Cammy"
+      ],
+      "kind": "character",
+      "source_url": "https://streetfighter.fandom.com/wiki/Cammy",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sakura",
+      "game": "street_fighter",
+      "zh": "春日野樱",
+      "en": "Sakura Kasugano",
+      "aliases": [
+        "樱",
+        "Sakura"
+      ],
+      "kind": "character",
+      "source_url": "https://streetfighter.fandom.com/wiki/Sakura_Kasugano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:juri",
+      "game": "street_fighter",
+      "zh": "韩朱莉",
+      "en": "Juri Han",
+      "aliases": [
+        "朱莉",
+        "Juri"
+      ],
+      "kind": "character",
+      "source_url": "https://streetfighter.fandom.com/wiki/Juri_Han",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

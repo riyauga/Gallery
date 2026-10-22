@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "opm-wiki",
+    "url": "https://onepunchman.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "one_punch_man",
+      "zh": "一拳超人",
+      "en": "One-Punch Man",
+      "source_url": "https://onepunchman.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:fubuki",
+      "game": "one_punch_man",
+      "zh": "地狱的吹雪",
+      "en": "Fubuki",
+      "aliases": [
+        "吹雪",
+        "Fubuki"
+      ],
+      "kind": "character",
+      "source_url": "https://onepunchman.fandom.com/wiki/Fubuki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tatsumaki",
+      "game": "one_punch_man",
+      "zh": "战栗的龙卷",
+      "en": "Tatsumaki",
+      "aliases": [
+        "龙卷",
+        "Tatsumaki"
+      ],
+      "kind": "character",
+      "source_url": "https://onepunchman.fandom.com/wiki/Tatsumaki",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

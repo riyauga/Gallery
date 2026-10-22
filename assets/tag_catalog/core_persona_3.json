@@ -1,0 +1,60 @@
+{
+  "source": {
+    "id": "persona-3-wiki",
+    "url": "https://megamitensei.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "persona_3",
+      "zh": "女神异闻录3",
+      "en": "Persona 3",
+      "source_url": "https://megamitensei.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:mitsuru",
+      "game": "persona_3",
+      "zh": "桐条美鹤",
+      "en": "Mitsuru Kirijo",
+      "aliases": [
+        "美鹤",
+        "Mitsuru"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Mitsuru_Kirijo",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yukari",
+      "game": "persona_3",
+      "zh": "岳羽由香里",
+      "en": "Yukari Takeba",
+      "aliases": [
+        "由香里",
+        "Yukari"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Yukari_Takeba",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aigis",
+      "game": "persona_3",
+      "zh": "埃癸斯",
+      "en": "Aigis",
+      "aliases": [
+        "Aigis"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Aigis",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

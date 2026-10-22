@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "white-album-2-wiki",
+    "url": "https://white-album.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "white_album_2",
+      "zh": "白色相簿2",
+      "en": "White Album 2",
+      "source_url": "https://white-album.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:setsuna",
+      "game": "white_album_2",
+      "zh": "小木曾雪菜",
+      "en": "Ogiso Setsuna",
+      "aliases": [
+        "雪菜",
+        "Setsuna"
+      ],
+      "kind": "character",
+      "source_url": "https://white-album.fandom.com/wiki/Setsuna_Ogiso",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kazusa",
+      "game": "white_album_2",
+      "zh": "冬马和纱",
+      "en": "Touma Kazusa",
+      "aliases": [
+        "和纱",
+        "Kazusa"
+      ],
+      "kind": "character",
+      "source_url": "https://white-album.fandom.com/wiki/Kazusa_Touma",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

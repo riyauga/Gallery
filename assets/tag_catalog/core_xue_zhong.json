@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "xuezhong-wiki",
+    "url": "https://xuezhonghandao.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "xue_zhong_han_dao_xing",
+      "zh": "雪中悍刀行",
+      "en": "Sword Snow Stride",
+      "source_url": "https://xuezhonghandao.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:jiang_ni",
+      "game": "xue_zhong_han_dao_xing",
+      "zh": "姜泥",
+      "en": "Jiang Ni",
+      "aliases": [
+        "姜泥",
+        "Jiang Ni"
+      ],
+      "kind": "character",
+      "source_url": "https://xuezhonghandao.fandom.com/wiki/Jiang_Ni",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

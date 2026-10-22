@@ -1,0 +1,44 @@
+{
+  "source": {
+    "id": "dragonball-wiki",
+    "url": "https://dragonball.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "dragon_ball",
+      "zh": "龙珠",
+      "en": "Dragon Ball",
+      "source_url": "https://dragonball.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:bulma",
+      "game": "dragon_ball",
+      "zh": "布尔玛",
+      "en": "Bulma",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://dragonball.fandom.com/wiki/Bulma",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:android18",
+      "game": "dragon_ball",
+      "zh": "人造人18号",
+      "en": "Android 18",
+      "aliases": [
+        "18号",
+        "Android 18"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonball.fandom.com/wiki/Android_18",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

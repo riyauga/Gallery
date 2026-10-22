@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "dressupdarling-wiki",
+    "url": "https://my-dress-up-darling.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "sono_bisque_doll_wa_koi_wo_suru",
+      "zh": "更衣人偶坠入爱河",
+      "en": "My Dress-Up Darling",
+      "source_url": "https://my-dress-up-darling.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:marin",
+      "game": "sono_bisque_doll_wa_koi_wo_suru",
+      "zh": "喜多川海梦",
+      "en": "Marin Kitagawa",
+      "aliases": [
+        "海梦",
+        "Marin"
+      ],
+      "kind": "character",
+      "source_url": "https://my-dress-up-darling.fandom.com/wiki/Marin_Kitagawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ruka",
+      "game": "sono_bisque_doll_wa_koi_wo_suru",
+      "zh": "更科瑠夏",
+      "en": "Ruka Sarashina",
+      "aliases": [
+        "瑠夏",
+        "Ruka"
+      ],
+      "kind": "character",
+      "source_url": "https://my-dress-up-darling.fandom.com/wiki/Ruka_Sarashina",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

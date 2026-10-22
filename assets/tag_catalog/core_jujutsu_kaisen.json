@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "jujutsu-kaisen-wiki",
+    "url": "https://jujutsu-kaisen.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "jujutsu_kaisen",
+      "zh": "咒术回战",
+      "en": "Jujutsu Kaisen",
+      "source_url": "https://jujutsu-kaisen.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:gojo",
+      "game": "jujutsu_kaisen",
+      "zh": "五条悟",
+      "en": "Satoru Gojo",
+      "aliases": [
+        "五条",
+        "Gojo"
+      ],
+      "kind": "character",
+      "source_url": "https://jujutsu-kaisen.fandom.com/wiki/Satoru_Gojo",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nobara",
+      "game": "jujutsu_kaisen",
+      "zh": "钉崎野蔷薇",
+      "en": "Nobara Kugisaki",
+      "aliases": [
+        "钉崎",
+        "Nobara"
+      ],
+      "kind": "character",
+      "source_url": "https://jujutsu-kaisen.fandom.com/wiki/Nobara_Kugisaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:maki",
+      "game": "jujutsu_kaisen",
+      "zh": "禅院真希",
+      "en": "Maki Zenin",
+      "aliases": [
+        "真希",
+        "Maki"
+      ],
+      "kind": "character",
+      "source_url": "https://jujutsu-kaisen.fandom.com/wiki/Maki_Zenin",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mai",
+      "game": "jujutsu_kaisen",
+      "zh": "禅院真依",
+      "en": "Mai Zenin",
+      "aliases": [
+        "真依",
+        "Mai"
+      ],
+      "kind": "character",
+      "source_url": "https://jujutsu-kaisen.fandom.com/wiki/Mai_Zenin",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

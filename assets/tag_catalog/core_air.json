@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "air-wiki",
+    "url": "https://air.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "air",
+      "zh": "AIR",
+      "en": "Air",
+      "source_url": "https://air.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:misuzu",
+      "game": "air",
+      "zh": "神尾观铃",
+      "en": "Kamio Misuzu",
+      "aliases": [
+        "观铃",
+        "Misuzu"
+      ],
+      "kind": "character",
+      "source_url": "https://air.fandom.com/wiki/Misuzu_Kamio",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "yuru-camp-wiki",
+    "url": "https://yurucamp.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "yuru_camp",
+      "zh": "摇曳露营",
+      "en": "Laid-Back Camp",
+      "source_url": "https://yurucamp.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nadeshiko",
+      "game": "yuru_camp",
+      "zh": "各务原抚子",
+      "en": "Nadeshiko Kagamihara",
+      "aliases": [
+        "抚子",
+        "Nadeshiko"
+      ],
+      "kind": "character",
+      "source_url": "https://yurucamp.fandom.com/wiki/Nadeshiko_Kagamihara",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rin",
+      "game": "yuru_camp",
+      "zh": "志摩凛",
+      "en": "Rin Shima",
+      "aliases": [
+        "凛",
+        "Rin"
+      ],
+      "kind": "character",
+      "source_url": "https://yurucamp.fandom.com/wiki/Rin_Shima",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chiaki",
+      "game": "yuru_camp",
+      "zh": "大垣千明",
+      "en": "Chiaki Ogaki",
+      "aliases": [
+        "千明",
+        "Chiaki"
+      ],
+      "kind": "character",
+      "source_url": "https://yurucamp.fandom.com/wiki/Chiaki_Ogaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aoi",
+      "game": "yuru_camp",
+      "zh": "犬山葵",
+      "en": "Aoi Inuyama",
+      "aliases": [
+        "葵",
+        "Aoi"
+      ],
+      "kind": "character",
+      "source_url": "https://yurucamp.fandom.com/wiki/Aoi_Inuyama",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

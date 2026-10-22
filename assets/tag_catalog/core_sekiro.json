@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "sekiro-wiki",
+    "url": "https://sekiroshadowsdietwice.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "sekiro",
+      "zh": "只狼：影逝二度",
+      "en": "Sekiro: Shadows Die Twice",
+      "source_url": "https://sekiroshadowsdietwice.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:emma",
+      "game": "sekiro",
+      "zh": "永真",
+      "en": "Emma",
+      "aliases": [
+        "药师永真",
+        "Emma"
+      ],
+      "kind": "character",
+      "source_url": "https://sekiroshadowsdietwice.fandom.com/wiki/Emma",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:lady_butterfly",
+      "game": "sekiro",
+      "zh": "蝴蝶夫人",
+      "en": "Lady Butterfly",
+      "aliases": [
+        "幻影蝴蝶",
+        "Lady Butterfly"
+      ],
+      "kind": "character",
+      "source_url": "https://sekiroshadowsdietwice.fandom.com/wiki/Lady_Butterfly",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

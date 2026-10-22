@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "date-a-live-wiki",
+    "url": "https://date-a-live.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "date_a_live",
+      "zh": "约会大作战",
+      "en": "Date A Live",
+      "source_url": "https://date-a-live.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kurumi",
+      "game": "date_a_live",
+      "zh": "时崎狂三",
+      "en": "Kurumi Tokisaki",
+      "aliases": [
+        "狂三",
+        "Kurumi"
+      ],
+      "kind": "character",
+      "source_url": "https://date-a-live.fandom.com/wiki/Kurumi_Tokisaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tohka",
+      "game": "date_a_live",
+      "zh": "夜刀神十香",
+      "en": "Tohka Yatogami",
+      "aliases": [
+        "十香",
+        "Tohka"
+      ],
+      "kind": "character",
+      "source_url": "https://date-a-live.fandom.com/wiki/Tohka_Yatogami",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yoshino",
+      "game": "date_a_live",
+      "zh": "四糸乃",
+      "en": "Yoshino",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://date-a-live.fandom.com/wiki/Yoshino",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "source": {
+    "id": "ff7-wiki",
+    "url": "https://finalfantasy.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "final_fantasy_vii",
+      "zh": "最终幻想VII",
+      "en": "Final Fantasy VII",
+      "source_url": "https://finalfantasy.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:tifa",
+      "game": "final_fantasy_vii",
+      "zh": "蒂法·洛克哈特",
+      "en": "Tifa Lockhart",
+      "aliases": [
+        "蒂法",
+        "Tifa"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Tifa_Lockhart",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:cloud",
+      "game": "final_fantasy_vii",
+      "zh": "克劳德·斯特莱夫",
+      "en": "Cloud Strife",
+      "aliases": [
+        "克劳德",
+        "Cloud"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Cloud_Strife",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aerith",
+      "game": "final_fantasy_vii",
+      "zh": "爱丽丝·盖恩斯巴勒",
+      "en": "Aerith Gainsborough",
+      "aliases": [
+        "爱丽丝",
+        "Aerith",
+        "Aeris"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Aerith_Gainsborough",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sephiroth",
+      "game": "final_fantasy_vii",
+      "zh": "萨菲罗斯",
+      "en": "Sephiroth",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Sephiroth",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yuffie",
+      "game": "final_fantasy_vii",
+      "zh": "尤菲·如月",
+      "en": "Yuffie Kisaragi",
+      "aliases": [
+        "尤菲",
+        "Yuffie"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Yuffie_Kisaragi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

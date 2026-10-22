@@ -1,0 +1,72 @@
+{
+  "source": {
+    "id": "ffxiv-wiki",
+    "url": "https://finalfantasy.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "final_fantasy_xiv",
+      "zh": "最终幻想XIV",
+      "en": "Final Fantasy XIV",
+      "source_url": "https://finalfantasy.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yshtola",
+      "game": "final_fantasy_xiv",
+      "zh": "雅·修特拉",
+      "en": "Y'shtola Rhul",
+      "aliases": [
+        "雅修特拉",
+        "Y'shtola"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Y%27shtola_Rhul",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:alisaie",
+      "game": "final_fantasy_xiv",
+      "zh": "阿莉塞·莱韦耶勒尔",
+      "en": "Alisaie Leveilleur",
+      "aliases": [
+        "阿莉塞",
+        "Alisaie"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Alisaie_Leveilleur",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:minfilia",
+      "game": "final_fantasy_xiv",
+      "zh": "敏菲利亚·沃德",
+      "en": "Minfilia Warde",
+      "aliases": [
+        "敏菲利亚",
+        "Minfilia"
+      ],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Minfilia_Warde",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:gaia",
+      "game": "final_fantasy_xiv",
+      "zh": "盖娅",
+      "en": "Gaia",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://finalfantasy.fandom.com/wiki/Gaia_(Final_Fantasy_XIV)",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

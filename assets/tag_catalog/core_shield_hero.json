@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "shield-hero-wiki",
+    "url": "https://shieldhero.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "tate_no_yuusha_no_nariagari",
+      "zh": "盾之勇者成名录",
+      "en": "The Rising of the Shield Hero",
+      "source_url": "https://shieldhero.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:raphtalia",
+      "game": "tate_no_yuusha_no_nariagari",
+      "zh": "拉芙塔莉雅",
+      "en": "Raphtalia",
+      "aliases": [
+        "拉芙塔莉雅",
+        "Raphtalia"
+      ],
+      "kind": "character",
+      "source_url": "https://shieldhero.fandom.com/wiki/Raphtalia",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:filo",
+      "game": "tate_no_yuusha_no_nariagari",
+      "zh": "菲洛",
+      "en": "Filo",
+      "aliases": [
+        "菲洛",
+        "Filo"
+      ],
+      "kind": "character",
+      "source_url": "https://shieldhero.fandom.com/wiki/Filo",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

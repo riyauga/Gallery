@@ -1,0 +1,60 @@
+{
+  "source": {
+    "id": "tsukihime-wiki",
+    "url": "https://typemoon.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "tsukihime",
+      "zh": "月姬",
+      "en": "Tsukihime",
+      "source_url": "https://typemoon.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:arcueid",
+      "game": "tsukihime",
+      "zh": "爱尔奎特·布伦史塔德",
+      "en": "Arcueid Brunestud",
+      "aliases": [
+        "爱尔奎特",
+        "Arcueid"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Arcueid_Brunestud",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ciel",
+      "game": "tsukihime",
+      "zh": "希耶尔",
+      "en": "Ciel",
+      "aliases": [
+        "Ciel"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Ciel",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akiha",
+      "game": "tsukihime",
+      "zh": "远野秋叶",
+      "en": "Tohno Akiha",
+      "aliases": [
+        "秋叶",
+        "Akiha"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Akiha_Tohno",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "source": {
+    "id": "kancolle-characters-wiki",
+    "url": "https://kancolle.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "kancolle",
+      "zh": "舰队Collection",
+      "en": "Kantai Collection",
+      "source_url": "https://kancolle.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:shimakaze",
+      "game": "kancolle",
+      "zh": "岛风",
+      "en": "Shimakaze",
+      "aliases": [
+        "岛风",
+        "Shimakaze"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Shimakaze",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kongou",
+      "game": "kancolle",
+      "zh": "金刚",
+      "en": "Kongou",
+      "aliases": [
+        "金刚",
+        "Kongou"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Kongou",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akagi",
+      "game": "kancolle",
+      "zh": "赤城",
+      "en": "Akagi",
+      "aliases": [
+        "赤城",
+        "Akagi"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Akagi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kaga",
+      "game": "kancolle",
+      "zh": "加贺",
+      "en": "Kaga",
+      "aliases": [
+        "加贺",
+        "Kaga"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Kaga",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yamato",
+      "game": "kancolle",
+      "zh": "大和",
+      "en": "Yamato",
+      "aliases": [
+        "大和",
+        "Yamato"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Yamato",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fubuki",
+      "game": "kancolle",
+      "zh": "吹雪",
+      "en": "Fubuki",
+      "aliases": [
+        "吹雪",
+        "Fubuki"
+      ],
+      "kind": "character",
+      "source_url": "https://kancolle.fandom.com/wiki/Fubuki",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

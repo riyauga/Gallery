@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "mha-wiki",
+    "url": "https://myheroacademia.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "boku_no_hero_academia",
+      "zh": "我的英雄学院",
+      "en": "My Hero Academia",
+      "source_url": "https://myheroacademia.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ochaco",
+      "game": "boku_no_hero_academia",
+      "zh": "丽日御茶子",
+      "en": "Ochaco Uraraka",
+      "aliases": [
+        "御茶子",
+        "Ochaco"
+      ],
+      "kind": "character",
+      "source_url": "https://myheroacademia.fandom.com/wiki/Ochaco_Uraraka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tsuyu",
+      "game": "boku_no_hero_academia",
+      "zh": "蛙吹梅雨",
+      "en": "Tsuyu Asui",
+      "aliases": [
+        "梅雨",
+        "Tsuyu"
+      ],
+      "kind": "character",
+      "source_url": "https://myheroacademia.fandom.com/wiki/Tsuyu_Asui",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:momo",
+      "game": "boku_no_hero_academia",
+      "zh": "八百万百",
+      "en": "Momo Yaoyorozu",
+      "aliases": [
+        "百",
+        "Momo"
+      ],
+      "kind": "character",
+      "source_url": "https://myheroacademia.fandom.com/wiki/Momo_Yaoyorozu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mina",
+      "game": "boku_no_hero_academia",
+      "zh": "芦户三奈",
+      "en": "Mina Ashido",
+      "aliases": [
+        "三奈",
+        "Mina"
+      ],
+      "kind": "character",
+      "source_url": "https://myheroacademia.fandom.com/wiki/Mina_Ashido",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

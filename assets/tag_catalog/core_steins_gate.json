@@ -1,0 +1,76 @@
+{
+  "source": {
+    "id": "steins-gate-wiki",
+    "url": "https://steins-gate.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "steins_gate",
+      "zh": "命运石之门",
+      "en": "Steins;Gate",
+      "source_url": "https://steins-gate.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kurisu",
+      "game": "steins_gate",
+      "zh": "牧濑红莉栖",
+      "en": "Makise Kurisu",
+      "aliases": [
+        "红莉栖",
+        "Kurisu"
+      ],
+      "kind": "character",
+      "source_url": "https://steins-gate.fandom.com/wiki/Kurisu_Makise",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mayuri",
+      "game": "steins_gate",
+      "zh": "椎名真由理",
+      "en": "Shiina Mayuri",
+      "aliases": [
+        "真由理",
+        "Mayuri"
+      ],
+      "kind": "character",
+      "source_url": "https://steins-gate.fandom.com/wiki/Mayuri_Shiina",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:suzuha",
+      "game": "steins_gate",
+      "zh": "阿万音铃羽",
+      "en": "Amane Suzuha",
+      "aliases": [
+        "铃羽",
+        "Suzuha"
+      ],
+      "kind": "character",
+      "source_url": "https://steins-gate.fandom.com/wiki/Suzuha_Amane",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:faris",
+      "game": "steins_gate",
+      "zh": "菲利斯·喵喵",
+      "en": "Faris Nyannyan",
+      "aliases": [
+        "菲利斯",
+        "Faris",
+        "秋叶留未穗"
+      ],
+      "kind": "character",
+      "source_url": "https://steins-gate.fandom.com/wiki/Rumiho_Akiha",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "fanren-wiki",
+    "url": "https://fanren.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "fanren_xiuxian",
+      "zh": "凡人修仙传",
+      "en": "A Record of a Mortal's Journey to Immortality",
+      "source_url": "https://fanren.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nangong_wan",
+      "game": "fanren_xiuxian",
+      "zh": "南宫婉",
+      "en": "Nangong Wan",
+      "aliases": [
+        "南宫婉",
+        "Nangong Wan"
+      ],
+      "kind": "character",
+      "source_url": "https://fanren.fandom.com/wiki/Nangong_Wan",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:zi_ling",
+      "game": "fanren_xiuxian",
+      "zh": "紫灵",
+      "en": "Zi Ling",
+      "aliases": [
+        "紫灵",
+        "Zi Ling"
+      ],
+      "kind": "character",
+      "source_url": "https://fanren.fandom.com/wiki/Zi_Ling",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yin_yue",
+      "game": "fanren_xiuxian",
+      "zh": "银月",
+      "en": "Yin Yue",
+      "aliases": [
+        "银月",
+        "Yin Yue"
+      ],
+      "kind": "character",
+      "source_url": "https://fanren.fandom.com/wiki/Yin_Yue",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

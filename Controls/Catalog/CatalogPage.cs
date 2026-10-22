@@ -353,7 +353,7 @@ public sealed class CatalogPage : Grid
         try
         {
             var report = _catalog.AlignTags();
-            _alignStatus.Text = $"新关联 {report.Matched} · 已有 {report.Existing} · 同名多实体 {report.Ambiguous} · 无对应 {report.Unmatched} · 外部/原创 {report.External} · 人工/已解析 {report.Manual}";
+            _alignStatus.Text = $"新关联 {report.Matched} · 已有 {report.Existing} · 同名多实体 {report.Ambiguous} · 作品冲突 {report.Conflicting} · 无对应 {report.Unmatched} · 外部/原创 {report.External} · 人工/已解析 {report.Manual}";
             Reload();
         }
         catch (Exception ex)

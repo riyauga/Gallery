@@ -1,0 +1,65 @@
+{
+  "source": {
+    "id": "konosuba-wiki",
+    "url": "https://konosuba.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "konosuba",
+      "zh": "为美好的世界献上祝福！",
+      "en": "KonoSuba: God's Blessing on This Wonderful World!",
+      "source_url": "https://konosuba.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:aqua",
+      "game": "konosuba",
+      "zh": "阿库娅",
+      "en": "Aqua",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://konosuba.fandom.com/wiki/Aqua",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:megumin",
+      "game": "konosuba",
+      "zh": "惠惠",
+      "en": "Megumin",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://konosuba.fandom.com/wiki/Megumin",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:darkness",
+      "game": "konosuba",
+      "zh": "达克妮丝",
+      "en": "Darkness",
+      "aliases": [
+        "达克妮丝·福德"
+      ],
+      "kind": "character",
+      "source_url": "https://konosuba.fandom.com/wiki/Darkness",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yunyun",
+      "game": "konosuba",
+      "zh": "悠悠",
+      "en": "Yunyun",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://konosuba.fandom.com/wiki/Yunyun",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "cardcaptor-wiki",
+    "url": "https://cardcaptorsakura.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "cardcaptor_sakura",
+      "zh": "魔卡少女樱",
+      "en": "Cardcaptor Sakura",
+      "source_url": "https://cardcaptorsakura.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:sakura",
+      "game": "cardcaptor_sakura",
+      "zh": "木之本樱",
+      "en": "Sakura Kinomoto",
+      "aliases": [
+        "小樱",
+        "Sakura"
+      ],
+      "kind": "character",
+      "source_url": "https://cardcaptorsakura.fandom.com/wiki/Sakura_Kinomoto",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tomoyo",
+      "game": "cardcaptor_sakura",
+      "zh": "大道寺知世",
+      "en": "Tomoyo Daidouji",
+      "aliases": [
+        "知世",
+        "Tomoyo"
+      ],
+      "kind": "character",
+      "source_url": "https://cardcaptorsakura.fandom.com/wiki/Tomoyo_Daidouji",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

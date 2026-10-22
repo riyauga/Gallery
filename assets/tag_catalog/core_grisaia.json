@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "grisaia-wiki",
+    "url": "https://grisaia.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "grisaia_no_kajitsu",
+      "zh": "灰色的果实",
+      "en": "The Fruit of Grisaia",
+      "source_url": "https://grisaia.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yumiko",
+      "game": "grisaia_no_kajitsu",
+      "zh": "榊由美子",
+      "en": "Sakaki Yumiko",
+      "aliases": [
+        "由美子",
+        "Yumiko"
+      ],
+      "kind": "character",
+      "source_url": "https://grisaia.fandom.com/wiki/Yumiko_Sakaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:amane",
+      "game": "grisaia_no_kajitsu",
+      "zh": "周防天音",
+      "en": "Suou Amane",
+      "aliases": [
+        "天音",
+        "Amane"
+      ],
+      "kind": "character",
+      "source_url": "https://grisaia.fandom.com/wiki/Amane_Suou",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:makina",
+      "game": "grisaia_no_kajitsu",
+      "zh": "入巢莳菜",
+      "en": "Irisu Makina",
+      "aliases": [
+        "莳菜",
+        "Makina"
+      ],
+      "kind": "character",
+      "source_url": "https://grisaia.fandom.com/wiki/Makina_Irisu",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

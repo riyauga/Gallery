@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "oshi-no-ko-wiki",
+    "url": "https://oshinoko.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "oshi_no_ko",
+      "zh": "【我推的孩子】",
+      "en": "Oshi no Ko",
+      "source_url": "https://oshinoko.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ai",
+      "game": "oshi_no_ko",
+      "zh": "星野爱",
+      "en": "Ai Hoshino",
+      "aliases": [
+        "爱",
+        "Ai"
+      ],
+      "kind": "character",
+      "source_url": "https://oshinoko.fandom.com/wiki/Ai_Hoshino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ruby",
+      "game": "oshi_no_ko",
+      "zh": "星野露比",
+      "en": "Ruby Hoshino",
+      "aliases": [
+        "露比",
+        "Ruby"
+      ],
+      "kind": "character",
+      "source_url": "https://oshinoko.fandom.com/wiki/Ruby_Hoshino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kana",
+      "game": "oshi_no_ko",
+      "zh": "有马加奈",
+      "en": "Kana Arima",
+      "aliases": [
+        "加奈",
+        "Kana"
+      ],
+      "kind": "character",
+      "source_url": "https://oshinoko.fandom.com/wiki/Kana_Arima",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akane",
+      "game": "oshi_no_ko",
+      "zh": "黑川茜",
+      "en": "Akane Kurokawa",
+      "aliases": [
+        "茜",
+        "Akane"
+      ],
+      "kind": "character",
+      "source_url": "https://oshinoko.fandom.com/wiki/Akane_Kurokawa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "source": {
+    "id": "kingdom-hearts-wiki",
+    "url": "https://kingdomhearts.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "kingdom_hearts",
+      "zh": "王国之心",
+      "en": "Kingdom Hearts",
+      "source_url": "https://kingdomhearts.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kairi",
+      "game": "kingdom_hearts",
+      "zh": "凯莉",
+      "en": "Kairi",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://kingdomhearts.fandom.com/wiki/Kairi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aqua",
+      "game": "kingdom_hearts",
+      "zh": "阿库娅",
+      "en": "Aqua",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://kingdomhearts.fandom.com/wiki/Aqua",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:naminé",
+      "game": "kingdom_hearts",
+      "zh": "娜米妮",
+      "en": "Naminé",
+      "aliases": [
+        "娜米妮",
+        "Namine"
+      ],
+      "kind": "character",
+      "source_url": "https://kingdomhearts.fandom.com/wiki/Namin%C3%A9",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:xion",
+      "game": "kingdom_hearts",
+      "zh": "希恩",
+      "en": "Xion",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://kingdomhearts.fandom.com/wiki/Xion",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

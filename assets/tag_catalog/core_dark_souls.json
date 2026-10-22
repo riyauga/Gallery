@@ -1,0 +1,60 @@
+{
+  "source": {
+    "id": "dark-souls-wiki",
+    "url": "https://darksouls.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "dark_souls",
+      "zh": "黑暗之魂",
+      "en": "Dark Souls",
+      "source_url": "https://darksouls.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:fire_keeper",
+      "game": "dark_souls",
+      "zh": "防火女",
+      "en": "Fire Keeper",
+      "aliases": [
+        "Fire Keeper"
+      ],
+      "kind": "character",
+      "source_url": "https://darksouls.fandom.com/wiki/Fire_Keeper",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:friede",
+      "game": "dark_souls",
+      "zh": "芙莉德",
+      "en": "Sister Friede",
+      "aliases": [
+        "修女芙莉德",
+        "Friede"
+      ],
+      "kind": "character",
+      "source_url": "https://darksouls.fandom.com/wiki/Sister_Friede",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:gwynevere",
+      "game": "dark_souls",
+      "zh": "太阳公主葛温艾薇雅",
+      "en": "Gwynevere",
+      "aliases": [
+        "葛温艾薇雅",
+        "Gwynevere"
+      ],
+      "kind": "character",
+      "source_url": "https://darksouls.fandom.com/wiki/Gwynevere",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "king-avatar-wiki",
+    "url": "https://thekingsavatar.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "the_kings_avatar",
+      "zh": "全职高手",
+      "en": "The King's Avatar",
+      "source_url": "https://thekingsavatar.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:su_mucheng",
+      "game": "the_kings_avatar",
+      "zh": "苏沐橙",
+      "en": "Su Mucheng",
+      "aliases": [
+        "沐橙",
+        "Mucheng"
+      ],
+      "kind": "character",
+      "source_url": "https://thekingsavatar.fandom.com/wiki/Su_Mucheng",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tang_rou",
+      "game": "the_kings_avatar",
+      "zh": "唐柔",
+      "en": "Tang Rou",
+      "aliases": [
+        "唐柔",
+        "Tang Rou"
+      ],
+      "kind": "character",
+      "source_url": "https://thekingsavatar.fandom.com/wiki/Tang_Rou",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chen_guo",
+      "game": "the_kings_avatar",
+      "zh": "陈果",
+      "en": "Chen Guo",
+      "aliases": [
+        "陈果",
+        "Chen Guo"
+      ],
+      "kind": "character",
+      "source_url": "https://thekingsavatar.fandom.com/wiki/Chen_Guo",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

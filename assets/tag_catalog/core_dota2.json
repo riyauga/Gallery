@@ -1,0 +1,74 @@
+{
+  "source": {
+    "id": "dota2-wiki",
+    "url": "https://dota2.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "dota_2",
+      "zh": "Dota 2",
+      "en": "Dota 2",
+      "source_url": "https://dota2.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:lina",
+      "game": "dota_2",
+      "zh": "莉娜",
+      "en": "Lina",
+      "aliases": [
+        "Lina"
+      ],
+      "kind": "character",
+      "source_url": "https://dota2.fandom.com/wiki/Lina",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rylai",
+      "game": "dota_2",
+      "zh": "水晶室女",
+      "en": "Crystal Maiden",
+      "aliases": [
+        "Rylai",
+        "Crystal Maiden"
+      ],
+      "kind": "character",
+      "source_url": "https://dota2.fandom.com/wiki/Crystal_Maiden",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:traxex",
+      "game": "dota_2",
+      "zh": "卓尔游侠",
+      "en": "Drow Ranger",
+      "aliases": [
+        "Traxex",
+        "Drow Ranger"
+      ],
+      "kind": "character",
+      "source_url": "https://dota2.fandom.com/wiki/Drow_Ranger",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akasha",
+      "game": "dota_2",
+      "zh": "痛苦女王",
+      "en": "Queen of Pain",
+      "aliases": [
+        "Akasha",
+        "Queen of Pain"
+      ],
+      "kind": "character",
+      "source_url": "https://dota2.fandom.com/wiki/Queen_of_Pain",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

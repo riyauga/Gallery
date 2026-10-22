@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "youjitsu-wiki",
+    "url": "https://you-zitsu.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "youkoso_jitsuryoku_shijou_shugi_no_kyoushitsu_e",
+      "zh": "欢迎来到实力至上主义教室",
+      "en": "Classroom of the Elite",
+      "source_url": "https://you-zitsu.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:suzune",
+      "game": "youkoso_jitsuryoku_shijou_shugi_no_kyoushitsu_e",
+      "zh": "堀北铃音",
+      "en": "Suzune Horikita",
+      "aliases": [
+        "铃音",
+        "Suzune"
+      ],
+      "kind": "character",
+      "source_url": "https://you-zitsu.fandom.com/wiki/Suzune_Horikita",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kikyo",
+      "game": "youkoso_jitsuryoku_shijou_shugi_no_kyoushitsu_e",
+      "zh": "栉田桔梗",
+      "en": "Kikyo Kushida",
+      "aliases": [
+        "桔梗",
+        "Kikyo"
+      ],
+      "kind": "character",
+      "source_url": "https://you-zitsu.fandom.com/wiki/Kikyo_Kushida",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:honami",
+      "game": "youkoso_jitsuryoku_shijou_shugi_no_kyoushitsu_e",
+      "zh": "一之濑帆波",
+      "en": "Honami Ichinose",
+      "aliases": [
+        "帆波",
+        "Honami"
+      ],
+      "kind": "character",
+      "source_url": "https://you-zitsu.fandom.com/wiki/Honami_Ichinose",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:arisu",
+      "game": "youkoso_jitsuryoku_shijou_shugi_no_kyoushitsu_e",
+      "zh": "坂柳有栖",
+      "en": "Arisu Sakayanagi",
+      "aliases": [
+        "有栖",
+        "Arisu"
+      ],
+      "kind": "character",
+      "source_url": "https://you-zitsu.fandom.com/wiki/Arisu_Sakayanagi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

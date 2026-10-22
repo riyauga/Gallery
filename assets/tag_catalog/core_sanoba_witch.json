@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "sanoba-witch-wiki",
+    "url": "https://yuzusoft.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "sanoba_witch",
+      "zh": "魔女的夜宴",
+      "en": "Sanoba Witch",
+      "source_url": "https://yuzusoft.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nene",
+      "game": "sanoba_witch",
+      "zh": "绫地宁宁",
+      "en": "Ayachi Nene",
+      "aliases": [
+        "宁宁",
+        "Nene"
+      ],
+      "kind": "character",
+      "source_url": "https://yuzusoft.fandom.com/wiki/Nene_Ayachi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

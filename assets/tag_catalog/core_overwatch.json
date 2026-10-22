@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "overwatch-wiki",
+    "url": "https://overwatch.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "overwatch",
+      "zh": "守望先锋",
+      "en": "Overwatch",
+      "source_url": "https://overwatch.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:dva",
+      "game": "overwatch",
+      "zh": "D.Va",
+      "en": "D.Va",
+      "aliases": [
+        "Hana Song",
+        "宋哈娜"
+      ],
+      "kind": "character",
+      "source_url": "https://overwatch.fandom.com/wiki/D.Va",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mercy",
+      "game": "overwatch",
+      "zh": "天使",
+      "en": "Mercy",
+      "aliases": [
+        "Mercy",
+        "安吉拉·齐格勒"
+      ],
+      "kind": "character",
+      "source_url": "https://overwatch.fandom.com/wiki/Mercy",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tracer",
+      "game": "overwatch",
+      "zh": "猎空",
+      "en": "Tracer",
+      "aliases": [
+        "Tracer",
+        "莉娜·奥克斯顿"
+      ],
+      "kind": "character",
+      "source_url": "https://overwatch.fandom.com/wiki/Tracer",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:widowmaker",
+      "game": "overwatch",
+      "zh": "黑百合",
+      "en": "Widowmaker",
+      "aliases": [
+        "Widowmaker",
+        "艾米丽·拉库瓦"
+      ],
+      "kind": "character",
+      "source_url": "https://overwatch.fandom.com/wiki/Widowmaker",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ashe",
+      "game": "overwatch",
+      "zh": "艾什",
+      "en": "Ashe",
+      "aliases": [
+        "Ashe",
+        "伊丽莎白·卡利多尼亚·艾什"
+      ],
+      "kind": "character",
+      "source_url": "https://overwatch.fandom.com/wiki/Ashe",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

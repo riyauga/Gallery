@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "zhetian-wiki",
+    "url": "https://zhetian.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "zhe_tian",
+      "zh": "遮天",
+      "en": "Shrouding the Heavens",
+      "source_url": "https://zhetian.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ji_ziyue",
+      "game": "zhe_tian",
+      "zh": "姬紫月",
+      "en": "Ji Ziyue",
+      "aliases": [
+        "紫月",
+        "Ziyue"
+      ],
+      "kind": "character",
+      "source_url": "https://zhetian.fandom.com/wiki/Ji_Ziyue",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:an_miaoyi",
+      "game": "zhe_tian",
+      "zh": "安妙依",
+      "en": "An Miaoyi",
+      "aliases": [
+        "妙依",
+        "Miaoyi"
+      ],
+      "kind": "character",
+      "source_url": "https://zhetian.fandom.com/wiki/An_Miaoyi",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

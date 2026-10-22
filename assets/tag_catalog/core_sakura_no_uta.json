@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "sakura-no-uta-wiki",
+    "url": "https://sakuranouta.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "sakura_no_uta",
+      "zh": "樱之诗",
+      "en": "Sakura no Uta",
+      "source_url": "https://sakuranouta.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ai",
+      "game": "sakura_no_uta",
+      "zh": "夏目蓝",
+      "en": "Natsume Ai",
+      "aliases": [
+        "蓝",
+        "Ai"
+      ],
+      "kind": "character",
+      "source_url": "https://sakuranouta.fandom.com/wiki/Ai_Natsume",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rin",
+      "game": "sakura_no_uta",
+      "zh": "御樱凛",
+      "en": "Mikage Rin",
+      "aliases": [
+        "凛",
+        "Rin"
+      ],
+      "kind": "character",
+      "source_url": "https://sakuranouta.fandom.com/wiki/Rin_Mikage",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

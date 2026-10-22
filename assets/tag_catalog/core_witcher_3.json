@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "witcher-wiki",
+    "url": "https://witcher.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "witcher_3",
+      "zh": "巫师3：狂猎",
+      "en": "The Witcher 3: Wild Hunt",
+      "source_url": "https://witcher.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:triss",
+      "game": "witcher_3",
+      "zh": "特莉丝·梅莉葛德",
+      "en": "Triss Merigold",
+      "aliases": [
+        "特莉丝",
+        "Triss"
+      ],
+      "kind": "character",
+      "source_url": "https://witcher.fandom.com/wiki/Triss_Merigold",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yennefer",
+      "game": "witcher_3",
+      "zh": "叶奈法",
+      "en": "Yennefer of Vengerberg",
+      "aliases": [
+        "叶奈法",
+        "Yennefer"
+      ],
+      "kind": "character",
+      "source_url": "https://witcher.fandom.com/wiki/Yennefer_of_Vengerberg",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ciri",
+      "game": "witcher_3",
+      "zh": "希里",
+      "en": "Ciri",
+      "aliases": [
+        "希里雅",
+        "Cirilla Fiona Elen Riannon"
+      ],
+      "kind": "character",
+      "source_url": "https://witcher.fandom.com/wiki/Ciri",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:geralt",
+      "game": "witcher_3",
+      "zh": "杰洛特",
+      "en": "Geralt of Rivia",
+      "aliases": [
+        "利维亚的杰洛特",
+        "Geralt"
+      ],
+      "kind": "character",
+      "source_url": "https://witcher.fandom.com/wiki/Geralt_of_Rivia",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

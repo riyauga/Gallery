@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "toradora-wiki",
+    "url": "https://toradora.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "toradora",
+      "zh": "龙与虎",
+      "en": "Toradora!",
+      "source_url": "https://toradora.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:taiga",
+      "game": "toradora",
+      "zh": "逢坂大河",
+      "en": "Taiga Aisaka",
+      "aliases": [
+        "大河",
+        "Taiga"
+      ],
+      "kind": "character",
+      "source_url": "https://toradora.fandom.com/wiki/Taiga_Aisaka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:minori",
+      "game": "toradora",
+      "zh": "栉枝实乃梨",
+      "en": "Minori Kushieda",
+      "aliases": [
+        "实乃梨",
+        "Minori"
+      ],
+      "kind": "character",
+      "source_url": "https://toradora.fandom.com/wiki/Minori_Kushieda",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ami",
+      "game": "toradora",
+      "zh": "川岛亚美",
+      "en": "Ami Kawashima",
+      "aliases": [
+        "亚美",
+        "Ami"
+      ],
+      "kind": "character",
+      "source_url": "https://toradora.fandom.com/wiki/Ami_Kawashima",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

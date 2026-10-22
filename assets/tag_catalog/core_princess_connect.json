@@ -616,7 +616,8 @@
       "source_tags": [],
       "status": "unknown",
       "source_revision": 52213,
-      "source_title": "Emilia"
+      "source_title": "Emilia",
+      "identity_key": "rezero-wiki:character:emilia"
     },
     {
       "key": "princess-connect:page:20058",
@@ -2488,7 +2489,8 @@
       "source_tags": [],
       "status": "unknown",
       "source_revision": 52367,
-      "source_title": "Ram"
+      "source_title": "Ram",
+      "identity_key": "rezero-wiki:character:ram"
     },
     {
       "key": "princess-connect:page:8334",
@@ -2618,7 +2620,8 @@
       "source_tags": [],
       "status": "unknown",
       "source_revision": 52376,
-      "source_title": "Rem"
+      "source_title": "Rem",
+      "identity_key": "rezero-wiki:character:rem"
     },
     {
       "key": "princess-connect:page:19951",

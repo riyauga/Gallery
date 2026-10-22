@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "madoka-wiki",
+    "url": "https://madoka.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "mahou_shoujo_madoka_magica",
+      "zh": "魔法少女小圆",
+      "en": "Puella Magi Madoka Magica",
+      "source_url": "https://madoka.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:madoka",
+      "game": "mahou_shoujo_madoka_magica",
+      "zh": "鹿目圆",
+      "en": "Madoka Kaname",
+      "aliases": [
+        "小圆",
+        "Madoka"
+      ],
+      "kind": "character",
+      "source_url": "https://madoka.fandom.com/wiki/Madoka_Kaname",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:homura",
+      "game": "mahou_shoujo_madoka_magica",
+      "zh": "晓美焰",
+      "en": "Homura Akemi",
+      "aliases": [
+        "焰",
+        "Homura"
+      ],
+      "kind": "character",
+      "source_url": "https://madoka.fandom.com/wiki/Homura_Akemi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sayaka",
+      "game": "mahou_shoujo_madoka_magica",
+      "zh": "美树沙耶香",
+      "en": "Sayaka Miki",
+      "aliases": [
+        "沙耶香",
+        "Sayaka"
+      ],
+      "kind": "character",
+      "source_url": "https://madoka.fandom.com/wiki/Sayaka_Miki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kyoko",
+      "game": "mahou_shoujo_madoka_magica",
+      "zh": "佐仓杏子",
+      "en": "Kyoko Sakura",
+      "aliases": [
+        "杏子",
+        "Kyoko"
+      ],
+      "kind": "character",
+      "source_url": "https://madoka.fandom.com/wiki/Kyoko_Sakura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mami",
+      "game": "mahou_shoujo_madoka_magica",
+      "zh": "巴麻美",
+      "en": "Mami Tomoe",
+      "aliases": [
+        "麻美",
+        "Mami"
+      ],
+      "kind": "character",
+      "source_url": "https://madoka.fandom.com/wiki/Mami_Tomoe",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

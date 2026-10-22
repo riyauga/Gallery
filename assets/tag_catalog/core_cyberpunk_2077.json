@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "cyberpunk-2077-wiki",
+    "url": "https://cyberpunk.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "cyberpunk_2077",
+      "zh": "赛博朋克2077",
+      "en": "Cyberpunk 2077",
+      "source_url": "https://cyberpunk.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:judy",
+      "game": "cyberpunk_2077",
+      "zh": "朱迪·阿尔瓦雷兹",
+      "en": "Judy Alvarez",
+      "aliases": [
+        "朱迪",
+        "Judy"
+      ],
+      "kind": "character",
+      "source_url": "https://cyberpunk.fandom.com/wiki/Judy_Alvarez",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:panam",
+      "game": "cyberpunk_2077",
+      "zh": "帕南·帕尔默",
+      "en": "Panam Palmer",
+      "aliases": [
+        "帕南",
+        "Panam"
+      ],
+      "kind": "character",
+      "source_url": "https://cyberpunk.fandom.com/wiki/Panam_Palmer",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:alt",
+      "game": "cyberpunk_2077",
+      "zh": "奥特·坎宁安",
+      "en": "Alt Cunningham",
+      "aliases": [
+        "奥特",
+        "Alt"
+      ],
+      "kind": "character",
+      "source_url": "https://cyberpunk.fandom.com/wiki/Alt_Cunningham",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rogue",
+      "game": "cyberpunk_2077",
+      "zh": "罗格·阿曼迪亚雷斯",
+      "en": "Rogue Amendiares",
+      "aliases": [
+        "罗格",
+        "Rogue"
+      ],
+      "kind": "character",
+      "source_url": "https://cyberpunk.fandom.com/wiki/Rogue_Amendiares",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

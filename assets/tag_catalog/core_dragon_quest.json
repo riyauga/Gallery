@@ -1,0 +1,73 @@
+{
+  "source": {
+    "id": "dq-wiki",
+    "url": "https://dragonquest.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "dragon_quest",
+      "zh": "勇者斗恶龙",
+      "en": "Dragon Quest",
+      "source_url": "https://dragonquest.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:bianca",
+      "game": "dragon_quest",
+      "zh": "比安卡",
+      "en": "Bianca",
+      "aliases": [
+        "Bianca"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonquest.fandom.com/wiki/Bianca",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:flora",
+      "game": "dragon_quest",
+      "zh": "芙萝拉",
+      "en": "Flora",
+      "aliases": [
+        "Flora"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonquest.fandom.com/wiki/Flora",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:jessica",
+      "game": "dragon_quest",
+      "zh": "洁西卡·艾伯特",
+      "en": "Jessica Albert",
+      "aliases": [
+        "洁西卡",
+        "Jessica"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonquest.fandom.com/wiki/Jessica_Albert",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:martina",
+      "game": "dragon_quest",
+      "zh": "玛尔缇娜",
+      "en": "Martina",
+      "aliases": [
+        "玛尔缇娜",
+        "Martina"
+      ],
+      "kind": "character",
+      "source_url": "https://dragonquest.fandom.com/wiki/Martina",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

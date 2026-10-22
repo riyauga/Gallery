@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "xenoblade-wiki",
+    "url": "https://xenoblade.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "xenoblade_chronicles",
+      "zh": "异度神剑",
+      "en": "Xenoblade Chronicles",
+      "source_url": "https://xenoblade.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:pyra",
+      "game": "xenoblade_chronicles",
+      "zh": "焰",
+      "en": "Pyra",
+      "aliases": [
+        "焰",
+        "Pyra"
+      ],
+      "kind": "character",
+      "source_url": "https://xenoblade.fandom.com/wiki/Pyra",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mythra",
+      "game": "xenoblade_chronicles",
+      "zh": "光",
+      "en": "Mythra",
+      "aliases": [
+        "光",
+        "Mythra"
+      ],
+      "kind": "character",
+      "source_url": "https://xenoblade.fandom.com/wiki/Mythra",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nia",
+      "game": "xenoblade_chronicles",
+      "zh": "尼娅",
+      "en": "Nia",
+      "aliases": [
+        "尼娅",
+        "Nia"
+      ],
+      "kind": "character",
+      "source_url": "https://xenoblade.fandom.com/wiki/Nia",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:eunie",
+      "game": "xenoblade_chronicles",
+      "zh": "优妮",
+      "en": "Eunie",
+      "aliases": [
+        "优妮",
+        "Eunie"
+      ],
+      "kind": "character",
+      "source_url": "https://xenoblade.fandom.com/wiki/Eunie",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

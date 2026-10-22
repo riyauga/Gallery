@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "your-lie-in-april-wiki",
+    "url": "https://shigatsu-wa-kimi-no-uso.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "shigatsu_wa_kimi_no_uso",
+      "zh": "四月是你的谎言",
+      "en": "Your Lie in April",
+      "source_url": "https://shigatsu-wa-kimi-no-uso.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kaori",
+      "game": "shigatsu_wa_kimi_no_uso",
+      "zh": "宫园薰",
+      "en": "Kaori Miyazono",
+      "aliases": [
+        "薰",
+        "Kaori"
+      ],
+      "kind": "character",
+      "source_url": "https://shigatsu-wa-kimi-no-uso.fandom.com/wiki/Kaori_Miyazono",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

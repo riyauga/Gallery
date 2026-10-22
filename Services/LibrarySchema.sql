@@ -45,13 +45,18 @@ CREATE INDEX IF NOT EXISTS idx_images_mtime  ON images(mtime);
 CREATE INDEX IF NOT EXISTS idx_images_taken  ON images(taken_at);
 CREATE INDEX IF NOT EXISTS idx_images_name   ON images(name COLLATE NOCASE);
 
+-- v4：分类内名称不再唯一（character/work 允许同名不同身份）；
+-- tag_key 是稳定、可序列化的标签键，导出/草稿/归档只认它，不再以名称当唯一键。
 CREATE TABLE IF NOT EXISTS tags (
     id       INTEGER PRIMARY KEY,
     name     TEXT NOT NULL COLLATE NOCASE,
     color    TEXT,
     category TEXT NOT NULL DEFAULT 'custom',
-    UNIQUE(category, name)
+    tag_key  TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_tag_key ON tags(tag_key)
+    WHERE tag_key IS NOT NULL AND tag_key<>'';
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(category, name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS image_tags (
     image_id INTEGER NOT NULL REFERENCES images(id) ON DELETE CASCADE,
@@ -146,6 +151,35 @@ CREATE TABLE IF NOT EXISTS catalog_memberships(identity_key TEXT NOT NULL,game_k
 CREATE TABLE IF NOT EXISTS tag_profiles(tag_id INTEGER PRIMARY KEY REFERENCES tags(id) ON DELETE CASCADE,zh TEXT NOT NULL DEFAULT '',en TEXT NOT NULL DEFAULT '',entity_key TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS catalog_imports(source_id TEXT PRIMARY KEY,digest TEXT NOT NULL,report TEXT NOT NULL);
 
+-- 身份独立于任何来源条目存在；条目只是它的资料出处。
+CREATE TABLE IF NOT EXISTS identities(
+    identity_key       TEXT PRIMARY KEY,
+    kind               TEXT NOT NULL DEFAULT 'character',
+    zh                 TEXT NOT NULL DEFAULT '',
+    en                 TEXT NOT NULL DEFAULT '',
+    primary_entity_key TEXT NOT NULL DEFAULT '',
+    created_at         REAL NOT NULL DEFAULT 0,
+    updated_at         REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS identity_redirects(
+    old_key      TEXT PRIMARY KEY,
+    identity_key TEXT NOT NULL,
+    merged_at    REAL NOT NULL DEFAULT 0,
+    note         TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_identity_redirects_target ON identity_redirects(identity_key);
+-- 标签与身份的关联记录：关联状态（linked/pending/independent）与显示模式分离。
+CREATE TABLE IF NOT EXISTS tag_identities(
+    tag_id       INTEGER PRIMARY KEY REFERENCES tags(id) ON DELETE CASCADE,
+    identity_key TEXT NOT NULL DEFAULT '',
+    link_status  TEXT NOT NULL DEFAULT 'pending',
+    source       TEXT NOT NULL DEFAULT '',
+    locked       INTEGER NOT NULL DEFAULT 0,
+    note         TEXT NOT NULL DEFAULT '',
+    updated_at   REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tag_identities_identity ON tag_identities(identity_key);
+
 ALTER TABLE roots ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE images ADD COLUMN image_uuid TEXT;
 ALTER TABLE images ADD COLUMN file_key TEXT;
@@ -156,4 +190,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_id ON ingest_queue(ingest_id) WHERE
 CREATE INDEX IF NOT EXISTS idx_ingest_path ON ingest_queue(path_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_image_uuid ON images(image_uuid);
 CREATE INDEX IF NOT EXISTS idx_file_key ON images(file_key);
-INSERT INTO meta(key,value) VALUES('schema_version','3');
+INSERT INTO meta(key,value) VALUES('schema_version','4');

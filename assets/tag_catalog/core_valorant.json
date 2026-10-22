@@ -1,0 +1,45 @@
+{
+  "source": {
+    "id": "valorant-wiki",
+    "url": "https://valorant.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "valorant",
+      "zh": "无畏契约",
+      "en": "VALORANT",
+      "source_url": "https://valorant.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:jett",
+      "game": "valorant",
+      "zh": "捷风",
+      "en": "Jett",
+      "aliases": [
+        "Jett"
+      ],
+      "kind": "character",
+      "source_url": "https://valorant.fandom.com/wiki/Jett",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:reyna",
+      "game": "valorant",
+      "zh": "雷娜",
+      "en": "Reyna",
+      "aliases": [
+        "Reyna"
+      ],
+      "kind": "character",
+      "source_url": "https://valorant.fandom.com/wiki/Reyna",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

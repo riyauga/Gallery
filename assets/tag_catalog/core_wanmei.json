@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "wanmei-wiki",
+    "url": "https://wanmeishijie.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "wanmei_shijie",
+      "zh": "完美世界",
+      "en": "Perfect World",
+      "source_url": "https://wanmeishijie.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yun_xi",
+      "game": "wanmei_shijie",
+      "zh": "云曦",
+      "en": "Yun Xi",
+      "aliases": [
+        "云曦",
+        "Yun Xi"
+      ],
+      "kind": "character",
+      "source_url": "https://wanmeishijie.fandom.com/wiki/Yun_Xi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:huo_linger",
+      "game": "wanmei_shijie",
+      "zh": "火灵儿",
+      "en": "Huo Ling'er",
+      "aliases": [
+        "火灵儿",
+        "Huo Ling'er"
+      ],
+      "kind": "character",
+      "source_url": "https://wanmeishijie.fandom.com/wiki/Huo_Ling%27er",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

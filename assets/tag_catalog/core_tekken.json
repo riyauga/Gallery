@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "tekken-wiki",
+    "url": "https://tekken.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "tekken",
+      "zh": "铁拳",
+      "en": "Tekken",
+      "source_url": "https://tekken.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:xiaoyu",
+      "game": "tekken",
+      "zh": "凌晓雨",
+      "en": "Ling Xiaoyu",
+      "aliases": [
+        "晓雨",
+        "Xiaoyu"
+      ],
+      "kind": "character",
+      "source_url": "https://tekken.fandom.com/wiki/Ling_Xiaoyu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:lili",
+      "game": "tekken",
+      "zh": "莉莉",
+      "en": "Lili Rochefort",
+      "aliases": [
+        "艾米莉·德·罗什福尔",
+        "Lili"
+      ],
+      "kind": "character",
+      "source_url": "https://tekken.fandom.com/wiki/Lili_Rochefort",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:asuka",
+      "game": "tekken",
+      "zh": "风间飞鸟",
+      "en": "Asuka Kazama",
+      "aliases": [
+        "飞鸟",
+        "Asuka"
+      ],
+      "kind": "character",
+      "source_url": "https://tekken.fandom.com/wiki/Asuka_Kazama",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nina",
+      "game": "tekken",
+      "zh": "妮娜·威廉姆斯",
+      "en": "Nina Williams",
+      "aliases": [
+        "妮娜",
+        "Nina"
+      ],
+      "kind": "character",
+      "source_url": "https://tekken.fandom.com/wiki/Nina_Williams",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

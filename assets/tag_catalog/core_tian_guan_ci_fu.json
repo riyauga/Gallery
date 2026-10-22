@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "tgcf-wiki",
+    "url": "https://tianguancifu.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "tian_guan_ci_fu",
+      "zh": "天官赐福",
+      "en": "Heaven Official's Blessing",
+      "source_url": "https://tianguancifu.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:xie_lian",
+      "game": "tian_guan_ci_fu",
+      "zh": "谢怜",
+      "en": "Xie Lian",
+      "aliases": [
+        "Xie Lian"
+      ],
+      "kind": "character",
+      "source_url": "https://tianguancifu.fandom.com/wiki/Xie_Lian",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hua_cheng",
+      "game": "tian_guan_ci_fu",
+      "zh": "花城",
+      "en": "Hua Cheng",
+      "aliases": [
+        "San Lang"
+      ],
+      "kind": "character",
+      "source_url": "https://tianguancifu.fandom.com/wiki/Hua_Cheng",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shi_qingxuan",
+      "game": "tian_guan_ci_fu",
+      "zh": "师青玄",
+      "en": "Shi Qingxuan",
+      "aliases": [
+        "Shi Qingxuan"
+      ],
+      "kind": "character",
+      "source_url": "https://tianguancifu.fandom.com/wiki/Shi_Qingxuan",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

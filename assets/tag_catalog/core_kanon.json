@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "kanon-wiki",
+    "url": "https://kanon.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "kanon",
+      "zh": "Kanon",
+      "en": "Kanon",
+      "source_url": "https://kanon.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ayu",
+      "game": "kanon",
+      "zh": "月宫亚由",
+      "en": "Tsukimiya Ayu",
+      "aliases": [
+        "亚由",
+        "Ayu"
+      ],
+      "kind": "character",
+      "source_url": "https://kanon.fandom.com/wiki/Ayu_Tsukimiya",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:makoto",
+      "game": "kanon",
+      "zh": "泽渡真琴",
+      "en": "Sawatari Makoto",
+      "aliases": [
+        "真琴",
+        "Makoto"
+      ],
+      "kind": "character",
+      "source_url": "https://kanon.fandom.com/wiki/Makoto_Sawatari",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

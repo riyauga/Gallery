@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "nier-wiki",
+    "url": "https://nier.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "nier_automata",
+      "zh": "尼尔：机械纪元",
+      "en": "NieR:Automata",
+      "source_url": "https://nier.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:2b",
+      "game": "nier_automata",
+      "zh": "2B",
+      "en": "YoRHa No.2 Type B",
+      "aliases": [
+        "寄叶二号B型",
+        "2B"
+      ],
+      "kind": "character",
+      "source_url": "https://nier.fandom.com/wiki/2B",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:9s",
+      "game": "nier_automata",
+      "zh": "9S",
+      "en": "YoRHa No.9 Type S",
+      "aliases": [
+        "寄叶九号S型",
+        "9S"
+      ],
+      "kind": "character",
+      "source_url": "https://nier.fandom.com/wiki/9S",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:a2",
+      "game": "nier_automata",
+      "zh": "A2",
+      "en": "YoRHa Type A No.2",
+      "aliases": [
+        "寄叶A型二号",
+        "A2"
+      ],
+      "kind": "character",
+      "source_url": "https://nier.fandom.com/wiki/A2",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

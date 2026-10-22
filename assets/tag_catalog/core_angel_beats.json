@@ -1,0 +1,60 @@
+{
+  "source": {
+    "id": "angel-beats-wiki",
+    "url": "https://angelbeats.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "angel_beats",
+      "zh": "Angel Beats!",
+      "en": "Angel Beats!",
+      "source_url": "https://angelbeats.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kanade",
+      "game": "angel_beats",
+      "zh": "立华奏",
+      "en": "Kanade Tachibana",
+      "aliases": [
+        "天使",
+        "Kanade"
+      ],
+      "kind": "character",
+      "source_url": "https://angelbeats.fandom.com/wiki/Kanade_Tachibana",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yui",
+      "game": "angel_beats",
+      "zh": "由依",
+      "en": "Yui",
+      "aliases": [
+        "Yui"
+      ],
+      "kind": "character",
+      "source_url": "https://angelbeats.fandom.com/wiki/Yui",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yuri",
+      "game": "angel_beats",
+      "zh": "仲村由理",
+      "en": "Yuri Nakamura",
+      "aliases": [
+        "由理",
+        "Yuri"
+      ],
+      "kind": "character",
+      "source_url": "https://angelbeats.fandom.com/wiki/Yuri_Nakamura",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

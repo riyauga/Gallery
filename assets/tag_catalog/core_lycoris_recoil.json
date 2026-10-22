@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "lycoris-recoil-wiki",
+    "url": "https://lycoris-recoil.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "lycoris_recoil",
+      "zh": "莉可丽丝",
+      "en": "Lycoris Recoil",
+      "source_url": "https://lycoris-recoil.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:chisato",
+      "game": "lycoris_recoil",
+      "zh": "锦木千束",
+      "en": "Chisato Nishikigi",
+      "aliases": [
+        "千束",
+        "Chisato"
+      ],
+      "kind": "character",
+      "source_url": "https://lycoris-recoil.fandom.com/wiki/Chisato_Nishikigi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:takina",
+      "game": "lycoris_recoil",
+      "zh": "井之上泷奈",
+      "en": "Takina Inoue",
+      "aliases": [
+        "泷奈",
+        "Takina"
+      ],
+      "kind": "character",
+      "source_url": "https://lycoris-recoil.fandom.com/wiki/Takina_Inoue",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

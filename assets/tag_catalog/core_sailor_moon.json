@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "sailor-moon-wiki",
+    "url": "https://sailormoon.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "bishoujo_senshi_sailor_moon",
+      "zh": "美少女战士",
+      "en": "Sailor Moon",
+      "source_url": "https://sailormoon.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:usagi",
+      "game": "bishoujo_senshi_sailor_moon",
+      "zh": "月野兔",
+      "en": "Usagi Tsukino",
+      "aliases": [
+        "水手月亮",
+        "Sailor Moon"
+      ],
+      "kind": "character",
+      "source_url": "https://sailormoon.fandom.com/wiki/Usagi_Tsukino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rei",
+      "game": "bishoujo_senshi_sailor_moon",
+      "zh": "火野丽",
+      "en": "Rei Hino",
+      "aliases": [
+        "水手火星",
+        "Sailor Mars"
+      ],
+      "kind": "character",
+      "source_url": "https://sailormoon.fandom.com/wiki/Rei_Hino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:minako",
+      "game": "bishoujo_senshi_sailor_moon",
+      "zh": "爱野美奈子",
+      "en": "Minako Aino",
+      "aliases": [
+        "水手金星",
+        "Sailor Venus"
+      ],
+      "kind": "character",
+      "source_url": "https://sailormoon.fandom.com/wiki/Minako_Aino",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

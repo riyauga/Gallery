@@ -1,0 +1,59 @@
+{
+  "source": {
+    "id": "utawarerumono-wiki",
+    "url": "https://utawarerumono.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "utawarerumono",
+      "zh": "传颂之物",
+      "en": "Utawarerumono",
+      "source_url": "https://utawarerumono.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:eruruu",
+      "game": "utawarerumono",
+      "zh": "艾露露",
+      "en": "Eruruu",
+      "aliases": [
+        "Eruruu"
+      ],
+      "kind": "character",
+      "source_url": "https://utawarerumono.fandom.com/wiki/Eruruu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kuon",
+      "game": "utawarerumono",
+      "zh": "久远",
+      "en": "Kuon",
+      "aliases": [
+        "Kuon"
+      ],
+      "kind": "character",
+      "source_url": "https://utawarerumono.fandom.com/wiki/Kuon",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rurutie",
+      "game": "utawarerumono",
+      "zh": "露露缇耶",
+      "en": "Rurutie",
+      "aliases": [
+        "露露缇耶",
+        "Rurutie"
+      ],
+      "kind": "character",
+      "source_url": "https://utawarerumono.fandom.com/wiki/Rurutie",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

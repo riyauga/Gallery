@@ -1022,7 +1022,7 @@ public partial class App : Application
                 var result = catalog.AlignTags(dryRun: !apply, log: line => report.AppendLine(line));
                 report.AppendLine();
                 report.AppendLine($"结果：新关联 {result.Matched} · 已有 {result.Existing} · " +
-                                  $"同名多实体 {result.Ambiguous} · 无对应 {result.Unmatched} · " +
+                                  $"同名多实体 {result.Ambiguous} · 作品冲突 {result.Conflicting} · 无对应 {result.Unmatched} · " +
                                   $"外部/原创 {result.External} · 人工 {result.Manual} · " +
                                   $"跳过(非角色/0图) {result.Skipped}");
                 report.AppendLine($"计划状态写入 {result.Seeded} · 身份映射 {result.IdentityLinks} · " +

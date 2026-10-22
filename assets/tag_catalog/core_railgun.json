@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "toaru-railgun-wiki",
+    "url": "https://toarumajutsunoindex.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "toaru_kagaku_no_railgun",
+      "zh": "某科学的超电磁炮",
+      "en": "A Certain Scientific Railgun",
+      "source_url": "https://toarumajutsunoindex.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:mikoto",
+      "game": "toaru_kagaku_no_railgun",
+      "zh": "御坂美琴",
+      "en": "Mikoto Misaka",
+      "aliases": [
+        "美琴",
+        "Mikoto"
+      ],
+      "kind": "character",
+      "source_url": "https://toarumajutsunoindex.fandom.com/wiki/Mikoto_Misaka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kuroko",
+      "game": "toaru_kagaku_no_railgun",
+      "zh": "白井黑子",
+      "en": "Kuroko Shirai",
+      "aliases": [
+        "黑子",
+        "Kuroko"
+      ],
+      "kind": "character",
+      "source_url": "https://toarumajutsunoindex.fandom.com/wiki/Kuroko_Shirai",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:uiharu",
+      "game": "toaru_kagaku_no_railgun",
+      "zh": "初春饰利",
+      "en": "Kazari Uiharu",
+      "aliases": [
+        "初春",
+        "Uiharu"
+      ],
+      "kind": "character",
+      "source_url": "https://toarumajutsunoindex.fandom.com/wiki/Kazari_Uiharu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:saten",
+      "game": "toaru_kagaku_no_railgun",
+      "zh": "佐天泪子",
+      "en": "Ruiko Saten",
+      "aliases": [
+        "泪子",
+        "Saten"
+      ],
+      "kind": "character",
+      "source_url": "https://toarumajutsunoindex.fandom.com/wiki/Ruiko_Saten",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

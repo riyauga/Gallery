@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "asoiaf-wiki",
+    "url": "https://gameofthrones.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "a_song_of_ice_and_fire",
+      "zh": "冰与火之歌",
+      "en": "A Song of Ice and Fire",
+      "source_url": "https://gameofthrones.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:daenerys",
+      "game": "a_song_of_ice_and_fire",
+      "zh": "丹妮莉丝·坦格利安",
+      "en": "Daenerys Targaryen",
+      "aliases": [
+        "龙妈",
+        "Daenerys"
+      ],
+      "kind": "character",
+      "source_url": "https://gameofthrones.fandom.com/wiki/Daenerys_Targaryen",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sansa",
+      "game": "a_song_of_ice_and_fire",
+      "zh": "珊莎·史塔克",
+      "en": "Sansa Stark",
+      "aliases": [
+        "珊莎",
+        "Sansa"
+      ],
+      "kind": "character",
+      "source_url": "https://gameofthrones.fandom.com/wiki/Sansa_Stark",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:arya",
+      "game": "a_song_of_ice_and_fire",
+      "zh": "艾莉亚·史塔克",
+      "en": "Arya Stark",
+      "aliases": [
+        "艾莉亚",
+        "Arya"
+      ],
+      "kind": "character",
+      "source_url": "https://gameofthrones.fandom.com/wiki/Arya_Stark",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:cersei",
+      "game": "a_song_of_ice_and_fire",
+      "zh": "瑟曦·兰尼斯特",
+      "en": "Cersei Lannister",
+      "aliases": [
+        "瑟曦",
+        "Cersei"
+      ],
+      "kind": "character",
+      "source_url": "https://gameofthrones.fandom.com/wiki/Cersei_Lannister",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

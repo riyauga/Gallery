@@ -1,0 +1,58 @@
+{
+  "source": {
+    "id": "naruto-wiki",
+    "url": "https://naruto.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "naruto",
+      "zh": "火影忍者",
+      "en": "Naruto",
+      "source_url": "https://naruto.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:hinata",
+      "game": "naruto",
+      "zh": "日向雏田",
+      "en": "Hinata Hyuga",
+      "aliases": [
+        "雏田",
+        "Hinata"
+      ],
+      "kind": "character",
+      "source_url": "https://naruto.fandom.com/wiki/Hinata_Hy%C5%ABga",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sakura",
+      "game": "naruto",
+      "zh": "春野樱",
+      "en": "Sakura Haruno",
+      "aliases": [
+        "小樱",
+        "Sakura"
+      ],
+      "kind": "character",
+      "source_url": "https://naruto.fandom.com/wiki/Sakura_Haruno",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tsunade",
+      "game": "naruto",
+      "zh": "纲手",
+      "en": "Tsunade",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://naruto.fandom.com/wiki/Tsunade",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

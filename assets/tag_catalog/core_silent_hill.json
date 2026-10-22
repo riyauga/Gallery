@@ -1,0 +1,60 @@
+{
+  "source": {
+    "id": "silent-hill-wiki",
+    "url": "https://silenthill.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "silent_hill",
+      "zh": "寂静岭",
+      "en": "Silent Hill",
+      "source_url": "https://silenthill.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:maria",
+      "game": "silent_hill",
+      "zh": "玛丽亚",
+      "en": "Maria",
+      "aliases": [
+        "Maria"
+      ],
+      "kind": "character",
+      "source_url": "https://silenthill.fandom.com/wiki/Maria",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:angela",
+      "game": "silent_hill",
+      "zh": "安吉拉·奥罗斯科",
+      "en": "Angela Orosco",
+      "aliases": [
+        "安吉拉",
+        "Angela"
+      ],
+      "kind": "character",
+      "source_url": "https://silenthill.fandom.com/wiki/Angela_Orosco",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:heather",
+      "game": "silent_hill",
+      "zh": "希瑟·梅森",
+      "en": "Heather Mason",
+      "aliases": [
+        "希瑟",
+        "Heather"
+      ],
+      "kind": "character",
+      "source_url": "https://silenthill.fandom.com/wiki/Heather_Mason",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

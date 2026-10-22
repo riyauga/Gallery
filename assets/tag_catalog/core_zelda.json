@@ -1,0 +1,71 @@
+{
+  "source": {
+    "id": "zelda-wiki",
+    "url": "https://zelda.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "the_legend_of_zelda",
+      "zh": "塞尔达传说",
+      "en": "The Legend of Zelda",
+      "source_url": "https://zelda.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:zelda",
+      "game": "the_legend_of_zelda",
+      "zh": "塞尔达",
+      "en": "Zelda",
+      "aliases": [
+        "Zelda"
+      ],
+      "kind": "character",
+      "source_url": "https://zelda.fandom.com/wiki/Princess_Zelda",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mipha",
+      "game": "the_legend_of_zelda",
+      "zh": "米法",
+      "en": "Mipha",
+      "aliases": [
+        "Mipha"
+      ],
+      "kind": "character",
+      "source_url": "https://zelda.fandom.com/wiki/Mipha",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:urbosa",
+      "game": "the_legend_of_zelda",
+      "zh": "乌尔波扎",
+      "en": "Urbosa",
+      "aliases": [
+        "Urbosa"
+      ],
+      "kind": "character",
+      "source_url": "https://zelda.fandom.com/wiki/Urbosa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:paya",
+      "game": "the_legend_of_zelda",
+      "zh": "帕雅",
+      "en": "Paya",
+      "aliases": [
+        "Paya"
+      ],
+      "kind": "character",
+      "source_url": "https://zelda.fandom.com/wiki/Paya",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

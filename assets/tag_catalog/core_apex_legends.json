@@ -1,0 +1,46 @@
+{
+  "source": {
+    "id": "apex-wiki",
+    "url": "https://apexlegends.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "apex_legends",
+      "zh": "Apex 英雄",
+      "en": "Apex Legends",
+      "source_url": "https://apexlegends.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:wraith",
+      "game": "apex_legends",
+      "zh": "恶灵",
+      "en": "Wraith",
+      "aliases": [
+        "Wraith",
+        "虚空行者"
+      ],
+      "kind": "character",
+      "source_url": "https://apexlegends.fandom.com/wiki/Wraith",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:wattson",
+      "game": "apex_legends",
+      "zh": "沃特森",
+      "en": "Wattson",
+      "aliases": [
+        "Wattson"
+      ],
+      "kind": "character",
+      "source_url": "https://apexlegends.fandom.com/wiki/Wattson",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

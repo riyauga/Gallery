@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "wow-wiki",
+    "url": "https://wowpedia.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "world_of_warcraft",
+      "zh": "魔兽世界",
+      "en": "World of Warcraft",
+      "source_url": "https://wowpedia.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:jaina",
+      "game": "world_of_warcraft",
+      "zh": "吉安娜·普罗德摩尔",
+      "en": "Jaina Proudmoore",
+      "aliases": [
+        "吉安娜",
+        "Jaina"
+      ],
+      "kind": "character",
+      "source_url": "https://wowpedia.fandom.com/wiki/Jaina_Proudmoore",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sylvanas",
+      "game": "world_of_warcraft",
+      "zh": "希尔瓦娜斯·风行者",
+      "en": "Sylvanas Windrunner",
+      "aliases": [
+        "希尔瓦娜斯",
+        "Sylvanas"
+      ],
+      "kind": "character",
+      "source_url": "https://wowpedia.fandom.com/wiki/Sylvanas_Windrunner",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tyrande",
+      "game": "world_of_warcraft",
+      "zh": "泰兰德·语风",
+      "en": "Tyrande Whisperwind",
+      "aliases": [
+        "泰兰德",
+        "Tyrande"
+      ],
+      "kind": "character",
+      "source_url": "https://wowpedia.fandom.com/wiki/Tyrande_Whisperwind",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:valeera",
+      "game": "world_of_warcraft",
+      "zh": "瓦莉拉·萨古纳尔",
+      "en": "Valeera Sanguinar",
+      "aliases": [
+        "瓦莉拉",
+        "Valeera"
+      ],
+      "kind": "character",
+      "source_url": "https://wowpedia.fandom.com/wiki/Valeera_Sanguinar",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

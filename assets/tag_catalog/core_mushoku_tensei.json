@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "mushoku-tensei-wiki",
+    "url": "https://mushokutensei.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "mushoku_tensei",
+      "zh": "无职转生",
+      "en": "Mushoku Tensei",
+      "source_url": "https://mushokutensei.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:roxy",
+      "game": "mushoku_tensei",
+      "zh": "洛琪希·米格路迪亚",
+      "en": "Roxy Migurdia",
+      "aliases": [
+        "洛琪希",
+        "Roxy"
+      ],
+      "kind": "character",
+      "source_url": "https://mushokutensei.fandom.com/wiki/Roxy_Migurdia",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sylphiette",
+      "game": "mushoku_tensei",
+      "zh": "希露菲叶特",
+      "en": "Sylphiette",
+      "aliases": [
+        "希露菲",
+        "Sylphie"
+      ],
+      "kind": "character",
+      "source_url": "https://mushokutensei.fandom.com/wiki/Sylphiette",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:eris",
+      "game": "mushoku_tensei",
+      "zh": "艾莉丝·伯雷亚斯·格雷拉特",
+      "en": "Eris Boreas Greyrat",
+      "aliases": [
+        "艾莉丝",
+        "Eris"
+      ],
+      "kind": "character",
+      "source_url": "https://mushokutensei.fandom.com/wiki/Eris_Boreas_Greyrat",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

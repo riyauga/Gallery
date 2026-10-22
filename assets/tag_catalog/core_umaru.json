@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "umaru-wiki",
+    "url": "https://himouto-umaru-chan.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "himouto_umaru_chan",
+      "zh": "干物妹！小埋",
+      "en": "Himouto! Umaru-chan",
+      "source_url": "https://himouto-umaru-chan.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:umaru",
+      "game": "himouto_umaru_chan",
+      "zh": "土间埋",
+      "en": "Umaru Doma",
+      "aliases": [
+        "小埋",
+        "Umaru"
+      ],
+      "kind": "character",
+      "source_url": "https://himouto-umaru-chan.fandom.com/wiki/Umaru_Doma",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ebina",
+      "game": "himouto_umaru_chan",
+      "zh": "海老名菜菜",
+      "en": "Nana Ebina",
+      "aliases": [
+        "海老名",
+        "Ebina"
+      ],
+      "kind": "character",
+      "source_url": "https://himouto-umaru-chan.fandom.com/wiki/Nana_Ebina",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kirie",
+      "game": "himouto_umaru_chan",
+      "zh": "本场切绘",
+      "en": "Kirie Motoba",
+      "aliases": [
+        "切绘",
+        "Kirie"
+      ],
+      "kind": "character",
+      "source_url": "https://himouto-umaru-chan.fandom.com/wiki/Kirie_Motoba",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

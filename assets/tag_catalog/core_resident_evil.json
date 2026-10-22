@@ -1,0 +1,103 @@
+{
+  "source": {
+    "id": "resident-evil-wiki",
+    "url": "https://residentevil.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "resident_evil",
+      "zh": "生化危机",
+      "en": "Resident Evil",
+      "source_url": "https://residentevil.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:leon",
+      "game": "resident_evil",
+      "zh": "里昂·S·肯尼迪",
+      "en": "Leon S. Kennedy",
+      "aliases": [
+        "里昂",
+        "Leon"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Leon_S._Kennedy",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ada",
+      "game": "resident_evil",
+      "zh": "艾达·王",
+      "en": "Ada Wong",
+      "aliases": [
+        "艾达",
+        "Ada"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Ada_Wong",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:claire",
+      "game": "resident_evil",
+      "zh": "克莱尔·雷德菲尔德",
+      "en": "Claire Redfield",
+      "aliases": [
+        "克莱尔",
+        "Claire"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Claire_Redfield",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:jill",
+      "game": "resident_evil",
+      "zh": "吉尔·瓦伦丁",
+      "en": "Jill Valentine",
+      "aliases": [
+        "吉尔",
+        "Jill"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Jill_Valentine",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ashley",
+      "game": "resident_evil",
+      "zh": "阿什莉·格雷厄姆",
+      "en": "Ashley Graham",
+      "aliases": [
+        "阿什莉",
+        "Ashley"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Ashley_Graham",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chris",
+      "game": "resident_evil",
+      "zh": "克里斯·雷德菲尔德",
+      "en": "Chris Redfield",
+      "aliases": [
+        "克里斯",
+        "Chris"
+      ],
+      "kind": "character",
+      "source_url": "https://residentevil.fandom.com/wiki/Chris_Redfield",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

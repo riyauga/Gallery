@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "clannad-wiki",
+    "url": "https://clannad.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "clannad",
+      "zh": "CLANNAD",
+      "en": "CLANNAD",
+      "source_url": "https://clannad.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nagisa",
+      "game": "clannad",
+      "zh": "古河渚",
+      "en": "Nagisa Furukawa",
+      "aliases": [
+        "渚",
+        "Nagisa"
+      ],
+      "kind": "character",
+      "source_url": "https://clannad.fandom.com/wiki/Nagisa_Furukawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kyou",
+      "game": "clannad",
+      "zh": "藤林杏",
+      "en": "Kyou Fujibayashi",
+      "aliases": [
+        "杏",
+        "Kyou"
+      ],
+      "kind": "character",
+      "source_url": "https://clannad.fandom.com/wiki/Kyou_Fujibayashi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tomoyo",
+      "game": "clannad",
+      "zh": "坂上智代",
+      "en": "Tomoyo Sakagami",
+      "aliases": [
+        "智代",
+        "Tomoyo"
+      ],
+      "kind": "character",
+      "source_url": "https://clannad.fandom.com/wiki/Tomoyo_Sakagami",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "k-on-wiki",
+    "url": "https://k-on.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "k_on",
+      "zh": "轻音少女",
+      "en": "K-On!",
+      "source_url": "https://k-on.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yui",
+      "game": "k_on",
+      "zh": "平泽唯",
+      "en": "Yui Hirasawa",
+      "aliases": [
+        "唯",
+        "Yui"
+      ],
+      "kind": "character",
+      "source_url": "https://k-on.fandom.com/wiki/Yui_Hirasawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mio",
+      "game": "k_on",
+      "zh": "秋山澪",
+      "en": "Mio Akiyama",
+      "aliases": [
+        "澪",
+        "Mio"
+      ],
+      "kind": "character",
+      "source_url": "https://k-on.fandom.com/wiki/Mio_Akiyama",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:azusa",
+      "game": "k_on",
+      "zh": "中野梓",
+      "en": "Azusa Nakano",
+      "aliases": [
+        "梓",
+        "Azusa"
+      ],
+      "kind": "character",
+      "source_url": "https://k-on.fandom.com/wiki/Azusa_Nakano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:tsumugi",
+      "game": "k_on",
+      "zh": "琴吹紬",
+      "en": "Tsumugi Kotobuki",
+      "aliases": [
+        "紬",
+        "Tsumugi"
+      ],
+      "kind": "character",
+      "source_url": "https://k-on.fandom.com/wiki/Tsumugi_Kotobuki",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

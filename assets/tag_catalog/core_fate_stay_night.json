@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "fate-stay-night-wiki",
+    "url": "https://typemoon.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "fate",
+      "zh": "Fate/stay night",
+      "en": "Fate/stay night",
+      "source_url": "https://typemoon.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:saber",
+      "game": "fate",
+      "zh": "阿尔托莉雅·潘德拉贡",
+      "en": "Artoria Pendragon",
+      "aliases": [
+        "Saber",
+        "阿尔托莉雅"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Saber_(Fate/stay_night)",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rin",
+      "game": "fate",
+      "zh": "远坂凛",
+      "en": "Rin Tohsaka",
+      "aliases": [
+        "凛",
+        "Rin"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Rin_Tohsaka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sakura",
+      "game": "fate",
+      "zh": "间桐樱",
+      "en": "Sakura Matou",
+      "aliases": [
+        "樱",
+        "Sakura"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Sakura_Matou",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:illya",
+      "game": "fate",
+      "zh": "伊莉雅斯菲尔·冯·爱因兹贝伦",
+      "en": "Illyasviel von Einzbern",
+      "aliases": [
+        "伊莉雅",
+        "Illya"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Illyasviel_von_Einzbern",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mash",
+      "game": "fate",
+      "zh": "玛修·基列莱特",
+      "en": "Mash Kyrielight",
+      "aliases": [
+        "玛修",
+        "Mash"
+      ],
+      "kind": "character",
+      "source_url": "https://typemoon.fandom.com/wiki/Mash_Kyrielight",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

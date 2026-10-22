@@ -1,0 +1,66 @@
+{
+  "source": {
+    "id": "doa-wiki",
+    "url": "https://deadoralive.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "dead_or_alive",
+      "zh": "死或生",
+      "en": "Dead or Alive",
+      "source_url": "https://deadoralive.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kasumi",
+      "game": "dead_or_alive",
+      "zh": "霞",
+      "en": "Kasumi",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://deadoralive.fandom.com/wiki/Kasumi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:marie_rose",
+      "game": "dead_or_alive",
+      "zh": "玛丽·罗斯",
+      "en": "Marie Rose",
+      "aliases": [
+        "玛丽罗斯",
+        "Marie"
+      ],
+      "kind": "character",
+      "source_url": "https://deadoralive.fandom.com/wiki/Marie_Rose",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ayane",
+      "game": "dead_or_alive",
+      "zh": "绫音",
+      "en": "Ayane",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://deadoralive.fandom.com/wiki/Ayane",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:honoka",
+      "game": "dead_or_alive",
+      "zh": "穗乃果",
+      "en": "Honoka",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://deadoralive.fandom.com/wiki/Honoka",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

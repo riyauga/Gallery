@@ -865,13 +865,76 @@ public sealed class StoreService : IDisposable
             if (redirected > 0) return redirected;
         }
 
+        var tagKey = NewTagKey();
+        int created;
         using (var cmd = _conn.CreateCommand())
         {
-            cmd.CommandText = "INSERT INTO tags(name,category) VALUES($n,$c); SELECT last_insert_rowid();";
+            cmd.CommandText =
+                "INSERT INTO tags(name,category,tag_key) VALUES($n,$c,$k); SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("$n", clean);
             cmd.Parameters.AddWithValue("$c", category);
-            return Convert.ToInt32(cmd.ExecuteScalar());
+            cmd.Parameters.AddWithValue("$k", tagKey);
+            created = Convert.ToInt32(cmd.ExecuteScalar());
         }
+        // 新标签默认「待关联」：不猜身份，等候选选择或人工关联后再写 linked。
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "INSERT INTO tag_identities(tag_id,identity_key,link_status,source,locked,note,updated_at) " +
+                "VALUES($t,'','pending','auto',0,'',$now)";
+            cmd.Parameters.AddWithValue("$t", created);
+            cmd.Parameters.AddWithValue("$now", Now());
+            cmd.ExecuteNonQuery();
+        }
+        return created;
+    }
+
+    /// <summary>生成稳定、可序列化的标签键；只在新标签创建时写一次，之后不再变。</summary>
+    public static string NewTagKey()
+    {
+        Span<byte> buffer = stackalloc byte[8];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(buffer);
+        return "tk_" + Convert.ToHexStringLower(buffer);
+    }
+
+    /// <summary>写入标签的身份关联；tag_identities 是身份与关联状态的唯一来源。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public void SetTagIdentity(int tagId, string identityKey, string linkStatus,
+        bool locked = false, string source = "", string note = "")
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "INSERT INTO tag_identities(tag_id,identity_key,link_status,source,locked,note,updated_at) " +
+            "VALUES($t,$i,$s,$src,$l,$n,$now) " +
+            "ON CONFLICT(tag_id) DO UPDATE SET identity_key=excluded.identity_key," +
+            "link_status=excluded.link_status,source=excluded.source,locked=excluded.locked," +
+            "note=excluded.note,updated_at=excluded.updated_at";
+        cmd.Parameters.AddWithValue("$t", tagId);
+        cmd.Parameters.AddWithValue("$i", identityKey ?? "");
+        cmd.Parameters.AddWithValue("$s", linkStatus);
+        cmd.Parameters.AddWithValue("$src", source);
+        cmd.Parameters.AddWithValue("$l", locked ? 1 : 0);
+        cmd.Parameters.AddWithValue("$n", note);
+        cmd.Parameters.AddWithValue("$now", Now());
+        cmd.ExecuteNonQuery();
+        Commit();
+    }
+
+    /// <summary>按重定向表取有效身份键；旧键被归并后仍能落到同一个身份。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public string EffectiveIdentity(string identityKey)
+    {
+        var key = (identityKey ?? "").Trim();
+        for (var hop = 0; hop < 8 && key.Length > 0; hop++)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT identity_key FROM identity_redirects WHERE old_key=$k";
+            cmd.Parameters.AddWithValue("$k", key);
+            var next = cmd.ExecuteScalar() as string;
+            if (string.IsNullOrWhiteSpace(next) || next == key) break;
+            key = next;
+        }
+        return key;
     }
 
     [MethodImpl(MethodImplOptions.Synchronized)]
@@ -1896,9 +1959,13 @@ public sealed class StoreService : IDisposable
         public string EntityKey { get; init; } = "";
         /// <summary>标签所绑定的词库实体所属作品；用于搜索时避免把同作品的同一来源名再加一遍。</summary>
         public string GameKey { get; init; } = "";
-        /// <summary>人工状态：manual / resolved / external / original；空 = 未处理。</summary>
+        /// <summary>旧版人工状态：manual / resolved / external / original；空 = 未处理。身份判定改读 LinkStatus/IdentityKey。</summary>
         public string Status { get; init; } = "";
-        /// <summary>同一身份的身份键（跨作品/跨写法共用）。</summary>
+        /// <summary>稳定、可序列化的标签键；草稿/归档/导出识别标签时用它，不再以名称当唯一键。</summary>
+        public string TagKey { get; init; } = "";
+        /// <summary>身份关联状态：linked / pending / independent。</summary>
+        public string LinkStatus { get; init; } = "pending";
+        /// <summary>同一身份的身份键（跨作品/跨写法共用），以 tag_identities 为唯一来源。</summary>
         public string IdentityKey { get; init; } = "";
         /// <summary>起源作品（派生/联动时与标签所在作品不同）。</summary>
         public string OriginGame { get; init; } = "";
@@ -1956,9 +2023,11 @@ public sealed class StoreService : IDisposable
                 "SELECT t.id,t.name,t.color,COALESCE(t.category,'custom')," +
                 "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) AS c," +
                 "COALESCE(p.zh,''),COALESCE(p.en,''),COALESCE(p.entity_key,'')," +
-                "COALESCE(e.identity_key,''),COALESCE(e.game_key,'') " +
+                "COALESCE(e.identity_key,''),COALESCE(e.game_key,'')," +
+                "COALESCE(t.tag_key,''),COALESCE(ti.link_status,'pending'),COALESCE(ti.identity_key,'') " +
                 "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
                 "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+                "LEFT JOIN tag_identities ti ON ti.tag_id=t.id " +
                 "ORDER BY t.name COLLATE NOCASE";
             using var r = cmd.ExecuteReader();
             while (r.Read())
@@ -1981,10 +2050,14 @@ public sealed class StoreService : IDisposable
                     GameKey = r.GetString(9),
                     Aliases = aliases.TryGetValue(id, out var al) ? al : [],
                     Status = state?.Status ?? "",
-                    // 词库实体的身份是权威值；状态里的身份只用于没有 profile 的标签。
-                    IdentityKey = r.GetString(8).Length > 0
-                        ? r.GetString(8)
-                        : state?.IdentityKey ?? "",
+                    TagKey = r.GetString(10),
+                    LinkStatus = r.GetString(11),
+                    // 身份关联表是权威值；没有关联记录时退回来源实体，最后才用旧状态。
+                    IdentityKey = r.GetString(12).Length > 0
+                        ? r.GetString(12)
+                        : r.GetString(8).Length > 0
+                            ? r.GetString(8)
+                            : state?.IdentityKey ?? "",
                     OriginGame = state?.OriginGame ?? "",
                     DisplayMode = mode,
                     DisplayName = state?.DisplayName ?? "",

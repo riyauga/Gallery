@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "senren-banka-wiki",
+    "url": "https://yuzusoft.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "senren_banka",
+      "zh": "千恋＊万花",
+      "en": "Senren * Banka",
+      "source_url": "https://yuzusoft.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yoshino",
+      "game": "senren_banka",
+      "zh": "朝武芳乃",
+      "en": "Asatake Yoshino",
+      "aliases": [
+        "芳乃",
+        "Yoshino"
+      ],
+      "kind": "character",
+      "source_url": "https://yuzusoft.fandom.com/wiki/Yoshino_Asatake",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mako",
+      "game": "senren_banka",
+      "zh": "常陆茉子",
+      "en": "Hitachi Mako",
+      "aliases": [
+        "茉子",
+        "Mako"
+      ],
+      "kind": "character",
+      "source_url": "https://yuzusoft.fandom.com/wiki/Mako_Hitachi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:murasame",
+      "game": "senren_banka",
+      "zh": "丛雨",
+      "en": "Murasame",
+      "aliases": [
+        "丛雨",
+        "Murasame"
+      ],
+      "kind": "character",
+      "source_url": "https://yuzusoft.fandom.com/wiki/Murasame",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

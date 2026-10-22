@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "qingyunian-wiki",
+    "url": "https://qingyunian.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "qing_yu_nian",
+      "zh": "庆余年",
+      "en": "Qing Yu Nian",
+      "source_url": "https://qingyunian.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:lin_waner",
+      "game": "qing_yu_nian",
+      "zh": "林婉儿",
+      "en": "Lin Wan'er",
+      "aliases": [
+        "婉儿",
+        "Wan'er"
+      ],
+      "kind": "character",
+      "source_url": "https://qingyunian.fandom.com/wiki/Lin_Wan%27er",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:haitang",
+      "game": "qing_yu_nian",
+      "zh": "海棠朵朵",
+      "en": "Haitang Duoduo",
+      "aliases": [
+        "海棠",
+        "Haitang"
+      ],
+      "kind": "character",
+      "source_url": "https://qingyunian.fandom.com/wiki/Haitang_Duoduo",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

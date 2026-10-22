@@ -1,0 +1,59 @@
+{
+  "source": {
+    "id": "dmc-wiki",
+    "url": "https://devilmaycry.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "devil_may_cry",
+      "zh": "鬼泣",
+      "en": "Devil May Cry",
+      "source_url": "https://devilmaycry.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:lady",
+      "game": "devil_may_cry",
+      "zh": "蕾蒂",
+      "en": "Lady",
+      "aliases": [
+        "Lady"
+      ],
+      "kind": "character",
+      "source_url": "https://devilmaycry.fandom.com/wiki/Lady",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:trish",
+      "game": "devil_may_cry",
+      "zh": "翠西",
+      "en": "Trish",
+      "aliases": [
+        "Trish"
+      ],
+      "kind": "character",
+      "source_url": "https://devilmaycry.fandom.com/wiki/Trish",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nico",
+      "game": "devil_may_cry",
+      "zh": "妮可·戈尔多斯坦",
+      "en": "Nico Goldstein",
+      "aliases": [
+        "妮可",
+        "Nico"
+      ],
+      "kind": "character",
+      "source_url": "https://devilmaycry.fandom.com/wiki/Nico_Goldstein",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "source": {
+    "id": "gotoubun-wiki",
+    "url": "https://gotoubun.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "gotoubun_no_hanayome",
+      "zh": "五等分的新娘",
+      "en": "The Quintessential Quintuplets",
+      "source_url": "https://gotoubun.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ichika",
+      "game": "gotoubun_no_hanayome",
+      "zh": "中野一花",
+      "en": "Ichika Nakano",
+      "aliases": [
+        "一花",
+        "Ichika"
+      ],
+      "kind": "character",
+      "source_url": "https://gotoubun.fandom.com/wiki/Ichika_Nakano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:nino",
+      "game": "gotoubun_no_hanayome",
+      "zh": "中野二乃",
+      "en": "Nino Nakano",
+      "aliases": [
+        "二乃",
+        "Nino"
+      ],
+      "kind": "character",
+      "source_url": "https://gotoubun.fandom.com/wiki/Nino_Nakano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:miku",
+      "game": "gotoubun_no_hanayome",
+      "zh": "中野三玖",
+      "en": "Miku Nakano",
+      "aliases": [
+        "三玖",
+        "Miku"
+      ],
+      "kind": "character",
+      "source_url": "https://gotoubun.fandom.com/wiki/Miku_Nakano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:yotsuba",
+      "game": "gotoubun_no_hanayome",
+      "zh": "中野四叶",
+      "en": "Yotsuba Nakano",
+      "aliases": [
+        "四叶",
+        "Yotsuba"
+      ],
+      "kind": "character",
+      "source_url": "https://gotoubun.fandom.com/wiki/Yotsuba_Nakano",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:itsuki",
+      "game": "gotoubun_no_hanayome",
+      "zh": "中野五月",
+      "en": "Itsuki Nakano",
+      "aliases": [
+        "五月",
+        "Itsuki"
+      ],
+      "kind": "character",
+      "source_url": "https://gotoubun.fandom.com/wiki/Itsuki_Nakano",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

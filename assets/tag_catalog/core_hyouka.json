@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "hyouka-wiki",
+    "url": "https://hyouka.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "hyouka",
+      "zh": "冰菓",
+      "en": "Hyouka",
+      "source_url": "https://hyouka.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:eru",
+      "game": "hyouka",
+      "zh": "千反田爱瑠",
+      "en": "Eru Chitanda",
+      "aliases": [
+        "爱瑠",
+        "Eru"
+      ],
+      "kind": "character",
+      "source_url": "https://hyouka.fandom.com/wiki/Eru_Chitanda",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mayaka",
+      "game": "hyouka",
+      "zh": "伊原摩耶花",
+      "en": "Mayaka Ibara",
+      "aliases": [
+        "摩耶花",
+        "Mayaka"
+      ],
+      "kind": "character",
+      "source_url": "https://hyouka.fandom.com/wiki/Mayaka_Ibara",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

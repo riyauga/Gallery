@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "chuunibyou-wiki",
+    "url": "https://chuunibyou.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "chuunibyou_demo_koi_ga_shitai",
+      "zh": "中二病也要谈恋爱",
+      "en": "Love, Chunibyo & Other Delusions",
+      "source_url": "https://chuunibyou.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:rikka",
+      "game": "chuunibyou_demo_koi_ga_shitai",
+      "zh": "小鸟游六花",
+      "en": "Rikka Takanashi",
+      "aliases": [
+        "六花",
+        "Rikka"
+      ],
+      "kind": "character",
+      "source_url": "https://chuunibyou.fandom.com/wiki/Rikka_Takanashi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shinka",
+      "game": "chuunibyou_demo_koi_ga_shitai",
+      "zh": "丹生谷森夏",
+      "en": "Shinka Nibutani",
+      "aliases": [
+        "森夏",
+        "Shinka"
+      ],
+      "kind": "character",
+      "source_url": "https://chuunibyou.fandom.com/wiki/Shinka_Nibutani",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

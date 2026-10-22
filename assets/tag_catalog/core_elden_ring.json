@@ -1,0 +1,97 @@
+{
+  "source": {
+    "id": "elden-ring-wiki",
+    "url": "https://eldenring.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "elden_ring",
+      "zh": "艾尔登法环",
+      "en": "Elden Ring",
+      "source_url": "https://eldenring.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ranni",
+      "game": "elden_ring",
+      "zh": "菈妮",
+      "en": "Ranni the Witch",
+      "aliases": [
+        "魔女菈妮",
+        "Ranni"
+      ],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Ranni_the_Witch",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:malenia",
+      "game": "elden_ring",
+      "zh": "玛莲妮亚",
+      "en": "Malenia, Blade of Miquella",
+      "aliases": [
+        "米凯拉之刃",
+        "Malenia"
+      ],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Malenia,_Blade_of_Miquella",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:melina",
+      "game": "elden_ring",
+      "zh": "梅琳娜",
+      "en": "Melina",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Melina",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:marika",
+      "game": "elden_ring",
+      "zh": "玛莉卡",
+      "en": "Queen Marika the Eternal",
+      "aliases": [
+        "永恒女王玛莉卡",
+        "Marika"
+      ],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Queen_Marika_the_Eternal",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rennala",
+      "game": "elden_ring",
+      "zh": "蕾娜菈",
+      "en": "Rennala, Queen of the Full Moon",
+      "aliases": [
+        "满月女王蕾娜菈",
+        "Rennala"
+      ],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Rennala,_Queen_of_the_Full_Moon",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:millicent",
+      "game": "elden_ring",
+      "zh": "米莉森",
+      "en": "Millicent",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://eldenring.fandom.com/wiki/Millicent",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

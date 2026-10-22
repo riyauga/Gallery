@@ -1,0 +1,81 @@
+{
+  "source": {
+    "id": "rezero-wiki",
+    "url": "https://rezero.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "re_zero",
+      "zh": "Re:从零开始的异世界生活",
+      "en": "Re:Zero - Starting Life in Another World",
+      "source_url": "https://rezero.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:rem",
+      "game": "re_zero",
+      "zh": "雷姆",
+      "en": "Rem",
+      "aliases": [
+        "蕾姆"
+      ],
+      "kind": "character",
+      "source_url": "https://rezero.fandom.com/wiki/Rem",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ram",
+      "game": "re_zero",
+      "zh": "拉姆",
+      "en": "Ram",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://rezero.fandom.com/wiki/Ram",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:emilia",
+      "game": "re_zero",
+      "zh": "爱蜜莉雅",
+      "en": "Emilia",
+      "aliases": [
+        "艾米莉娅"
+      ],
+      "kind": "character",
+      "source_url": "https://rezero.fandom.com/wiki/Emilia",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:echidna",
+      "game": "re_zero",
+      "zh": "艾姬多娜",
+      "en": "Echidna",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://rezero.fandom.com/wiki/Echidna",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:beatrice",
+      "game": "re_zero",
+      "zh": "贝阿朵莉丝",
+      "en": "Beatrice",
+      "aliases": [
+        "贝蒂",
+        "Beako"
+      ],
+      "kind": "character",
+      "source_url": "https://rezero.fandom.com/wiki/Beatrice",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

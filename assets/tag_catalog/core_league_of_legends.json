@@ -1,0 +1,83 @@
+{
+  "source": {
+    "id": "league-wiki",
+    "url": "https://leagueoflegends.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "league_of_legends",
+      "zh": "英雄联盟",
+      "en": "League of Legends",
+      "source_url": "https://leagueoflegends.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ahri",
+      "game": "league_of_legends",
+      "zh": "九尾妖狐阿狸",
+      "en": "Ahri",
+      "aliases": [
+        "阿狸",
+        "Ahri"
+      ],
+      "kind": "character",
+      "source_url": "https://leagueoflegends.fandom.com/wiki/Ahri",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:jinx",
+      "game": "league_of_legends",
+      "zh": "金克丝",
+      "en": "Jinx",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://leagueoflegends.fandom.com/wiki/Jinx",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:lux",
+      "game": "league_of_legends",
+      "zh": "拉克丝·克朗加德",
+      "en": "Lux",
+      "aliases": [
+        "拉克丝",
+        "Lux"
+      ],
+      "kind": "character",
+      "source_url": "https://leagueoflegends.fandom.com/wiki/Lux",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:akali",
+      "game": "league_of_legends",
+      "zh": "阿卡丽",
+      "en": "Akali",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://leagueoflegends.fandom.com/wiki/Akali",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kaisa",
+      "game": "league_of_legends",
+      "zh": "卡莎",
+      "en": "Kai'Sa",
+      "aliases": [
+        "KaiSa",
+        "卡莎"
+      ],
+      "kind": "character",
+      "source_url": "https://leagueoflegends.fandom.com/wiki/Kai%27Sa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

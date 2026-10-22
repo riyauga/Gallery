@@ -1,0 +1,76 @@
+{
+  "source": {
+    "id": "natsu-no-ame-wiki",
+    "url": "https://natsu-no-ame.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first"
+  },
+  "games": [
+    {
+      "key": "natsu_no_ame",
+      "zh": "夏之雨",
+      "en": "Natsu no Ame",
+      "source_url": "https://natsu-no-ame.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:rikako",
+      "game": "natsu_no_ame",
+      "zh": "濑川理香子",
+      "en": "Segawa Rikako",
+      "aliases": [
+        "理香子",
+        "Rikako"
+      ],
+      "kind": "character",
+      "source_url": "https://natsu-no-ame.fandom.com/wiki/Rikako_Segawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:midori",
+      "game": "natsu_no_ame",
+      "zh": "宫泽翠",
+      "en": "Miyazawa Midori",
+      "aliases": [
+        "翠",
+        "Midori"
+      ],
+      "kind": "character",
+      "source_url": "https://natsu-no-ame.fandom.com/wiki/Midori_Miyazawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:hinako",
+      "game": "natsu_no_ame",
+      "zh": "伊东日向子",
+      "en": "Ito Hinako",
+      "aliases": [
+        "日向子",
+        "雏子",
+        "Hinako"
+      ],
+      "kind": "character",
+      "source_url": "https://natsu-no-ame.fandom.com/wiki/Hinako_Ito",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:misa",
+      "game": "natsu_no_ame",
+      "zh": "篠冈美沙",
+      "en": "Shinooka Misa",
+      "aliases": [
+        "美沙",
+        "Misa"
+      ],
+      "kind": "character",
+      "source_url": "https://natsu-no-ame.fandom.com/wiki/Misa_Shinooka",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

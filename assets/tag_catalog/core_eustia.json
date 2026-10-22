@@ -1,0 +1,73 @@
+{
+  "source": {
+    "id": "eustia-wiki",
+    "url": "https://aiyokunoeustia.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "aiyoku_no_eustia",
+      "zh": "秽翼的尤斯蒂娅",
+      "en": "Aiyoku no Eustia",
+      "source_url": "https://aiyokunoeustia.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:eustia",
+      "game": "aiyoku_no_eustia",
+      "zh": "尤斯蒂娅",
+      "en": "Eustia",
+      "aliases": [
+        "尤斯蒂娅",
+        "Eustia"
+      ],
+      "kind": "character",
+      "source_url": "https://aiyokunoeustia.fandom.com/wiki/Eustia_Astraea",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:eris",
+      "game": "aiyoku_no_eustia",
+      "zh": "艾莉丝·弗洛伦斯",
+      "en": "Eris Floralia",
+      "aliases": [
+        "艾莉丝",
+        "Eris"
+      ],
+      "kind": "character",
+      "source_url": "https://aiyokunoeustia.fandom.com/wiki/Eris_Floralia",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:licia",
+      "game": "aiyoku_no_eustia",
+      "zh": "莉西亚",
+      "en": "Licia",
+      "aliases": [
+        "Licia"
+      ],
+      "kind": "character",
+      "source_url": "https://aiyokunoeustia.fandom.com/wiki/Licia_de_Novus_Aurum",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fione",
+      "game": "aiyoku_no_eustia",
+      "zh": "菲奥奈",
+      "en": "Fione",
+      "aliases": [
+        "Fione"
+      ],
+      "kind": "character",
+      "source_url": "https://aiyokunoeustia.fandom.com/wiki/Fione_Silvaria",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "violet-evergarden-wiki",
+    "url": "https://violet-evergarden.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "violet_evergarden",
+      "zh": "紫罗兰永恒花园",
+      "en": "Violet Evergarden",
+      "source_url": "https://violet-evergarden.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:violet",
+      "game": "violet_evergarden",
+      "zh": "薇尔莉特·伊芙加登",
+      "en": "Violet Evergarden",
+      "aliases": [
+        "薇尔莉特",
+        "Violet"
+      ],
+      "kind": "character",
+      "source_url": "https://violet-evergarden.fandom.com/wiki/Violet_Evergarden",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

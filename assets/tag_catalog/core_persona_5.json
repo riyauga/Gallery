@@ -1,0 +1,86 @@
+{
+  "source": {
+    "id": "megamitensei-wiki",
+    "url": "https://megamitensei.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work unless explicitly merged"
+  },
+  "games": [
+    {
+      "key": "persona_5",
+      "zh": "女神异闻录5",
+      "en": "Persona 5",
+      "source_url": "https://megamitensei.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:kasumi",
+      "game": "persona_5",
+      "zh": "芳泽霞",
+      "en": "Kasumi Yoshizawa",
+      "aliases": [
+        "芳泽堇",
+        "Violet",
+        "Kasumi"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Kasumi_Yoshizawa",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ann",
+      "game": "persona_5",
+      "zh": "高卷杏",
+      "en": "Ann Takamaki",
+      "aliases": [
+        "Ann"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Ann_Takamaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:makoto",
+      "game": "persona_5",
+      "zh": "新岛真",
+      "en": "Makoto Niijima",
+      "aliases": [
+        "Makoto"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Makoto_Niijima",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:futaba",
+      "game": "persona_5",
+      "zh": "佐仓双叶",
+      "en": "Futaba Sakura",
+      "aliases": [
+        "Futaba"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Futaba_Sakura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:haru",
+      "game": "persona_5",
+      "zh": "奥村春",
+      "en": "Haru Okumura",
+      "aliases": [
+        "Haru"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Haru_Okumura",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

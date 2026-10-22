@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "soul-land-wiki",
+    "url": "https://soul-land.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "douluo_dalu",
+      "zh": "斗罗大陆",
+      "en": "Soul Land",
+      "source_url": "https://soul-land.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:xiaowu",
+      "game": "douluo_dalu",
+      "zh": "小舞",
+      "en": "Xiao Wu",
+      "aliases": [
+        "小舞",
+        "Xiao Wu"
+      ],
+      "kind": "character",
+      "source_url": "https://soul-land.fandom.com/wiki/Xiao_Wu",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:ning_rongrong",
+      "game": "douluo_dalu",
+      "zh": "宁荣荣",
+      "en": "Ning Rongrong",
+      "aliases": [
+        "荣荣",
+        "Rongrong"
+      ],
+      "kind": "character",
+      "source_url": "https://soul-land.fandom.com/wiki/Ning_Rongrong",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:bibi_dong",
+      "game": "douluo_dalu",
+      "zh": "比比东",
+      "en": "Bibi Dong",
+      "aliases": [
+        "比比东",
+        "Bibi Dong"
+      ],
+      "kind": "character",
+      "source_url": "https://soul-land.fandom.com/wiki/Bibi_Dong",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:zhu_zhuqing",
+      "game": "douluo_dalu",
+      "zh": "朱竹清",
+      "en": "Zhu Zhuqing",
+      "aliases": [
+        "竹清",
+        "Zhuqing"
+      ],
+      "kind": "character",
+      "source_url": "https://soul-land.fandom.com/wiki/Zhu_Zhuqing",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "project-sekai-wiki",
+    "url": "https://projectsekai.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "project_sekai",
+      "zh": "世界计划 多彩舞台",
+      "en": "Project Sekai: Colorful Stage!",
+      "source_url": "https://projectsekai.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:ichika",
+      "game": "project_sekai",
+      "zh": "星乃一歌",
+      "en": "Ichika Hoshino",
+      "aliases": [
+        "一歌",
+        "Ichika"
+      ],
+      "kind": "character",
+      "source_url": "https://projectsekai.fandom.com/wiki/Ichika_Hoshino",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:saki",
+      "game": "project_sekai",
+      "zh": "天马咲希",
+      "en": "Saki Tenma",
+      "aliases": [
+        "咲希",
+        "Saki"
+      ],
+      "kind": "character",
+      "source_url": "https://projectsekai.fandom.com/wiki/Saki_Tenma",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kanade",
+      "game": "project_sekai",
+      "zh": "宵崎奏",
+      "en": "Kanade Yoisaki",
+      "aliases": [
+        "奏",
+        "Kanade"
+      ],
+      "kind": "character",
+      "source_url": "https://projectsekai.fandom.com/wiki/Kanade_Yoisaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mafuyu",
+      "game": "project_sekai",
+      "zh": "朝比奈真冬",
+      "en": "Mafuyu Asahina",
+      "aliases": [
+        "真冬",
+        "Mafuyu"
+      ],
+      "kind": "character",
+      "source_url": "https://projectsekai.fandom.com/wiki/Mafuyu_Asahina",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

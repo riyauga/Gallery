@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "black-myth-wiki",
+    "url": "https://blackmyth.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "black_myth_wukong",
+      "zh": "黑神话：悟空",
+      "en": "Black Myth: Wukong",
+      "source_url": "https://blackmyth.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:destined_one",
+      "game": "black_myth_wukong",
+      "zh": "天命人",
+      "en": "The Destined One",
+      "aliases": [
+        "天命人",
+        "Destined One"
+      ],
+      "kind": "character",
+      "source_url": "https://blackmyth.fandom.com/wiki/The_Destined_One",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fourth_sister",
+      "game": "black_myth_wukong",
+      "zh": "四妹",
+      "en": "Fourth Sister",
+      "aliases": [
+        "四姐",
+        "Fourth Sister"
+      ],
+      "kind": "character",
+      "source_url": "https://blackmyth.fandom.com/wiki/Fourth_Sister",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "source": {
+    "id": "demon-slayer-wiki",
+    "url": "https://kimetsu-no-yaiba.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names; identities kept per work"
+  },
+  "games": [
+    {
+      "key": "kimetsu_no_yaiba",
+      "zh": "鬼灭之刃",
+      "en": "Demon Slayer: Kimetsu no Yaiba",
+      "source_url": "https://kimetsu-no-yaiba.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:nezuko",
+      "game": "kimetsu_no_yaiba",
+      "zh": "灶门祢豆子",
+      "en": "Nezuko Kamado",
+      "aliases": [
+        "祢豆子",
+        "Nezuko"
+      ],
+      "kind": "character",
+      "source_url": "https://kimetsu-no-yaiba.fandom.com/wiki/Nezuko_Kamado",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:shinobu",
+      "game": "kimetsu_no_yaiba",
+      "zh": "蝴蝶忍",
+      "en": "Shinobu Kocho",
+      "aliases": [
+        "蝴蝶忍",
+        "Shinobu"
+      ],
+      "kind": "character",
+      "source_url": "https://kimetsu-no-yaiba.fandom.com/wiki/Shinobu_Kocho",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mitsuri",
+      "game": "kimetsu_no_yaiba",
+      "zh": "甘露寺蜜璃",
+      "en": "Mitsuri Kanroji",
+      "aliases": [
+        "蜜璃",
+        "Mitsuri"
+      ],
+      "kind": "character",
+      "source_url": "https://kimetsu-no-yaiba.fandom.com/wiki/Mitsuri_Kanroji",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:kanao",
+      "game": "kimetsu_no_yaiba",
+      "zh": "栗花落香奈乎",
+      "en": "Kanao Tsuyuri",
+      "aliases": [
+        "香奈乎",
+        "Kanao"
+      ],
+      "kind": "character",
+      "source_url": "https://kimetsu-no-yaiba.fandom.com/wiki/Kanao_Tsuyuri",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

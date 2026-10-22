@@ -1,0 +1,63 @@
+{
+  "source": {
+    "id": "frieren-wiki",
+    "url": "https://frieren.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); official/community names, identities not merged across works"
+  },
+  "games": [
+    {
+      "key": "frieren",
+      "zh": "葬送的芙莉莲",
+      "en": "Frieren: Beyond Journey's End",
+      "source_url": "https://frieren.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:frieren",
+      "game": "frieren",
+      "zh": "芙莉莲",
+      "en": "Frieren",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://frieren.fandom.com/wiki/Frieren",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:fern",
+      "game": "frieren",
+      "zh": "菲伦",
+      "en": "Fern",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://frieren.fandom.com/wiki/Fern",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:aura",
+      "game": "frieren",
+      "zh": "阿乌拉",
+      "en": "Aura",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://frieren.fandom.com/wiki/Aura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:stark",
+      "game": "frieren",
+      "zh": "修塔尔克",
+      "en": "Stark",
+      "aliases": [],
+      "kind": "character",
+      "source_url": "https://frieren.fandom.com/wiki/Stark",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

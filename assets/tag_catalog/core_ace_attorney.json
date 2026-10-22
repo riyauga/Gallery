@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "ace-attorney-wiki",
+    "url": "https://aceattorney.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "ace_attorney",
+      "zh": "逆转裁判",
+      "en": "Ace Attorney",
+      "source_url": "https://aceattorney.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:maya",
+      "game": "ace_attorney",
+      "zh": "绫里真宵",
+      "en": "Maya Fey",
+      "aliases": [
+        "真宵",
+        "Maya"
+      ],
+      "kind": "character",
+      "source_url": "https://aceattorney.fandom.com/wiki/Maya_Fey",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:pearl",
+      "game": "ace_attorney",
+      "zh": "绫里春美",
+      "en": "Pearl Fey",
+      "aliases": [
+        "春美",
+        "Pearl"
+      ],
+      "kind": "character",
+      "source_url": "https://aceattorney.fandom.com/wiki/Pearl_Fey",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mia",
+      "game": "ace_attorney",
+      "zh": "绫里千寻",
+      "en": "Mia Fey",
+      "aliases": [
+        "千寻",
+        "Mia"
+      ],
+      "kind": "character",
+      "source_url": "https://aceattorney.fandom.com/wiki/Mia_Fey",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

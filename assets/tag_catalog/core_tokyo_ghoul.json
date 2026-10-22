@@ -1,0 +1,47 @@
+{
+  "source": {
+    "id": "tokyo-ghoul-wiki",
+    "url": "https://tokyoghoul.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "tokyo_ghoul",
+      "zh": "东京喰种",
+      "en": "Tokyo Ghoul",
+      "source_url": "https://tokyoghoul.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:touka",
+      "game": "tokyo_ghoul",
+      "zh": "雾岛董香",
+      "en": "Touka Kirishima",
+      "aliases": [
+        "董香",
+        "Touka"
+      ],
+      "kind": "character",
+      "source_url": "https://tokyoghoul.fandom.com/wiki/Touka_Kirishima",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rize",
+      "game": "tokyo_ghoul",
+      "zh": "神代利世",
+      "en": "Rize Kamishiro",
+      "aliases": [
+        "利世",
+        "Rize"
+      ],
+      "kind": "character",
+      "source_url": "https://tokyoghoul.fandom.com/wiki/Rize_Kamishiro",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

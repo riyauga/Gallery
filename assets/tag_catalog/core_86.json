@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "86-wiki",
+    "url": "https://86-eightysix.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "eighty_six",
+      "zh": "86 -不存在的战区-",
+      "en": "86 -Eighty Six-",
+      "source_url": "https://86-eightysix.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:lena",
+      "game": "eighty_six",
+      "zh": "芙拉蒂蕾娜·米利杰",
+      "en": "Vladilena Milize",
+      "aliases": [
+        "蕾娜",
+        "Lena"
+      ],
+      "kind": "character",
+      "source_url": "https://86-eightysix.fandom.com/wiki/Vladilena_Milize",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

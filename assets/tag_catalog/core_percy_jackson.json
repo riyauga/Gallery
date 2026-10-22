@@ -1,0 +1,33 @@
+{
+  "source": {
+    "id": "percy-jackson-wiki",
+    "url": "https://riordan.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated novel seed (2026-10-22); Chinese/English names from official or community sources; female-first"
+  },
+  "games": [
+    {
+      "key": "percy_jackson",
+      "zh": "波西·杰克逊",
+      "en": "Percy Jackson",
+      "source_url": "https://riordan.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:annabeth",
+      "game": "percy_jackson",
+      "zh": "安娜贝丝·蔡斯",
+      "en": "Annabeth Chase",
+      "aliases": [
+        "安娜贝丝",
+        "Annabeth"
+      ],
+      "kind": "character",
+      "source_url": "https://riordan.fandom.com/wiki/Annabeth_Chase",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

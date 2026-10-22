@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "persona-4-wiki",
+    "url": "https://megamitensei.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated breakout-character seed (2026-10-22); female-first selection"
+  },
+  "games": [
+    {
+      "key": "persona_4",
+      "zh": "女神异闻录4",
+      "en": "Persona 4",
+      "source_url": "https://megamitensei.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:yukiko",
+      "game": "persona_4",
+      "zh": "天城雪子",
+      "en": "Yukiko Amagi",
+      "aliases": [
+        "雪子",
+        "Yukiko"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Yukiko_Amagi",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:chie",
+      "game": "persona_4",
+      "zh": "里中千枝",
+      "en": "Chie Satonaka",
+      "aliases": [
+        "千枝",
+        "Chie"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Chie_Satonaka",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:rise",
+      "game": "persona_4",
+      "zh": "久慈川理世",
+      "en": "Rise Kujikawa",
+      "aliases": [
+        "理世",
+        "Rise"
+      ],
+      "kind": "character",
+      "source_url": "https://megamitensei.fandom.com/wiki/Rise_Kujikawa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}

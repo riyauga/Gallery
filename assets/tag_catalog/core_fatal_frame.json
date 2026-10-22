@@ -1,0 +1,61 @@
+{
+  "source": {
+    "id": "fatal-frame-wiki",
+    "url": "https://fatalframe.fandom.com/",
+    "kind": "community",
+    "retrieved_at": "2026-10-22",
+    "version": "Curated D-batch seed (2026-10-22); female-first; unique source id per bundle"
+  },
+  "games": [
+    {
+      "key": "fatal_frame",
+      "zh": "零",
+      "en": "Fatal Frame",
+      "source_url": "https://fatalframe.fandom.com/"
+    }
+  ],
+  "records": [
+    {
+      "key": "character:miku",
+      "game": "fatal_frame",
+      "zh": "雏咲深红",
+      "en": "Miku Hinasaki",
+      "aliases": [
+        "深红",
+        "Miku"
+      ],
+      "kind": "character",
+      "source_url": "https://fatalframe.fandom.com/wiki/Miku_Hinasaki",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:mio",
+      "game": "fatal_frame",
+      "zh": "天仓澪",
+      "en": "Mio Amakura",
+      "aliases": [
+        "澪",
+        "Mio"
+      ],
+      "kind": "character",
+      "source_url": "https://fatalframe.fandom.com/wiki/Mio_Amakura",
+      "source_tags": [],
+      "status": "released"
+    },
+    {
+      "key": "character:sae",
+      "game": "fatal_frame",
+      "zh": "黑泽纱重",
+      "en": "Sae Kurosawa",
+      "aliases": [
+        "纱重",
+        "Sae"
+      ],
+      "kind": "character",
+      "source_url": "https://fatalframe.fandom.com/wiki/Sae_Kurosawa",
+      "source_tags": [],
+      "status": "released"
+    }
+  ]
+}
