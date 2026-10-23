@@ -1,8 +1,10 @@
 /** Gallery download coordinator: persist post snapshots, bind downloads, deliver durable records. */
-import {DEFAULT_SETTINGS,DEFAULT_RULES,normalizeRules,findRule,isImageDownload,ruleFromUrl} from "./rules.js";
+import {DEFAULT_SETTINGS,DEFAULT_RULES,SEED_VERSION,normalizeRules,findRule,isImageDownload,ruleFromUrl} from "./rules.js";
 import {chooseMetadata,completeMetadata,validPost,MD5_RE} from "./metadata.js";
-import {bridgePing,bridgeVerify,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
+import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
 import {isXPage,xPost,xImageKey,isXDownload,xMetadata} from './x-metadata.js';
+import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,matchPixivTags} from './pixiv-metadata.js';
+import {isPinterestPage,pinImageHash,isPinterestDownload} from './pinterest-metadata.js';
 
 const ALARM="gallery-retry-v2";
 let mutation=Promise.resolve();
@@ -47,7 +49,7 @@ async function xContexts() {
 async function rememberX(payload,sender) {
   if(!isXPage(sender.url || sender.tab?.url) || !xPost(payload?.page_url) || !xImageKey(payload?.image_url))throw new Error('无法确认 X 图片来源');
   const key='x-image:'+xImageKey(payload.image_url);
-  await chrome.storage.local.set({[key]:{image_url:payload.image_url,page_url:xPost(payload.page_url).page_url,seen:Date.now()}});
+  await chrome.storage.local.set({[key]:{image_url:payload.image_url,page_url:xPost(payload.page_url).page_url,text:String(payload.text||''),seen:Date.now()}});
   const data=await chrome.storage.local.get(null),old=Object.entries(data).filter(([k])=>k.startsWith('x-image:')).sort((a,b)=>b[1].seen-a[1].seen).slice(512);
   if(old.length)await chrome.storage.local.remove(old.map(([k])=>k));
 }
@@ -67,7 +69,76 @@ async function rememberPage(payload,sender) {
     }
   }
 }
+/** Pixiv 作品快照：页面脚本在用户点图/右键前把标题、画师、标签、分级送过来。 */
+async function rememberPixiv(payload,sender) {
+  if(!isPixivPage(sender.url||sender.tab?.url) || !payload?.post_id) throw new Error('无法确认 Pixiv 作品');
+  const id=String(payload.post_id);
+  const page={...payload,site:'pixiv',page_url:`https://www.pixiv.net/artworks/${id}`,tags:Array.isArray(payload.tags)?payload.tags:[]};
+  await chrome.storage.local.set({['pixiv:'+id]:page});
+}
+
+/** Pinterest 页面快照：详情页一条，列表页一批；同时建立 图片hash → pin 的索引。 */
+async function rememberPinterest(payload,sender) {
+  if(!isPinterestPage(sender.url||sender.tab?.url)) throw new Error('无法确认 Pinterest 页面');
+  const store={};
+  for(const pin of payload?.pins||[]) {
+    const id=String(pin?.id||'');
+    if(!id) continue;
+    store['pinterest:'+id]={...pin,id,page_url:`https://www.pinterest.com/pin/${id}/`,site:'pinterest',scraped_at:Date.now()};
+    for(const url of Object.values(pin.images||{})) {
+      const hash=pinImageHash(url);
+      if(hash) store['pin-image:'+hash]=id;
+    }
+  }
+  if(Object.keys(store).length) await chrome.storage.local.set(store);
+}
+
+/** 用户正在看的那张图属于哪个 pin：hash 精确匹配，匹配不到才回落到来源页地址。 */
+async function rememberPinterestImage(payload,sender) {
+  if(!isPinterestPage(sender.url||sender.tab?.url)) throw new Error('无法确认 Pinterest 页面');
+  const hash=pinImageHash(payload?.image_url);
+  if(!hash) return;
+  const pinId=String(payload?.pin_id||'');
+  await chrome.storage.local.set({['pin-image:'+hash]:pinId});
+}
+
+async function pixivContext(item) {
+  const image=[item.url,item.finalUrl].map(pixivImage).find(Boolean);
+  const id=image?.artwork_id || pixivArtworkId(item.referrer);
+  if(!id) return null;
+  const stored=(await chrome.storage.local.get('pixiv:'+id))['pixiv:'+id];
+  const page=stored || {site:'pixiv',page_url:`https://www.pixiv.net/artworks/${id}`,post_id:id,artist:'',tags:[],x_restrict:0};
+  return {page,image};
+}
+
+async function pinterestContext(item) {
+  const hashes=[item.url,item.finalUrl].map(pinImageHash).filter(Boolean);
+  const index={};
+  if(hashes.length) Object.assign(index,await chrome.storage.local.get(hashes.map(h=>'pin-image:'+h)));
+  let pinId=hashes.map(h=>index['pin-image:'+h]).find(Boolean) || '';
+  if(!pinId && isPinterestPage(item.referrer)) {
+    pinId=/\/pin\/(\d+)/.exec(new URL(item.referrer).pathname)?.[1] || '';
+  }
+  const stored=pinId ? (await chrome.storage.local.get('pinterest:'+pinId))['pinterest:'+pinId] : null;
+  return stored ? {...stored,pin_id:pinId} : null;
+}
+
+/** 库里已有的作品/角色名单，缓存 24 小时；拉不到就返回空表（标签一律丢弃）。 */
+const TAG_INDEX_KEY='tagIndex';
+async function tagIndex(settings) {
+  const cached=(await chrome.storage.local.get(TAG_INDEX_KEY))[TAG_INDEX_KEY];
+  if(cached && Date.now()-(cached.at||0) < 86400000) return cached.index;
+  const result=await bridgeTags(settings.bridgePort);
+  if(result.ok && result.data?.works) {
+    const index={works:result.data.works,characters:result.data.characters||[],aliases:result.data.aliases||{}};
+    await chrome.storage.local.set({[TAG_INDEX_KEY]:{at:Date.now(),index}});
+    return index;
+  }
+  return cached?.index || {works:[],characters:[],aliases:{}};
+}
+
 function downloadKey(item) { return "download:" + item.id + ":" + item.startTime; }
+
 // 拖拽落点发起的下载：URL 在 15 秒内视为“用户主动拖进来”，不受接收网站规则限制。
 const dragUrls = new Map();
 function markDrag(url) {
@@ -80,8 +151,15 @@ function isDragDownload(item) {
 }
 function targetName(url) {
   try {
-    const last = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "");
-    return (last || "image").replace(/[\\/:*?"<>|]/g, "_").slice(0, 160);
+    const parsed = new URL(url);
+    const last = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "");
+    const clean = (last || "image").replace(/[\\/:*?"<>|]/g, "_");
+    if (/\.[a-z0-9]{2,5}$/i.test(clean)) return clean.slice(0, 160);
+    // X/Twitter 这类 CDN 把后缀放在查询串里（?format=jpg），路径本身没有扩展名；
+    // 缺后缀的文件图库认不出来，这里补回去。
+    const format = (parsed.searchParams.get("format") || "").toLowerCase();
+    const ext = /^[a-z0-9]{2,5}$/.test(format) ? format : "jpg";
+    return `${clean.slice(0, 150)}.${ext}`;
   } catch { return "image"; }
 }
 /** 只接受浏览器下载目录下的相对子目录；绝对路径和 .. 一律丢弃，避免写到别的盘。 */
@@ -99,6 +177,12 @@ async function grabImage(message) {
   const dir = safeDir(s.settings.dragTargetDir);
   const name = targetName(url);
   markDrag(url);
+  // 拖拽没有下载来源：用发起页补一条 X 绑定，否则后台认不出作者。
+  const pageUrl = String(message?.page_url || "");
+  if (isXPage(pageUrl) && xPost(pageUrl) && xImageKey(url)) {
+    try { await rememberX({ image_url: url, page_url: pageUrl, text: String(message?.text || "") }, { url: pageUrl }); }
+    catch { /* 不是 X 图就跳过，不影响下载 */ }
+  }
   const id = await chrome.downloads.download({
     url, filename: dir ? dir + "/" + name : name, conflictAction: "uniquify", saveAs: false
   });
@@ -148,17 +232,40 @@ async function finishDownload(id) {
   }
   if (item.state !== "complete" || !item.filename) return;
   const x=record.site==='x' || isXDownload(item);
-  const page=x ? xMetadata({...item,referrer:item.referrer || record.referrer},[...await xContexts(),...(record.page?.post_id ? [{page_url:record.page.page_url,image_url:record.url}] : [])]) : record.page || chooseMetadata(item,await snapshots());
+  const itemRef={...item,referrer:item.referrer || record.referrer};
+  const pixiv=!x && isPixivDownload(itemRef) ? await pixivContext(itemRef) : null;
+  const pinterest=!x && !pixiv && isPinterestDownload(itemRef) ? await pinterestContext(itemRef) : null;
+  const page=x ? xMetadata({...item,referrer:item.referrer || record.referrer},[...await xContexts(),...(record.page?.post_id ? [{page_url:record.page.page_url,image_url:record.url}] : [])])
+    : pixiv ? pixiv.page
+    : pinterest || record.page || chooseMetadata(item,await snapshots());
   const filename=item.filename;
   const name=filename.replace(/\\/g,"/").split("/").pop();
+  let tags=page?.tags || {}, rating=page?.rating || "", source=page?.source || "";
+  if(pixiv) {
+    // 只保留库里已有的作品与角色；画师直接用接口给的名字，不靠标签猜。
+    const index=await tagIndex((await state()).settings);
+    const matched=matchPixivTags(page.tags,index);
+    tags={artist:page.artist?[page.artist]:[],...matched};
+    rating=pixivRating(page.x_restrict);
+    source=page.original_url || "";
+  } else if(pinterest) {
+    // 作者是保存这条 pin 的账号，按已确认的口径归到画师；标题和描述不写标签。
+    tags={artist:pinterest.artist?[pinterest.artist]:[]};
+    rating="";
+    source=pinterest.link || "";
+  }
   const payload={
     version:2,ingest_id:record.ingest_id,client_id:record.client_id,download_id:id,
     download_state:"complete",download_key:record.key,
     filename,inbox_name:name,image_url:item.finalUrl || item.url,
     page_url:page?.page_url || record.referrer || "",post_id:page?.post_id || "",site:page?.site || "",
     rule_id:record.rule_id || "",
-    tags:page?.tags || {},rating:page?.rating || "",source:page?.source || "",
-    tag_string:page?.tag_string || "",metadata_complete:x ? false : completeMetadata(page),manual_review:x || !page,
+    tags,rating,source,
+    tag_string:pixiv ? (page.tags||[]).join(" ") : page?.tag_string || "",
+    commentary_title:String(page?.commentary_title || ""),
+    commentary_desc:String(page?.commentary_desc || ""),
+    metadata_complete:x || pixiv || pinterest ? false : completeMetadata(page),
+    manual_review:x || !page,
     md5:x || !page ? '' : MD5_RE.exec(name)?.[0]?.toLowerCase() || "",sent_at:Date.now()
   };
   await queueAdd(payload);
@@ -197,7 +304,7 @@ async function flush() {
   try { return await flushing; } finally { flushing=null; }
 }
 async function initialize() {
-  const data=await chrome.storage.local.get(["settings","rules","xRulesVersion"]);
+  const data=await chrome.storage.local.get(["settings","rules","xRulesVersion","seedVersion"]);
   if (!data.settings) await chrome.storage.local.set({settings:{...DEFAULT_SETTINGS,theme:"system"}});
   if (!Array.isArray(data.rules)) {
     const defaults=DEFAULT_RULES.map(rule => ({...rule,enabled:rule.id.startsWith("builtin-danbooru") || rule.id.startsWith('builtin-x')}));
@@ -208,6 +315,13 @@ async function initialize() {
     const rules=current.map(rule=>rule.id==='builtin-x' ? {...rule,enabled:true,folder:''} : rule);
     for(const rule of DEFAULT_RULES.filter(rule=>rule.id.startsWith('builtin-x')))if(!rules.some(r=>r.id===rule.id))rules.push({...rule});
     await chrome.storage.local.set({rules,xRulesVersion:1});
+  }
+  // 补齐缺失的内置规则（不覆盖用户改过的同名规则），让已安装的扩展也能拿到新增站点。
+  if((data.seedVersion||0)<SEED_VERSION) {
+    const current=(await chrome.storage.local.get('rules')).rules || DEFAULT_RULES;
+    const rules=[...current];
+    for(const rule of DEFAULT_RULES) if(!rules.some(r=>r.id===rule.id)) rules.push({...rule});
+    await chrome.storage.local.set({rules,seedVersion:SEED_VERSION});
   }
   await state();
   await migrateLegacyQueue();
@@ -229,6 +343,9 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
         return;
       }
       if(message?.type==='xImageContext') {await rememberX(message.payload,sender);sendResponse({ok:true});return;}
+      if(message?.type==='pixivPage') {await rememberPixiv(message.payload,sender);sendResponse({ok:true});return;}
+      if(message?.type==='pinterestPins') {await rememberPinterest(message.payload,sender);sendResponse({ok:true});return;}
+      if(message?.type==='pinterestImage') {await rememberPinterestImage(message.payload,sender);sendResponse({ok:true});return;}
       if (message?.type === "grabImage") {
         try { sendResponse(await grabImage(message)); }
         catch (error) { sendResponse({ ok: false, error: String(error.message || error) }); }

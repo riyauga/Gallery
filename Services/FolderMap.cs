@@ -14,7 +14,7 @@ public sealed class FolderMap
 {
     public const string DefaultManagedDir = "cartoon";
     public const string NoSource = "no_source";      // 没有作品标签时的兜底（original 是真正的「原创作品」标签，走 Sanitize 自然得到 original/）
-    public const string NoArtist = "_无画师";        // 没有画师标签时的兜底
+    public const string NoArtist = "_无作者";        // 没有作者标签时的兜底
 
     public sealed record Rule(string Category, string Name, string Folder);
 

@@ -969,9 +969,55 @@ public sealed partial class MainWindow : Window
 
     // ------------------------------------------------------------------ 目录树
 
+    // 拖拽落点高亮：直接借用导航项自带的悬停视觉（PointerStates），同一时刻最多亮一项。
+    private NavigationViewItem? _dragTargetItem;
+
+    /// <summary>亮起/切换拖拽命中的目录项；传 null 表示全部熄灭。</summary>
+    private void SetDragTarget(NavigationViewItem? item)
+    {
+        if (ReferenceEquals(_dragTargetItem, item)) return;
+        if (_dragTargetItem is not null) SetItemPointerState(_dragTargetItem, pointerOver: false);
+        _dragTargetItem = item;
+        if (item is not null) SetItemPointerState(item, pointerOver: true);
+    }
+
+    /// <summary>只熄灭自己那项——父项 DragLeave 晚于子项 DragOver 时不会误灭子项。</summary>
+    private void ClearDragTarget(NavigationViewItem item)
+    {
+        if (ReferenceEquals(_dragTargetItem, item)) SetDragTarget(null);
+    }
+
+    /// <summary>
+    /// 照搬 NavigationViewItem::UpdateVisualStateForPointer 的状态选择：
+    /// 悬停态与选中态同属 PointerStates 组，选中项要回 Selected 而不是 Normal。
+    /// 状态组定义在 NavigationViewItemPresenter 的模板里，必须对 presenter 调 GoToState，
+    /// 对 item 本身调无效（item 模板只有列表位置组）。
+    /// </summary>
+    private static void SetItemPointerState(NavigationViewItem item, bool pointerOver)
+    {
+        if (FindPresenter(item) is not { } presenter) return;
+        var state = item.IsSelected
+            ? pointerOver ? "PointerOverSelected" : "Selected"
+            : pointerOver ? "PointerOver" : "Normal";
+        VisualStateManager.GoToState(presenter, state, useTransitions: true);
+    }
+
+    private static NavigationViewItemPresenter? FindPresenter(DependencyObject root)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is NavigationViewItemPresenter presenter) return presenter;
+            if (FindPresenter(child) is { } found) return found;
+        }
+        return null;
+    }
+
     /// <summary>重建目录树（挂在「收藏夹」之后的分隔线 + 各启用根）。</summary>
     private void BuildDirectoryTree()
     {
+        // 旧项即将被丢弃，引用一并作废。
+        _dragTargetItem = null;
         // 注意：NavigationViewItemSeparator 继承 NavigationViewItemBase 而非
         // NavigationViewItem——用 is NavigationViewItem 匹配会漏掉分隔线，导致
         // 每次重建目录树都累积一条横线（实测 bug）。
@@ -1067,8 +1113,13 @@ public sealed partial class MainWindow : Window
 
         // 应用内拖拽：把图库里的图片拖到侧栏目录即移动；外部文件拖入不接收。
         item.AllowDrop = true;
-        item.DragOver += (_, e) => OnDirectoryDragOver(e, display);
-        item.Drop += (_, e) => _ = OnDirectoryDropAsync(e, target, display);
+        item.DragOver += (_, e) => OnDirectoryDragOver(e, display, item);
+        item.DragLeave += (_, _) => ClearDragTarget(item);
+        item.Drop += (_, e) =>
+        {
+            ClearDragTarget(item);
+            _ = OnDirectoryDropAsync(e, target, display);
+        };
 
         foreach (var childRel in childRels.OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
             item.MenuItems.Add(BuildDirNode(rootId, childRel, folders, rootPath, isRoot: false));
@@ -1082,9 +1133,10 @@ public sealed partial class MainWindow : Window
             .Sum(f => f.Count);
 
     /// <summary>只接受图库自己发起的拖拽；显示「移动到 目录名」，不显示复制图标。</summary>
-    private static void OnDirectoryDragOver(DragEventArgs e, string displayName)
+    private void OnDirectoryDragOver(DragEventArgs e, string displayName, NavigationViewItem item)
     {
         if (!e.DataView.Contains(GalleryPage.DragImageIdsFormat)) return;
+        SetDragTarget(item);
         e.AcceptedOperation = DataPackageOperation.Copy;
         e.DragUIOverride.Caption = $"移动到「{displayName}」";
         e.DragUIOverride.IsCaptionVisible = true;

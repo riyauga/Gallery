@@ -21,7 +21,9 @@
       if(normalized.length===1)page_url=normalized[0];
     }
     if(!page_url && !article)page_url=post(location.href);
-    if(page_url)chrome.runtime.sendMessage({type:'xImageContext',payload:{image_url,page_url}}).catch(()=>{});
+    // 推文正文就是作者评论；表情与链接文本保留原样，不做改写。
+    const text=(article?.querySelector('[data-testid="tweetText"]')?.innerText || '').trim();
+    if(page_url)chrome.runtime.sendMessage({type:'xImageContext',payload:{image_url,page_url,text}}).catch(()=>{});
   }
   document.addEventListener('contextmenu',remember,true);document.addEventListener('click',remember,true);
 })();

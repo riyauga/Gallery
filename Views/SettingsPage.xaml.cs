@@ -314,6 +314,7 @@ public sealed partial class SettingsPage : UserControl
         AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
         ArchiveAutoByTagsToggle.IsOn = settings.archive_auto_by_tags;
         NotifyNewImagesToggle.IsOn = settings.notify_new_images;
+        AuthorCommentaryToggle.IsOn = settings.show_author_commentary;
         AutoTagToggle.IsOn = settings.auto_tag_from_folder;
         AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
         AutoModelTagsToggle.IsOn = settings.auto_model_tags;
@@ -502,6 +503,13 @@ public sealed partial class SettingsPage : UserControl
     {
         if (_sysSyncing) return;
         Services.AppService.Settings.Settings.notify_new_images = NotifyNewImagesToggle.IsOn;
+        Services.AppService.Settings.Save();
+    }
+
+    private void AuthorCommentaryToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.show_author_commentary = AuthorCommentaryToggle.IsOn;
         Services.AppService.Settings.Save();
     }
 

@@ -78,7 +78,7 @@ public sealed class ReviewPage : Grid
     private readonly Button _selectAll = new() { Content = "全选", Visibility = Visibility.Collapsed };
     private readonly SelectionDropDown _cardSize = new() { Visibility = Visibility.Collapsed, MinWidth = 70 };
     private readonly Button _applyTags = new() { Content = "应用标签", HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
-    /// <summary>单图重跑模型：四类顶替冲突、不冲突的新增；画师与自定义不动。</summary>
+    /// <summary>单图重跑模型：四类顶替冲突、不冲突的新增；作者与自定义不动。</summary>
     private readonly Button _aiAnalyze = new()
     {
         Content = "AI分析", Padding = new Thickness(10, 4, 10, 4), FontSize = 12,
@@ -90,6 +90,8 @@ public sealed class ReviewPage : Grid
     private readonly StackPanel _tagSection = new() { Spacing = 12 };
     private readonly TextBlock _detailsHeading = new() { Text = "图片详情", FontSize = 12, Opacity = .65, VerticalAlignment = VerticalAlignment.Center };
     private readonly HashSet<int> _batchSelected = [];
+    /// <summary>Shift 连选的起点（行下标）；换单选、清空、全选后作废。</summary>
+    private int? _batchAnchorIndex;
     private bool _batchMode;
     private bool _batchTagsDirty;
     private HashSet<int>? _boxSelectionBase;
@@ -192,9 +194,9 @@ public sealed class ReviewPage : Grid
         _body.Children.Add(_splitter);
         Children.Add(_body);
         _revealAll.Content = _revealAllText;
-        _carousel.SelectionRequested += index =>
+        _carousel.SelectionRequested += (index, shift, ctrl) =>
         {
-            if (_batchMode) ToggleBatchSelection(index);
+            if (_batchMode) SelectBatchIndex(index, shift, ctrl);
             else Select(index);
         };
         _carousel.ClearSelectionRequested += ClearBatchSelection;
@@ -264,6 +266,7 @@ public sealed class ReviewPage : Grid
             var wasMultiple = BatchMultiple;
             if (_batchSelected.Count == _rows.Count) _batchSelected.Clear();
             else _batchSelected.UnionWith(_rows.Select(row => row.Id));
+            _batchAnchorIndex = null;
             RenderBatchSelection(!wasMultiple);
         };
         _applyTags.Click += async (_, _) => await ApplyBatchTagsAsync();
@@ -413,7 +416,7 @@ public sealed class ReviewPage : Grid
             VerticalAlignment = VerticalAlignment.Center,
         });
         AutomationProperties.SetName(_aiAnalyze, "用模型重新分析这张图");
-        ToolTipService.SetToolTip(_aiAnalyze, "重跑模型：角色、作品、类型、分级按结果顶替；画师和自定义不动");
+        ToolTipService.SetToolTip(_aiAnalyze, "重跑模型：角色、作品、类型、分级按结果顶替；作者和自定义不动");
         _aiAnalyze.Click += async (_, _) => await AnalyzeWithAiAsync();
         Grid.SetColumn(_aiAnalyze, 1);
         tagHeader.Children.Add(_aiAnalyze);
@@ -745,6 +748,7 @@ public sealed class ReviewPage : Grid
         _batchToggle.IsChecked = enabled;
         _batchSelected.Clear();
         _boxSelectionBase = null;
+        _batchAnchorIndex = null;
         _batchRatingSummary = "";
         _batchTagsDirty = false;
         _carousel.SetBatchMode(enabled, _batchSelected, enabled ? null : _singleIndexBeforeBatch);
@@ -758,6 +762,7 @@ public sealed class ReviewPage : Grid
         if (!_batchMode || _busy || AppService.IsShuttingDown || _batchSelected.Count == 0) return;
         _batchSelected.Clear();
         _boxSelectionBase = null;
+        _batchAnchorIndex = null;
         RenderBatchSelection(true);
     }
 
@@ -771,6 +776,27 @@ public sealed class ReviewPage : Grid
                 || current is Control and not ScrollViewer) return;
         }
         ClearBatchSelection();
+    }
+
+    /// <summary>
+    /// 批量勾选：Shift 从锚点连到当前（Ctrl+Shift 追加，否则替换），
+    /// 其余点击切换单张并把锚点移到这里。
+    /// </summary>
+    private void SelectBatchIndex(int index, bool shift, bool ctrl)
+    {
+        if (_busy || AppService.IsShuttingDown || index < 0 || index >= _rows.Count) return;
+        if (!shift)
+        {
+            _batchAnchorIndex = index;
+            ToggleBatchSelection(index);
+            return;
+        }
+        var anchor = _batchAnchorIndex is int value && value >= 0 && value < _rows.Count ? value : index;
+        var wasMultiple = BatchMultiple;
+        if (!ctrl) _batchSelected.Clear();
+        for (var i = Math.Min(anchor, index); i <= Math.Max(anchor, index); i++)
+            _batchSelected.Add(_rows[i].Id);
+        RenderBatchSelection(!wasMultiple);
     }
 
     private void ToggleBatchSelection(int index)
@@ -1160,7 +1186,7 @@ public sealed class ReviewPage : Grid
         }
     }
 
-    /// <summary>单图重跑模型：四类按结果顶替，画师与自定义不动；写入后刷新标签与归档目录。</summary>
+    /// <summary>单图重跑模型：四类按结果顶替，作者与自定义不动；写入后刷新标签与归档目录。</summary>
     private async Task AnalyzeWithAiAsync()
     {
         if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store
@@ -1372,8 +1398,8 @@ public sealed class ReviewPage : Grid
     }
 
     /// <summary>
-    /// 按标签算归档目录（绝对路径）。类型含「真人」走真人规则：真人\h|n\画师（未分级只到 真人）；
-    /// 其余按作品/画师两级，缺作品进 no_source、缺画师进 _无画师。
+    /// 按标签算归档目录（绝对路径）。类型含「真人」走真人规则：真人\h|n\作者（未分级只到 真人）；
+    /// 其余按作品/作者两级，缺作品进 no_source、缺作者进 _无作者。
     /// </summary>
     private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
     {
@@ -1528,7 +1554,7 @@ public sealed class ReviewPage : Grid
     }
 
     /// <summary>
-    /// 归档前是否需要先跑模型：待归档、没有分级、且角色/作品/画师/类型/自定义五类都空。
+    /// 归档前是否需要先跑模型：待归档、没有分级、且角色/作品/作者/类型/自定义五类都空。
     /// 分辨率由导入时算好，不参与「有没有标签」的判断。
     /// </summary>
     private static bool NeedsModelBeforeArchive(StoreService store, int id)

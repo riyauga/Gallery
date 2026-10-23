@@ -7,7 +7,7 @@ namespace Gallery.Services;
 public static class IngestReview
 {
     public static readonly string[] Categories = ["work", "character", "artist", "kind", "rating", "custom"];
-    public static readonly string[] Titles = ["作品", "角色", "画师", "类型", "分级", "自定义"];
+    public static readonly string[] Titles = ["作品", "角色", "作者", "类型", "分级", "自定义"];
 
     /// <summary>兼容扩展 filename 与旧协议 inbox_path，不猜测文件的移动位置。</summary>
     public static string LocalPath(StoreService.PendingIngestRow row)

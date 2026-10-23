@@ -13,12 +13,12 @@ public static class Taxonomy
         ["work", "character", "artist", "kind", "rating", "resolution", "custom"];
 
     public static readonly string[] CategoryTitles =
-        ["作品", "角色", "画师", "类型", "分级", "分辨率", "自定义"];
+        ["作品", "角色", "作者", "类型", "分级", "分辨率", "自定义"];
 
     public static readonly IReadOnlyDictionary<string, string> SidecarPrefix =
         new Dictionary<string, string>
         {
-            ["work"] = "作品", ["character"] = "角色", ["artist"] = "画师",
+            ["work"] = "作品", ["character"] = "角色", ["artist"] = "作者",
             ["kind"] = "类型", ["rating"] = "分级", ["resolution"] = "分辨率",
             ["custom"] = "",
         };
@@ -150,6 +150,8 @@ public static class Taxonomy
         var idx = s.IndexOf('/');
         if (idx <= 0) return ("custom", s);
         var head = s[..idx];
+        // 「画师」已改名为「作者」：旧导出文本里的老前缀仍按作者解析，避免落进自定义。
+        if (head == "画师") return ("artist", s[(idx + 1)..].Trim());
         foreach (var (cat, prefix) in SidecarPrefix)
         {
             if (prefix.Length > 0 && head == prefix)

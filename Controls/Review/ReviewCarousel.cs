@@ -53,7 +53,7 @@ internal sealed class ReviewCarousel : Grid
     private double _angle = 10, _overlap = 67, _size = 95, _scale = 1.12, _drag = 1;
     private string _ease = "out";
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    public event Action<int>? SelectionRequested;
+    public event Action<int, bool, bool>? SelectionRequested;
     public event Action? ClearSelectionRequested;
     public event Action<IReadOnlyList<int>, bool, string>? BoxSelectionRequested;
     public event Action<PhotoItem>? SelectedImageLoaded;
@@ -710,12 +710,12 @@ internal sealed class ReviewCarousel : Grid
                 _clearAllowed = true;
                 _index = Math.Clamp(message.GetProperty("index").GetInt32(), 0, _rows.Count - 1);
                 // 停稳后才提交详情并加载中心清晰图。
-                SelectionRequested?.Invoke(_index);
+                SelectionRequested?.Invoke(_index, false, false);
                 return;
             }
             if (type == "step")
             {
-                if (_rows.Count > 0) SelectionRequested?.Invoke(Math.Clamp(_index + Math.Sign(message.GetProperty("delta").GetInt32()), 0, _rows.Count - 1));
+                if (_rows.Count > 0) SelectionRequested?.Invoke(Math.Clamp(_index + Math.Sign(message.GetProperty("delta").GetInt32()), 0, _rows.Count - 1), false, false);
                 return;
             }
             var id = message.GetProperty("id").GetInt32();
@@ -724,10 +724,15 @@ internal sealed class ReviewCarousel : Grid
             if (type == "select")
             {
                 // 网页端带序号的选择只回显最新一条；卡片点击没有序号，属于宿主主动选中，必须直接生效。
-                if (message.TryGetProperty("seq", out var seq) && seq.TryGetInt32(out var value)) _selectSeq = value;
-                else _selectSeq = -1;
+                var seqValue = -1;
+                var carriesSeq = message.TryGetProperty("seq", out var seq) && seq.TryGetInt32(out seqValue);
+                _selectSeq = carriesSeq ? seqValue : -1;
+                // 批量模式下滚动同步会顺带发 select，那不是用户点击，不能改勾选。
+                if (_batchMode && carriesSeq) return;
                 _clearAllowed = false;
-                SelectionRequested?.Invoke(index);
+                var shift = message.TryGetProperty("shift", out var shiftValue) && shiftValue.ValueKind == JsonValueKind.True;
+                var ctrl = message.TryGetProperty("ctrl", out var ctrlValue) && ctrlValue.ValueKind == JsonValueKind.True;
+                SelectionRequested?.Invoke(index, shift, ctrl);
                 return;
             }
             if (!_batchMode && index != _index) return;

@@ -11,6 +11,8 @@
 Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先、无选区时取焦点图；Delete 复用一次默认取消的回收站确认弹窗，Shift+Delete 不做永久删除。Ctrl+C 统一写入文件列表、Copy 语义，不解码图片；读取任一文件失败则整次取消并报告文件名、保留原剪贴板。Ctrl+Shift+C 复制同一目标集合路径，单图右键“复制图片内容”仍提供像素格式。新增键盘入口仅由窗口主 UI 线程使用，不增加配置或数据库字段；不增加 Ctrl+X/V、Home/End、F5、反选、撤销。上述交互与跨应用粘贴均待人工验证。
 
 图库拖出规则：拖已选图片导出全部选中记录（包含屏幕外项目）；在选择模式拖未选图片，先清空原选区、选中起拖图，再只导出该图。文件列表须写入 `DragStartingEventArgs.Data`，允许和请求操作均为 Copy，不搬移源文件；缺失文件及模糊保护沿用原整批拒绝语义。点击窗口 XAML 内非交互空白通过根级已处理事件路由退出并清空；卡片、按钮、输入框、导航项、滚动条及分隔拖动把手不触发退出。Esc 继续使用窗口级加速器，查看器优先；`GalleryPage.ExitSelection()` 无选择时返回 false。只适用于图库/收藏夹/目录视图，不套用待审核的批量网格规则。修饰键、跨屏范围、拖出到外部程序及空白/Esc 的实际表现待用户手动确认。
+拖入侧栏目录：应用内拖拽经过某个目录项时，该项直接借用自带的悬停视觉亮起（与鼠标悬停完全同一套 PointerStates，不另造底色或描边）；同一时刻只亮一项，选中项落回 `PointerOverSelected` 而非普通悬停，父项 DragLeave 不清除已被子项接管的亮起；离开、落到该项或拖拽结束即熄灭，目录树重建时引用作废；外部文件拖入不亮起。状态由 `NavigationViewItemPresenter` 承载，改的是 presenter 而不是 item 本身。
+
 （和 `README.md` 的区别：README 记录「复刻 Photos 的关键参数」，本文件记录「我们自己必须守的规则」。）
 
 ---
@@ -251,6 +253,7 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 - **数据/设置**：持久化用现有 `layout_options` 或记录字段；不新增散落配置；导入保留源用 `import_keep_source`；去重按完整路径查队列和 `images.abs_path`；copy/move 的归档阶段对应 `copied` / `moved`。
 - **依赖**：不新增 NuGet/依赖，优先现有 `ImageLoader` / `ThumbnailService` / SDK。
 - **代码范围**：最小修改；不顺手重构、格式化、删无关旧代码；只清理本次新增的无用引用。
+- **文本复制**：查看器详情面板里的文件名、目录、来源网址、作者评论都用 `TextBlock.IsTextSelectionEnabled=true` 直接选中复制，不再挂单独的复制按钮；开启后这些文本块不参与「点空白退出多选」的判定（根级已按该属性排除）。
 
 ## 六、文案与文档
 

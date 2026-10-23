@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -167,6 +168,13 @@ public sealed partial class BridgeServer : IDisposable
                                $"\"received\":{Received},\"pending\":{pending}," +
                                $"\"protocol\":{ProtocolVersion}}}";
                     await WriteAsync(stream, 200, body, token, origin).ConfigureAwait(false);
+                    return;
+                }
+
+                if (method.Equals("GET", StringComparison.OrdinalIgnoreCase) && path == "/tags")
+                {
+                    Touch();
+                    await WriteAsync(stream, 200, BuildTagIndex(), token, origin).ConfigureAwait(false);
                     return;
                 }
 
@@ -384,6 +392,70 @@ public sealed partial class BridgeServer : IDisposable
 
     private static string JsonError(string message) =>
         "{\"ok\":false,\"error\":" + JsonSerializer.Serialize(message, JsonOut) + "}";
+
+    /// <summary>
+    /// 给扩展用的标签词表：作品与角色的规范名 + 别名（含中文名、英文名和繁体写法）。
+    /// 扩展据此过滤 Pixiv 标签，命中才写进记录；繁简差异靠这里补齐，扩展侧不带字表。
+    /// </summary>
+    private string BuildTagIndex()
+    {
+        List<StoreService.TagInfo> tags;
+        try
+        {
+            lock (AppService.DbLock) tags = _store.AllTags();
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            return JsonError("读取标签失败");
+        }
+
+        var works = new List<string>();
+        var characters = new List<string>();
+        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tag in tags)
+        {
+            if (tag.Category == "work") works.Add(tag.Name);
+            else if (tag.Category == "character") characters.Add(tag.Name);
+            else continue;
+
+            void AddAlias(string? value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                var trimmed = value.Trim();
+                aliases.TryAdd(trimmed, tag.Name);
+                var traditional = ToTraditional(trimmed);
+                if (traditional.Length > 0 && !string.Equals(traditional, trimmed, StringComparison.Ordinal))
+                    aliases.TryAdd(traditional, tag.Name);
+            }
+
+            foreach (var alias in tag.Aliases) AddAlias(alias);
+            AddAlias(tag.ZhName);
+            AddAlias(tag.EnName);
+        }
+
+        return JsonSerializer.Serialize(new { ok = true, works, characters, aliases }, JsonOut);
+    }
+
+    /// <summary>简体 → 繁体（Windows NLS）。取不到就返回空串，调用方跳过。</summary>
+    private static string ToTraditional(string text)
+    {
+        if (text.Length == 0) return "";
+        try
+        {
+            var buffer = new char[text.Length * 2 + 8];
+            var written = LCMapStringEx(null, LcmapTraditionalChinese, text, text.Length,
+                buffer, buffer.Length, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+            return written > 0 ? new string(buffer, 0, written) : "";
+        }
+        catch { return ""; }
+    }
+
+    private const uint LcmapTraditionalChinese = 0x0400_0000;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int LCMapStringEx(string? localeName, uint mapFlags, string src, int srcLen,
+        [Out] char[] dest, int destLen, IntPtr versionInfo, IntPtr reserved, IntPtr sortHandle);
 
     private static async Task<(string Method, string Path, Dictionary<string, string> Headers)?> ReadHeadAsync(
         NetworkStream stream, CancellationToken token)

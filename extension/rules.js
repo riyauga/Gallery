@@ -30,6 +30,8 @@ export const DEFAULT_SETTINGS = {
   conflictAction: "uniquify",
   // 拖拽下载：只允许浏览器“下载”目录下的相对子目录（Chrome 扩展写不到其他盘符）。
   dragTargetDir: "",
+  // 拖拽黑洞的停靠位置：right-center | right-top | right-bottom | left-bottom
+  dropZoneCorner: "right-center",
 
   // --- 审核流程（2026-10-14 起停用，字段留作兼容读取）---------------------
   // 旧行为：命中的下载一律落到 <galleryRoot>/<inboxFolder>/，由桌面端审核后归档。
@@ -121,7 +123,7 @@ export function matchTypeHint(matchType) {
 // --------------------------------------------------------------------------- //
 
 /** 每次新增内置规则时把这个数字 +1，升级时会自动补齐缺失的内置规则 */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 export const DEFAULT_RULES = [
   {
@@ -151,7 +153,7 @@ export const DEFAULT_RULES = [
   {
     id: "builtin-pinterest",
     name: "Pinterest",
-    enabled: false,
+    enabled: true,
     matchOn: "referrer",
     matchType: "regex",
     pattern: "^https?://([^/]+\\.)?(pinterest\\.[a-z.]+|pinimg\\.com)/",
@@ -174,7 +176,7 @@ export const DEFAULT_RULES = [
   {
     id: "builtin-pixiv",
     name: "Pixiv",
-    enabled: false,
+    enabled: true,
     matchOn: "referrer",
     matchType: "regex",
     pattern: "^https?://([^/]+\\.)?(pixiv\\.net|pximg\\.net)/",

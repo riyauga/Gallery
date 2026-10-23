@@ -456,7 +456,7 @@ window.chrome.webview.addEventListener('message',event=>{
     // Tab 到旁侧卡片时，圆环目标也跟随键盘焦点；确认键始终指向同一张。
     hostScroll=false;scrollSettle=true;beginMotion();goal=entry.data.index;mode='spring';wake();
    });
-   card.onclick=()=>{if(!interactive)return;if(ringEntry)finishRing();send({type:'select',id:entry.data.id});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
+   card.onclick=event=>{if(!interactive)return;if(ringEntry)finishRing();send({type:'select',id:entry.data.id,shift:event.shiftKey,ctrl:event.ctrlKey||event.metaKey});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
    card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
   }
   entry.data=data;

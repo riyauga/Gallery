@@ -3,6 +3,18 @@
   const categories = {artist:1,copyright:3,character:4,general:0,meta:5};
   const ratingNames = {general:"g",sensitive:"s",questionable:"q",explicit:"e"};
   let last = "";
+  /** 作者评论：优先译文，没译文用原文；两样都空就当没有。 */
+  function commentary() {
+    for (const id of ["translated-artist-commentary", "original-artist-commentary"]) {
+      const box = document.getElementById(id);
+      if (!box) continue;
+      const title = (box.querySelector("h3")?.innerText || "").trim();
+      const desc = [...box.querySelectorAll("div.prose")]
+        .map(node => (node.innerText || "").trim()).filter(Boolean).join("\n");
+      if (title || desc) return { title, desc };
+    }
+    return { title: "", desc: "" };
+  }
   function scrape() {
     const container = document.querySelector("section.image-container");
     const list = document.querySelector("#tag-list");
@@ -26,10 +38,12 @@
         catch { return false; }
       });
     if (container.dataset.fileUrl) urls.push(new URL(container.dataset.fileUrl,location.href).href);
+    const note = commentary();
     return {
       site:"danbooru",page_url:location.origin + location.pathname,post_id:id,
       tags,tag_string:container.dataset.tags || "",tags_complete:!!list,
       rating,source:container.dataset.source || document.querySelector("#post-info-source a")?.href || "",
+      commentary_title:note.title,commentary_desc:note.desc,
       original_urls:[...new Set(urls)],scraped_at:Date.now()
     };
   }

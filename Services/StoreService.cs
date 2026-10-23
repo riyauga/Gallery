@@ -15,7 +15,8 @@ public sealed record ImageRow(
     double AddedAt, double UpdatedAt, string? OrigMd5, string? ContentMd5,
     string? PageUrl, string? SourceUrl, string? Nsfw, string? PostId,
     string? ImageUuid, string? FileKey, bool Managed,
-    string MediaKind = "image", double? Duration = null)
+    string MediaKind = "image", double? Duration = null,
+    string? CommentaryTitle = null, string? CommentaryDesc = null)
 {
     /// <summary>由 AttachTags 填充（批次 1 查询路径）。</summary>
     public List<(string Category, string Name)> Tags { get; set; } = [];
@@ -527,7 +528,9 @@ public sealed class StoreService : IDisposable
             V("file_key", r.GetString, null),
             V("managed", o => r.GetInt64(o) != 0, false),
             V("media_kind", r.GetString, "image"),
-            V("duration", o => (double?)r.GetDouble(o), (double?)null))
+            V("duration", o => (double?)r.GetDouble(o), (double?)null),
+            V("commentary_title", r.GetString, null),
+            V("commentary_desc", r.GetString, null))
         { Tags = [] };
     }
 
@@ -1287,6 +1290,32 @@ public sealed class StoreService : IDisposable
         if (command.ExecuteNonQuery() == 0) return false;
         SyncSidecars([imageId]);
         return true;
+    }
+
+    /// <summary>作者评论（标题 + 正文）：归档时写入一次，已有值不覆盖。</summary>
+    public bool ApplyIngestCommentary(int imageId, string payload)
+    {
+        string? title, desc;
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return false;
+            string? Read(string key) => document.RootElement.TryGetProperty(key, out var value) &&
+                value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
+                    ? value.GetString()!.Trim() : null;
+            title = Read("commentary_title");
+            desc = Read("commentary_desc");
+        }
+        catch (JsonException) { return false; }
+        if (title is null && desc is null) return false;
+        using var command = _conn.CreateCommand();
+        command.CommandText =
+            "UPDATE images SET commentary_title=COALESCE(NULLIF(TRIM(commentary_title),''),$title)," +
+            "commentary_desc=COALESCE(NULLIF(TRIM(commentary_desc),''),$desc) WHERE id=$id";
+        command.Parameters.AddWithValue("$id", imageId);
+        command.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
+        command.Parameters.AddWithValue("$desc", (object?)desc ?? DBNull.Value);
+        return command.ExecuteNonQuery() > 0;
     }
 
     /// <summary>从成功归档作业补回历史缺失来源；只匹配实际归档路径，不按文件名猜测。</summary>

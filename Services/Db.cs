@@ -82,9 +82,14 @@ public sealed class Db : IDisposable
             LibraryMigrationV5.Upgrade(Connection, DbPath);
             version = SchemaVersion;
         }
-        if (version != LibraryMigrationV5.TargetVersion)
+        if (version == 5)
+        {
+            LibraryMigrationV6.Upgrade(Connection, DbPath);
+            version = SchemaVersion;
+        }
+        if (version != LibraryMigrationV6.TargetVersion)
             throw new InvalidDataException(
-                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV5.TargetVersion}），未修改原有数据结构。");
+                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV6.TargetVersion}），未修改原有数据结构。");
     }
 
     public int SchemaVersion

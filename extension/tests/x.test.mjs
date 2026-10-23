@@ -36,7 +36,7 @@ test('页面脚本只关联用户操作的图片，明确链接可取作者，�
   function image(anchor,links=[]) {
     return {src:'https://pbs.twimg.com/media/Clicked?format=jpg&name=large',closest(selector){
       if(selector==='a[href]')return anchor ? {href:anchor} : null;
-      if(selector==='article')return {querySelectorAll(){return links.map(href=>({href,querySelector(){return {};}}));}};
+      if(selector==='article')return {querySelector(){return null;},querySelectorAll(){return links.map(href=>({href,querySelector(){return {};}}));}};
     }};
   }
   const direct=image('https://x.com/ClickedAuthor/status/123?s=20');listeners.contextmenu({target:{closest(){return direct;}}});

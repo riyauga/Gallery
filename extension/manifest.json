@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gallery 图片自动归类",
-  "version": "2.2.0",
-  "description": "Danbooru 图片取得标签后归档；X 图片记录来源、可确认的发帖账号与分辨率，目录和其他标签手动填写。其他网站支持配置接收规则。",
+  "version": "2.3.0",
+  "description": "Danbooru 图片取得标签后归档；X、Pixiv、Pinterest 图片记录来源与作者，Pixiv 额外按库里已有的作品与角色过滤标签；目录和其他标签手动填写。其他网站支持配置接收规则。",
   "minimum_chrome_version": "120",
 
   "permissions": [
@@ -27,6 +27,16 @@
         "https://*.donmai.us/posts/*"
       ],
       "js": ["content-danbooru.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.pixiv.net/artworks/*"],
+      "js": ["content-pixiv.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.pinterest.com/*"],
+      "js": ["content-pinterest.js"],
       "run_at": "document_idle"
     },
     {

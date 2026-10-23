@@ -125,6 +125,15 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
+                        Description="详情面板显示 Danbooru 作者在作品下写的说明；没有说明的图片不占位"
+                        Header="作者评论">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8BD;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="AuthorCommentaryToggle" Toggled="AuthorCommentaryToggle_Toggled" />
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
                         Description="敏感图片显示为清晰、模糊还是隐藏"
                         Header="显示方式">
                         <ctc:SettingsCard.HeaderIcon>

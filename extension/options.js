@@ -21,7 +21,7 @@ function renderRules(){
   });
 }
 function collect(){
-  return {...state.settings,enabled:$("enabled").checked,captureAllImages:$("captureAllImages").checked,theme:$("theme").value,bridgeToken:$("bridgeToken").value.trim(),bridgePort:Number($("bridgePort").value),dragTargetDir:$("dragTargetDir").value.trim()};
+  return {...state.settings,enabled:$("enabled").checked,captureAllImages:$("captureAllImages").checked,theme:$("theme").value,bridgeToken:$("bridgeToken").value.trim(),bridgePort:Number($("bridgePort").value),dragTargetDir:$("dragTargetDir").value.trim(),dropZoneCorner:$("dropZoneCorner").value};
 }
 async function busy(id,fn){
   const button=$(id),label=button.textContent;button.disabled=true;button.textContent="正在处理…";
@@ -41,7 +41,7 @@ $("test-bridge").onclick=()=>busy("test-bridge",async()=>{
   catch(error){$("bridge-result").textContent="连接失败："+error.message;throw error;}
 });
 $("retry-queue").onclick=()=>busy("retry-queue",async()=>{await message({type:"retry"});const current=await message({type:"getState"});$("bridge-result").textContent=current.bridge.queued ? current.bridge.queued+" 条仍在队列，请检查连接和配对码" : "队列已全部送达";});
-for(const id of ["enabled","captureAllImages","theme","bridgeToken","bridgePort","dragTargetDir"])$(id).addEventListener("input",()=>{if(id==="theme")document.documentElement.dataset.theme=$("theme").value;changed();});
+for(const id of ["enabled","captureAllImages","theme","bridgeToken","bridgePort","dragTargetDir","dropZoneCorner"])$(id).addEventListener("input",()=>{if(id==="theme")document.documentElement.dataset.theme=$("theme").value;changed();});
 window.addEventListener("beforeunload",event=>{if(dirty){event.preventDefault();event.returnValue="";}});
-(async()=>{try{state=await message({type:"getState"});for(const id of ["theme","bridgeToken","bridgePort","dragTargetDir"])$(id).value=state.settings[id] || "";$("enabled").checked=state.settings.enabled;$("captureAllImages").checked=!!state.settings.captureAllImages;document.documentElement.dataset.theme=state.settings.theme || "system";renderRules();feedback("设置已读取");$("bridge-result").textContent=state.bridge.running ? "桌面端已在线" : "桌面端未连接";}catch(error){feedback(error.message,true);$("save").disabled=true;}})();
+(async()=>{try{state=await message({type:"getState"});for(const id of ["theme","bridgeToken","bridgePort","dragTargetDir"])$(id).value=state.settings[id] || "";$("dropZoneCorner").value=state.settings.dropZoneCorner || "right-center";$("enabled").checked=state.settings.enabled;$("captureAllImages").checked=!!state.settings.captureAllImages;document.documentElement.dataset.theme=state.settings.theme || "system";renderRules();feedback("设置已读取");$("bridge-result").textContent=state.bridge.running ? "桌面端已在线" : "桌面端未连接";}catch(error){feedback(error.message,true);$("save").disabled=true;}})();
 

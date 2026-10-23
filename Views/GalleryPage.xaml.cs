@@ -411,6 +411,8 @@ public sealed partial class GalleryPage : UserControl
                 FileSize = row.Size,
                 PageUrl = row.PageUrl,
                 SourceUrl = row.SourceUrl,
+                CommentaryTitle = row.CommentaryTitle,
+                CommentaryDesc = row.CommentaryDesc,
                 IsVideo = row.MediaKind == "video",
                 DurationSeconds = row.Duration,
                 Missing = row.Missing,

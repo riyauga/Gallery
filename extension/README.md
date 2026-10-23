@@ -20,7 +20,9 @@ Chrome / Edge（Manifest V3）扩展。它在浏览器里接住图片下载，�
 | 站点 | 行为 |
 | --- | --- |
 | Danbooru 帖子页 / 其 CDN 直链 | 取标签、分级、来源，`inbox_name` 用原名（含 md5 时带上） |
-| X / Twitter 帖子页与其 `pbs.twimg.com` 图 | 记录来源页、帖子 id、发帖账号；分辨率与目录手动填 |
+| X / Twitter 帖子页与其 `pbs.twimg.com` 图 | 记录来源页、帖子 id、发帖账号，推文正文进作者评论；分辨率与目录手动填 |
+| Pixiv 作品页 / 其 `i.pximg.net` 图 | 调作品页自己的 `/ajax/illust/{id}`（失败退回页面元素），取标题、画师、原图地址、作品说明（进作者评论）；分级全年龄 `g`、R-18 `q`、R-18G `e`；标签只保留库里已有的作品与角色，其余丢弃 |
+| Pinterest pin 页与列表页 | 登录态读页面内嵌 pin 数据，未登录退回卡片链接；记 pin 页面、原图地址，作者写进画师，标题与描述不进标签 |
 | 其他站点 | 走「接收规则」（设置页可增删、导出/导入） |
 
 规则按 `referrer`（来源页）或 `url`（图片地址）匹配，模板支持 `{site}` `{yyyy}` `{mm}` 等占位符。
@@ -40,6 +42,7 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/ping` | `{ok, app:"gallery", version, port, tokenRequired, received, pending, protocol:2}` |
+| `GET` | `/tags` | 桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
 | `POST` | `/ingest` | 带 `X-Gallery-Token`；`{probe:true}` 只验证不落库；真实记录需 `download_state:"complete"`；返回 `{ok, persisted, queued, duplicate, ingest_id, name}` |
 | `POST` | `/ui/open` | `{view:"library"\|"review", path}` 唤起桌面端窗口并定位 |
 

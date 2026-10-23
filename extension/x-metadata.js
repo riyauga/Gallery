@@ -23,7 +23,9 @@ export function xMetadata(item,contexts=[]) {
   const direct=xPost(item.referrer),keys=new Set([item.url,item.finalUrl].map(xImageKey).filter(Boolean));
   const exact=contexts.filter(ctx=>keys.has(xImageKey(ctx.image_url)) && xPost(ctx.page_url));
   const unique=new Set(exact.map(ctx=>xPost(ctx.page_url).page_url));
-  const post=direct || (unique.size===1 ? xPost(exact[0].page_url) : null);
+  const picked=!direct && unique.size===1 ? exact[0] : null;
+  const post=direct || (picked ? xPost(picked.page_url) : null);
   return {site:'x',page_url:post?.page_url || 'https://x.com/',post_id:post?.post_id || '',source:post?.page_url || 'https://x.com/',
-    tags:post ? {artist:[post.author]} : {},rating:'',original_urls:[],tags_complete:false};
+    tags:post ? {artist:[post.author]} : {},rating:'',original_urls:[],tags_complete:false,
+    commentary_desc:String(picked?.text || '').trim()};
 }

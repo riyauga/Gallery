@@ -78,6 +78,8 @@ public sealed class AppSettings
     public bool start_at_login { get; set; } = true;
     public bool notify_exceptions { get; set; } = true;
     public bool notify_new_images { get; set; } = true;
+    /// <summary>详情面板显示作者评论（Danbooru 帖子的作者说明）；关掉后整块不出现。</summary>
+    public bool show_author_commentary { get; set; } = true;
     public bool setup_completed { get; set; }
 
     /// <summary>上次归档用的根目录与子目录（映射记忆，下次默认带上）。</summary>

@@ -22,6 +22,8 @@ public sealed class PhotoItem
     public long FileSize { get; init; }
     public string? PageUrl { get; set; }       // 来源页（详情面板）
     public string? SourceUrl { get; set; }     // 原图地址
+    public string? CommentaryTitle { get; init; }  // 作者评论标题（Danbooru 帖子）
+    public string? CommentaryDesc { get; init; }   // 作者评论正文
     public bool IsVideo { get; init; }
     public double? DurationSeconds { get; init; }
     public IReadOnlyList<(string Category, string Name)> Tags { get; init; } = [];

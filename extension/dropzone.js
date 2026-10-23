@@ -98,6 +98,37 @@
   let tip = null;
   let hideTimer = 0;
   let flashTimer = 0;
+  // 停靠位置：设置页可选右侧居中／右上／右下／左下。
+  let corner = "right-center";
+  const CORNERS = {
+    "right-center": { right: "26px", top: "50%", left: "", bottom: "", marginTop: "-52px" },
+    "right-top": { right: "26px", top: "26px", left: "", bottom: "", marginTop: "0" },
+    "right-bottom": { right: "26px", top: "", left: "", bottom: "26px", marginTop: "0" },
+    "left-bottom": { right: "", top: "", left: "26px", bottom: "26px", marginTop: "0" },
+  };
+
+  function applyCorner() {
+    if (!zone) return;
+    const spot = CORNERS[corner] || CORNERS["right-center"];
+    zone.style.right = spot.right;
+    zone.style.left = spot.left;
+    zone.style.top = spot.top;
+    zone.style.bottom = spot.bottom;
+    zone.style.marginTop = spot.marginTop;
+  }
+
+  try {
+    chrome.storage.local.get("settings")
+      .then(data => { corner = data?.settings?.dropZoneCorner || "right-center"; applyCorner(); })
+      .catch(() => {});
+    // 设置页改完即时生效，不用刷新已打开的页面。
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.settings) {
+        corner = changes.settings.newValue?.dropZoneCorner || "right-center";
+        applyCorner();
+      }
+    });
+  } catch { /* 扩展上下文失效时保持默认位置 */ }
 
   function build() {
     if (host) return;
@@ -118,6 +149,7 @@
     zone.append(hole, tip);
     shadow.append(style, zone);
     document.documentElement.append(host);
+    applyCorner();
   }
 
   function show() {
