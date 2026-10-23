@@ -941,8 +941,10 @@ public sealed partial class MainWindow : Window
         // Esc 优先给查看器（退全屏/关闭），其次返回设置首页或退出图库多选。
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
-        if (HasKeyboardPopup() || IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
+        if (HasKeyboardPopup()) return;
+        // 查看器先走：焦点停在详情里可选中文字上也要能关，输入框由 TryHandleKey 自己挡。
         if (Preview.IsOpen) { args.Handled = Preview.TryHandleKey(Windows.System.VirtualKey.Escape); return; }
+        if (IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
         if (_settingsPage.Visibility == Visibility.Visible && _settingsPage.TryGoBack())
         {
             args.Handled = true;
@@ -959,6 +961,12 @@ public sealed partial class MainWindow : Window
     private void OnRightInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (Preview.TryHandleKey(Windows.System.VirtualKey.Right)) args.Handled = true;
+    }
+
+    /// <summary>查看器 Delete：焦点落在按钮/滑块/详情文字上也要生效（图库页自有多选删除，这里只认预览）。</summary>
+    private void OnDeleteInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (Preview.TryHandleKey(Windows.System.VirtualKey.Delete)) args.Handled = true;
     }
 
     private void ShowToast(string message) => Toasts.Show(message, ToastKind.Info);

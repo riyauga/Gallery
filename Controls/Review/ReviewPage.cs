@@ -1045,7 +1045,7 @@ public sealed class ReviewPage : Grid
         if (category == "rating") _ratingRebuild = Rebuild;
         if (category != "rating")
         {
-            var search = new SearchInputBox { PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
+            var search = new SearchInputBox { EnableSuggestionTabNavigation = true, PlaceholderText = $"输入或搜索{title}…", MinWidth = 0, IsEnabled = _state == "pending" };
             _tagInputs[category] = search;
             AutomationProperties.SetName(search, $"搜索或添加{title}标签");
             var generation = _selectionGeneration;

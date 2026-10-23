@@ -36,6 +36,7 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 - 封装默认圆角取原生主题资源 `ControlCornerRadius`，再同步给内部控件；不得用 UserControl 默认的 0 覆盖原生圆角。内容及内部控件双向拉伸，按宿主分配尺寸布局，不通过放大宽度或负边距补偿边缘。本轮仅静态/编译核对，边缘完整性待人工确认。
 - 顶部图库搜索、资料库、筛选、标签编辑与待审核标签输入统一使用 `Controls/SearchInputBox.cs`，基于原生 `AutoSuggestBox`，不另绘模板。默认 `AllowFocusOnInteraction=true`、`PreventAutomaticFocus=false`；文本编辑、选区、键盘、输入法及候选展示交给原生控件。普通资料编辑字段仍用 `TextBox`。
 - `AutoSuggestBox` 是密封类，组件用 `UserControl` 内嵌原生控件，不继承或修改其模板。公共 API 转发 `Text`、`PlaceholderText`、`TextChanged`、`ItemsSource`、`QuerySubmitted`；显式聚焦用 `FocusSearch()`，尺寸、可用状态由宿主设置，圆角同步到内部控件。例如 `new SearchInputBox { PlaceholderText = "搜索标签", Width = 300 }`。转发属性不是依赖属性，当前仅供 XAML 初值和代码读写，不提供完整 AutoSuggestBox API 或绑定契约。事件 sender 为内部原生 AutoSuggestBox。宿主负责查询、防抖、过期结果过滤和提交；普通搜索不提供 `ItemsSource`，不额外弹出候选。标签搜索保留候选选择、键盘提交与输入新标签；`TextChanged` 使用 `AutoSuggestBoxTextChangedEventArgs`，候选查询仅处理 `UserInput`。
+- 候选列表的 Tab 流程由组件接管（仅候选弹层展开且有条目时生效）：输入框里按 Tab 落到第一条候选，继续按 Tab 在候选间循环（末条接回第一条），Enter 提交当前候选并把焦点送回输入框；Shift+Tab 反向，停在第一条时退回输入框。没有候选或列表已关闭（Esc）时交回默认焦点导航，不改变其他搜索的 Tab 顺序。候选获得焦点后继续打字会关闭列表，属原生 AutoSuggestBox 行为。该流程只共用组件、不新增公共 API，键位手感待人工确认。
 - 标题栏设置 `PreventAutomaticFocus=true` 并提供 `DefaultFocusAnchor`，保留原 Photos 主动聚焦判断，允许点击、Tab 和 `FocusSearch()`，拦截启动或内容卸载等非主动聚焦；内部文本编辑器已有焦点时允许其正常转移。其他搜索不启用此保护。旧 `PhotosSearchBox` 已移除，不再维护第二套控件。
 - 含输入框的普通 `Flyout`，触发按钮必须允许交互聚焦。WinUI 会把目标按钮的 `AllowFocusOnInteraction` 传给 `FlyoutPresenter`；仅修改输入框或 Flyout 本身不足以替代宿主配置。当前 `FilterButton` 显式设置为 `True`，其他菜单按钮不变。
 - 不统一查询范围：资料库查实体，筛选查已入库标签及其中英文名、别名；组件不访问数据库，不适用于普通资料编辑字段。
@@ -43,6 +44,13 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 - 标签编辑器与评审页的角色搜索按身份键折叠：同一角色只给一个候选，优先使用图片数最多的已有标签；只有该身份没有任何标签时才追加词库实体。词库实体按身份合并中/英文 wiki 条目，并在同作品内按来源名与已有标签/同来源实体去重，避免同一角色出现「标签 + 实体」或跨 wiki 双份候选。角色、作品搜索候选跟随输入语言：含汉字优先中文（中英混输也如此），纯英文／数字／符号优先英文，无语言设置。角色仍带作品名，例如 `kafka_(honkai:_star_rail)`／`卡芙卡_(崩坏：星穹铁道)`，作品候选只显示作品名，名称缺失可取现有同语言别名。标签贴纸按「标签显示」和单标签覆盖，前者只影响角色及作品，其他分类不受该全局设置影响；候选与贴纸设置互不影响，缺对应语言时回退现有名称。候选名先取标签/实体自己的来源名，缺失时在同一身份的所有实体里找，仍缺再退回另一种语言；作品名跟随实际使用的来源语言。两种来源名都缺失时显示 `标签名（来源缺失）`，没有绑定作品时显示 `（未绑定作品）`；无 `tag_profiles` 的标签不自动猜绑，进入人工待补列表。
 - 待审核角色／作品贴纸必须走共享显示规则，不能直接使用 payload 原名；`StoreService.ResolveTagLabels(names)` 接收 `(Category, Name)` 并返回同键的显示名映射，既有人工显示名／单标签模式优先。未入库名字按完整名称及分类精确查词库，作品另查 `catalog_games`；多身份歧义保留原名，同作品且英文来源名一致的跨 wiki 条目可共用显示资料。该解析不创建标签、不改身份关联，其他分类保持原有贴纸规则。返回待审核页重新生成贴纸时保留未提交输入；查看器名称缓存刷新前清空，标签编辑器直接输入也使用同一解析。
 - 本次未启动应用；需人工核对所有入口的点击输入、中文输入法、删除/清空、结果刷新、候选选择/提交，以及标题栏切页/关闭查看器的焦点保护和搜索快捷键。
+
+## 标签候选的 Tab 导航
+
+- `SearchInputBox.EnableSuggestionTabNavigation` 默认 `false`；仅待审核页与标签编辑器的作品、角色、作者、类型、自定义输入设为 `true`。分级及图库、筛选等其他搜索入口不启用。
+- 用途：已显示且非空的候选列表支持真实键盘焦点。搜索框按无修饰 Tab 进入第一条，候选中 Tab 向后循环；Shift+Tab 向前，第一条退回搜索框，再按 Shift+Tab 可按系统顺序离开。Tab 导航不替换输入文字、不关闭列表；Ctrl/Alt 组合不拦截。无候选或 Esc 已关单时保留系统 Tab。
+- 候选行的 Enter 使用原生 `QuerySubmitted`，宿主仍负责选中项的标签写入、清空 `Text` 和 `ItemsSource`；组件在宿主处理后恢复输入焦点。示例：`new SearchInputBox { EnableSuggestionTabNavigation = true }`，继续沿用现有 `TextChanged` 查询及 `QuerySubmitted` 提交。
+- 实现依赖原生 AutoSuggestBox 的文本框与弹层 ListView；不提供独立查询、排序或存储。Tab 进入时把整棵原生候选视图临时转入独立 Popup，沿用原有位置、行模板及原生提交，结束时归还；避免 AutoSuggestBox 失焦强制关单。导航期间暂时关闭 `UpdateTextOnSelect`，完成后恢复。此轮仅静态与构建核对，Tab 循环、反向退出、Enter、Esc 和鼠标混用仍需人工验收。
 
 ## 设置页的选项与识别配置布局
 

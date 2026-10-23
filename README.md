@@ -139,6 +139,7 @@ Gallery/
 
 - 输入宿主规范：设置页空白点击将文本焦点交给中性锚点，保留输入框与其他交互控件的正常点击；标题栏 passthrough 区域从 DIP 转为当前缩放下的物理像素，并在尺寸/缩放变化后更新，不强制鼠标样式来掩盖命中错误。完整规则与人工核对项见 `UI_CONVENTIONS.md`，本轮尚未 UI 验收。
 - 搜索封装默认沿用原生 `ControlCornerRadius`，内部控件按宿主尺寸拉伸，避免默认零圆角覆盖原生边缘；本轮边缘修正仍待用户目视确认。
+- 待审核页与标签编辑弹窗的作品／角色／作者／类型／自定义搜索：候选显示且非空时，Tab 从输入框进入首项并向后循环，Shift+Tab 反向且首项退回输入框；候选 Enter 沿用原有提交、清空并返回输入框。导航保留输入文字与列表，无候选或 Esc 已关闭时使用系统 Tab。共享组件开关默认关闭，其他搜索入口不启用；交互待人工确认。
 - `Controls/SearchInputBox.cs`：所有搜索入口统一基于原生 `AutoSuggestBox`，覆盖顶部图库搜索、资料库、筛选、标签编辑与待审核标签输入。普通搜索不提供候选数据，标签输入保留候选及提交；查询由各宿主负责。组件默认允许交互聚焦；标题栏启用 `PreventAutomaticFocus`，承接原 `PhotosSearchBox` 的防抢焦点与显式搜索命令，旧类已移除。筛选 AppBarButton 同样允许聚焦，避免普通 Flyout 继承禁止聚焦的设置。普通资料编辑仍用 TextBox；点击、输入法、候选及焦点恢复待用户确认。
 - `Controls/SelectionDropDown.cs`：按钮式单选下拉与设置页主题选择共用 `DropDownButton + MenuFlyout(Placement=Bottom) + RadioMenuFlyoutItem`，按钮外观、选中标记、动画与边界定位均交给原生菜单，不改 ComboBox 内部模板、不手算偏移。设置页、筛选、待审核状态和预览缩放全部接入；右键菜单的鼠标定位不变。2026-10-20 用户确认本次展示效果；后续新增文本单选下拉沿用此组件，不恢复已废弃的 `AnchoredComboBox` 内部定位方案。该确认不代表全部窗口尺寸、DPI 和键盘路径已逐项验收。
 - `Controls/ContinuousScrollBar.cs`：可复用的连续滚动条。值始终是 `double`；拖动 1:1 跟手，点击轨道任意位置时滑块和内容一起短滑到点击处，不走原生 `ScrollBar` 的 `LargeChange`。支持竖向/横向、步长吸附、轨道/滑块厚度。待审核页用它替代原生滚动条。用法与约束见 `UI_CONVENTIONS.md`。

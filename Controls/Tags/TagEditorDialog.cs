@@ -346,6 +346,7 @@ public sealed class TagEditorDialog
     {
         var input = new SearchInputBox
         {
+            EnableSuggestionTabNavigation = true,
             PlaceholderText = $"输入或搜索{title}…",
             MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch,

@@ -14,6 +14,7 @@
             <KeyboardAccelerator Key="Escape" Invoked="OnEscapeInvoked" />
             <KeyboardAccelerator Key="Left" Invoked="OnLeftInvoked" />
             <KeyboardAccelerator Key="Right" Invoked="OnRightInvoked" />
+            <KeyboardAccelerator Key="Delete" Invoked="OnDeleteInvoked" />
             <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="OnSearchInvoked" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>

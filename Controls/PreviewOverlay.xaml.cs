@@ -896,16 +896,20 @@ public sealed partial class PreviewOverlay : Grid
                 .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)
             || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
                 .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return false;
+        // Delete/F2/Esc 是查看器自身命令：按钮、滑块、只读文本都不消费它们，焦点落在这些控件上也要穿透到遮罩；
+        // 空格/方向键仍让给控件（按钮激活、焦点导航、滑块调值），输入控件一律保留自身按键。
+        bool viewerKey = key is VirtualKey.Delete or VirtualKey.F2 or VirtualKey.Escape;
         var focused = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
         bool inside = false;
         for (var current = focused; current is not null; current = VisualTreeHelper.GetParent(current))
         {
             if (ReferenceEquals(current, this)) { inside = true; break; }
-            if (current is TextBox or PasswordBox or RichEditBox or AutoSuggestBox or SearchInputBox
-                or TextBlock { IsTextSelectionEnabled: true }) return false;
-            if (key != VirtualKey.Escape && current is (ButtonBase or RangeBase or Selector)) return false;
+            if (current is TextBox or PasswordBox or RichEditBox or AutoSuggestBox or SearchInputBox) return false;
+            if (current is TextBlock { IsTextSelectionEnabled: true } && !viewerKey) return false;
+            if (current is (ButtonBase or RangeBase or Selector)
+                && key is VirtualKey.Space or VirtualKey.Left or VirtualKey.Right) return false;
         }
-        if (!inside) return false;
+        if (!inside && !viewerKey) return false;
         if (key == VirtualKey.Space && (_items.Count == 0 || !_items[_index].IsVideo)) return false;
         switch (key)
         {
