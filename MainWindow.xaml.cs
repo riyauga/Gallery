@@ -908,6 +908,11 @@ public sealed partial class MainWindow : Window
     {
         if (e.Handled || _page.Visibility != Visibility.Visible || Preview.IsOpen || HasKeyboardPopup()) return;
         var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject;
+        if (e.Key == Windows.System.VirtualKey.Tab)
+        {
+            _page.HideKeyboardFocus();
+            return;
+        }
         if (IsTextKeyboardFocus(focused)
             || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu)
                 .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
@@ -933,11 +938,16 @@ public sealed partial class MainWindow : Window
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        // Esc 优先给查看器（退全屏/关闭），其次退出图库多选。
+        // Esc 优先给查看器（退全屏/关闭），其次返回设置首页或退出图库多选。
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
         if (HasKeyboardPopup() || IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
         if (Preview.IsOpen) { args.Handled = Preview.TryHandleKey(Windows.System.VirtualKey.Escape); return; }
+        if (_settingsPage.Visibility == Visibility.Visible && _settingsPage.TryGoBack())
+        {
+            args.Handled = true;
+            return;
+        }
         if (_page.Visibility == Visibility.Visible && _page.ExitSelection()) args.Handled = true;
     }
 

@@ -1,4 +1,5 @@
 using Gallery.Services;
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -9,7 +10,8 @@ using Windows.ApplicationModel.DataTransfer;
 namespace Gallery.Views;
 
 /// <summary>
-/// 设置页。照搬 photos 的 SettingsViewModel.SwitchTheme：
+/// 设置首页与四个常驻二级面板；导航保留任务、滚动位置及输入来源。
+/// 主题沿用 photos 的 SettingsViewModel.SwitchTheme：
 /// 切换后由 ThemeService.SetTheme(ElementTheme) 应用，选中项与下拉文字同步更新。
 /// </summary>
 public sealed partial class SettingsPage : UserControl
@@ -19,15 +21,86 @@ public sealed partial class SettingsPage : UserControl
     public SettingsPage()
     {
         InitializeComponent();
+        _currentSettingsPanel = HomeSettingsPanel;
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnBackgroundPointerPressed), true);
         _theme = ThemeService.Parse(AppService.Settings.Settings.theme);
         ApplyState();
+        foreach (var text in new[] { BridgeStatusText, PendingText, NsfwModelText, NsfwScanText, ThumbCacheText, SyncErrorText })
+            text.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => RefreshSettingsSummaries());
+        NsfwCancelButton.RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => RefreshSettingsSummaries());
+        RefreshSettingsSummaries();
         Loaded += (_, _) =>
         {
             RefreshBridge();
             RefreshThumbCacheAsync();
         };
         Unloaded += (_, _) => SaveBlurStrength();
+    }
+
+    private FrameworkElement _currentSettingsPanel = null!;
+    private readonly Dictionary<FrameworkElement, double> _settingsOffsets = new();
+    private SettingsCard? _settingsReturnEntry;
+
+    private static FocusState NavigationFocus(Control control)
+        => control.FocusState == FocusState.Keyboard ? FocusState.Keyboard : FocusState.Pointer;
+
+    private void SettingsCategory_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not SettingsCard entry) return;
+        var panel = (entry.Tag as string) switch
+        {
+            "Import" => ImportSettingsPanel,
+            "Recognition" => RecognitionSettingsPanel,
+            "Bridge" => BridgeSettingsPanel,
+            "Storage" => StorageSettingsPanel,
+            _ => HomeSettingsPanel,
+        };
+        _settingsReturnEntry = entry;
+        NavigateSettings(panel, entry.Header?.ToString() ?? "设置", NavigationFocus(entry));
+    }
+
+    private void SettingsBack_Click(object sender, RoutedEventArgs e)
+        => NavigateSettings(HomeSettingsPanel, "设置", NavigationFocus((Control)sender));
+
+    /// <summary>窗口 Esc 返回设置首页；已在首页时不处理。</summary>
+    public bool TryGoBack()
+    {
+        if (ReferenceEquals(_currentSettingsPanel, HomeSettingsPanel)) return false;
+        NavigateSettings(HomeSettingsPanel, "设置", FocusState.Keyboard);
+        return true;
+    }
+
+    private void NavigateSettings(FrameworkElement panel, string title, FocusState focusState)
+    {
+        if (ReferenceEquals(panel, _currentSettingsPanel)) return;
+        SaveBlurStrength();
+        _settingsOffsets[_currentSettingsPanel] = SettingsScroll.VerticalOffset;
+        // 先移到中性锚点，避免隐藏当前控件时被自动转移到标题栏搜索框。
+        SettingsRoot.Focus(focusState);
+        _currentSettingsPanel.Visibility = Visibility.Collapsed;
+        panel.Visibility = Visibility.Visible;
+        _currentSettingsPanel = panel;
+        bool home = ReferenceEquals(panel, HomeSettingsPanel);
+        SettingsHomeTitle.Visibility = home ? Visibility.Visible : Visibility.Collapsed;
+        SettingsHomeBreadcrumb.Visibility = SettingsBreadcrumbSeparator.Visibility = SettingsPageTitle.Visibility = home
+            ? Visibility.Collapsed : Visibility.Visible;
+        SettingsPageTitle.Text = home ? "" : title;
+        RefreshSettingsSummaries();
+        SettingsScroll.UpdateLayout();
+        if (home) _settingsReturnEntry?.Focus(focusState);
+        else SettingsHomeBreadcrumb.Focus(focusState);
+        // 聚焦入口可能触发自动滚动，最后恢复该页自己的滚动位置。
+        SettingsScroll.ChangeView(null, _settingsOffsets.GetValueOrDefault(panel), null, true);
+    }
+
+    private void RefreshSettingsSummaries()
+    {
+        ImportSettingsEntry.Description = $"自动分目录{(ArchiveAutoByTagsToggle.IsOn ? "已开启" : "已关闭")} · 文件夹标签{(AutoTagToggle.IsOn ? "已开启" : "已关闭")}";
+        RecognitionSettingsEntry.Description = NsfwCancelButton.Visibility == Visibility.Visible
+            ? NsfwScanText.Text
+            : $"{(string.IsNullOrWhiteSpace(AppService.Settings.Settings.nsfw_model_dir) ? "模型未配置" : "模型已配置")} · 导入自动识别{(AutoModelTagsToggle.IsOn ? "已开启" : "已关闭")}";
+        BridgeSettingsEntry.Description = $"{BridgeStatusText.Text} · 待处理 {PendingText.Text}";
+        StorageSettingsEntry.Description = $"缓存：{ThumbCacheText.Text} · 最近错误 {SyncErrorText.Text}";
     }
 
     private void OnBackgroundPointerPressed(object sender, PointerRoutedEventArgs args)

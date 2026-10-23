@@ -89,6 +89,30 @@ public sealed class TimelineScrollbar : Grid
 
     public TimelineScrollbar()
     {
+        IsTabStop = true;
+        UseSystemFocusVisuals = true;
+        GotFocus += (_, _) => Show();
+        LostFocus += (_, _) => Hide();
+        KeyDown += (_, args) =>
+        {
+            if (_scroller is null || _items.Count == 0) return;
+            switch (args.Key)
+            {
+                case Windows.System.VirtualKey.Up: ScrollBy(-ScrollingOffset); break;
+                case Windows.System.VirtualKey.Down: ScrollBy(ScrollingOffset); break;
+                case Windows.System.VirtualKey.PageUp: ScrollBy(-_scroller.ViewportHeight); break;
+                case Windows.System.VirtualKey.PageDown: ScrollBy(_scroller.ViewportHeight); break;
+                case Windows.System.VirtualKey.Home: GoToIndex(0); break;
+                case Windows.System.VirtualKey.End: GoToIndex(_items.Count - 1); break;
+                default: return;
+            }
+            Show();
+            args.Handled = true;
+        };
+        AddHandler(PointerPressedEvent, new PointerEventHandler((_, args) =>
+        {
+            if (args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) Focus(FocusState.Pointer);
+        }), true);
         Width = ControlWidth;
         AutomationProperties.SetName(this, "照片时间线");
         HorizontalAlignment = HorizontalAlignment.Right;
@@ -244,6 +268,8 @@ public sealed class TimelineScrollbar : Grid
         var button = new RepeatButton
         {
             Content = icon,
+            IsTabStop = false,
+            AllowFocusOnInteraction = false,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Right,
             Height = ArrowRowHeight,
@@ -273,6 +299,7 @@ public sealed class TimelineScrollbar : Grid
         _scroller = scroller;
         _panel = panel;
         _items = items;
+        IsTabStop = items.Count > 0;
 
         _scroller.ViewChanged += OnViewChanged;
         _scroller.SizeChanged += OnScrollerSizeChanged;
@@ -670,7 +697,7 @@ public sealed class TimelineScrollbar : Grid
 
     public void Hide()
     {
-        if (_hovering || _dragging) return;
+        if (_hovering || _dragging || FocusState == FocusState.Keyboard) return;
         AnimateOpacity(MinOpacity, 200);
     }
 

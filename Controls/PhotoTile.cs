@@ -194,6 +194,7 @@ public sealed class PhotoTile : Grid
     public PhotoTile()
     {
         Background = new SolidColorBrush(Colors.Transparent);
+        IsTabStop = false;
         UseSystemFocusVisuals = false;
 
         _image = new Image
@@ -261,14 +262,13 @@ public sealed class PhotoTile : Grid
         };
         _favorite = new FavoriteButton
         {
+            IsTabStop = false,
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(6),
             Opacity = 0,
             IsHitTestVisible = false,
         };
-        _favorite.GotFocus += (_, _) => UpdateFavoriteVisibility();
-        _favorite.LostFocus += (_, _) => UpdateFavoriteVisibility();
         _favorite.ToggleRequested += favorite =>
             FavoriteRequested is null ? Task.FromResult(Item.Favorite) : FavoriteRequested(Item, favorite);
 
@@ -384,7 +384,7 @@ public sealed class PhotoTile : Grid
 
     private void UpdateFavoriteVisibility()
     {
-        bool visible = _pointerOver || _favorite.FocusState == FocusState.Keyboard;
+        bool visible = _pointerOver;
         _favorite.Opacity = visible ? 1 : 0;
         _favorite.IsHitTestVisible = visible;
     }

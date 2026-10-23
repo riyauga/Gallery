@@ -41,6 +41,22 @@ public sealed class PaneResizer : Grid
 
     public PaneResizer()
     {
+        IsTabStop = true;
+        UseSystemFocusVisuals = true;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(this, "调整目录栏宽度");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(this, "使用左右方向键调整目录栏宽度");
+        KeyDown += (_, args) =>
+        {
+            if (args.Key is not (Windows.System.VirtualKey.Left or Windows.System.VirtualKey.Right)) return;
+            double current = CurrentLength?.Invoke() ?? MinLength;
+            double next = Math.Clamp(current + (args.Key == Windows.System.VirtualKey.Left ? -8 : 8), MinLength, MaxLength);
+            if (next != current)
+            {
+                WidthChanged?.Invoke(next);
+                DragFinished?.Invoke();
+            }
+            args.Handled = true;
+        };
         Width = 16;
         HorizontalAlignment = HorizontalAlignment.Left;
         VerticalAlignment = VerticalAlignment.Stretch;
@@ -62,8 +78,10 @@ public sealed class PaneResizer : Grid
             InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast); // 悬停双向箭头
         PointerExited += (_, _) => ProtectedCursor = null;
 
-        PointerPressed += (_, _) =>
+        PointerPressed += (_, args) =>
         {
+            if (!args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            Focus(FocusState.Pointer);
             _startLength = CurrentLength?.Invoke() ?? 0;
             GetCursorPos(out var pt);
             _startScreenX = pt.X;

@@ -2,9 +2,9 @@
 <!--
     设置页。
     照搬 photos 的 PhotosManager/Views/Pages/SettingsPage.xaml：
-    - 页头 SimplePageHeader：margin 32,28,48,26 / 图标 E713 FontSize 20 / 标题 FontSize 24
+    - 页头 SimplePageHeader：margin 32,28,48,26 / 图标 E713 FontSize 24 / 标题 FontSize 24
     - 内容 ScrollViewer padding 32,0,48,0 / StackPanel MaxWidth 958 / Spacing 3
-    - 副标题「个性化」margin 1,24,0,6，BodyStrongTextBlockStyle
+    - 首页保留常用偏好，四个二级页面的控件常驻，导航不重建后台任务
     - SettingsCard：Header「应用主题」/ Description「浅色、深色或跟随 Windows」/ HeaderIcon E790 FontSize 16
     - 右侧 DropDownButton + MenuFlyout 三项（浅色 / 深色 / 跟随 Windows），RadioMenuFlyoutItem 互斥
 -->
@@ -32,30 +32,36 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  页头：SimplePageHeader（图标 + 标题），margin 32,28,48,26  -->
-        <Grid Grid.Row="0" Margin="32,28,48,26">
+        <!--  齿轮与“设置”固定位置；首页为标题，二级页原位替换为原生返回按钮。 -->
+        <Grid Grid.Row="0" MaxWidth="958" Margin="32,28,48,26">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <FontIcon
-                VerticalAlignment="Center"
-                FontSize="20"
-                Glyph="&#xE713;" />
-            <TextBlock
-                Grid.Column="1"
-                MinWidth="124"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                AutomationProperties.HeadingLevel="1"
-                FontSize="24"
-                Style="{StaticResource TitleTextBlockStyle}"
-                Text="设置"
-                TextTrimming="CharacterEllipsis"
-                TextWrapping="NoWrap" />
+            <FontIcon VerticalAlignment="Center" FontSize="24" Glyph="&#xE713;" />
+            <Grid Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock x:Name="SettingsHomeTitle" Text="设置" FontSize="24"
+                           Style="{StaticResource TitleTextBlockStyle}"
+                           AutomationProperties.HeadingLevel="1" />
+                <Button x:Name="SettingsHomeBreadcrumb" Visibility="Collapsed"
+                        Click="SettingsBack_Click" Background="Transparent" BorderThickness="0"
+                        MinWidth="0" MinHeight="0" Padding="0"
+                        HorizontalContentAlignment="Left" VerticalContentAlignment="Center"
+                        AutomationProperties.Name="设置" ToolTipService.ToolTip="返回设置">
+                    <TextBlock Text="设置" FontSize="24" Style="{StaticResource TitleTextBlockStyle}" />
+                </Button>
+            </Grid>
+            <FontIcon x:Name="SettingsBreadcrumbSeparator" Grid.Column="2" Glyph="&#xE76C;" FontSize="12"
+                      Margin="12,0,0,0" Opacity="0.5" Visibility="Collapsed" VerticalAlignment="Center" />
+            <TextBlock x:Name="SettingsPageTitle" Grid.Column="3" FontSize="24" Margin="12,0,0,0"
+                       Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Visibility="Collapsed"
+                       AutomationProperties.HeadingLevel="1" TextTrimming="CharacterEllipsis" />
         </Grid>
 
         <ScrollViewer
+            x:Name="SettingsScroll"
             Grid.Row="1"
             Padding="32,0,48,0"
             HorizontalAlignment="Stretch"
@@ -68,22 +74,8 @@
             VerticalScrollMode="Auto"
             ZoomMode="Disabled">
             <Grid>
-                <StackPanel
-                    MaxWidth="958"
-                    Margin="0,0,0,64"
-                    Orientation="Vertical"
-                    Spacing="3">
-                    <StackPanel.ChildrenTransitions>
-                        <EntranceThemeTransition FromVerticalOffset="50" />
-                        <RepositionThemeTransition IsStaggeringEnabled="False" />
-                    </StackPanel.ChildrenTransitions>
-
-                    <!--  个性化  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="个性化" />
+                <StackPanel x:Name="HomeSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Visible">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="外观与显示" />
 
                     <ctc:SettingsCard
                         Description="浅色、深色或跟随 Windows"
@@ -114,60 +106,141 @@
                         </DropDownButton>
                     </ctc:SettingsCard>
 
-                    <!--  浏览器插件  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="浏览器插件" />
+                    <ctc:SettingsCard
+                        Description="只影响角色、作品的标签贴纸和评审页标签；搜索候选自动跟随输入语言，缺少对应语言名称时回退"
+                        Header="标签显示">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8D2;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <controls:SelectionDropDown
+                            x:Name="TagDisplayModeBox"
+                            MinWidth="180"
+                            SelectionChanged="TagDisplayMode_SelectionChanged">
+                            <ComboBoxItem Content="中文全名" Tag="zh_full" />
+                            <ComboBoxItem Content="中文短名" Tag="zh_short" />
+                            <ComboBoxItem Content="英文来源名" Tag="original" />
+                            <ComboBoxItem Content="标签原名" Tag="canonical" />
+                            <ComboBoxItem Content="首选别名" Tag="alias" />
+                        </controls:SelectionDropDown>
+                    </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        x:Name="BridgeStatusCard"
-                        Description="浏览器插件是否已连接"
-                        Header="桥接状态">
+                        Description="敏感图片显示为清晰、模糊还是隐藏"
+                        Header="显示方式">
                         <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE774;" />
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
                         </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock VerticalAlignment="Center" x:Name="BridgeStatusText" Style="{StaticResource CaptionTextBlockStyle}" Text="未启动" />
-                            <ToggleSwitch x:Name="BridgeEnabledToggle" Toggled="BridgeEnabledToggle_Toggled" />
+                        <StackPanel Orientation="Horizontal" Spacing="24">
+                            <RadioButton x:Name="NsfwNormalRadio" Content="正常显示" Tag="normal" Checked="NsfwDisplay_Checked" />
+                            <RadioButton x:Name="NsfwBlurRadio" Content="模糊" Tag="blur" Checked="NsfwDisplay_Checked" />
+                            <RadioButton x:Name="NsfwHideRadio" Content="隐藏" Tag="hide" Checked="NsfwDisplay_Checked" />
                         </StackPanel>
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="复制到浏览器插件里"
-                        Header="连接密钥">
+                        x:Name="NsfwStrengthCard"
+                        Header="模糊强度"
+                        Visibility="Collapsed">
                         <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8D7;" />
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <Grid Width="260" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="NsfwStrengthSlider" Minimum="0" Maximum="100"
+                                    StepFrequency="1" TickFrequency="1" SnapsTo="StepValues"
+                                    VerticalAlignment="Center" AutomationProperties.Name="模糊强度"
+                                    ValueChanged="NsfwStrength_ValueChanged" />
+                            <TextBlock x:Name="NsfwStrengthValue" Grid.Column="1" MinWidth="30"
+                                       TextAlignment="Right" VerticalAlignment="Center" Text="100" />
+                        </Grid>
+                    </ctc:SettingsCard>
+
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="系统集成" />
+
+                    <ctc:SettingsCard
+                        Header="关闭时最小化到托盘">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8A7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="TrayToggle" Toggled="TrayToggle_Toggled" />
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard Header="开机自启">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7E8;" />
                         </ctc:SettingsCard.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox
-                                x:Name="BridgeTokenBox"
-                                Width="360"
-                                IsReadOnly="True"
-                                FontFamily="Consolas" />
-                            <Button x:Name="BridgeCopyButton" Click="BridgeCopy_Click" Content="复制密钥" />
+                            <TextBlock
+                                x:Name="AutoStartStatusText"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="" />
+                            <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled" />
                         </StackPanel>
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="还没整理的图片"
-                        Header="待处理记录">
+                        Header="打开方式">
                         <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8B5;" />
+                            <FontIcon FontSize="16" Glyph="&#xE8E5;" />
                         </ctc:SettingsCard.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock VerticalAlignment="Center" x:Name="PendingText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
-                            <Button x:Name="BridgeRefreshButton" Click="BridgeRefresh_Click" Content="刷新" />
+                            <controls:SelectionDropDown x:Name="OpenModeBox" MinWidth="140" SelectionChanged="OpenMode_SelectionChanged">
+                                <ComboBoxItem Content="照片" Tag="photos" />
+                                <ComboBoxItem Content="系统默认程序" Tag="default" />
+                                <ComboBoxItem Content="每次选择程序" Tag="openwith" />
+                                <ComboBoxItem Content="指定程序" Tag="custom" />
+                            </controls:SelectionDropDown>
+                            <Button
+                                x:Name="OpenProgramButton"
+                                Click="OpenProgram_Click"
+                                Content="选择程序…"
+                                Visibility="Collapsed" />
+                            <TextBlock
+                                x:Name="OpenProgramText"
+                                MaxWidth="200"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text=""
+                                TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ctc:SettingsCard>
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="功能设置" />
 
-                    <!--  归档  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="归档" />
+                    <ctc:SettingsCard x:Name="ImportSettingsEntry" Header="导入与归档"
+                        Description="通知、文件夹标签、自动分目录与历史保留" Tag="Import" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE8B5;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard x:Name="RecognitionSettingsEntry" Header="智能识别"
+                        Description="模型、导入自动识别与全库重新识别" Tag="Recognition" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE713;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard x:Name="BridgeSettingsEntry" Header="浏览器插件"
+                        Description="连接状态、密钥与插件端口" Tag="Bridge" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE774;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard x:Name="StorageSettingsEntry" Header="存储与诊断"
+                        Description="缩略图缓存与错误记录" Tag="Storage" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE9CE;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+                </StackPanel>
+
+                <StackPanel x:Name="ImportSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="归档" />
 
                     <ctc:SettingsCard
                         Header="新图片归档提醒">
@@ -205,12 +278,7 @@
                         </controls:SelectionDropDown>
                     </ctc:SettingsCard>
 
-                    <!--  标签  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="标签" />
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="文件夹标签" />
 
                     <ctc:SettingsCard
                         Description="用文件夹名生成标签，只对新加入的图片生效"
@@ -233,74 +301,10 @@
                             </controls:SelectionDropDown>
                         </StackPanel>
                     </ctc:SettingsCard>
+                </StackPanel>
 
-
-                    <ctc:SettingsCard
-                        Description="只影响角色、作品的标签贴纸和评审页标签；搜索候选自动跟随输入语言，缺少对应语言名称时回退"
-                        Header="标签显示">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8D2;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <controls:SelectionDropDown
-                            x:Name="TagDisplayModeBox"
-                            MinWidth="180"
-                            SelectionChanged="TagDisplayMode_SelectionChanged">
-                            <ComboBoxItem Content="中文全名" Tag="zh_full" />
-                            <ComboBoxItem Content="中文短名" Tag="zh_short" />
-                            <ComboBoxItem Content="英文来源名" Tag="original" />
-                            <ComboBoxItem Content="标签原名" Tag="canonical" />
-                            <ComboBoxItem Content="首选别名" Tag="alias" />
-                        </controls:SelectionDropDown>
-                    </ctc:SettingsCard>
-                    <!--  敏感内容  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="敏感内容" />
-
-                    <ctc:SettingsCard
-                        Description="敏感图片显示为清晰、模糊还是隐藏"
-                        Header="显示方式">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="24">
-                            <RadioButton x:Name="NsfwNormalRadio" Content="正常显示" Tag="normal" Checked="NsfwDisplay_Checked" />
-                            <RadioButton x:Name="NsfwBlurRadio" Content="模糊" Tag="blur" Checked="NsfwDisplay_Checked" />
-                            <RadioButton x:Name="NsfwHideRadio" Content="隐藏" Tag="hide" Checked="NsfwDisplay_Checked" />
-                        </StackPanel>
-                    </ctc:SettingsCard>
-
-                    <ctc:SettingsCard
-                        x:Name="NsfwStrengthCard"
-                        Header="模糊强度"
-                        Visibility="Collapsed">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <Grid Width="260" ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Slider x:Name="NsfwStrengthSlider" Minimum="0" Maximum="100"
-                                    StepFrequency="1" TickFrequency="1" SnapsTo="StepValues"
-                                    VerticalAlignment="Center" AutomationProperties.Name="模糊强度"
-                                    ValueChanged="NsfwStrength_ValueChanged" />
-                            <TextBlock x:Name="NsfwStrengthValue" Grid.Column="1" MinWidth="30"
-                                       TextAlignment="Right" VerticalAlignment="Center" Text="100" />
-                        </Grid>
-                    </ctc:SettingsCard>
-
-                    <ctc:SettingsCard
-                        Description="已识别、敏感、未识别"
-                        Header="识别进度">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE9D9;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <TextBlock VerticalAlignment="Center" x:Name="NsfwSummaryText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
-                    </ctc:SettingsCard>
+                <StackPanel x:Name="RecognitionSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="模型与设备" />
 
                     <ctc:SettingsCard
                         Description="PixAI v1.0 · model.onnx 与 config.json 放在同一文件夹"
@@ -334,7 +338,8 @@
                         </controls:SelectionDropDown>
                     </ctc:SettingsCard>
 
-                    <!-- 多项识别配置使用分层卡片，避免把整组选项挤在 SettingsCard 右侧。 -->
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="导入识别" />
+
                     <Border
                         Padding="16"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -381,6 +386,17 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="图库重新识别" />
+
+                    <ctc:SettingsCard
+                        Description="已识别、敏感、未识别"
+                        Header="识别进度">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE9D9;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <TextBlock VerticalAlignment="Center" x:Name="NsfwSummaryText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                    </ctc:SettingsCard>
 
                     <Border
                         Padding="16"
@@ -455,92 +471,7 @@
                         </Grid>
                     </Border>
 
-                    <ctc:SettingsCard
-                        Header="最近错误">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock VerticalAlignment="Center" x:Name="SyncErrorText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
-                            <Button Click="SyncErrorView_Click" Content="查看" />
-                            <Button Click="SyncErrorClear_Click" Content="清空" />
-                        </StackPanel>
-                    </ctc:SettingsCard>
-
-                    <!--  系统集成  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="系统集成" />
-
-                    <ctc:SettingsCard
-                        Header="关闭时最小化到托盘">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8A7;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <ToggleSwitch x:Name="TrayToggle" Toggled="TrayToggle_Toggled" />
-                    </ctc:SettingsCard>
-
-                    <ctc:SettingsCard Header="开机自启">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE7E8;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock
-                                x:Name="AutoStartStatusText"
-                                VerticalAlignment="Center"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="" />
-                            <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled" />
-                        </StackPanel>
-                    </ctc:SettingsCard>
-
-                    <ctc:SettingsCard
-                        Header="打开方式">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8E5;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:SelectionDropDown x:Name="OpenModeBox" MinWidth="140" SelectionChanged="OpenMode_SelectionChanged">
-                                <ComboBoxItem Content="照片" Tag="photos" />
-                                <ComboBoxItem Content="系统默认程序" Tag="default" />
-                                <ComboBoxItem Content="每次选择程序" Tag="openwith" />
-                                <ComboBoxItem Content="指定程序" Tag="custom" />
-                            </controls:SelectionDropDown>
-                            <Button
-                                x:Name="OpenProgramButton"
-                                Click="OpenProgram_Click"
-                                Content="选择程序…"
-                                Visibility="Collapsed" />
-                            <TextBlock
-                                x:Name="OpenProgramText"
-                                MaxWidth="200"
-                                VerticalAlignment="Center"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text=""
-                                TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </ctc:SettingsCard>
-
-                    <ctc:SettingsCard
-                        Description="清理后不影响图片和标签，下次浏览会重新生成"
-                        Header="缩略图缓存">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE74D;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock VerticalAlignment="Center" x:Name="ThumbCacheText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
-                            <Button x:Name="ThumbCacheClearButton" Click="ThumbCacheClear_Click" Content="清理" />
-                        </StackPanel>
-                    </ctc:SettingsCard>
-
-                    <!--  高级  -->
-                    <TextBlock
-                        Margin="1,24,0,6"
-                        AutomationProperties.HeadingLevel="Level2"
-                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                        Text="高级" />
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="标签映射" />
 
                     <ctc:SettingsCard
                         Description="决定哪些标签显示为画面类型"
@@ -555,6 +486,53 @@
                             <Button Click="KindWhitelistReset_Click" Content="恢复默认" />
                         </StackPanel>
                     </ctc:SettingsCard>
+                </StackPanel>
+
+                <StackPanel x:Name="BridgeSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="连接" />
+
+                    <ctc:SettingsCard
+                        x:Name="BridgeStatusCard"
+                        Description="浏览器插件是否已连接"
+                        Header="桥接状态">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE774;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock VerticalAlignment="Center" x:Name="BridgeStatusText" Style="{StaticResource CaptionTextBlockStyle}" Text="未启动" />
+                            <ToggleSwitch x:Name="BridgeEnabledToggle" Toggled="BridgeEnabledToggle_Toggled" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="复制到浏览器插件里"
+                        Header="连接密钥">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8D7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox
+                                x:Name="BridgeTokenBox"
+                                Width="360"
+                                IsReadOnly="True"
+                                FontFamily="Consolas" />
+                            <Button x:Name="BridgeCopyButton" Click="BridgeCopy_Click" Content="复制密钥" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Description="还没整理的图片"
+                        Header="待处理记录">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B5;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="PendingText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button x:Name="BridgeRefreshButton" Click="BridgeRefresh_Click" Content="刷新" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="连接配置" />
 
                     <ctc:SettingsCard
                         Header="插件端口">
@@ -565,6 +543,36 @@
                             <TextBox x:Name="BridgePortBox" Width="90" />
                             <Button Click="BridgePortApply_Click" Content="应用" />
                             <TextBlock x:Name="BridgePortStatusText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Text="" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+                </StackPanel>
+
+                <StackPanel x:Name="StorageSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="存储" />
+
+                    <ctc:SettingsCard
+                        Description="清理后不影响图片和标签，下次浏览会重新生成"
+                        Header="缩略图缓存">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE74D;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="ThumbCacheText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button x:Name="ThumbCacheClearButton" Click="ThumbCacheClear_Click" Content="清理" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="诊断" />
+
+                    <ctc:SettingsCard
+                        Header="最近错误">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE7BA;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" x:Name="SyncErrorText" Style="{StaticResource CaptionTextBlockStyle}" Text="—" />
+                            <Button Click="SyncErrorView_Click" Content="查看" />
+                            <Button Click="SyncErrorClear_Click" Content="清空" />
                         </StackPanel>
                     </ctc:SettingsCard>
                 </StackPanel>

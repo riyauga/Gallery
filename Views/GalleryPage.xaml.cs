@@ -153,13 +153,14 @@ public sealed partial class GalleryPage : UserControl
 
         Root.GotFocus += (_, _) =>
         {
-            if (FocusManager.GetFocusedElement(XamlRoot) is UIElement focused
-                && focused.FocusState == FocusState.Keyboard && HasContentKeyboardFocus(focused))
-                _showKeyboardFocus = true;
+            // 进入区域本身不点亮某张图片；图片提示只由明确的图库按键建立。
             SyncSelection();
         };
         Root.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(SyncSelection);
         WireCommandBarFlyouts();
+        FilterButton.Flyout.Closing += (sender, _) => _filterFlyoutTarget = sender.Target as Control;
+        Bar.LayoutUpdated += (_, _) => RestoreFilterFlyoutFocus();
+        Unloaded += (_, _) => _filterFlyoutTarget = null;
     }
 
     /// <summary>
@@ -174,7 +175,7 @@ public sealed partial class GalleryPage : UserControl
             var current = flyout;
             current.Opened += (_, _) =>
             {
-                Bar.IsOpen = false;
+                if (current.Target is AppBarButton { IsInOverflow: false }) Bar.IsOpen = false;
                 foreach (var other in flyouts)
                 {
                     if (!ReferenceEquals(other, current)) other?.Hide();
@@ -186,6 +187,37 @@ public sealed partial class GalleryPage : UserControl
         {
             foreach (var flyout in flyouts) flyout?.Hide();
         };
+    }
+
+    private Control? _filterFlyoutTarget;
+
+    /// <summary>Photos GalleryCommandBar：关闭时记住入口，布局更新后再校正一次返回焦点。</summary>
+    private void RestoreFilterFlyoutFocus()
+    {
+        var target = _filterFlyoutTarget;
+        _filterFlyoutTarget = null;
+        if (target is null || !IsLoaded || !_active) return;
+        // 菜单互斥关闭旧弹层时，新的弹层应继续持有焦点。
+        if (new[] { SortButton.Flyout, LayoutButton.Flyout, MoveCopyButton.Flyout }.Any(f => f?.IsOpen == true)) return;
+        if (FilterButton.IsInOverflow && !Bar.IsOpen)
+        {
+            target = FindCommandBarMoreButton(Bar);
+            if (target is null) return;
+        }
+        if (!ReferenceEquals(FocusManager.GetFocusedElement(XamlRoot), target))
+            target.Focus(FocusState.Programmatic);
+    }
+
+    private static Button? FindCommandBarMoreButton(DependencyObject element)
+    {
+        if (element is Button { Name: "MoreButton" } button) return button;
+        int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(element);
+        for (int i = 0; i < count; i++)
+        {
+            var found = FindCommandBarMoreButton(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(element, i));
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };

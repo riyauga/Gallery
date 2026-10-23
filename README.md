@@ -1,10 +1,14 @@
 # Gallery — 「照片」图库主页复刻
 
-原生按钮与菜单保留键盘焦点提示；鼠标可以获得焦点，但不强制标成键盘输入。图库 Enter/Delete/F2/F3 只作用于图片内容区，工具栏按钮保留 Enter/Space；图片外框只在键盘操作图片区域时显示，离开或鼠标按下即隐藏，保留逻辑图片 ID 与选区。收藏按钮在键盘聚焦时显示；查看器快捷键避让控件、文本与弹层，Tab 可唤出缩放条及全屏操作栏。审核圆环上下键同步目标卡片焦点，Enter/Space 确认当前目标。完整约定与手动核对边界见 `UI_CONVENTIONS.md`。
+原生按钮与菜单保留键盘焦点提示；鼠标可以获得焦点，但不强制标成键盘输入。图库 Enter/Delete/F2/F3 只作用于图片内容区，工具栏按钮保留 Enter/Space；图片外框只在键盘操作图片区域时显示，离开或鼠标按下即隐藏，保留逻辑图片 ID 与选区。主页图片及卡片收藏不逐个参与 Tab，卡片收藏只随鼠标悬停显示，查看器收藏保留键盘入口；查看器快捷键避让控件、文本与弹层，Tab 可唤出缩放条及全屏操作栏。审核圆环上下键同步目标卡片焦点，Enter/Space 确认当前目标。命令栏恢复 Photos 的 Programmatic 聚焦及菜单首项/入口返回，筛选在关闭后的布局更新中校正入口；仅在入口收进已关闭的溢出菜单时返回“更多”。鼠标打开后按 Esc 关闭允许原生键盘定位框，不能按下拉箭头决定焦点规则。目录栏把手和时间线各提供一个带原生焦点框的 Tab 入口，分别支持左右调宽、上下/翻页/首尾滚动。完整约定与手动核对边界见 `UI_CONVENTIONS.md`。
 
 一个只做**观感与交互**的最小照片图库：C# / WinUI 3（与 Microsoft Photos 同栈），把图库主页的布局、状态与动画按规格复刻出来。
 
 待审核深色页采用统一炭灰背景，圆环与网格卡片以中性渐变为底，图片平均色只作 10% 局部染色；圆环后层底板及描边逐渐融入页面。归档保留系统强调色，一键忽略使用普通中性按钮。画框尺寸、位置、环形滚动与加载契约不变；配色、浅色主题及往返切换表现待用户手动确认。
+
+## 设置导航
+
+设置首页保留常用显示与系统偏好，提供“导入与归档”“智能识别”“浏览器插件”“存储与诊断”四个带状态摘要的原生卡片入口。二级页面沿用现有 WinUI 设置卡片，页头始终保留齿轮及“设置”的位置：首页为纯标题，二级页原位变为可点击的“设置”，后接同字号二级标题，不再显示独立返回箭头；二级页也可按 Esc 返回，首页不继续退出；菜单/弹窗/文本输入优先。返回恢复入口位置及鼠标/键盘焦点。面板常驻，识别任务不会因往返被重建或取消；识别过程、页面观感与窄窗口待手动验证，完整分组见 `UI_CONVENTIONS.md`。
 
 ## 运行
 
@@ -103,7 +107,7 @@ bin\Debug\net9.0-windows10.0.19041.0\win-x64\Gallery.exe
 | 排序类型 → 滚动条 | 日期维度 → 时间线；名字等非日期维度 → 原模板位置的通用连续条（`ScrollBarVisibility.Auto` 控制显隐） | `GalleryViewModel.EvaluateScrollbarType` / `ContinuousScrollBarPresenter` |
 | 设置按钮 | 标题栏首，宽 40 高 48，图标 `E713` FontSize 16 | `TitleBarStyles.xaml: SettingsButtonWidth` |
 | 标题栏按钮间距 | `CommandBarMargin = 12,0,12,0`；CommandBar 列 MinWidth 110 | `TitleBarStyles.xaml` |
-| 设置页头 | margin `32,28,48,26`；图标 `E713` FontSize 20；标题 FontSize 24 | `Margins.xaml` / `GetSettingsHeaderIcon` |
+| 设置页头 | margin `32,28,48,26`；图标 `E713` FontSize 24；一级/二级标题 FontSize 24 | `Margins.xaml` / `GetSettingsHeaderIcon` |
 | 设置页内容 | ScrollViewer padding `32,0,48,0`；StackPanel MaxWidth 958、Spacing 3 | `SettingsStyles.xaml` |
 | 「个性化」副标题 | margin `1,24,0,6`，`BodyStrongTextBlockStyle` | 同上 |
 | 应用主题卡片 | `ctc:SettingsCard`；Header「应用主题」/ Desc「选择要显示的应用主题」/ 图标 `E790` FontSize 16 | `SettingsPage.xaml` |
