@@ -10,6 +10,7 @@ using Gallery.Controls;
 using Gallery.Services;
 using Gallery.Views;
 using Windows.Graphics;
+using Windows.ApplicationModel.DataTransfer;
 using System.Runtime.InteropServices;
 
 namespace Gallery;
@@ -915,6 +916,7 @@ public sealed partial class MainWindow : Window
 
     private void OnGalleryBlankPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        _page.HideKeyboardFocus();
         if (_page.Visibility != Visibility.Visible || Preview.IsOpen
             || !e.GetCurrentPoint(RootGrid).Properties.IsLeftButtonPressed) return;
         // 窗口 XAML 内非交互空白（含卡片间隙、工具栏及侧栏留白）统一退出。
@@ -935,18 +937,18 @@ public sealed partial class MainWindow : Window
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
         if (HasKeyboardPopup() || IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
-        if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Escape); args.Handled = true; return; }
+        if (Preview.IsOpen) { args.Handled = Preview.TryHandleKey(Windows.System.VirtualKey.Escape); return; }
         if (_page.Visibility == Visibility.Visible && _page.ExitSelection()) args.Handled = true;
     }
 
     private void OnLeftInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Left); args.Handled = true; }
+        if (Preview.TryHandleKey(Windows.System.VirtualKey.Left)) args.Handled = true;
     }
 
     private void OnRightInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (Preview.IsOpen) { Preview.HandleKey(Windows.System.VirtualKey.Right); args.Handled = true; }
+        if (Preview.TryHandleKey(Windows.System.VirtualKey.Right)) args.Handled = true;
     }
 
     private void ShowToast(string message) => Toasts.Show(message, ToastKind.Info);
@@ -1053,6 +1055,11 @@ public sealed partial class MainWindow : Window
         var target = dirRel.Length > 0 ? Path.Combine(rootPath, dirRel.Replace('/', '\\')) : rootPath;
         item.ContextFlyout = FolderFlyout(rootId, dirRel, target, isRoot);
 
+        // 应用内拖拽：把图库里的图片拖到侧栏目录即移动；外部文件拖入不接收。
+        item.AllowDrop = true;
+        item.DragOver += (_, e) => OnDirectoryDragOver(e, display);
+        item.Drop += (_, e) => _ = OnDirectoryDropAsync(e, target, display);
+
         foreach (var childRel in childRels.OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
             item.MenuItems.Add(BuildDirNode(rootId, childRel, folders, rootPath, isRoot: false));
         return item;
@@ -1063,6 +1070,35 @@ public sealed partial class MainWindow : Window
             .Where(f => f.DirRel == prefix ||
                         f.DirRel.StartsWith(prefix + "/", StringComparison.Ordinal))
             .Sum(f => f.Count);
+
+    /// <summary>只接受图库自己发起的拖拽；显示「移动到 目录名」，不显示复制图标。</summary>
+    private static void OnDirectoryDragOver(DragEventArgs e, string displayName)
+    {
+        if (!e.DataView.Contains(GalleryPage.DragImageIdsFormat)) return;
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = $"移动到「{displayName}」";
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsGlyphVisible = false;
+        e.Handled = true;
+    }
+
+    /// <summary>侧栏目录落点：解析拖拽图片 ID，交给图库页做确认与批量移动。</summary>
+    private async Task OnDirectoryDropAsync(DragEventArgs e, string target, string displayName)
+    {
+        if (!e.DataView.Contains(GalleryPage.DragImageIdsFormat)) return;
+        e.Handled = true;
+        var deferral = e.GetDeferral();
+        string? raw;
+        try { raw = await e.DataView.GetDataAsync(GalleryPage.DragImageIdsFormat) as string; }
+        finally { deferral.Complete(); }
+        var ids = (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => int.TryParse(part, out var id) ? id : 0)
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0) return;
+        await _page.MoveImagesToFolderAsync(ids, target, displayName);
+    }
 
     /// <summary>
     /// 照搬 photos 的 FolderGalleryNavigationViewItem 菜单语义：

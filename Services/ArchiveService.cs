@@ -255,12 +255,14 @@ public sealed class ArchiveService(StoreService store)
         try
         {
             var detail = source == "danbooru" ? "{\"from\":\"bridge\"}" : "{\"from\":\"review\"}";
+            var settings = AppService.Settings.Settings;
+            var fallback = !settings.auto_model_tags || settings.import_tag_rating;
             store.SetNsfwScore(
                 imageId: imageId,
                 source: source,
                 rating: rating,
                 detail: detail,
-                tagIt: true);
+                tagIt: IngestReview.WantsRatingTag(payload, fallback));
             store.Commit();
         }
         catch (Microsoft.Data.Sqlite.SqliteException ex)

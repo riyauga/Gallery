@@ -28,6 +28,12 @@
       ],
       "js": ["content-danbooru.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dropzone.js"],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
 

@@ -15,8 +15,21 @@ public sealed record NsfwScanResult(int Total, int Scored, int Failed, int Nsfw,
     public bool Ok => Error.Length == 0;
 }
 
+/// <summary>重新识别时写入哪些标签；Rating 对应 SFW/NSFW 标签。</summary>
+public sealed record NsfwTagOptions(bool Character, bool Work, bool Kind, bool Rating, bool Overwrite)
+{
+    public bool AnyTags => Character || Work || Kind;
+
+    public static NsfwTagOptions FromSettings()
+    {
+        var settings = AppService.Settings.Settings;
+        return new(settings.rescan_tag_character, settings.rescan_tag_work,
+            settings.rescan_tag_kind, settings.auto_nsfw_tag, settings.rescan_overwrite_tags);
+    }
+}
+
 /// <summary>
-/// 批量跑敏感判定：读图 → 模型 → 写 <c>nsfw_scores</c> / <c>images.nsfw</c>（可选打标签）。
+/// 统一 PixAI 批量识别：读图 → 一次推理 → 按勾选写 <c>nsfw_scores</c> / <c>images.nsfw</c>（可选打标签）。
 /// 换模型后可以用 <paramref name="onlyStale"/> 只重跑旧模型（或没跑过）的图。
 /// </summary>
 public sealed class NsfwService
@@ -28,22 +41,48 @@ public sealed class NsfwService
     /// <summary>给测试用的替身打分器：不给就用真模型。</summary>
     public Func<string, CancellationToken, NsfwProbs>? OverrideScorer { get; init; }
 
+    /// <summary>主动重新识别的标签写入选项；默认按设置页当前勾选。</summary>
+    public NsfwTagOptions TagOptions { get; init; } = NsfwTagOptions.FromSettings();
+
+    /// <summary>最近一次实际使用的执行设备：<c>gpu</c> / <c>cpu</c>；没加载过模型时为空。</summary>
+    public string LastDevice { get; private set; } = "";
+
+    /// <summary>请求 GPU 但回退 CPU 时的原因；正常为空。</summary>
+    public string LastDeviceNote { get; private set; } = "";
+
+    /// <summary>一句话说明本次用的是显卡还是 CPU，供界面反馈。</summary>
+    public string DeviceSummary => LastDevice switch
+    {
+        "gpu" => " · 显卡",
+        "cpu" => LastDeviceNote.Length > 0 ? " · CPU（" + LastDeviceNote + "）" : " · CPU",
+        _ => "",
+    };
+
     public async Task<NsfwScanResult> RunAsync(
         IProgress<(int Done, int Total)>? progress = null,
         bool onlyStale = true,
         CancellationToken token = default)
     {
         var settings = AppService.Settings.Settings;
-        NsfwScorer? scorer = null;
+        var options = TagOptions;
+        var whitelist = options.Kind
+            ? Taxonomy.LoadKindWhitelist(settings.kind_whitelist_path)
+            : null;
+        PixaiScorer? scorer = null;
+        if (!options.AnyTags && !options.Rating)
+            return new NsfwScanResult(0, 0, 0, 0, "请至少勾选一种识别标签");
         if (OverrideScorer is null)
         {
-            scorer = NsfwScorer.TryCreate(settings.nsfw_model_dir, out var error);
-            if (scorer is null) return new NsfwScanResult(0, 0, 0, 0, error);
+            var loaded = await LoadScorerAsync(settings.nsfw_model_dir, token).ConfigureAwait(false);
+            scorer = loaded.Scorer;
+            if (scorer is null) return new NsfwScanResult(0, 0, 0, 0, loaded.Error);
+            LastDevice = scorer.EffectiveDevice;
+            LastDeviceNote = scorer.DeviceNote;
         }
 
         var modelHash = scorer?.ModelHash ?? "test";
         var modelName = scorer?.ModelName ?? "test";
-        var files = _store.ImageFilesForScan(modelHash, onlyStale);
+        var files = _store.ImageFilesForScan(modelHash, onlyStale && !options.AnyTags);
         var total = files.Count;
         if (total == 0) return new NsfwScanResult(0, 0, 0, 0, "");
 
@@ -59,7 +98,7 @@ public sealed class NsfwService
                 files,
                 new ParallelOptions
                 {
-                    MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2),
+                    MaxDegreeOfParallelism = 1,
                     CancellationToken = token,
                 },
                 item =>
@@ -73,8 +112,9 @@ public sealed class NsfwService
                             return;
                         }
 
-                        var probs = OverrideScorer?.Invoke(item.Value, token)
-                                    ?? scorer!.Score(item.Value, token);
+                        var prediction = scorer?.Score(item.Value, token);
+                        var probs = prediction?.Probs ?? OverrideScorer!(item.Value, token);
+                        var tags = prediction?.Tags ?? Array.Empty<ModelTag>();
                         var (rating, confidence, margin) = probs.Verdict();
                         var detail = JsonSerializer.Serialize(new
                         {
@@ -82,11 +122,27 @@ public sealed class NsfwService
                             s = Math.Round(probs.S, 4),
                             q = Math.Round(probs.Q, 4),
                             e = Math.Round(probs.E, 4),
+                            character_candidate = prediction?.CharacterCandidate,
+                            character_score = prediction?.CharacterScore,
+                            work_candidate = prediction?.WorkCandidate,
+                            work_score = prediction?.WorkScore,
                         });
 
-                        _store.SetNsfwScore(item.Key, "model", probs.Rating, "",
-                            probs.NsfwProb, confidence, margin, modelName, modelHash, detail,
-                            settings.auto_nsfw_tag);
+                        if (options.Rating)
+                            _store.SetNsfwScore(item.Key, "model", probs.Rating, "",
+                                probs.NsfwProb, confidence, margin, modelName, modelHash, detail, true);
+
+                        if (options.AnyTags)
+                        {
+                            var character = prediction?.Character ?? "";
+                            var work = prediction?.Work ?? "";
+                            IReadOnlyList<string> kinds = options.Kind && whitelist is not null
+                                ? ModelTagMapper.PickKinds(tags, whitelist)
+                                : Array.Empty<string>();
+                            _store.ApplyModelTagsToImage(item.Key, character, work, kinds,
+                                new ModelTagOptions(options.Character, options.Work,
+                                    options.Kind, options.Overwrite));
+                        }
 
                         lock (gate)
                         {
@@ -125,10 +181,11 @@ public sealed class NsfwService
                 ? "没有需要重新识别的图片"
                 : $"识别了 {result.Total} 张 · 成功 {result.Scored} · 敏感 {result.Nsfw} · 失败 {result.Failed}";
 
-    /// <summary>预览行：只算不写库，用来对比新旧分级。</summary>
+    /// <summary>预览行：只算不写库，用来对比新旧分级和将要写入的标签。</summary>
     public sealed record NsfwPreviewRow(
         int ImageId, string Path, string OldRating, NsfwProbs Probs, string Rating,
-        double Confidence, double Margin, string Detail, string ModelName, string ModelHash)
+        double Confidence, double Margin, string Detail, string ModelName, string ModelHash,
+        string Character, string Work, IReadOnlyList<string> Kinds, string TagSummary)
     {
         public bool IsNsfw => Rating is "q" or "e";
 
@@ -142,11 +199,20 @@ public sealed class NsfwService
         CancellationToken token = default)
     {
         var settings = AppService.Settings.Settings;
-        NsfwScorer? scorer = null;
+        var options = TagOptions;
+        var whitelist = options.Kind
+            ? Taxonomy.LoadKindWhitelist(settings.kind_whitelist_path)
+            : null;
+        PixaiScorer? scorer = null;
+        if (!options.AnyTags && !options.Rating)
+            return ("请至少勾选一种识别标签", new List<NsfwPreviewRow>());
         if (OverrideScorer is null)
         {
-            scorer = NsfwScorer.TryCreate(settings.nsfw_model_dir, out var error);
-            if (scorer is null) return (error, new List<NsfwPreviewRow>());
+            var loaded = await LoadScorerAsync(settings.nsfw_model_dir, token).ConfigureAwait(false);
+            scorer = loaded.Scorer;
+            if (scorer is null) return (loaded.Error, new List<NsfwPreviewRow>());
+            LastDevice = scorer.EffectiveDevice;
+            LastDeviceNote = scorer.DeviceNote;
         }
 
         var modelHash = scorer?.ModelHash ?? "test";
@@ -165,14 +231,16 @@ public sealed class NsfwService
         {
             Parallel.ForEach(
                 files,
-                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2), CancellationToken = token },
+                new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = token },
                 item =>
                 {
                     token.ThrowIfCancellationRequested();
                     try
                     {
                         if (!File.Exists(item.Value)) return;
-                        var probs = OverrideScorer?.Invoke(item.Value, token) ?? scorer!.Score(item.Value, token);
+                        var prediction = scorer?.Score(item.Value, token);
+                        var probs = prediction?.Probs ?? OverrideScorer!(item.Value, token);
+                        var tags = prediction?.Tags ?? Array.Empty<ModelTag>();
                         var (rating, confidence, margin) = probs.Verdict();
                         var detail = JsonSerializer.Serialize(new
                         {
@@ -180,11 +248,23 @@ public sealed class NsfwService
                             s = Math.Round(probs.S, 4),
                             q = Math.Round(probs.Q, 4),
                             e = Math.Round(probs.E, 4),
+                            character_candidate = prediction?.CharacterCandidate,
+                            character_score = prediction?.CharacterScore,
+                            work_candidate = prediction?.WorkCandidate,
+                            work_score = prediction?.WorkScore,
                         });
 
+                        var character = prediction?.Character ?? "";
+                        var work = prediction?.Work ?? "";
+                        IReadOnlyList<string> kinds = options.Kind && whitelist is not null
+                            ? ModelTagMapper.PickKinds(tags, whitelist)
+                            : Array.Empty<string>();
+                        var summary = BuildTagSummary(options, character, work, kinds);
                         var row = new NsfwPreviewRow(
                             item.Key, item.Value, old.TryGetValue(item.Key, out var o) ? o : "",
-                            probs, rating, confidence, margin, detail, modelName, modelHash);
+                            probs, options.Rating ? probs.Rating : old.GetValueOrDefault(item.Key, ""),
+                            confidence, margin, detail, modelName, modelHash,
+                            character, work, kinds, summary);
                         lock (gate) rows.Add(row);
                     }
                     catch (OperationCanceledException)
@@ -211,16 +291,45 @@ public sealed class NsfwService
         return ("", rows);
     }
 
-    /// <summary>把预览结果真正写进去（只写用户确认过的那一批）。</summary>
-    public int ApplyRows(IReadOnlyList<NsfwPreviewRow> rows, bool tagIt)
+    /// <summary>把预览结果真正写进去（只写用户确认过的那一批）；tagIt=false 时连标签也跳过。</summary>
+    public int ApplyRows(IReadOnlyList<NsfwPreviewRow> rows, bool? tagIt = null)
     {
+        var options = TagOptions;
+        var writeTags = tagIt != false && options.AnyTags;
+        var ratingTag = tagIt ?? options.Rating;
         var n = 0;
         foreach (var row in rows)
         {
-            _store.SetNsfwScore(row.ImageId, "model", row.Rating, "", row.Probs.NsfwProb,
-                row.Confidence, row.Margin, row.ModelName, row.ModelHash, row.Detail, tagIt);
+            if (options.Rating)
+                _store.SetNsfwScore(row.ImageId, "model", row.Rating, "", row.Probs.NsfwProb,
+                    row.Confidence, row.Margin, row.ModelName, row.ModelHash, row.Detail, ratingTag);
+            if (writeTags)
+            {
+                _store.ApplyModelTagsToImage(row.ImageId, row.Character, row.Work, row.Kinds,
+                    new ModelTagOptions(options.Character, options.Work,
+                        options.Kind, options.Overwrite));
+            }
             n++;
         }
         return n;
+    }
+
+    private static Task<(PixaiScorer? Scorer, string Error)> LoadScorerAsync(string dir, CancellationToken token)
+        => Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            var scorer = PixaiScorer.TryCreate(dir, out var error);
+            token.ThrowIfCancellationRequested();
+            return (scorer, error);
+        }, token);
+
+    private static string BuildTagSummary(NsfwTagOptions options, string character,
+        string work, IReadOnlyList<string> kinds)
+    {
+        var labels = new List<string>();
+        if (options.Character && character.Length > 0) labels.Add(character);
+        if (options.Work && work.Length > 0) labels.Add(work);
+        if (options.Kind) labels.AddRange(kinds);
+        return string.Join(" · ", labels);
     }
 }

@@ -19,6 +19,7 @@ public sealed class FavoriteButton : Button
 
     private readonly FontIcon _icon;
     private bool _favorite;
+    private bool _toggling;
 
     public event Func<bool, Task<bool>>? ToggleRequested;
 
@@ -48,7 +49,7 @@ public sealed class FavoriteButton : Button
         BorderThickness = new Thickness(0);
         HorizontalContentAlignment = HorizontalAlignment.Center;
         VerticalContentAlignment = VerticalAlignment.Center;
-        UseSystemFocusVisuals = false;
+        UseSystemFocusVisuals = true;
         _icon = new FontIcon
         {
             FontFamily = (FontFamily)Application.Current.Resources["PhotosUWPFontFamily"],
@@ -65,15 +66,16 @@ public sealed class FavoriteButton : Button
         Favorite = false;
         Click += async (_, _) =>
         {
-            if (ToggleRequested is null) return;
-            IsEnabled = false;
+            if (ToggleRequested is null || _toggling) return;
+            // 不用 IsEnabled 防重入：禁用会立刻把焦点从按钮上赶走，回车收藏后焦点就跳到下一个控件了。
+            _toggling = true;
             try
             {
                 Favorite = await ToggleRequested(!_favorite);
             }
             finally
             {
-                IsEnabled = true;
+                _toggling = false;
             }
         };
     }

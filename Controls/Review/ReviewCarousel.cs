@@ -41,6 +41,10 @@ internal sealed class ReviewCarousel : Grid
     private int _viewGeneration;
     private bool _batchMode;
     private readonly HashSet<int> _batchSelection = [];
+    /// <summary>正在跑模型的记录：卡片压深色并在正中转圈。</summary>
+    private readonly HashSet<int> _analyzing = [];
+    /// <summary>按记录缓存「模型是否处理过这张」，payload 引用不变就不重解析。</summary>
+    private readonly Dictionary<int, (string Payload, bool Analyzed)> _analysisCache = [];
     private int _gridFirst, _gridLast = 35;
     private string _gridSize = "medium";
     private bool _interactionEnabled = true;
@@ -174,6 +178,32 @@ internal sealed class ReviewCarousel : Grid
     {
         _interactionEnabled = enabled;
         PublishState();
+    }
+
+    /// <summary>宿主报告当前正在跑模型的记录；这些卡片压深色并显示转圈。</summary>
+    public void SetAnalyzing(IReadOnlyCollection<int> ids)
+    {
+        if (_analyzing.SetEquals(ids)) return;
+        _analyzing.Clear();
+        _analyzing.UnionWith(ids);
+        PublishState();
+    }
+
+    /// <summary>
+    /// 卡片是否已经过模型处理：有分级，或模型判定留下过标记，都算跑完。
+    /// 没配置模型时按「已处理」处理，退回原有的遮挡与揭示规则，避免整片卡片永久变黑。
+    /// </summary>
+    private bool IsAnalyzed(StoreService.PendingIngestRow row)
+    {
+        if (row.State != "pending") return true;
+        if (_analysisCache.TryGetValue(row.Id, out var hit) && ReferenceEquals(hit.Payload, row.Payload))
+            return hit.Analyzed;
+        var analyzed = !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir)
+            || ArchiveService.NormalizeRating(row.Rating).Length > 0
+            || IngestReview.RatingChecked(row.Payload)
+            || IngestReview.ModelTagsChecked(row.Payload);
+        _analysisCache[row.Id] = (row.Payload, analyzed);
+        return analyzed;
     }
 
     /// <summary>连续滚动：只更新卡片窗口，不重建详情；详情由网页在停稳后发 settled 提交。</summary>
@@ -388,6 +418,7 @@ internal sealed class ReviewCarousel : Grid
             _sentSources[row.Id] = source;
             return new { row.Id, Index = index, row.InboxName, Selected = _batchSelection.Contains(row.Id), Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
                 Blocked = protectedNow, Placeholder = preview?.Placeholder ?? true, Status = preview?.Status ?? "正在加载…",
+                Analyzed = IsAnalyzed(row), Analyzing = _analyzing.Contains(row.Id),
                 Avg = preview?.Average ?? "" };
         }).ToArray();
         _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new

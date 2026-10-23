@@ -115,8 +115,7 @@ public sealed class PhotoTile : Grid
         }
         Item = item; Detached = false;
         _favorite.Favorite = item.Favorite;
-        _favorite.Opacity = _pointerOver ? 1 : 0;
-        _favorite.IsHitTestVisible = _pointerOver;
+        UpdateFavoriteVisibility();
         UpdateVideoOverlay();
     }
 
@@ -268,6 +267,8 @@ public sealed class PhotoTile : Grid
             Opacity = 0,
             IsHitTestVisible = false,
         };
+        _favorite.GotFocus += (_, _) => UpdateFavoriteVisibility();
+        _favorite.LostFocus += (_, _) => UpdateFavoriteVisibility();
         _favorite.ToggleRequested += favorite =>
             FavoriteRequested is null ? Task.FromResult(Item.Favorite) : FavoriteRequested(Item, favorite);
 
@@ -381,20 +382,25 @@ public sealed class PhotoTile : Grid
         visual.CenterPoint = new System.Numerics.Vector3((float)ActualWidth / 2, (float)ActualHeight / 2, 0);
     }
 
+    private void UpdateFavoriteVisibility()
+    {
+        bool visible = _pointerOver || _favorite.FocusState == FocusState.Keyboard;
+        _favorite.Opacity = visible ? 1 : 0;
+        _favorite.IsHitTestVisible = visible;
+    }
+
     private void OnPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         _pointerOver = true;
         _hover.Opacity = 1;
-        _favorite.Opacity = 1;
-        _favorite.IsHitTestVisible = true;
+        UpdateFavoriteVisibility();
     }
 
     private void OnPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         _pointerOver = false;
         _hover.Opacity = 0;
-        _favorite.Opacity = 0;
-        _favorite.IsHitTestVisible = false;
+        UpdateFavoriteVisibility();
         AnimateScale(1.0, PressDurationMs);
     }
 

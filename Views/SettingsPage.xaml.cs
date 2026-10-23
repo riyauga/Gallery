@@ -243,18 +243,32 @@ public sealed partial class SettingsPage : UserControl
         NotifyNewImagesToggle.IsOn = settings.notify_new_images;
         AutoTagToggle.IsOn = settings.auto_tag_from_folder;
         AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
-        AutoNsfwTagToggle.IsOn = settings.auto_nsfw_tag;
+        AutoModelTagsToggle.IsOn = settings.auto_model_tags;
+        ImportTagCharacterCheck.IsChecked = settings.import_tag_character;
+        ImportTagWorkCheck.IsChecked = settings.import_tag_work;
+        ImportTagKindCheck.IsChecked = settings.import_tag_kind;
+        ImportTagRatingCheck.IsChecked = settings.import_tag_rating;
+        ImportTagCharacterCheck.IsEnabled = settings.auto_model_tags;
+        ImportTagWorkCheck.IsEnabled = settings.auto_model_tags;
+        ImportTagKindCheck.IsEnabled = settings.auto_model_tags;
+        ImportTagRatingCheck.IsEnabled = settings.auto_model_tags;
+        RescanTagCharacterCheck.IsChecked = settings.rescan_tag_character;
+        RescanTagWorkCheck.IsChecked = settings.rescan_tag_work;
+        RescanTagKindCheck.IsChecked = settings.rescan_tag_kind;
+        RescanTagRatingCheck.IsChecked = settings.auto_nsfw_tag;
+        SelectRescanWriteMode(settings.rescan_overwrite_tags);
         SelectAutoTagDepth(settings.auto_tag_depth);
         SelectHistoryKeep(settings.history_keep_days);
+        SelectNsfwDevice(settings.nsfw_device);
         _sysSyncing = false;
         _nsfwSyncing = false;
 
         var dir = settings.nsfw_model_dir;
         NsfwModelText.Text = string.IsNullOrWhiteSpace(dir)
             ? "未配置"
-            : Services.NsfwScorer.LooksConfigured(dir)
+            : Services.PixaiScorer.LooksConfigured(dir)
                 ? dir
-                : dir + "（缺少 model.onnx）";
+                : dir + "（需要 PixAI model.onnx 和 config.json）";
 
         var store = Services.AppService.Store;
         if (store is null)
@@ -472,6 +486,28 @@ public sealed partial class SettingsPage : UserControl
         AutoTagDepthBox.SelectedIndex = 0;
     }
 
+    private void NsfwDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_nsfwSyncing) return;
+        if (NsfwDeviceBox.SelectedItem is not ComboBoxItem { Tag: string tag }) return;
+        Services.AppService.Settings.Settings.nsfw_device = Services.PixaiScorer.NormalizeDevice(tag);
+        Services.AppService.Settings.Save();
+    }
+
+    private void SelectNsfwDevice(string device)
+    {
+        var mode = Services.PixaiScorer.NormalizeDevice(device);
+        foreach (var item in NsfwDeviceBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && tag == mode)
+            {
+                NsfwDeviceBox.SelectedItem = item;
+                return;
+            }
+        }
+        NsfwDeviceBox.SelectedIndex = 0;
+    }
+
     private bool _tagDisplaySyncing;
 
     /// <summary>角色与作品的标签贴纸显示存库（meta）；搜索候选按输入语言显示。</summary>
@@ -510,11 +546,60 @@ public sealed partial class SettingsPage : UserControl
         Services.AppService.Store?.SetGlobalTagDisplayMode(mode);
     }
 
-    private void AutoNsfwTagToggle_Toggled(object sender, RoutedEventArgs e)
+    private void AutoModelTagsToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_sysSyncing) return;
-        Services.AppService.Settings.Settings.auto_nsfw_tag = AutoNsfwTagToggle.IsOn;
+        var settings = Services.AppService.Settings.Settings;
+        settings.auto_model_tags = AutoModelTagsToggle.IsOn;
+        ImportTagCharacterCheck.IsEnabled = AutoModelTagsToggle.IsOn;
+        ImportTagWorkCheck.IsEnabled = AutoModelTagsToggle.IsOn;
+        ImportTagKindCheck.IsEnabled = AutoModelTagsToggle.IsOn;
+        ImportTagRatingCheck.IsEnabled = AutoModelTagsToggle.IsOn;
         Services.AppService.Settings.Save();
+    }
+
+    private void ImportTag_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        var settings = Services.AppService.Settings.Settings;
+        settings.import_tag_character = ImportTagCharacterCheck.IsChecked == true;
+        settings.import_tag_work = ImportTagWorkCheck.IsChecked == true;
+        settings.import_tag_kind = ImportTagKindCheck.IsChecked == true;
+        settings.import_tag_rating = ImportTagRatingCheck.IsChecked == true;
+        Services.AppService.Settings.Save();
+    }
+
+    private void RescanTag_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        var settings = Services.AppService.Settings.Settings;
+        settings.rescan_tag_character = RescanTagCharacterCheck.IsChecked == true;
+        settings.rescan_tag_work = RescanTagWorkCheck.IsChecked == true;
+        settings.rescan_tag_kind = RescanTagKindCheck.IsChecked == true;
+        settings.auto_nsfw_tag = RescanTagRatingCheck.IsChecked == true;
+        Services.AppService.Settings.Save();
+    }
+
+    private void RescanWriteMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        if (RescanWriteModeBox.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+        Services.AppService.Settings.Settings.rescan_overwrite_tags = mode == "overwrite";
+        Services.AppService.Settings.Save();
+    }
+
+    private void SelectRescanWriteMode(bool overwrite)
+    {
+        var wanted = overwrite ? "overwrite" : "append";
+        foreach (var item in RescanWriteModeBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string tag && tag == wanted)
+            {
+                RescanWriteModeBox.SelectedItem = item;
+                return;
+            }
+        }
+        RescanWriteModeBox.SelectedIndex = 0;
     }
 
     private bool _openModeSyncing;
@@ -599,7 +684,7 @@ public sealed partial class SettingsPage : UserControl
     {
         if (Services.AppService.Store is null) return;
         if (!Services.AppService.FakeNsfwScorer &&
-            !Services.NsfwScorer.LooksConfigured(Services.AppService.Settings.Settings.nsfw_model_dir))
+            !Services.PixaiScorer.LooksConfigured(Services.AppService.Settings.Settings.nsfw_model_dir))
         {
             NsfwScanText.Text = "还没有选择识别模型";
             return;
@@ -649,7 +734,7 @@ public sealed partial class SettingsPage : UserControl
             var progress = new Progress<(int Done, int Total)>(p =>
                 NsfwScanText.Text = $"识别中 {p.Done}/{p.Total}（可以点取消，已识别的会保留）");
             var result = await service.RunAsync(progress, token: _nsfwScanCts.Token);
-            NsfwScanText.Text = Services.NsfwService.Describe(result);
+            NsfwScanText.Text = Services.NsfwService.Describe(result) + service.DeviceSummary;
             ApplyNsfwState();
             Services.AppService.NotifyDisplayModeChanged();
         }

@@ -68,6 +68,42 @@ async function rememberPage(payload,sender) {
   }
 }
 function downloadKey(item) { return "download:" + item.id + ":" + item.startTime; }
+// 拖拽落点发起的下载：URL 在 15 秒内视为“用户主动拖进来”，不受接收网站规则限制。
+const dragUrls = new Map();
+function markDrag(url) {
+  if (!url) return;
+  dragUrls.set(url, Date.now());
+  setTimeout(() => dragUrls.delete(url), 15000);
+}
+function isDragDownload(item) {
+  return dragUrls.has(item.url) || (!!item.finalUrl && dragUrls.has(item.finalUrl));
+}
+function targetName(url) {
+  try {
+    const last = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "");
+    return (last || "image").replace(/[\\/:*?"<>|]/g, "_").slice(0, 160);
+  } catch { return "image"; }
+}
+/** 只接受浏览器下载目录下的相对子目录；绝对路径和 .. 一律丢弃，避免写到别的盘。 */
+function safeDir(value) {
+  const dir = String(value || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").trim();
+  if (!dir) return "";
+  if (dir.split("/").some(part => part === ".." || part === "" || /^[a-zA-Z]:/.test(part))) return "";
+  return dir;
+}
+async function grabImage(message) {
+  const url = String(message?.url || "");
+  if (!/^https?:/i.test(url)) throw new Error("只支持 http/https 图片地址");
+  const s = await state();
+  if (!s.settings.enabled) throw new Error("图片接收已停用");
+  const dir = safeDir(s.settings.dragTargetDir);
+  const name = targetName(url);
+  markDrag(url);
+  const id = await chrome.downloads.download({
+    url, filename: dir ? dir + "/" + name : name, conflictAction: "uniquify", saveAs: false
+  });
+  return { ok: true, id };
+}
 async function bindDownload(item) {
   const s=await state();
   if (!s.settings.enabled || !isImageDownload(item)) return null;
@@ -75,7 +111,8 @@ async function bindDownload(item) {
   const page=x ? xMetadata(item,await xContexts()) : chooseMetadata(item,await snapshots());
   const enriched={...item,referrer:page?.page_url || item.referrer || ""};
   const rule=findRule(s.rules,enriched);
-  if (!rule && !s.settings.captureAllImages) return null;
+  const dragged=isDragDownload(item);
+  if (!rule && !s.settings.captureAllImages && !dragged) return null;
   const key=downloadKey(item);
   return serial(async () => {
     const previous=(await chrome.storage.local.get(key))[key];
@@ -83,7 +120,7 @@ async function bindDownload(item) {
     const record={
       key,ingest_id:s.clientId + ":" + item.id + ":" + item.startTime,
       client_id:s.clientId,download_id:item.id,start_time:item.startTime,
-      state:"in_progress",rule_id:rule?.rule.id || "all-images",site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
+      state:"in_progress",rule_id:rule?.rule.id || (dragged && !s.settings.captureAllImages ? "drag" : "all-images"),site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
     };
     await chrome.storage.local.set({[key]:record});
     return record;
@@ -192,6 +229,11 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
         return;
       }
       if(message?.type==='xImageContext') {await rememberX(message.payload,sender);sendResponse({ok:true});return;}
+      if (message?.type === "grabImage") {
+        try { sendResponse(await grabImage(message)); }
+        catch (error) { sendResponse({ ok: false, error: String(error.message || error) }); }
+        return;
+      }
       if (sender.url && !sender.url.startsWith(chrome.runtime.getURL(""))) throw new Error("页面不能修改 Gallery 配置");
       const s=await state();
       switch(message?.type) {

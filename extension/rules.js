@@ -28,6 +28,8 @@ export const DEFAULT_SETTINGS = {
   maxBatch: 200, // 单次“采集整页图片”上限
   scanBackgroundImages: false, // 扫描 CSS 背景图（慢，默认关）
   conflictAction: "uniquify",
+  // 拖拽下载：只允许浏览器“下载”目录下的相对子目录（Chrome 扩展写不到其他盘符）。
+  dragTargetDir: "",
 
   // --- 审核流程（2026-10-14 起停用，字段留作兼容读取）---------------------
   // 旧行为：命中的下载一律落到 <galleryRoot>/<inboxFolder>/，由桌面端审核后归档。

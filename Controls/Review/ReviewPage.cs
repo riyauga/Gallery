@@ -78,6 +78,12 @@ public sealed class ReviewPage : Grid
     private readonly Button _selectAll = new() { Content = "全选", Visibility = Visibility.Collapsed };
     private readonly SelectionDropDown _cardSize = new() { Visibility = Visibility.Collapsed, MinWidth = 70 };
     private readonly Button _applyTags = new() { Content = "应用标签", HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
+    /// <summary>单图重跑模型：四类顶替冲突、不冲突的新增；画师与自定义不动。</summary>
+    private readonly Button _aiAnalyze = new()
+    {
+        Content = "AI分析", Padding = new Thickness(10, 4, 10, 4), FontSize = 12,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
     private readonly Button _clearTags = new() { Content = "清空标签", Visibility = Visibility.Collapsed };
     private readonly TextBlock _batchHint = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = .7, Visibility = Visibility.Collapsed };
     private readonly StackPanel _imageDetails = new() { Spacing = 12 };
@@ -93,6 +99,8 @@ public sealed class ReviewPage : Grid
     private bool _basicsDirty;
     private int _basicsGeneration;
     private readonly ConcurrentDictionary<int, byte> _basicsFailed = new();
+    /// <summary>后台模型队列里正在处理的记录，用于圆环卡片的「分析中」外观。</summary>
+    private readonly HashSet<int> _analyzing = [];
     private readonly ConcurrentQueue<int> _basicsExtras = new();
     private Action? _ratingRebuild;
     private string _batchRatingSummary = "";
@@ -395,7 +403,21 @@ public sealed class ReviewPage : Grid
         _imageDetails.Children.Add(new Border { Height = 1, Background = ResourceBrush("DividerStrokeColorDefaultBrush"), Margin = new Thickness(0, 6, 0, 4) });
         panel.Children.Add(_imageDetails);
         panel.Children.Add(_batchHint);
-        _tagSection.Children.Add(new TextBlock { Text = "标签", FontSize = 18, FontWeight = FontWeights.SemiBold });
+        // 「AI分析」与标题同一水平线，靠右对齐。
+        var tagHeader = new Grid();
+        tagHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        tagHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        tagHeader.Children.Add(new TextBlock
+        {
+            Text = "标签", FontSize = 18, FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        AutomationProperties.SetName(_aiAnalyze, "用模型重新分析这张图");
+        ToolTipService.SetToolTip(_aiAnalyze, "重跑模型：角色、作品、类型、分级按结果顶替；画师和自定义不动");
+        _aiAnalyze.Click += async (_, _) => await AnalyzeWithAiAsync();
+        Grid.SetColumn(_aiAnalyze, 1);
+        tagHeader.Children.Add(_aiAnalyze);
+        _tagSection.Children.Add(tagHeader);
         _tagSection.Children.Add(_tagGroups);
         var tagActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         tagActions.Children.Add(_applyTags);
@@ -535,6 +557,10 @@ public sealed class ReviewPage : Grid
         _basicsDirty = false;
         if (ids.Count == 0) return;
 
+        _analyzing.Clear();
+        _analyzing.UnionWith(ids);
+        _carousel.SetAnalyzing(_analyzing);
+
         if (_basicsCts is null || _basicsCts.IsCancellationRequested)
         {
             _basicsCts?.Dispose();
@@ -554,7 +580,7 @@ public sealed class ReviewPage : Grid
         if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
         if (_basicsFailed.ContainsKey(id)) return;
         if (!AppService.FakeNsfwScorer
-            && !NsfwScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir)) return;
+            && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir)) return;
         var row = store.IngestRow(id);
         if (row is null) return;
         if (ArchiveService.NormalizeRating(row.Rating).Length > 0) return;
@@ -590,6 +616,7 @@ public sealed class ReviewPage : Grid
                 {
                     _basicsFailed[id] = 0;
                     AppService.DebugLog($"ingest basics #{id}: {ex.Message}");
+                    MarkAnalyzed(id);
                     continue;
                 }
 
@@ -597,13 +624,20 @@ public sealed class ReviewPage : Grid
                 {
                     _basicsFailed[id] = 0;
                     AppService.DebugLog($"ingest basics #{id}: {outcome.Error}");
+                    MarkAnalyzed(id);
                     continue;
                 }
-                if (outcome.Rating.Length == 0 && !outcome.ResolutionChanged) continue;
+                if (outcome.Rating.Length == 0 && !outcome.ResolutionChanged && !outcome.TagsChanged)
+                {
+                    MarkAnalyzed(id);
+                    continue;
+                }
                 DispatcherQueue.TryEnqueue(() =>
                 {
+                    _analyzing.Remove(id);
+                    _carousel.SetAnalyzing(_analyzing);
                     if (generation != _basicsGeneration) return;
-                    ApplyBasicsToUi(id);
+                    ApplyBasicsToUi(id, outcome.TagsChanged);
                 });
             }
         }
@@ -614,6 +648,8 @@ public sealed class ReviewPage : Grid
         {
             DispatcherQueue.TryEnqueue(() =>
             {
+                _analyzing.Clear();
+                _carousel.SetAnalyzing(_analyzing);
                 if (generation != _basicsGeneration) return;
                 _basicsTask = null;
                 if (_basicsDirty && !AppService.IsShuttingDown)
@@ -625,8 +661,18 @@ public sealed class ReviewPage : Grid
         }
     }
 
+    /// <summary>这一张的模型处理已结束：撤掉「分析中」并刷新卡片外观。</summary>
+    private void MarkAnalyzed(int id)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_analyzing.Remove(id)) return;
+            _carousel.SetAnalyzing(_analyzing);
+        });
+    }
+
     /// <summary>单张模式下只把结果落到当前选中的那张；正在输入的其他标签不动。批量面板不跟着改。</summary>
-    private void ApplyBasicsToUi(int id)
+    private void ApplyBasicsToUi(int id, bool tagsChanged)
     {
         if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
         var index = _rows.FindIndex(row => row.Id == id);
@@ -645,12 +691,39 @@ public sealed class ReviewPage : Grid
 
         if (!_active || _busy || _batchMode || _selected?.Id != id) return;
         _selected = updated;
+
+        // 自动标签回来时刷新整组标签；用户正在输入时先不动，避免把输入框里的内容冲掉。
+        if (tagsChanged && !HasTagInputFocus())
+        {
+            ++_selectionGeneration;
+            _tags = IngestReview.Tags(updated.Payload, updated.Rating);
+            RebuildTagGroups();
+            _carousel.RefreshPreview(preserveRevealed: true);
+        }
+
         var rating = ArchiveService.NormalizeRating(updated.Rating);
         if (rating.Length == 0 || !_tags.TryGetValue("rating", out var current) || current.Count > 0) return;
 
         _tags["rating"] = [rating];
         _ratingRebuild?.Invoke();
         _carousel.RefreshPreview(preserveRevealed: true);
+    }
+
+    private bool HasTagInputFocus()
+        => XamlRoot is { } root
+            && FocusManager.GetFocusedElement(root) is TextBox or AutoSuggestBox;
+
+    private void RebuildTagGroups()
+    {
+        var pending = _tagInputs.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
+        _tagGroups.Children.Clear();
+        _tagInputs.Clear();
+        _ratingBadge = null;
+        _ratingRebuild = null;
+        for (var i = 0; i < IngestReview.Categories.Length; i++)
+            BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
+        foreach (var (category, text) in pending)
+            if (_tagInputs.TryGetValue(category, out var input)) input.Text = text;
     }
 
     private string HistoryHint(StoreService store)
@@ -1068,7 +1141,7 @@ public sealed class ReviewPage : Grid
             var modelDir = AppService.Settings.Settings.nsfw_model_dir;
             var result = await Task.Run(() =>
             {
-                var scorer = NsfwScorer.TryCreate(modelDir, out var error);
+                var scorer = PixaiScorer.TryCreate(modelDir, out var error);
                 return scorer is null ? (Rating: "", Error: error) : (Rating: scorer.Score(IngestReview.LocalPath(row)).Rating, Error: "");
             });
             if (result.Error.Length > 0) { _status.Text = "自动判断失败：" + result.Error; return; }
@@ -1085,6 +1158,82 @@ public sealed class ReviewPage : Grid
             UpdateButtons();
             OpenDeferredNotification();
         }
+    }
+
+    /// <summary>单图重跑模型：四类按结果顶替，画师与自定义不动；写入后刷新标签与归档目录。</summary>
+    private async Task AnalyzeWithAiAsync()
+    {
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store
+            || _selected is not { State: "pending" } row) return;
+        if (!AppService.FakeNsfwScorer && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir))
+        {
+            _status.Text = "还没有选择识别模型";
+            return;
+        }
+        SetBusy(true);
+        UpdateButtons();
+        _status.Text = "AI 分析中…";
+        _carousel.SetAnalyzing([row.Id]);
+        try
+        {
+            var (error, _, device) = await Task.Run(() => ApplyModelToRow(store, row.Id));
+            if (error.Length > 0) { _status.Text = "AI 分析失败：" + error; return; }
+            var updated = store.IngestRow(row.Id);
+            var index = _rows.FindIndex(item => item.Id == row.Id);
+            if (updated is not null && index >= 0)
+            {
+                _rows[index] = updated with { ResolvedPath = _rows[index].ResolvedPath };
+                if (_index == index)
+                {
+                    _selected = _rows[index];
+                    _tags = IngestReview.Tags(updated.Payload, updated.Rating);
+                    RebuildTagGroups();
+                }
+            }
+            RefreshDestination();
+            _carousel.RefreshPreview(preserveRevealed: true);
+            _carousel.SetItems(_rows, _index);
+            _status.Text = "AI 分析完成" + (device == "gpu" ? "（显卡）" : "（CPU）");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+            or Microsoft.ML.OnnxRuntime.OnnxRuntimeException or Microsoft.Data.Sqlite.SqliteException
+            or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
+        {
+            _status.Text = "AI 分析失败：" + ex.Message;
+        }
+        finally
+        {
+            _carousel.SetAnalyzing([]);
+            SetBusy(false);
+            UpdateButtons();
+            OpenDeferredNotification();
+        }
+    }
+
+    /// <summary>
+    /// 对一条待归档记录跑一次完整识别并写回：角色/作品顶替（模型没给就保留原值）、类型合并去重、分级替换。
+    /// 返回错误文本，空串表示成功。
+    /// </summary>
+    private static (string Error, string Rating, string Device) ApplyModelToRow(StoreService store, int id)
+    {
+        var scorer = PixaiScorer.TryCreate(AppService.Settings.Settings.nsfw_model_dir, out var error);
+        if (scorer is null) return (error, "", "");
+        var row = store.IngestRow(id);
+        if (row is not { State: "pending" }) return ("记录已不在待归档", "", "");
+        var path = IngestReview.LocalPath(row);
+        if (!File.Exists(path)) return ("文件不存在：" + path, "", "");
+        var score = scorer.Score(path);
+        if (score.Rating.Length == 0) return ("模型没有给出分级", "", scorer.EffectiveDevice);
+        var whitelist = Taxonomy.LoadKindWhitelist(AppService.Settings.Settings.kind_whitelist_path);
+        var kinds = ModelTagMapper.PickKinds(score.Tags, whitelist);
+        var tags = IngestReview.Tags(row.Payload, row.Rating);
+        if (score.Character.Length > 0) tags["character"] = [score.Character];
+        if (score.Work.Length > 0) tags["work"] = [score.Work];
+        foreach (var kind in kinds)
+            if (kind.Length > 0 && !tags["kind"].Contains(kind, StringComparer.OrdinalIgnoreCase))
+                tags["kind"].Add(kind);
+        store.UpdateIngestReview(id, IngestReview.ApplyModelOverwrite(row.Payload, tags, score.Rating, score), score.Rating);
+        return ("", score.Rating, scorer.EffectiveDevice);
     }
 
     private async Task ClassifyBatchAsync()
@@ -1106,7 +1255,7 @@ public sealed class ReviewPage : Grid
         {
             var result = await Task.Run(() =>
             {
-                var scorer = NsfwScorer.TryCreate(modelDir, out var error)
+                var scorer = PixaiScorer.TryCreate(modelDir, out var error)
                     ?? throw new InvalidOperationException(error);
                 var ratings = new Dictionary<string, int>();
                 var failures = new List<string>();
@@ -1222,16 +1371,29 @@ public sealed class ReviewPage : Grid
         _settingDestination = false;
     }
 
-    /// <summary>按标签算归档目录（绝对路径）：作品/画师两级，缺作品进 no_source、缺画师进 _无画师。</summary>
+    /// <summary>
+    /// 按标签算归档目录（绝对路径）。类型含「真人」走真人规则：真人\h|n\画师（未分级只到 真人）；
+    /// 其余按作品/画师两级，缺作品进 no_source、缺画师进 _无画师。
+    /// </summary>
     private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
     {
         if (AppService.Store is not { } store) return "";
         var root = ArchiveRoot(store);
         if (root is null) return "";
-        var map = FolderMap.Load(AppPaths.FolderMapPath);
-        var works = tags.TryGetValue("work", out var w) ? w : new List<string>();
         var artists = tags.TryGetValue("artist", out var a) ? a : new List<string>();
-        var relative = map.TargetDirRel(works, artists);
+        string relative;
+        if (tags.TryGetValue("kind", out var kinds)
+            && kinds.Contains(FolderMap.RealPerson, StringComparer.OrdinalIgnoreCase))
+        {
+            var rating = tags.TryGetValue("rating", out var r) ? r.FirstOrDefault() ?? "" : "";
+            relative = FolderMap.RealPersonDirRel(rating, artists);
+        }
+        else
+        {
+            var map = FolderMap.Load(AppPaths.FolderMapPath);
+            var works = tags.TryGetValue("work", out var w) ? w : new List<string>();
+            relative = map.TargetDirRel(works, artists);
+        }
         return Path.Combine(root.Path, relative.Replace('/', Path.DirectorySeparatorChar));
     }
 
@@ -1316,6 +1478,19 @@ public sealed class ReviewPage : Grid
             foreach (var id in ids)
             {
                 _status.Text = $"正在归档 {succeeded + failures.Count + 1} / {ids.Length}…";
+                // 自动分目录时，没有任何标签的图先跑一次模型，让归档目录跟着识别结果走。
+                if (auto && !_destinationEdited && NeedsModelBeforeArchive(store, id))
+                {
+                    _status.Text = $"正在识别标签 {succeeded + failures.Count + 1} / {ids.Length}…";
+                    _carousel.SetAnalyzing([id]);
+                    var model = await Task.Run(() => ApplyModelToRow(store, id));
+                    _carousel.SetAnalyzing([]);
+                    if (model.Error.Length > 0)
+                    {
+                        failures.Add($"#{id}：识别失败（{model.Error}）");
+                        continue;
+                    }
+                }
                 var target = DestOf(id);
                 if (target.Length == 0) { failures.Add($"#{id}：没有可用的归档目录"); continue; }
                 var result = await Task.Run(() => archiver.Archive(id, target));
@@ -1350,6 +1525,20 @@ public sealed class ReviewPage : Grid
             OpenDeferredNotification();
         }
         _status.Text = failures.Count == 0 ? $"已归档 {succeeded} 张" : $"已归档 {succeeded} 张，失败 {failures.Count} 条。\n" + string.Join("\n", failures.Take(3));
+    }
+
+    /// <summary>
+    /// 归档前是否需要先跑模型：待归档、没有分级、且角色/作品/画师/类型/自定义五类都空。
+    /// 分辨率由导入时算好，不参与「有没有标签」的判断。
+    /// </summary>
+    private static bool NeedsModelBeforeArchive(StoreService store, int id)
+    {
+        var row = store.IngestRow(id);
+        if (row is not { State: "pending" }) return false;
+        if (ArchiveService.NormalizeRating(row.Rating).Length > 0) return false;
+        var tags = IngestReview.Tags(row.Payload, row.Rating);
+        return tags["character"].Count == 0 && tags["work"].Count == 0 && tags["artist"].Count == 0
+            && tags["kind"].Count == 0 && tags["custom"].Count == 0;
     }
 
     private void Ignore(bool all)
@@ -1496,6 +1685,8 @@ public sealed class ReviewPage : Grid
         _applyTags.IsEnabled = !_busy;
         _clearTags.Visibility = BatchMultiple ? Visibility.Visible : Visibility.Collapsed;
         _clearTags.IsEnabled = !_busy;
+        _aiAnalyze.Visibility = _state == "pending" && !_batchMode ? Visibility.Visible : Visibility.Collapsed;
+        _aiAnalyze.IsEnabled = !_busy && _selected is { State: "pending" };
         if (_batchMode) _scopeHint.Text = $"操作范围：已选择的 {_batchSelected.Count} 张图片";
         else if (_state == "pending") _scopeHint.Text = "批量操作范围：全部待归档图片";
         _revealAll.Visibility = _state == "pending" && _carousel.HasBlurredRows ? Visibility.Visible : Visibility.Collapsed;

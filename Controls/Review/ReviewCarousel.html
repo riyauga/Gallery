@@ -22,6 +22,12 @@ button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);bo
 .g-photo::before{content:'';position:absolute;inset:0;z-index:1;background:var(--g-surface,var(--g-panel));opacity:var(--g-shade,0);pointer-events:none}
 .g-photo::after{content:'';position:absolute;inset:0;z-index:1;background:light-dark(#ffffff10,transparent);pointer-events:none;box-shadow:inset 0 1px 0 light-dark(#ffffff70,#ffffff0f)}
 .message{position:absolute;z-index:3;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 4px #000a;font-size:12px}.message [data-reveal]{pointer-events:auto;padding:5px 10px;background:#292929aa;color:white;border:1px solid #ffffff50;border-radius:6px}
+/* 分析状态：未分析（g-wait）与分析中（g-run）在卡片上压一层深色；分析中额外在卡片正中转圈。 */
+.g-veil{position:absolute;inset:0;z-index:2;border-radius:inherit;background:light-dark(#000000b8,#000000d9);display:none;pointer-events:none}
+.g-wait .g-veil,.g-run .g-veil{display:block}
+.g-spin{position:absolute;z-index:4;left:50%;top:50%;width:20px;height:20px;translate:-50% -50%;border-radius:50%;border:2px solid #ffffff30;border-top-color:#ffffffe6;animation:g-spin .9s linear infinite;display:none;pointer-events:none}
+.g-run .g-spin{display:block}
+@keyframes g-spin{to{rotate:360deg}}
 img:not([src]),[hidden]{display:none!important}
 #tweak{position:absolute;right:8px;bottom:8px;z-index:30;font-size:12px;opacity:0;transition:opacity .16s}#tweak:hover,#tweak:focus-within,#tweak[open]{opacity:1}#tweak summary{cursor:pointer;list-style:none;text-align:right;padding:6px 9px;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel)}#tweak .controls{position:absolute;bottom:42px;right:0;width:255px;max-height:70vh;overflow:auto;padding:14px;border:1px solid var(--g-line);border-radius:9px;background:var(--g-panel);box-shadow:0 8px 24px #0004}#tweak label{display:block;margin-bottom:12px}#tweak output{float:right;font-variant-numeric:tabular-nums}#tweak input[type=range]{display:block;width:100%;accent-color:var(--g-accent)}#tweak fieldset{margin:0 0 12px;padding:0;border:0}#tweak legend{margin-bottom:6px;opacity:.75}#tweak fieldset label{display:flex;align-items:center;gap:6px;margin:0 0 4px}#tweak input[type=radio]{accent-color:var(--g-accent)}#tweak button{font-size:12px;padding:5px 10px}
 #tweak .controls.continuous-scrollbar{scrollbar-width:none}#tweak .controls.continuous-scrollbar::-webkit-scrollbar{display:none}
@@ -80,6 +86,7 @@ let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,a
 // 切入与切出共用同一条距离曲线：|d| 从 1 到 0 是切入，反向滚走时自然就是相反的切出。
 const EASES={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
 // 位置用连续值驱动：滚轮/拖拽只改目标，逐帧用临界阻尼弹簧跟随，停手后吸附到最近一张。
+let ringKeyboardTarget=null;
 let pos=0,goal=0,vel=0,mode='spring',wheelAt=0,raf=0,lastT=0,lastSent=-1,lastReported=-1,sentSeq=0;
 let deckDrag=false,dragMoved=false,dragY=0,dragSamples=[],suppressClick=false;
 let hostScroll=false,scrollSettle=false,motionActive=false,lastWindow=-1;
@@ -317,7 +324,7 @@ function render(){
   for(const [id,{element:card,data}] of cards){
    card.style.width=g.width+'px';card.style.height=g.height+'px';
    card.style.transform='translate3d('+(g.pad+(data.index%g.cols)*(g.width+g.gap))+'px,'+(g.pad+Math.floor(data.index/g.cols)*(g.height+g.gap))+'px,0)';if(!dealCards.has(id))card.style.zIndex='1';
-   card.style.setProperty('--g-shade','0');card.classList.toggle('g-selected',!!data.selected);card.classList.toggle('g-blocked',!!data.blocked);card.setAttribute('aria-pressed',String(!!data.selected));card.setAttribute('aria-label',(data.selected?'取消选择 ':'选择 ')+data.inboxName);
+   card.style.setProperty('--g-shade','0');card.classList.toggle('g-selected',!!data.selected);card.classList.toggle('g-blocked',!!data.blocked);card.classList.toggle('g-wait',data.analyzed===false&&!data.analyzing);card.classList.toggle('g-run',!!data.analyzing);card.setAttribute('aria-pressed',String(!!data.selected));card.setAttribute('aria-label',(data.selected?'取消选择 ':'选择 ')+data.inboxName);
    const art=card.querySelector('.g-art');art.style.width='100%';art.style.height='100%';
    const tracked=dealCards.get(id),key=card.style.width+'|'+card.style.height+'|'+card.style.transform;
    if(tracked&&tracked.key!==key){
@@ -344,7 +351,7 @@ function render(){
  deck.style.setProperty('--g-frame-height',frameHeight+'px');deck.style.setProperty('--g-frame-width',frameHeight*design.aspect+'px');deck.style.setProperty('--g-perspective',frameHeight*cameraFactor+'px');
  for(const {element:card,data} of cards.values()){
   card.style.width='';card.style.height='';card.setAttribute('aria-label','查看 '+data.inboxName);
-  const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);
+  const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);card.classList.toggle('g-wait',data.analyzed===false&&!data.analyzing);card.classList.toggle('g-run',!!data.analyzing);
   const theta=d*angleStep,y=frameHeight*radiusFactor*Math.sin(theta),z=frameHeight*radiusFactor*(Math.cos(theta)-1);
   const t=Math.max(0,1-a),scale=1+(design.scale-1)*EASES[design.ease](t);
   card.style.transform='translate(-50%,'+y+'px) translateZ('+z+'px) rotateX('+(-d*design.angle)+'deg) scale('+scale+')';card.style.zIndex=String(8-Math.round(a));
@@ -358,12 +365,14 @@ function render(){
  }
 }
 function updateMessage(card,data,canReveal){
-  const state=(data.status||'')+'|'+(data.blocked&&canReveal?1:0);
+  // 没跑完模型的图既不给 NSFW 标记也不给揭示入口；分析中只在卡片正中转圈，不再压状态文字。
+  const pending=data.analyzed===false||!!data.analyzing,reveal=data.blocked&&canReveal&&!pending;
+  const state=(data.status||'')+'|'+(reveal?1:0)+'|'+(data.analyzed===false?1:0)+'|'+(data.analyzing?1:0);
   if(card.dataset.msgKey!==state){
    card.dataset.msgKey=state;
    const message=card.querySelector('.message');message.replaceChildren();
-   if(data.status){const status=document.createElement('span');status.textContent=data.status;message.append(status);}
-   if(data.blocked&&canReveal){const text=document.createElement('span');text.textContent='NSFW / 未分级';const reveal=document.createElement('span');reveal.dataset.reveal='';reveal.setAttribute('role','button');reveal.tabIndex=0;reveal.textContent='显示预览';reveal.onclick=event=>{event.stopPropagation();send({type:'reveal',id:data.id});};reveal.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();send({type:'reveal',id:data.id});}};message.append(text,reveal);}
+   if(data.status&&!data.analyzing){const status=document.createElement('span');status.textContent=data.status;message.append(status);}
+   if(reveal){const text=document.createElement('span');text.textContent='NSFW / 未分级';const revealButton=document.createElement('span');revealButton.dataset.reveal='';revealButton.setAttribute('role','button');revealButton.tabIndex=0;revealButton.textContent='显示预览';revealButton.onclick=event=>{event.stopPropagation();send({type:'reveal',id:data.id});};revealButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();send({type:'reveal',id:data.id});}};message.append(text,revealButton);}
   }
 }
 function context(data,x,y){if(ringEntry)finishRing();if(batch||Math.abs(data.index-pos)<.5)send({type:'context',id:data.id,x,y});}
@@ -434,13 +443,19 @@ window.chrome.webview.addEventListener('message',event=>{
 
  }
  current=state.index;lastWindow=state.index;const first=!initialized,wasEmpty=count===0;count=state.count;if(first){design=state.design;initialized=true;}document.documentElement.style.colorScheme=state.theme;document.body.style.background=state.background;deck.style.setProperty('--g-surface',state.background);document.body.classList.toggle('ready',state.motion);
+ const restoreRingFocus=ringKeyboardTarget!==null&&deck.contains(document.activeElement);
  const ids=new Set(state.cards.map(card=>card.id));for(const [id,entry] of cards)if(!ids.has(id)){entry.element.remove();cards.delete(id);}
  for(const data of state.cards){
   let entry=cards.get(data.id);
   if(!entry){
    const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
-   const art=document.createElement('img');art.className='g-art';art.alt='';const message=document.createElement('div');message.className='message';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';card.append(art,message,check,name);
+   const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';card.append(art,veil,message,spin,check,name);
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
+   card.addEventListener('focus',()=>{
+    if(batch||!active||!interactive||!card.matches(':focus-visible')||Math.abs(goal-entry.data.index)<.001)return;
+    // Tab 到旁侧卡片时，圆环目标也跟随键盘焦点；确认键始终指向同一张。
+    hostScroll=false;scrollSettle=true;beginMotion();goal=entry.data.index;mode='spring';wake();
+   });
    card.onclick=()=>{if(!interactive)return;if(ringEntry)finishRing();send({type:'select',id:entry.data.id});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
    card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
   }
@@ -469,12 +484,20 @@ window.chrome.webview.addEventListener('message',event=>{
  else{goal=Math.max(0,Math.min(count-1,goal));pos=Math.max(0,Math.min(count-1,pos));}
  if(active&&!batch&&motion&&count>0&&(first||resuming||leaving||wasEmpty))startRing();
  render();
+ focusRingKeyboardTarget(restoreRingFocus);
  if(batch&&resized&&!entering){const g=gridGeometry();gridRange='';gridSpace.style.height=(g.pad*2+Math.ceil(count/g.cols)*(g.height+g.gap)-g.gap)+'px';deck.scrollTop=Math.floor(anchor/g.cols)*(g.height+g.gap);queueGrid();}
  if(entering&&motion)startDeal(snapshot);
  if(active&&(first||resuming||leaving||wasEmpty)&&!batch&&!ringEntry)send({type:'settled',index:state.index});
 });
 // 阻尼滚动：滚轮只累加目标位置，位置和速度用临界阻尼弹簧逐帧跟随（参数照搬 Flex Carousel），
 // 停手 150ms 后吸附到最近一张；不再把一次滚动拆成一堆离散步，所以不会滑很久。
+// 新窗口的数据异步抵达后，把键盘焦点落到同一张目标卡片；鼠标操作取消待恢复焦点。
+function focusRingKeyboardTarget(restoreFocus=false){
+ if(ringKeyboardTarget===null||!active||batch||(!restoreFocus&&!deck.contains(document.activeElement)))return;
+ const target=[...cards.values()].find(entry=>entry.data.index===ringKeyboardTarget);
+ if(target){target.element.focus({preventScroll:true});ringKeyboardTarget=null;}
+}
+document.addEventListener('pointerdown',()=>{ringKeyboardTarget=null;},true);
 function wake(){if(active&&!raf){lastT=performance.now();raf=requestAnimationFrame(frame);}}
 function frame(now){
  raf=0;
@@ -622,11 +645,22 @@ deck.addEventListener('keydown',event=>{
   const next=Math.max(0,Math.min(count-1,entry.data.index+step));
   const target=[...cards.values()].find(item=>item.data.index===next);if(target){target.element.focus({preventScroll:true});target.element.scrollIntoView({block:'nearest'});}return;
  }
+ if(!interactive||!active||count===0)return;
+ if(event.key==='Enter'||event.key===' '){
+  if(!event.target.closest('.g-photo')||event.target.closest('[data-reveal]'))return;
+  event.preventDefault();
+  // 按当前圆环目标确认，不能让旧按钮的默认 click 选回上一张。
+  send({type:'settled',index:Math.max(0,Math.min(count-1,Math.round(goal)))});
+  return;
+ }
  if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
  event.preventDefault();
  hostScroll=false;scrollSettle=true;beginMotion();
  const next=Math.max(0,Math.min(count-1,Math.round(goal)+(event.key==='ArrowDown'?1:-1)));
- goal=next;mode='spring';wake();
+ goal=next;mode='spring';
+ ringKeyboardTarget=next;
+ lastWindow=next;send({type:'window',index:next});
+ focusRingKeyboardTarget();wake();
 });
 for(const key of ['overlap','size','angle','scale','drag']){const input=document.getElementById(key);input.oninput=()=>{design[key]=key==='scale'||key==='drag'?Number(input.value)/100:Number(input.value);settings();render();};input.onchange=()=>send({type:'configure',...design});}
 for(const radio of document.querySelectorAll('input[name=ease]'))radio.onchange=()=>{design.ease=radio.value;render();send({type:'configure',...design});};

@@ -458,7 +458,7 @@ public sealed class TagEditorDialog
         if (targets.Count == 0) return;   // 没入库的图：加载时已经写进提示行
 
         var dir = AppService.Settings.Settings.nsfw_model_dir;
-        if (!NsfwScorer.LooksConfigured(dir))
+        if (!PixaiScorer.LooksConfigured(dir))
         {
             const string message = "还没有选择识别模型";
             _modelHint.Text = message;
@@ -466,7 +466,13 @@ public sealed class TagEditorDialog
             return;
         }
 
-        var scorer = NsfwScorer.TryCreate(dir, out var error);
+        _running = true;
+        _syncButton.IsEnabled = false;
+        (PixaiScorer? Scorer, string Error) loaded;
+        try { loaded = await Task.Run(() => { var model = PixaiScorer.TryCreate(dir, out var message); return (model, message); }); }
+        finally { _running = false; _syncButton.IsEnabled = true; }
+        if (_closed) return;
+        var (scorer, error) = loaded;
         if (scorer is null)
         {
             const string message = "无法加载识别模型";
@@ -496,7 +502,7 @@ public sealed class TagEditorDialog
                     targets,
                     new ParallelOptions
                     {
-                        MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2),
+                        MaxDegreeOfParallelism = 1,
                         CancellationToken = token,
                     },
                     item =>
@@ -515,7 +521,7 @@ public sealed class TagEditorDialog
                                 return;
                             }
 
-                            var probs = scorer.Score(item.FullPath, token);
+                            var probs = scorer.Score(item.FullPath, token).Probs;
                             var detail = JsonSerializer.Serialize(new
                             {
                                 g = Math.Round(probs.G, 4),
@@ -560,7 +566,7 @@ public sealed class TagEditorDialog
 
     /// <summary>把模型结果挂起：整批一致就动芯片，不一致只在提示行写分布。</summary>
     private void ApplyRatings(
-        NsfwScorer scorer, List<(int ImageId, NsfwProbs Probs, string Detail)> scored, int failed,
+        PixaiScorer scorer, List<(int ImageId, NsfwProbs Probs, string Detail)> scored, int failed,
         string? firstError)
     {
         if (_ratingTouched)

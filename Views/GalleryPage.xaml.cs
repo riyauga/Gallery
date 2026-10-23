@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Graphics.Imaging;
 using Gallery.Controls;
 using Gallery.Models;
 using Gallery.Services;
@@ -64,6 +66,9 @@ public sealed partial class GalleryPage : UserControl
 
     /// <summary>删除/重命名/移动真正开始前触发（查看器用来释放视频文件句柄）。</summary>
     public event Action? FileOperationStarting;
+
+    /// <summary>应用内拖拽携带的图片 ID（逗号分隔）；外部目标仍走 CF_HDROP 复制语义。</summary>
+    public const string DragImageIdsFormat = "Gallery.DragImageIds";
 
     /// <summary>当前结果集快照（查看器翻页/标签刷新共用）。</summary>
     public IReadOnlyList<PhotoItem> CurrentItems => _items;
@@ -146,29 +151,26 @@ public sealed partial class GalleryPage : UserControl
             if (IsLoaded) Rebuild();
         };
 
+        Root.GotFocus += (_, _) =>
+        {
+            if (FocusManager.GetFocusedElement(XamlRoot) is UIElement focused
+                && focused.FocusState == FocusState.Keyboard && HasContentKeyboardFocus(focused))
+                _showKeyboardFocus = true;
+            SyncSelection();
+        };
+        Root.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(SyncSelection);
         WireCommandBarFlyouts();
     }
 
     /// <summary>
-    /// 对齐 Photos 的点按体验：①工具栏按钮与菜单项都不画系统焦点框（原来点开菜单会把焦点框
-    /// 锁在第一个菜单项上、关掉后又锁回按钮）；②各二级菜单与「更多」溢出菜单互斥，同时只挂一个。
+    /// 各二级菜单与「更多」溢出菜单互斥，同时只挂一个；保留原生键盘焦点视觉。
     /// </summary>
     private void WireCommandBarFlyouts()
     {
-        foreach (var button in new FrameworkElement[]
-        {
-            SelectButton, DeleteButton, MoveCopyButton, ShareButton,
-            SortButton, FilterButton, LayoutButton, SelectAllButton, SelectNoneButton,
-        })
-        {
-            button.UseSystemFocusVisuals = false;
-        }
-
         var flyouts = new[] { SortButton.Flyout, FilterButton.Flyout, LayoutButton.Flyout, MoveCopyButton.Flyout };
         foreach (var flyout in flyouts)
         {
             if (flyout is null) continue;
-            foreach (var item in EnumerateMenuItems(flyout)) item.UseSystemFocusVisuals = false;
             var current = flyout;
             current.Opened += (_, _) =>
             {
@@ -184,19 +186,6 @@ public sealed partial class GalleryPage : UserControl
         {
             foreach (var flyout in flyouts) flyout?.Hide();
         };
-    }
-
-    private static IEnumerable<MenuFlyoutItemBase> EnumerateMenuItems(FlyoutBase flyout)
-    {
-        if (flyout is not MenuFlyout menu) yield break;
-        foreach (var item in menu.Items)
-        {
-            yield return item;
-            if (item is MenuFlyoutSubItem sub)
-            {
-                foreach (var child in sub.Items) yield return child;
-            }
-        }
     }
 
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
@@ -433,7 +422,7 @@ public sealed partial class GalleryPage : UserControl
     {
         tile.SelectMode = _selectMode;
         tile.Selected = _selected.Contains(SelectionId(item));
-        tile.KeyboardFocused = _showKeyboardFocus && _keyboardFocusId == SelectionId(item);
+        tile.KeyboardFocused = ShowKeyboardFocus && _keyboardFocusId == SelectionId(item);
         if (tile.EventsWired) return;
         tile.EventsWired = true;
         tile.ThumbnailInvalidated += ScheduleViewport;
@@ -484,7 +473,8 @@ public sealed partial class GalleryPage : UserControl
         return true;
     }
 
-    /// <summary>拖拽外发：文件 URI 交给系统（CF_HDROP），复制语义防同盘搬移。</summary>
+    /// <summary>拖拽外发：文件 URI 交给系统（CF_HDROP），复制语义防同盘搬移；
+    /// 同时带上图片 ID，供侧栏目录在应用内识别为移动。</summary>
     private async System.Threading.Tasks.Task StartDragOutAsync(PhotoTile tile, Microsoft.UI.Input.PointerPoint start)
     {
         int id = SelectionId(tile.Item);
@@ -523,16 +513,58 @@ public sealed partial class GalleryPage : UserControl
             return;
         }
 
+        // 跟手缩略图（96px）而不是整张卡片，避免拖动时挡住目标位置。
+        var dragVisual = await BuildDragVisualAsync(items[0]);
+
         // StartDragAsync 使用 DragStarting 的数据包；局部创建的 DataPackage 不会交给系统。
         void OnDragStarting(UIElement sender, DragStartingEventArgs args)
         {
             args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
             args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
             args.Data.SetStorageItems(storageFiles);
+            var dragIds = items.Where(it => it.ImageId > 0).Select(it => it.ImageId).Distinct().ToArray();
+            if (dragIds.Length > 0)
+                args.Data.SetData(DragImageIdsFormat, string.Join(",", dragIds));
+            if (dragVisual is not null)
+            {
+                try
+                {
+                    args.DragUI.SetContentFromSoftwareBitmap(dragVisual,
+                        new Windows.Foundation.Point(dragVisual.PixelWidth / 2.0, dragVisual.PixelHeight / 2.0));
+                }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException
+                    or ObjectDisposedException)
+                {
+                    AppService.DebugLog("drag visual failed: " + ex.Message);
+                }
+            }
         }
         tile.DragStarting += OnDragStarting;
         try { await tile.StartDragAsync(start); }
-        finally { tile.DragStarting -= OnDragStarting; }
+        finally
+        {
+            tile.DragStarting -= OnDragStarting;
+            dragVisual?.Dispose();
+        }
+    }
+
+    /// <summary>解码一张 96px 缩略图给系统拖拽层；失败时退回系统默认拖拽外观。</summary>
+    private static async Task<SoftwareBitmap?> BuildDragVisualAsync(PhotoItem item)
+    {
+        try
+        {
+            var preview = await ImageLoader.LoadThumbnailAsync(item, 96, ImageLoader.BlurStrength(item),
+                CancellationToken.None);
+            if (preview is not WriteableBitmap bitmap) return null;
+            return SoftwareBitmap.CreateCopyFromBuffer(bitmap.PixelBuffer, BitmapPixelFormat.Bgra8,
+                bitmap.PixelWidth, bitmap.PixelHeight, BitmapAlphaMode.Premultiplied);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException
+            or UnauthorizedAccessException or ArgumentException or InvalidOperationException
+            or System.Runtime.InteropServices.COMException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -579,7 +611,7 @@ public sealed partial class GalleryPage : UserControl
     {
         _active = active;
         ImageLoader.SetGalleryActive(active);
-        if (!active) return;
+        if (!active) { SyncSelection(); return; }
         RefreshTileBindings();
         if (_rebuildPending) RebuildKeepScroll();
         else ScheduleViewport();
@@ -808,7 +840,9 @@ public sealed partial class GalleryPage : UserControl
     {
         bool ctrl = IsCtrlDown(), shift = IsShiftDown();
         bool arrow = e.Key is VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down;
-        if ((arrow || e.Key == VirtualKey.Space) && !contentFocus) return;
+        if ((arrow || e.Key is VirtualKey.Space or VirtualKey.Enter or VirtualKey.Delete or VirtualKey.F2 or VirtualKey.F3)
+            && !contentFocus) return;
+        if (ctrl && !arrow && e.Key is not (VirtualKey.A or VirtualKey.C)) return;
         if (!(arrow || e.Key is VirtualKey.Space or VirtualKey.Enter or VirtualKey.Delete or VirtualKey.F2 or VirtualKey.F3
             || ctrl && e.Key is VirtualKey.A or VirtualKey.C)) return;
         if (_items.Count == 0) return;
@@ -839,7 +873,7 @@ public sealed partial class GalleryPage : UserControl
         switch (e.Key)
         {
             case VirtualKey.A when ctrl:
-                SelectAll_Click(this, new RoutedEventArgs());
+                SelectAll();
                 _selectionAnchorId ??= _keyboardFocusId;
                 break;
             case VirtualKey.Space:
@@ -1094,12 +1128,23 @@ public sealed partial class GalleryPage : UserControl
         return Panel.TransformToVisual(null).TransformBounds(Panel.Rects[index]);
     }
 
+    private bool ShowKeyboardFocus => _active && _showKeyboardFocus && XamlRoot is not null
+        && HasContentKeyboardFocus(FocusManager.GetFocusedElement(XamlRoot) as DependencyObject);
+
+    /// <summary>鼠标输入隐藏键盘定位框，保留图片身份及选区。</summary>
+    public void HideKeyboardFocus()
+    {
+        _showKeyboardFocus = false;
+        SyncSelection();
+    }
+
     private void SyncSelection()
     {
+        bool showFocus = ShowKeyboardFocus;
         foreach (var tile in Panel.Children.OfType<PhotoTile>())
         {
             tile.Selected = _selected.Contains(SelectionId(tile.Item));
-            tile.KeyboardFocused = _showKeyboardFocus && _keyboardFocusId == SelectionId(tile.Item);
+            tile.KeyboardFocused = showFocus && _keyboardFocusId == SelectionId(tile.Item);
         }
         UpdateHeader();
     }
@@ -1145,6 +1190,9 @@ public sealed partial class GalleryPage : UserControl
                 var t = Panel.Children.OfType<PhotoTile>().FirstOrDefault(x => x.Item == item);
                 if (t is not null) OpenPreview(t);
             }));
+        // 「选择」是进入多选的入口；已经在多选里时不再出现。
+        if (includeOpen && !_selectMode)
+            menu.Items.Add(Item("选择", "\uE73E", () => SelectFromMenu(item)));
         // 收藏夹：整批套用同一动作——全都没收藏（含混合）就全部收藏，已收藏的跳过；全都收藏了就全部移出
         bool allFavorited = items.All(x => x.Favorite);
         menu.Items.Add(Item(allFavorited ? "从收藏夹中移除" : "添加到收藏夹", allFavorited ? "\uEB52" : "\uEB51", () =>
@@ -1173,6 +1221,9 @@ public sealed partial class GalleryPage : UserControl
                 Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
                 ToastRequested?.Invoke("已复制路径");
             }));
+            // 视频不能做桌面壁纸；非图片格式由系统判定，失败会提示。
+            if (!item.IsVideo)
+                menu.Items.Add(Item("设置为桌面背景", "\uE91B", () => SetWallpaper(item)));
         }
         menu.Items.Add(Item("复制/移动", "\uE8DE", () => _ = CopyMoveAsync(ids)));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -1235,6 +1286,22 @@ public sealed partial class GalleryPage : UserControl
         {
             SendToast($"这张图读不出来，复制失败：{ex.Message}", Gallery.Controls.ToastKind.Pending);
         }
+    }
+
+    /// <summary>SystemParametersInfo 设置桌面背景；超过 20 MB 时只提示、不提交。</summary>
+    private void SetWallpaper(PhotoItem item)
+    {
+        if (item.FileSize > WallpaperService.MaxBytes)
+        {
+            SendToast("图片超过 20 MB，未设置为桌面背景", Gallery.Controls.ToastKind.Pending);
+            return;
+        }
+        if (WallpaperService.TrySet(item.FullPath, out var error))
+        {
+            SendToast("已设置为桌面背景", Gallery.Controls.ToastKind.Success);
+            return;
+        }
+        SendToast("设置桌面背景失败：" + error, Gallery.Controls.ToastKind.Pending);
     }
 
     /// <summary>删除选中（回收站 + 二次确认，取消为默认，红 #ff99a4）。</summary>
@@ -1367,6 +1434,51 @@ public sealed partial class GalleryPage : UserControl
         if (move) Rebuild();
     }
 
+    /// <summary>侧栏目录拖放：二次确认后批量移动到该目录；返回是否真的移动了项目。</summary>
+    public async Task<bool> MoveImagesToFolderAsync(IReadOnlyList<int> ids, string directory, string displayName)
+    {
+        var targets = ids.Where(id => id > 0).Distinct().ToList();
+        if (targets.Count == 0) return false;
+        var confirm = new ContentDialog
+        {
+            Title = "移动",
+            Content = $"将 {targets.Count} 个项目移动到「{displayName}」？\n{directory}",
+            PrimaryButtonText = "移动",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+        if (await Gallery.Services.DialogService.ShowAsync(confirm) != ContentDialogResult.Primary)
+            return false;
+
+        FileOperationStarting?.Invoke();
+        var (count, firstError) = await RunFileOperationAsync(() =>
+        {
+            lock (AppService.DbLock)
+            {
+                try
+                {
+                    var (done, errors) = FileActions.MoveImages(AppService.Store!, targets, directory);
+                    return (done.Count, errors.Count > 0 ? errors[0] : null);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                    or InvalidOperationException)
+                {
+                    return (0, ex.Message);
+                }
+                finally { AppService.Recount(); }
+            }
+        });
+        if (count > 0) Rebuild();
+        if (firstError is not null)
+            SendToast($"移动失败：{firstError}", Gallery.Controls.ToastKind.Pending);
+        else if (count == 0)
+            SendToast("这些项目已经在目标文件夹中", Gallery.Controls.ToastKind.Info);
+        else
+            SendToast($"已移动 {count} 个项目", Gallery.Controls.ToastKind.Success);
+        return count > 0;
+    }
+
     private List<int> SelectedIds()
         => SelectedItems().Where(item => item.ImageId > 0).Select(item => item.ImageId).ToList();
 
@@ -1379,6 +1491,17 @@ public sealed partial class GalleryPage : UserControl
         };
         mi.Click += (_, _) => action();
         return mi;
+    }
+
+    /// <summary>右键「选择」：进入多选，并只选中当前这张。</summary>
+    private void SelectFromMenu(PhotoItem item)
+    {
+        int id = SelectionId(item);
+        SetSelectMode(true);
+        _selected.Clear();
+        _selected.Add(id);
+        _selectionAnchorId = id;
+        SyncSelection();
     }
 
     /// <summary>photos 选择模式：工具栏「选择」进入（勾选框常显、单击=选中），
@@ -1427,11 +1550,12 @@ public sealed partial class GalleryPage : UserControl
         return true;
     }
 
-    private void SelectAll_Click(object sender, RoutedEventArgs e)
+    private void SelectAll_Click(object sender, RoutedEventArgs e) => SelectAll();
+
+    private void SelectAll()
     {
         SetSelectMode(true);
         _selected.UnionWith(_items.Select(SelectionId));
-        Root.Focus(FocusState.Keyboard);
         SyncSelection();
     }
 

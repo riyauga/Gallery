@@ -10,12 +10,13 @@
     xmlns:controls="using:Gallery.Controls"
     Background="#CC000000"
     IsTabStop="True"
+    TabFocusNavigation="Cycle"
     KeyDown="OnKeyDown"
     Tapped="OnBackgroundTapped"
     Visibility="Collapsed">
 
     <Grid.Resources>
-        <!--  沉浸式顶栏按钮：透明底、无系统焦点框（Photos 点按不画焦点环）  -->
+        <!--  沉浸式顶栏按钮：透明底，键盘使用原生焦点提示  -->
         <Style x:Key="TopBarButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="30" />
@@ -23,7 +24,17 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+        </Style>
+        <!--  视频播放条按钮：比顶栏略大，透明底，白色图标  -->
+        <Style x:Key="VideoBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
         </Style>
     </Grid.Resources>
 
@@ -104,9 +115,9 @@
                 <FontIcon FontSize="22" Foreground="White" Glyph="&#xE711;" />
             </Button>
 
-            <!--  底部缩放条悬停区：只在鼠标移到底部中间这一带时浮出，其余时间自动隐藏
+            <!--  底部缩放条悬停区：鼠标悬停或键盘 Tab 进入时浮出，持有焦点时保留
                   （Photos 的证据是 ContentViewModel.PointerMoved + GetBottomBarRowHeight(fullscreen)
-                  驱动底栏显隐；原实现是 PointerMoved 后自动淡出，这里按用户要求收紧为悬停才显示）  -->
+                  驱动底栏显隐；鼠标移出且无焦点、下拉或拖动占用时收起）  -->
             <Border
                 x:Name="ZoomBarHost"
                 Height="96"
@@ -232,6 +243,208 @@
                     </Button>
                 </StackPanel>
                 </Border>
+            </Border>
+
+            <!--  视频播放条：左侧播放/暂停 + 下一个视频，右侧音量/设置/全屏；
+                  画面比例、播放速度、投屏收进设置菜单；进度与时间保留在按钮上方。  -->
+            <Border
+                x:Name="VideoBar"
+                Margin="12,0,12,10"
+                Padding="10,7"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                Background="#CC1C1C1C"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                CornerRadius="8"
+                RightTapped="VideoBar_RightTapped"
+                Visibility="Collapsed">
+                <Grid RowSpacing="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid
+                        Grid.Row="0"
+                        Margin="4,0"
+                        ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="42" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            x:Name="VideoElapsedText"
+                            VerticalAlignment="Center"
+                            FontSize="11"
+                            Foreground="#B3FFFFFF"
+                            Text="0:00"
+                            TextAlignment="Right" />
+                        <Slider
+                            x:Name="VideoSeekSlider"
+                            Grid.Column="1"
+                            Height="22"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="播放进度"
+                            Maximum="1"
+                            Minimum="0"
+                            StepFrequency="0.1"
+                            PointerCaptureLost="VideoSeekSlider_PointerCaptureLost"
+                            PointerPressed="VideoSeekSlider_PointerPressed"
+                            PointerReleased="VideoSeekSlider_PointerReleased"
+                            ValueChanged="VideoSeekSlider_ValueChanged" />
+                        <TextBlock
+                            x:Name="VideoDurationText"
+                            Grid.Column="2"
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="11"
+                            Foreground="#B3FFFFFF"
+                            Text="0:00"
+                            TextAlignment="Left" />
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,2,0,0">
+                        <StackPanel
+                            HorizontalAlignment="Left"
+                            Orientation="Horizontal"
+                            Spacing="2">
+                            <Button
+                                x:Name="VideoPlayPauseButton"
+                                AutomationProperties.Name="播放/暂停"
+                                Click="VideoPlayPause_Click"
+                                Style="{StaticResource VideoBarButtonStyle}"
+                                ToolTipService.ToolTip="播放">
+                                <FontIcon
+                                    x:Name="VideoPlayPauseIcon"
+                                    FontSize="18"
+                                    Glyph="&#xE768;" />
+                            </Button>
+                            <Button
+                                x:Name="VideoNextButton"
+                                AutomationProperties.Name="下一个视频"
+                                Click="VideoNext_Click"
+                                Style="{StaticResource VideoBarButtonStyle}"
+                                ToolTipService.ToolTip="下一个视频">
+                                <FontIcon FontSize="18" Glyph="&#xE893;" />
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="2">
+                            <Button
+                                x:Name="VideoVolumeButton"
+                                AutomationProperties.Name="音量"
+                                Style="{StaticResource VideoBarButtonStyle}"
+                                ToolTipService.ToolTip="音量">
+                                <Button.Flyout>
+                                    <Flyout Placement="Top">
+                                        <StackPanel Width="40" Spacing="8">
+                                            <TextBlock
+                                                Margin="0,2,0,0"
+                                                FontSize="13"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                HorizontalAlignment="Center"
+                                                Text="音量" />
+                                            <Slider
+                                                x:Name="VideoVolumeSlider"
+                                                Width="34"
+                                                Height="220"
+                                                HorizontalAlignment="Center"
+                                                AutomationProperties.Name="音量"
+                                                Maximum="100"
+                                                Minimum="0"
+                                                Orientation="Vertical"
+                                                StepFrequency="1"
+                                                ValueChanged="VideoVolumeSlider_ValueChanged" />
+                                        </StackPanel>
+                                    </Flyout>
+                                </Button.Flyout>
+                                <FontIcon
+                                    x:Name="VideoVolumeIcon"
+                                    FontSize="18"
+                                    Glyph="&#xE767;" />
+                            </Button>
+                            <Button
+                                x:Name="VideoSettingsButton"
+                                AutomationProperties.Name="视频设置"
+                                Style="{StaticResource VideoBarButtonStyle}"
+                                ToolTipService.ToolTip="设置">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="Top">
+                                        <MenuFlyoutSubItem Text="画面比例">
+                                            <RadioMenuFlyoutItem
+                                                x:Name="VideoFitItem"
+                                                Click="VideoFit_Click"
+                                                GroupName="VideoAspect"
+                                                IsChecked="True"
+                                                Text="适应窗口" />
+                                            <RadioMenuFlyoutItem
+                                                x:Name="VideoFillItem"
+                                                Click="VideoFill_Click"
+                                                GroupName="VideoAspect"
+                                                Text="填满窗口" />
+                                        </MenuFlyoutSubItem>
+                                        <MenuFlyoutSubItem Text="播放速度">
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                Tag="0.5"
+                                                Text="0.5×" />
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                Tag="0.75"
+                                                Text="0.75×" />
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                IsChecked="True"
+                                                Tag="1"
+                                                Text="1.0×" />
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                Tag="1.25"
+                                                Text="1.25×" />
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                Tag="1.5"
+                                                Text="1.5×" />
+                                            <RadioMenuFlyoutItem
+                                                Click="VideoSpeed_Click"
+                                                GroupName="VideoSpeed"
+                                                Tag="2"
+                                                Text="2.0×" />
+                                        </MenuFlyoutSubItem>
+                                        <MenuFlyoutSeparator />
+                                        <MenuFlyoutItem Click="VideoCast_Click" Text="投放到设备">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xEC15;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                                <FontIcon FontSize="18" Glyph="&#xE713;" />
+                            </Button>
+                            <Button
+                                x:Name="VideoFullscreenButton"
+                                AutomationProperties.Name="全屏"
+                                Click="VideoFullscreen_Click"
+                                Style="{StaticResource VideoBarButtonStyle}"
+                                ToolTipService.ToolTip="全屏">
+                                <FontIcon
+                                    x:Name="VideoFullscreenIcon"
+                                    FontSize="18"
+                                    Glyph="&#xE740;" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
             </Border>
 
             <!--  全屏沉浸式顶栏：只在指针移到顶部时浮出。

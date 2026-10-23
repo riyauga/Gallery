@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
 
@@ -1669,6 +1669,111 @@ public sealed class StoreService : IDisposable
             write.Parameters.AddWithValue("$id", id);
             return write.ExecuteNonQuery() > 0;
         }
+    }
+
+    /// <summary>把模型角色/作品/类型补进待审核 payload；只在记录仍是 pending 时写，保留用户并发编辑。</summary>
+    public bool ApplyIngestModelTags(int id, string character, string work,
+        IReadOnlyList<string> kinds, bool applyCharacter, bool applyWork, bool applyKind,
+        bool applyRatingTag, string modelName, string modelHash, double characterScore, PixaiScore? pixai = null)
+    {
+        lock (SyncRoot)
+        {
+            string state, payload;
+            using (var read = _conn.CreateCommand())
+            {
+                read.CommandText = "SELECT state,payload FROM ingest_queue WHERE id=$id";
+                read.Parameters.AddWithValue("$id", id);
+                using var reader = read.ExecuteReader();
+                if (!reader.Read()) return false;
+                state = reader.GetString(0);
+                payload = reader.GetString(1);
+            }
+            if (state != "pending") return false;
+
+            string updated;
+            try
+            {
+                updated = IngestReview.WithModelTags(payload, character, work, kinds,
+                    applyCharacter, applyWork, applyKind, applyRatingTag,
+                    modelName, modelHash, characterScore, pixai);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+            if (string.Equals(updated, payload, StringComparison.Ordinal)) return false;
+
+            using var write = _conn.CreateCommand();
+            write.CommandText = "UPDATE ingest_queue SET payload=$p WHERE id=$id AND state='pending'";
+            write.Parameters.AddWithValue("$p", updated);
+            write.Parameters.AddWithValue("$id", id);
+            return write.ExecuteNonQuery() > 0;
+        }
+    }
+
+    /// <summary>
+    /// 主动重新识别时把标签合并到已入库图片；默认只补空/追加，Overwrite 时用模型结果替换对应分类。
+    /// 模型没有给出角色时不会清空原角色，避免一次误判把人工标签洗掉。
+    /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public bool ApplyModelTagsToImage(int imageId, string character, string work,
+        IReadOnlyList<string> kinds, ModelTagOptions options)
+    {
+        if (!options.AnyTags) return false;
+        var pairs = CategorizedTags(imageId).ToList();
+        var changed = false;
+
+        if (options.Character && character.Length > 0)
+        {
+            var existing = pairs.Where(pair => pair.Category == "character").ToList();
+            if (options.Overwrite || existing.Count == 0)
+            {
+                if (options.Overwrite) pairs.RemoveAll(pair => pair.Category == "character");
+                if (!pairs.Any(pair => pair.Category == "character"
+                    && string.Equals(pair.Name, character, StringComparison.OrdinalIgnoreCase)))
+                {
+                    pairs.Add(("character", character));
+                    changed = true;
+                }
+            }
+        }
+
+        if (options.Work && work.Length > 0)
+        {
+            var existing = pairs.Where(pair => pair.Category == "work").ToList();
+            if (options.Overwrite || existing.Count == 0)
+            {
+                if (options.Overwrite) pairs.RemoveAll(pair => pair.Category == "work");
+                if (!pairs.Any(pair => pair.Category == "work"
+                    && string.Equals(pair.Name, work, StringComparison.OrdinalIgnoreCase)))
+                {
+                    pairs.Add(("work", work));
+                    changed = true;
+                }
+            }
+        }
+
+        if (options.Kind && kinds.Count > 0)
+        {
+            if (options.Overwrite)
+            {
+                pairs.RemoveAll(pair => pair.Category == "kind");
+                changed = true;
+            }
+            foreach (var kind in kinds)
+            {
+                if (kind.Length == 0) continue;
+                if (pairs.Any(pair => pair.Category == "kind"
+                    && string.Equals(pair.Name, kind, StringComparison.OrdinalIgnoreCase))) continue;
+                pairs.Add(("kind", kind));
+                changed = true;
+            }
+        }
+
+        if (!changed) return false;
+        SetCategorizedTags([imageId], pairs);
+        AppService.RequestCatalogAlign();
+        return true;
     }
 
     /// <summary>

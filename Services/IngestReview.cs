@@ -156,6 +156,37 @@ public static class IngestReview
         return root.ToJsonString();
     }
 
+    /// <summary>
+    /// 「AI分析」和归档前补跑的写回：标签与分级按模型结果落盘，画师、自定义和来源字段不动。
+    /// 调用方决定角色/作品是否顶替（模型没给结果就保留原值），这里只负责写入并打上已处理标记。
+    /// </summary>
+    public static string ApplyModelOverwrite(string payload, Dictionary<string, List<string>> tags,
+        string rating, PixaiScore score)
+    {
+        var root = JsonNode.Parse(payload) as JsonObject
+            ?? throw new JsonException("待归档记录不是 JSON 对象");
+        var reviewed = new JsonObject();
+        foreach (var category in Categories)
+            reviewed[category] = new JsonArray(tags[category].Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
+        root["review_tags"] = reviewed;
+        root["rating"] = rating;
+        if (rating.Length > 0) root["rating_source"] = "model";
+        var basics = root["basic_tags"] as JsonObject ?? new JsonObject();
+        basics["model_tags_checked"] = true;
+        basics["rating_checked"] = true;
+        basics["model_tags_model"] = score.ModelName;
+        basics["model_tags_hash"] = score.ModelHash;
+        basics["model_character"] = score.Character;
+        basics["model_character_score"] = Math.Round(score.CharacterScore, 3);
+        basics["model_work"] = score.Work;
+        basics["pixai_character_candidate"] = score.CharacterCandidate;
+        basics["pixai_character_score"] = Math.Round(score.CharacterScore, 3);
+        basics["pixai_work_candidate"] = score.WorkCandidate;
+        basics["pixai_work_score"] = Math.Round(score.WorkScore, 3);
+        root["basic_tags"] = basics;
+        return root.ToJsonString();
+    }
+
     /// <summary>标记「分级已处理过」，阻止后台模型在用户清空分级后又填回来。</summary>
     public static string WithRatingChecked(string payload)
     {
@@ -181,6 +212,118 @@ public static class IngestReview
         {
             return false;
         }
+    }
+
+    /// <summary>模型已经尝试过这条记录的角色/类型标签；用户之后手改也不会自动补回。</summary>
+    public static bool ModelTagsChecked(string payload)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("basic_tags", out var basics)
+                && basics.ValueKind == JsonValueKind.Object
+                && basics.TryGetProperty("model_tags_checked", out var checkedValue)
+                && checkedValue.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 把模型结果补进 review_tags：角色/作品只在原分类为空时补，类型去重追加；
+    /// 同时写入 model_tags_checked，保证同一条记录不会反复跑模型。
+    /// </summary>
+    public static string WithModelTags(string payload, string character, string work,
+        IReadOnlyList<string> kinds, bool applyCharacter, bool applyWork, bool applyKind,
+        bool applyRatingTag, string modelName, string modelHash, double characterScore, PixaiScore? pixai = null)
+    {
+        var root = JsonNode.Parse(payload) as JsonObject
+            ?? throw new JsonException("待归档记录不是 JSON 对象");
+        var tags = Tags(payload, RatingOf(payload));
+
+        var addedCharacter = false;
+        if (applyCharacter && character.Length > 0 && tags["character"].Count == 0)
+        {
+            tags["character"].Add(character);
+            addedCharacter = true;
+        }
+
+        var addedWork = false;
+        if (applyWork && work.Length > 0 && tags["work"].Count == 0)
+        {
+            tags["work"].Add(work);
+            addedWork = true;
+        }
+
+        if (applyKind)
+        {
+            foreach (var kind in kinds)
+            {
+                if (kind.Length > 0 && !tags["kind"].Contains(kind, StringComparer.OrdinalIgnoreCase))
+                    tags["kind"].Add(kind);
+            }
+        }
+
+        var reviewed = new JsonObject();
+        foreach (var category in Categories)
+            reviewed[category] = new JsonArray(tags[category]
+                .Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
+        root["review_tags"] = reviewed;
+
+        var basics = root["basic_tags"] as JsonObject ?? new JsonObject();
+        basics["model_tags_checked"] = true;
+        basics["rating_tag"] = applyRatingTag;
+        if (modelName.Length > 0) basics["model_tags_model"] = modelName;
+        if (modelHash.Length > 0) basics["model_tags_hash"] = modelHash;
+        if (addedCharacter)
+        {
+            basics["model_character"] = character;
+            basics["model_character_score"] = Math.Round(characterScore, 3);
+        }
+        if (addedWork) basics["model_work"] = work;
+        if (applyKind)
+        {
+            basics["model_kind"] = new JsonArray(kinds
+                .Where(kind => kind.Length > 0)
+                .Select(kind => (JsonNode?)JsonValue.Create(kind)).ToArray());
+        }
+        if (pixai is not null)
+        {
+            basics["pixai_model"] = pixai.ModelName;
+            basics["pixai_hash"] = pixai.ModelHash;
+            basics["pixai_character_candidate"] = pixai.CharacterCandidate;
+            basics["pixai_character_score"] = pixai.CharacterScore;
+            basics["pixai_work_candidate"] = pixai.WorkCandidate;
+            basics["pixai_work_score"] = pixai.WorkScore;
+        }
+        root["basic_tags"] = basics;
+
+        return root.ToJsonString();
+    }
+
+    /// <summary>导入时是否要把模型分级写成 SFW/NSFW 标签；旧 payload 默认写，保持原行为。</summary>
+    public static bool WantsRatingTag(string payload) => WantsRatingTag(payload, true);
+
+    /// <summary>没有导入时快照时使用调用方给的当前设置兜底。</summary>
+    public static bool WantsRatingTag(string payload, bool fallback)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            if (doc.RootElement.TryGetProperty("basic_tags", out var basics)
+                && basics.ValueKind == JsonValueKind.Object
+                && basics.TryGetProperty("rating_tag", out var value))
+            {
+                if (value.ValueKind == JsonValueKind.False) return false;
+                if (value.ValueKind == JsonValueKind.True) return true;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+        return fallback;
     }
 
     public static string RatingOf(string payload)

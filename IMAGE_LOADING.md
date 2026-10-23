@@ -1,4 +1,16 @@
-﻿# 图片加载实现与验证（2026-10-18）
+# 图片加载实现与验证（2026-10-18）
+
+标题栏与图库工具栏的焦点修正仅恢复原生按钮/菜单焦点视觉，移除手绘边框及强制键盘聚焦；图片卡片逻辑焦点仍按稳定 ID 保存；外框现在同时要求实际焦点留在图片内容区，鼠标按下或焦点离开即隐藏。收藏按钮在键盘聚焦时显示。图片几何、加载、缓存和解码流程不变。鼠标与键盘交替、菜单关闭返回焦点需人工核对，规则见 `UI_CONVENTIONS.md`。
+
+## PixAI 统一识别（2026-10-22）
+
+- 用途：导入补空分级／自动标签、图库重新识别与只读预览、待审核及标签编辑器的主动分级。仅适用于 PixAI v1.0 1008×1008 NCHW、概率输出的 ONNX 及配套 config.json；不兼容旧 WD 的 BGR 0–255 输入，不处理视频，不负责缩略图或查看器图片解码。
+- 公共 API：`PixaiScorer.LooksConfigured(dir)` 检查两个文件，`TryCreate(dir, out error)` 缓存并加载会话，`Score(path, token)` 一次返回 `PixaiScore` 的分级 `Probs`、可映射类型的 `Tags`、过线 `Character/Work`、最高候选及分数、模型名称和 SHA256。例如后台调用 `var result = scorer.Score(path, token);`，宿主按勾选选择写入分类。
+- 默认值：角色最高分 0.27、作品最高分 0.24、general/meta 类型 0.17；作品独立于角色命中。分级通过 `rating:g/s/q/e` 名称找下标，不假定输出顺序；保留既有单值判定策略。阈值和四类输出均不代表人工确认正确率，不自动输出画师。
+- 输入处理：透明合白底，浮点 RGB 按比例用 Triangle 缩放，居中黑色补到 1008，归一化到 [-1,1] 后按 NCHW 喂入。与独立试跑的 Pillow 浮点双线性实现存在细微分数差异，真实样本的角色／作品过线结论已抽样核对。
+- 生命周期与宿主职责：会话按模型／配置文件修改时间缓存，同一会话用可取消门闩串行推理，CPU 线程最多 12；不启用已失败的 DirectML 分支，不升级项目原 ONNX Runtime 依赖。批量逐图处理，不能持有数据库锁等待模型；取消在排队、读图前后和原生推理结束边界生效，不承诺中断一次正在执行的原生推理。模型加载放到后台，UI 只显示进度与错误。
+- 未启动应用，也未新增或运行测试。构建及既有真实模型诊断不替代拖拽导入、复选项持久化、只选作品／未选分级、预览应用、取消和大量图片内存表现的手动验收。
+
 
 ## 加载规范
 
@@ -37,7 +49,7 @@
 - 平均色从已加载像素采样，仅作为中性卡片底板上的 10% 局部染色，不直接填满画框；缺失时保留中性底板，不新增取色解码，也不用放大模糊底图。
 - 运行时不用 CSS `filter: blur()`；模糊来自预模糊/低清放大 + 亮度/遮罩。
 
-视频封面（mp4）不进入图片解码主路径：`ImageLoader.ReadPixelsAsync` 遇到 `IsVideo` 直接调用 `ThumbnailService.GetOrBuildVideo`，用 Windows Shell 的 `VideosView` 首帧转 WebP（沿用同一 `path|mtime|size|edge` 缓存键）；取不到时卡片显示胶片占位，绝不用 ImageSharp 解 mp4 本体。视频预览由 `VideoViewer`（`MediaPlayerElement`）接管，不走 `LoadPreviewAsync`，因此不参与预览解码预算和飞入变换。
+视频封面（mp4）不进入图片解码主路径：`ImageLoader.ReadPixelsAsync` 遇到 `IsVideo` 直接调用 `ThumbnailService.GetOrBuildVideo`，用 Windows Shell 的 `VideosView` 首帧转 WebP（沿用同一 `path|mtime|size|edge` 缓存键；Shell 的 `requestedSize` 上限为 1600，超过时统一按 1600 生成并归一到 1600 缓存键）；取不到时卡片显示胶片占位，绝不用 ImageSharp 解 mp4 本体。视频预览由 `VideoViewer`（`MediaPlayerElement`）接管，不走 `LoadPreviewAsync`，因此不参与预览解码预算和飞入变换。
 
 ## 当前实现
 

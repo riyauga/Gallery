@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Gallery.Models;
 using Gallery.Services;
@@ -63,8 +64,19 @@ public sealed class DetailPanel : Grid
 
         var editBtn = new Button { Content = "编辑分类标签", HorizontalAlignment = HorizontalAlignment.Stretch };
         editBtn.Click += (_, _) => { if (_item is not null) EditTagsRequested?.Invoke(_item); };
-        _openButton = new Button { Content = FileActions.OpenLabel(), HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 6, 0, 0) };
+        _openButton = new Button { Content = FileActions.OpenLabel(), HorizontalAlignment = HorizontalAlignment.Stretch };
         _openButton.Click += (_, _) => { if (_item is not null) OpenExternalRequested?.Invoke(_item); };
+
+        // 焦点在按钮上时图库不接管方向键，按钮自己也不消费 Up/Down，这里显式接上两者之间的切换。
+        var actions = new StackPanel
+        {
+            Spacing = 6,
+            XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Disabled,
+        };
+        actions.Children.Add(editBtn);
+        actions.Children.Add(_openButton);
+        MoveFocusOnVerticalArrow(editBtn, up: null, down: _openButton);
+        MoveFocusOnVerticalArrow(_openButton, up: editBtn, down: null);
 
         var infoHeader = new Grid();
         infoHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -98,8 +110,7 @@ public sealed class DetailPanel : Grid
                     _tagsHost,
                     BuildSourceHeader(),
                     _source,
-                    editBtn,
-                    _openButton,
+                    actions,
                 }
             }
         };
@@ -195,6 +206,21 @@ public sealed class DetailPanel : Grid
         Opacity = 0.7,
         VerticalAlignment = VerticalAlignment.Center,
     };
+
+    /// <summary>
+    /// Up/Down 在相邻操作按钮之间移动焦点。到边界时也把按键标记为已处理，
+    /// 否则会落到图库的图片焦点导航上，把选中的图换掉。
+    /// </summary>
+    private static void MoveFocusOnVerticalArrow(UIElement source, Control? up, Control? down)
+    {
+        source.KeyDown += (_, args) =>
+        {
+            if (args.Key is not (Windows.System.VirtualKey.Up or Windows.System.VirtualKey.Down)) return;
+            args.Handled = true;
+            var target = args.Key == Windows.System.VirtualKey.Up ? up : down;
+            target?.Focus(FocusState.Keyboard);
+        };
+    }
 
     /// <summary>「来源」标题 + 复制按钮（按钮紧跟标题右侧，只复制来源网址）。</summary>
     private StackPanel BuildSourceHeader()

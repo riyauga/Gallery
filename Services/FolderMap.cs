@@ -58,6 +58,30 @@ public sealed class FolderMap
         return map;
     }
 
+    /// <summary>真人图的顶层目录名（固定中文，不加入 managed_dirs，整理功能不会碰它）。</summary>
+    public const string RealPerson = "真人";
+    /// <summary>真人图 NSFW 子目录。</summary>
+    public const string RealPersonNsfw = "h";
+    /// <summary>真人图 SFW 子目录。</summary>
+    public const string RealPersonSfw = "n";
+
+    /// <summary>
+    /// 真人图的归档目录（相对根、正斜杠）：分级定 h/n，有画师再追一级；没有分级只到 真人。
+    /// 多画师与作品目录同样取字典序第一个。
+    /// </summary>
+    public static string RealPersonDirRel(string rating, IReadOnlyList<string> artists)
+    {
+        var sex = rating switch
+        {
+            "q" or "e" => RealPersonNsfw,
+            "g" or "s" => RealPersonSfw,
+            _ => "",
+        };
+        if (sex.Length == 0) return RealPerson;
+        var folder = artists.Count > 0 ? Sanitize(artists.OrderBy(n => n, StringComparer.Ordinal).First()) : "";
+        return folder.Length == 0 ? RealPerson + "/" + sex : RealPerson + "/" + sex + "/" + folder;
+    }
+
     /// <summary>该目录是否由标签接管（一级目录命中且不在 skip_dirs 里）。</summary>
     public bool IsManaged(string dirRel)
     {

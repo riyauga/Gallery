@@ -35,6 +35,17 @@ public sealed class AppSettings
     public string open_custom_exe { get; set; } = "";
     public bool auto_tag_from_folder { get; set; }
     public int auto_tag_depth { get; set; } = 1;
+    /// <summary>导入自动识别后要写入的标签类型；只影响待审核记录。</summary>
+    public bool import_tag_character { get; set; } = true;
+    public bool import_tag_work { get; set; } = true;
+    public bool import_tag_kind { get; set; } = true;
+    public bool import_tag_rating { get; set; } = true;
+    /// <summary>重新识别主动扫描时要写入的标签类型；默认只写分级，保持旧行为。</summary>
+    public bool rescan_tag_character { get; set; }
+    public bool rescan_tag_work { get; set; }
+    public bool rescan_tag_kind { get; set; }
+    /// <summary>重新识别时是否覆盖已有角色/作品/类型；默认只补空和追加。</summary>
+    public bool rescan_overwrite_tags { get; set; }
     public bool hide_sidecar { get; set; } = true;
     public bool watch_filesystem { get; set; } = true;
     public int thumb_quality { get; set; } = 82;
@@ -47,8 +58,14 @@ public sealed class AppSettings
     public bool auto_open_review { get; set; }
     public int review_poll_seconds { get; set; } = 5;
     public bool blur_nsfw { get; set; } = true;
+    /// <summary>统一 PixAI v1.0 模型目录；沿用旧配置键，需要 model.onnx + config.json。</summary>
     public string nsfw_model_dir { get; set; } = "";
+    /// <summary>识别执行设备：auto（先用 GPU，不可用回退 CPU）/ cpu / gpu。</summary>
+    public string nsfw_device { get; set; } = "auto";
+    /// <summary>重新识别的「分级」标签勾选；沿用旧键，默认写入 SFW/NSFW。</summary>
     public bool auto_nsfw_tag { get; set; } = true;
+    /// <summary>待审核图片自动补模型角色/作品/类型标签；只补空缺，不覆盖已有标签。</summary>
+    public bool auto_model_tags { get; set; }
     public string nsfw_model_signature { get; set; } = "";
     public string nsfw_display { get; set; } = "normal";
     public int nsfw_blur_strength { get; set; } = 100;

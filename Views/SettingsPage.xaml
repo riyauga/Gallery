@@ -16,6 +16,16 @@
     xmlns:controls="using:Gallery.Controls"
     Background="Transparent">
 
+    <UserControl.Resources>
+        <!-- 设置页选项按内容宽度排列，避免原生最小宽度撑大短标签之间的距离。 -->
+        <Style TargetType="RadioButton" BasedOn="{StaticResource DefaultRadioButtonStyle}">
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+    </UserControl.Resources>
+
     <Grid x:Name="SettingsRoot" Background="Transparent" IsTabStop="True" UseSystemFocusVisuals="False">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -255,7 +265,7 @@
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE7BA;" />
                         </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="14">
+                        <StackPanel Orientation="Horizontal" Spacing="24">
                             <RadioButton x:Name="NsfwNormalRadio" Content="正常显示" Tag="normal" Checked="NsfwDisplay_Checked" />
                             <RadioButton x:Name="NsfwBlurRadio" Content="模糊" Tag="blur" Checked="NsfwDisplay_Checked" />
                             <RadioButton x:Name="NsfwHideRadio" Content="隐藏" Tag="hide" Checked="NsfwDisplay_Checked" />
@@ -293,7 +303,7 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="选择模型所在的文件夹"
+                        Description="PixAI v1.0 · model.onnx 与 config.json 放在同一文件夹"
                         Header="识别模型">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8B7;" />
@@ -309,38 +319,141 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="识别后同步更新 SFW/NSFW 标签"
-                        Header="识别结果写入标签">
+                        Description="自动：先用显卡，跑不通回退 CPU"
+                        Header="识别设备">
                         <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8EC;" />
+                            <FontIcon FontSize="16" Glyph="&#xE945;" />
                         </ctc:SettingsCard.HeaderIcon>
-                        <ToggleSwitch x:Name="AutoNsfwTagToggle" Toggled="AutoNsfwTagToggle_Toggled" />
+                        <controls:SelectionDropDown
+                            x:Name="NsfwDeviceBox"
+                            MinWidth="120"
+                            SelectionChanged="NsfwDevice_SelectionChanged">
+                            <ComboBoxItem Content="自动" Tag="auto" />
+                            <ComboBoxItem Content="CPU" Tag="cpu" />
+                            <ComboBoxItem Content="GPU" Tag="gpu" />
+                        </controls:SelectionDropDown>
                     </ctc:SettingsCard>
 
-                    <ctc:SettingsCard
-                        Header="重新识别">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE895;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <Grid ColumnSpacing="8" MaxWidth="420">
+                    <!-- 多项识别配置使用分层卡片，避免把整组选项挤在 SettingsCard 右侧。 -->
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                        <Grid ColumnSpacing="16" RowSpacing="4">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="16" Glyph="&#xE8D4;" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                       AutomationProperties.HeadingLevel="Level3"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" Text="导入时自动识别" />
+                            <ToggleSwitch Grid.Column="2" x:Name="AutoModelTagsToggle"
+                                          MinWidth="0" VerticalAlignment="Center"
+                                          AutomationProperties.Name="导入时自动识别"
+                                          Toggled="AutoModelTagsToggle_Toggled" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                       Text="PixAI 一次识别，写入所选标签。已有角色、作品只补空，类型追加。" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                        Margin="0,12,0,0" Orientation="Horizontal" Spacing="24">
+                                <CheckBox x:Name="ImportTagCharacterCheck" Content="角色"
+                                          AutomationProperties.Name="导入识别：角色"
+                                          Checked="ImportTag_Changed" Unchecked="ImportTag_Changed" />
+                                <CheckBox x:Name="ImportTagWorkCheck" Content="作品"
+                                          AutomationProperties.Name="导入识别：作品"
+                                          Checked="ImportTag_Changed" Unchecked="ImportTag_Changed" />
+                                <CheckBox x:Name="ImportTagKindCheck" Content="类型"
+                                          AutomationProperties.Name="导入识别：类型"
+                                          Checked="ImportTag_Changed" Unchecked="ImportTag_Changed" />
+                                <CheckBox x:Name="ImportTagRatingCheck" Content="分级"
+                                          AutomationProperties.Name="导入识别：分级"
+                                          Checked="ImportTag_Changed" Unchecked="ImportTag_Changed" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                        <Grid ColumnSpacing="16" RowSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="NsfwScanText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Text="" MaxWidth="320" TextTrimming="CharacterEllipsis" />
-                            <Button Grid.Column="1" x:Name="NsfwPreviewButton" VerticalAlignment="Center" Click="NsfwPreview_Click" Content="预览" />
-                            <Button Grid.Column="2" x:Name="NsfwScanButton" VerticalAlignment="Center" Click="NsfwScan_Click" Content="开始识别" />
-                            <Button
-                                Grid.Column="3"
-                                VerticalAlignment="Center"
-                                x:Name="NsfwCancelButton"
-                                Click="NsfwCancel_Click"
-                                Content="取消"
-                                Visibility="Collapsed" />
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <FontIcon FontSize="16" Glyph="&#xE895;" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                       AutomationProperties.HeadingLevel="Level3"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" Text="重新识别" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="NsfwPreviewButton" VerticalAlignment="Center"
+                                        Click="NsfwPreview_Click" Content="预览" />
+                                <Button x:Name="NsfwScanButton" VerticalAlignment="Center"
+                                        Click="NsfwScan_Click" Content="开始识别" />
+                                <Button x:Name="NsfwCancelButton" VerticalAlignment="Center"
+                                        Click="NsfwCancel_Click" Content="取消" Visibility="Collapsed" />
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                       Text="扫描已入库图片，写入所选标签；可先预览结果。" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                        Margin="0,12,0,0" Orientation="Horizontal" Spacing="24">
+                                <CheckBox x:Name="RescanTagCharacterCheck" Content="角色"
+                                          AutomationProperties.Name="重新识别：角色"
+                                          Checked="RescanTag_Changed" Unchecked="RescanTag_Changed" />
+                                <CheckBox x:Name="RescanTagWorkCheck" Content="作品"
+                                          AutomationProperties.Name="重新识别：作品"
+                                          Checked="RescanTag_Changed" Unchecked="RescanTag_Changed" />
+                                <CheckBox x:Name="RescanTagKindCheck" Content="类型"
+                                          AutomationProperties.Name="重新识别：类型"
+                                          Checked="RescanTag_Changed" Unchecked="RescanTag_Changed" />
+                                <CheckBox x:Name="RescanTagRatingCheck" Content="分级"
+                                          AutomationProperties.Name="重新识别：分级"
+                                          Checked="RescanTag_Changed" Unchecked="RescanTag_Changed" />
+                            </StackPanel>
+                            <Grid Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+                                  Margin="0,8,0,0" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Style="{StaticResource CaptionTextBlockStyle}" Text="已有标签" />
+                                    <controls:SelectionDropDown x:Name="RescanWriteModeBox" MinWidth="180"
+                                                                AutomationProperties.Name="重新识别时已有标签的处理方式"
+                                                                SelectionChanged="RescanWriteMode_SelectionChanged">
+                                        <ComboBoxItem Content="只追加，不覆盖" Tag="append" />
+                                        <ComboBoxItem Content="覆盖角色/作品/类型" Tag="overwrite" />
+                                    </controls:SelectionDropDown>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" x:Name="NsfwScanText" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" Text="" TextWrapping="Wrap" />
+                            </Grid>
                         </Grid>
-                    </ctc:SettingsCard>
+                    </Border>
 
                     <ctc:SettingsCard
                         Header="最近错误">

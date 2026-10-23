@@ -15,6 +15,9 @@ public sealed class ThumbnailService
 {
     public const int CacheEdge = 512;
 
+    /// <summary>StorageFile.GetThumbnailAsync 的 requestedSize 上限；超过会抛 ArgumentException。</summary>
+    public const int MaxVideoCoverEdge = 1600;
+
     private readonly string _dir;
     private readonly int _quality;
     private static readonly Configuration ThumbnailConfiguration = CreateConfiguration();
@@ -80,6 +83,8 @@ public sealed class ThumbnailService
     /// </summary>
     public string? GetOrBuildVideo(string src, double mtime, long size, int edge = CacheEdge)
     {
+        // 卡片很大时上游会请求 2048/4096，但系统缩略图接口只接受 <=1600。
+        edge = Math.Clamp(edge, 1, MaxVideoCoverEdge);
         var dest = CachePath(src, mtime, size, edge);
         if (File.Exists(dest)) return dest;
         var data = BuildVideoCoverBytes(src, edge, _quality);

@@ -96,9 +96,11 @@ public sealed class NsfwPreviewDialog
             var changed = rows.Count(r => r.Changed);
             var toNsfw = rows.Count(r => r.Changed && r.IsNsfw);
             var toSafe = rows.Count(r => r.Changed && !r.IsNsfw);
+            var tagged = rows.Count(r => r.TagSummary.Length > 0);
             status.Text = $"共 {rows.Count} 张 · 分级会变 {changed} 张（变敏感 {toNsfw} · 变普通 {toSafe}）" +
+                          (tagged > 0 ? $" · 可写标签 {tagged} 张" : "") +
                           $" · 模型 {rows[0].ModelName}";
-            dialog.IsPrimaryButtonEnabled = changed > 0;
+            dialog.IsPrimaryButtonEnabled = changed > 0 || tagged > 0;
 
             foreach (var row in rows.OrderByDescending(r => r.Probs.NsfwProb).Take(200))
                 list.Children.Add(BuildRow(row));
@@ -121,8 +123,7 @@ public sealed class NsfwPreviewDialog
         await scan;
         if (ok != ContentDialogResult.Primary || rows.Count == 0) return false;
 
-        var tagIt = AppService.Settings.Settings.auto_nsfw_tag;
-        service.ApplyRows(rows, tagIt);
+        service.ApplyRows(rows);
         return true;
     }
 
@@ -139,8 +140,20 @@ public sealed class NsfwPreviewDialog
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        Grid.SetColumn(name, 0);
-        grid.Children.Add(name);
+        var nameStack = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        nameStack.Children.Add(name);
+        if (row.TagSummary.Length > 0)
+        {
+            nameStack.Children.Add(new TextBlock
+            {
+                Text = row.TagSummary,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 10,
+                Opacity = 0.65,
+            });
+        }
+        Grid.SetColumn(nameStack, 0);
+        grid.Children.Add(nameStack);
 
         var oldBadge = Badge(row.OldRating, "无");
         Grid.SetColumn(oldBadge, 1);
