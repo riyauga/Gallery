@@ -47,6 +47,45 @@ internal sealed class ReviewCarousel : Grid
     private readonly Dictionary<int, (string Payload, bool Analyzed)> _analysisCache = [];
     private int _gridFirst, _gridLast = 35;
     private string _gridSize = "medium";
+    private string? _tagTool;
+    private string _tagLabel = "";
+    private string _tagBg = "", _tagBorder = "", _tagInk = "";
+    private bool _dragMask;
+    private readonly HashSet<int> _tagMatches = [];
+    private int[] _rowOrder = [];
+    public event Action<IReadOnlyCollection<int>, bool, string>? TagStrokeRequested;
+    public event Action? ExitTagToolRequested;
+    public event Action<bool>? TagUndoRequested;
+
+    public void SetTagTool(string? tool, string label, IReadOnlyCollection<int> matches,
+        string bg = "", string border = "", string ink = "")
+    {
+        if (_tagTool == tool && _tagLabel == label && _tagMatches.SetEquals(matches)
+            && _tagBg == bg && _tagBorder == border && _tagInk == ink) return;
+        _tagTool = tool; _tagLabel = label; _tagBg = bg; _tagBorder = border; _tagInk = ink;
+        _tagMatches.Clear(); _tagMatches.UnionWith(matches);
+        PublishState();
+    }
+
+    public void CancelTagStroke()
+    {
+        if (_ready) _browser.CoreWebView2.PostWebMessageAsJson("{\"type\":\"cancelPaint\"}");
+    }
+
+    /// <summary>拖到回收阈值时给网页区补一层压暗：WebView2 会盖住原生遮罩，左栏只能由网页自己压暗。</summary>
+    public void SetDragMask(bool on)
+    {
+        if (_dragMask == on) return;
+        _dragMask = on;
+        if (_ready) _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "dragMask", on }, Json));
+    }
+
+    public void UpdateTagRows(IReadOnlyList<StoreService.PendingIngestRow> rows, bool refreshProtection)
+    {
+        _rows = rows;
+        PublishState();
+        if (refreshProtection) StartLoads();
+    }
     private bool _interactionEnabled = true;
     private bool _active = true, _initializing, _ready, _clearAllowed;
     private bool _frozen, _freezing, _freezeRequested;
@@ -136,6 +175,8 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetItems(IReadOnlyList<StoreService.PendingIngestRow> rows, int index)
     {
+        var order = rows.Select(row => row.Id).ToArray();
+        if (!_rowOrder.SequenceEqual(order)) { ++_viewGeneration; _rowOrder = order; }
         _rows = rows;
         _index = rows.Count == 0 ? 0 : Math.Clamp(index, 0, rows.Count - 1);
         if (_active && !ReferenceEquals(_prefetchedRows, rows))
@@ -255,6 +296,7 @@ internal sealed class ReviewCarousel : Grid
         _active = active;
         if (!active)
         {
+            SetDragMask(false);
             _settingsVisible = false;
             _settingsScroll.Visibility = Visibility.Collapsed;
             _settingsInteracting = false;
@@ -416,14 +458,14 @@ internal sealed class ReviewCarousel : Grid
             var source = preview?.Source ?? "";
             var changed = !_sentSources.TryGetValue(row.Id, out var sent) || !ReferenceEquals(source, sent);
             _sentSources[row.Id] = source;
-            return new { row.Id, Index = index, row.InboxName, Selected = _batchSelection.Contains(row.Id), Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
+            return new { row.Id, Index = index, row.InboxName, TagMatched = _tagMatches.Contains(row.Id), Selected = _batchSelection.Contains(row.Id), Src = changed ? source : null, Ratio = preview?.Ratio ?? 1,
                 Blocked = protectedNow, Placeholder = preview?.Placeholder ?? true, Status = preview?.Status ?? "正在加载…",
                 Analyzed = IsAnalyzed(row), Analyzing = _analyzing.Contains(row.Id),
                 Avg = preview?.Average ?? "" };
         }).ToArray();
         _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
-            type = "state", cards, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
+            type = "state", cards, tagTool = _tagTool, tagLabel = _tagLabel, tagBg = _tagBg, tagBorder = _tagBorder, tagInk = _tagInk, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
             index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,
             design = new { angle = _angle, overlap = _overlap, size = _size, scale = _scale, drag = _drag, ease = _ease, aspect = 16.0 / 9 },
             theme = ActualTheme == ElementTheme.Dark ? "dark" : "light",
@@ -657,6 +699,18 @@ internal sealed class ReviewCarousel : Grid
             }
             if (!_active) return;
             if (!message.TryGetProperty("viewGeneration", out var generation) || generation.GetInt32() != _viewGeneration) return;
+            if (type == "paint")
+            {
+                if (!_batchMode || !_interactionEnabled || _tagTool is null || message.GetProperty("tool").GetString() != _tagTool) return;
+                var phase = message.GetProperty("phase").GetString() ?? "";
+                if (phase is not ("start" or "end" or "cancel")) return;
+                var ids = message.GetProperty("indices").EnumerateArray().Select(value => value.GetInt32())
+                    .Where(index => index >= 0 && index < _rows.Count).Select(index => _rows[index].Id).Distinct().ToArray();
+                TagStrokeRequested?.Invoke(ids, message.GetProperty("remove").GetBoolean(), phase);
+                return;
+            }
+            if (type == "exitPaint") { ExitTagToolRequested?.Invoke(); return; }
+            if (type == "undoPaint") { TagUndoRequested?.Invoke(message.GetProperty("redo").GetBoolean()); return; }
             if (type == "clearSelection")
             {
                 if (_batchMode && _interactionEnabled) ClearSelectionRequested?.Invoke();

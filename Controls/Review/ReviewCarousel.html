@@ -2,7 +2,7 @@
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
-:root{color-scheme:dark;--g-panel:light-dark(#fff,#292929);--g-text:light-dark(#202020,#f2f2f2);--g-line:light-dark(#ddd,#414141);--g-accent:light-dark(#006cbe,#9ad7ff)}
+:root{color-scheme:dark;--g-panel:light-dark(#fff,#292929);--g-text:light-dark(#202020,#f2f2f2);--g-line:light-dark(#ddd,#414141);--g-accent:light-dark(#006cbe,#9ad7ff);--g-tag-bg:light-dark(#eee4fc,#4b395f);--g-tag-ink:light-dark(#472762,#f2e7ff);--g-tag-line:light-dark(#80639c,#c7a7e9)}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:var(--g-text);font:14px/1.5 'Segoe UI','Microsoft YaHei',sans-serif}
 button,input{font:inherit}button{color:inherit;border:1px solid var(--g-line);border-radius:6px;background:var(--g-panel);padding:9px 13px;cursor:pointer}button:focus-visible{outline:3px solid var(--g-accent);outline-offset:3px}
 #deck{position:relative;width:100%;height:100%;isolation:isolate;perspective:var(--g-perspective,1000px);perspective-origin:50% 50%;overflow:clip;touch-action:none;user-select:none}
@@ -49,7 +49,14 @@ img:not([src]),[hidden]{display:none!important}
 .ring-entering #deck .g-photo:not(.g-entered){visibility:hidden}
 #deal-layer{position:fixed;pointer-events:none;overflow:hidden;isolation:isolate;z-index:100}
 #selection-box{position:absolute;pointer-events:none;z-index:40;border:1px solid var(--g-accent);background:light-dark(#006cbe20,#9ad7ff25);display:none}
+.g-tag{display:none}.batch .g-tag:not([hidden]){display:block;position:absolute;right:8px;bottom:24px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--g-tag-bg);color:var(--g-tag-ink);border-radius:4px;padding:1px 5px;font-size:11px;z-index:6;pointer-events:none}
+.batch .g-tagged{outline:1px solid var(--g-tag-line);outline-offset:-2px}
+.g-fly-tag{position:fixed;z-index:160;pointer-events:none;font-size:11px;line-height:1.5;padding:1px 6px;border:1px solid var(--g-tag-line);border-radius:4px;background:var(--g-tag-bg);color:var(--g-tag-ink);white-space:nowrap;will-change:transform,opacity}
+body.tag-painting #deck *{cursor:inherit!important}
+#drag-mask{position:fixed;inset:0;z-index:80;background:#000;opacity:0;pointer-events:none;transition:opacity .12s ease}
+body.palette-dragging #drag-mask{opacity:.3}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
+<div id="drag-mask"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
 <label>整组图片大小<output id="size-value"></output><input id="size" type="range" min="50" max="95" step="1"></label>
@@ -223,6 +230,117 @@ function startDeal(snapshot){
  }
  dealFrame=requestAnimationFrame(prepare);
 }
+let tagTool=null,tagLabel='',tagBg='',tagBorder='',tagInk='',paintDrag=null,paintFrame=0,paintPending=null,flyCount=0,cursorKey='';
+function paintCursor(){
+ // Chromium 不接受 SVG 光标，用画布生成 PNG 再交给 cursor。
+ if(!tagTool||!batch){if(cursorKey){cursorKey='';deck.style.cursor='';}return;}
+ const fill=tagBg||'#eee4fc',line=tagBorder||'#80639c',key=fill+'|'+line;
+ if(key===cursorKey)return;
+ cursorKey=key;
+ const dpr=2,c=document.createElement('canvas');c.width=c.height=32*dpr;
+ const x=c.getContext('2d');x.scale(dpr,dpr);
+ const r=6,w=20,h=24;
+ x.beginPath();x.moveTo(3+r,3);x.arcTo(3+w,3,3+w,3+h,r);x.arcTo(3+w,3+h,3,3+h,r);x.arcTo(3,3+h,3,3,r);x.arcTo(3,3,3+w,3,r);x.closePath();
+ x.fillStyle=fill;x.fill();x.lineWidth=1.6;x.strokeStyle=line;x.stroke();
+ x.beginPath();x.arc(19,8,2,0,Math.PI*2);x.fillStyle=line;x.fill();
+ deck.style.cursor=`url("${c.toDataURL('image/png')}") 4 4, pointer`;
+}
+function flyTag(entry,remove,clientX,clientY){
+ if(flyCount>=40||!tagLabel)return;
+ const box=entry.element.getBoundingClientRect();
+ const from=remove?{x:box.left+box.width/2,y:box.top+box.height/2}:{x:clientX,y:clientY};
+ const to=remove?{x:clientX,y:clientY}:{x:box.left+box.width/2,y:box.top+box.height/2};
+ const el=document.createElement('span');el.className='g-fly-tag';el.textContent=tagLabel;
+ el.style.left=from.x+'px';el.style.top=from.y+'px';
+ document.body.append(el);flyCount+=1;
+ const dx=to.x-from.x,dy=to.y-from.y;
+ const animation=el.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(${remove?1.15:.4})`,opacity:remove?.15:0}],{duration:420,easing:'cubic-bezier(.2,.7,.3,1)',fill:'forwards'});
+ animation.finished.catch(()=>{}).then(()=>{el.remove();flyCount-=1;});
+}
+function paintPoint(clientX,clientY){const r=deck.getBoundingClientRect();return {x:clientX-r.left,y:clientY-r.top+deck.scrollTop};}
+function segmentHits(a,b,x,y,w,h){
+ let low=0,high=1;const dx=b.x-a.x,dy=b.y-a.y;
+ for(const [p,q]of [[-dx,a.x-x],[dx,x+w-a.x],[-dy,a.y-y],[dy,y+h-a.y]]){
+  if(p===0){if(q<0)return false;continue;}
+  const t=q/p;if(p<0)low=Math.max(low,t);else high=Math.min(high,t);if(low>high)return false;
+ }return true;
+}
+function showTagState(entry,matched){
+ entry.element.classList.toggle('g-tagged',matched);
+ const badge=entry.element.querySelector('.g-tag');badge.textContent=matched?'✓ '+tagLabel:'';
+ badge.hidden=!matched||!tagLabel;
+}
+function paintSegment(next){
+ if(!paintDrag)return;const g=gridGeometry();let a=paintDrag.last,b=next;paintDrag.last=next;
+ // Clip the path to the actual viewport before testing virtual cards.
+ let low=0,high=1;const dx=b.x-a.x,dy=b.y-a.y;
+ for(const [p,q]of [[-dx,a.x],[dx,deck.clientWidth-a.x],[-dy,a.y-deck.scrollTop],[dy,deck.scrollTop+deck.clientHeight-a.y]]){
+  if(p===0){if(q<0)return;continue;}const t=q/p;if(p<0)low=Math.max(low,t);else high=Math.min(high,t);if(low>high)return;
+ }
+ b={x:a.x+dx*high,y:a.y+dy*high};a={x:a.x+dx*low,y:a.y+dy*low};
+ const first=Math.max(0,Math.floor((Math.min(a.y,b.y)-g.pad)/(g.height+g.gap)));
+ const last=Math.min(Math.ceil(count/g.cols)-1,Math.floor((Math.max(a.y,b.y)-g.pad)/(g.height+g.gap)));
+ for(let row=first;row<=last;row++)for(let col=0;col<g.cols;col++){
+  const index=row*g.cols+col;if(index>=count||paintDrag.indices.has(index))continue;
+  if(!segmentHits(a,b,g.pad+col*(g.width+g.gap),g.pad+row*(g.height+g.gap),g.width,g.height))continue;
+  paintDrag.indices.add(index);
+  for(const entry of cards.values())if(entry.data.index===index){
+   const was=entry.element.classList.contains('g-tagged'),next=!paintDrag.remove;
+   if(was!==next)flyTag(entry,paintDrag.remove,paintDrag.clientX,paintDrag.clientY);
+   showTagState(entry,next);
+  }
+ }paintDrag.last=next;
+}
+function tickPaint(now){
+ paintFrame=0;if(!paintDrag)return;
+ const r=deck.getBoundingClientRect(),y=paintDrag.clientY-r.top,edge=28;
+ const dt=Math.min(.04,(now-(paintDrag.time||now))/1000);paintDrag.time=now;
+ const insideX=paintDrag.clientX>=r.left&&paintDrag.clientX<=r.right;
+ const speed=!insideX?0:y<edge?-Math.min(900,(edge-y)*24):y>r.height-edge?Math.min(900,(y-r.height+edge)*24):0;
+ if(speed)deck.scrollTop+=speed*dt;
+ paintSegment(paintPoint(paintDrag.clientX,paintDrag.clientY));
+ paintFrame=requestAnimationFrame(tickPaint);
+}
+function finishPaint(cancel,notify=true){
+ if(!paintDrag)return;
+ const stroke=paintDrag;paintDrag=null;
+ if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}
+ if(deck.hasPointerCapture(stroke.pointer))deck.releasePointerCapture(stroke.pointer);
+ if(!cancel)paintPending={indices:stroke.indices,remove:stroke.remove};
+ else for(const entry of cards.values())showTagState(entry,!!entry.data.tagMatched);
+ if(notify)send({type:'paint',tool:stroke.tool,phase:cancel?'cancel':'end',indices:cancel?[]:[...stroke.indices],remove:stroke.remove});
+ suppressClick=true;setTimeout(()=>suppressClick=false,0);
+}
+deck.addEventListener('pointerdown',event=>{
+ if(!batch||!interactive||!tagTool||dealLayer||event.pointerType!=='mouse'||![0,2].includes(event.button)||event.target.closest('[data-reveal]'))return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(paintDrag)return;
+ const r=deck.getBoundingClientRect();if(event.clientX>r.right-12)return;
+ paintDrag={pointer:event.pointerId,button:event.button,remove:event.button===2,tool:tagTool,indices:new Set(),last:paintPoint(event.clientX,event.clientY),clientX:event.clientX,clientY:event.clientY};
+ deck.setPointerCapture(event.pointerId);
+ send({type:'paint',tool:tagTool,phase:'start',indices:[],remove:paintDrag.remove});
+ paintSegment(paintDrag.last);paintFrame=requestAnimationFrame(tickPaint);
+},true);
+window.addEventListener('pointermove',event=>{
+ if(!paintDrag||event.pointerId!==paintDrag.pointer)return;
+ // Process coalesced samples so fast strokes retain their actual path.
+ const samples=event.getCoalescedEvents?.()||[];for(const sample of samples.length?samples:[event])paintSegment(paintPoint(sample.clientX,sample.clientY));
+ paintDrag.clientX=event.clientX;paintDrag.clientY=event.clientY;event.preventDefault();
+});
+window.addEventListener('pointerup',event=>{
+ if(!paintDrag||event.pointerId!==paintDrag.pointer||event.button!==paintDrag.button)return;
+ paintSegment(paintPoint(event.clientX,event.clientY));finishPaint(false);event.preventDefault();
+});
+window.addEventListener('pointercancel',()=>finishPaint(true));
+window.addEventListener('blur',()=>finishPaint(true));
+deck.addEventListener('lostpointercapture',()=>finishPaint(true));
+deck.addEventListener('contextmenu',event=>{if(batch&&tagTool){event.preventDefault();event.stopImmediatePropagation();}},true);
+document.addEventListener('keydown',event=>{
+ if(!batch)return;
+ if(event.key==='Escape'&&tagTool){finishPaint(true);tagTool=null;send({type:'exitPaint'});event.preventDefault();event.stopImmediatePropagation();}
+ else if(event.key==='Escape'&&!boxDrag){send({type:'clearSelection'});event.preventDefault();}
+ else if(event.ctrlKey&&['z','y'].includes(event.key.toLowerCase())){if(!paintDrag)send({type:'undoPaint',redo:event.key.toLowerCase()==='y'||event.shiftKey});event.preventDefault();event.stopImmediatePropagation();}
+},true);
 const selectionBox=document.createElement('div');selectionBox.id='selection-box';deck.append(selectionBox);
 let boxDrag=null,boxFrame=0;
 function boxIndices(){
@@ -257,7 +375,7 @@ function cancelBox(notify){
  boxDrag=null;if(boxFrame){cancelAnimationFrame(boxFrame);boxFrame=0;}selectionBox.style.display='none';
 }
 deck.addEventListener('pointerdown',event=>{
- if(!batch||!interactive||dealLayer||event.button!==0||event.pointerType!=='mouse'||event.target.closest('[data-reveal]'))return;
+ if(!batch||!interactive||tagTool||dealLayer||event.button!==0||event.pointerType!=='mouse'||event.target.closest('[data-reveal]'))return;
  const rect=deck.getBoundingClientRect();
  boxDrag={pointer:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top+deck.scrollTop,clientX:event.clientX,clientY:event.clientY,startX:event.clientX,startY:event.clientY,additive:event.ctrlKey||event.shiftKey,active:false,last:''};
 });
@@ -393,6 +511,9 @@ document.addEventListener('drop',event=>{
 });
 window.chrome.webview.addEventListener('message',event=>{
  const state=event.data;
+ if(state.type==='cancelPaint'){finishPaint(true);paintPending=null;return;}
+ // 原生遮罩盖不住 WebView2 的左栏，这部分由网页自己用同一强度压暗。
+ if(state.type==='dragMask'){document.body.classList.toggle('palette-dragging',state.on===true);return;}
  if(state.type==='panelScroll'){
   panelCommand=state.command;if(dealLayer){queuePanel();return;}if(batch)deck.scrollTop=state.value;else settingsPanel.scrollTop=state.value;queuePanel();return;
  }
@@ -415,7 +536,16 @@ window.chrome.webview.addEventListener('message',event=>{
  }
  if(state.type!=='state')return;
  const resuming=state.active!==false&&!active;
- viewGeneration=state.viewGeneration??0;
+ const nextGeneration=state.viewGeneration??0;
+ if(paintDrag&&(viewGeneration!==nextGeneration||state.tagTool!==tagTool||!state.active||!state.interactive||!state.batch))finishPaint(true);
+ viewGeneration=nextGeneration;
+ tagTool=state.tagTool??null;tagLabel=state.tagLabel||'';
+ tagBg=state.tagBg||'';tagBorder=state.tagBorder||'';tagInk=state.tagInk||'';
+ if(tagBg)document.documentElement.style.setProperty('--g-tag-bg',tagBg);
+ if(tagInk)document.documentElement.style.setProperty('--g-tag-ink',tagInk);
+ if(tagBorder)document.documentElement.style.setProperty('--g-tag-line',tagBorder);
+ document.body.classList.toggle('tag-painting',!!tagTool);
+ if(state.interactive!==false)paintPending=null;
  if(!state.active||state.batch||!state.motion||state.count===0||(ringEntry&&ringEntry.index!==state.index))finishRing();
  active=state.active!==false;
  if(!active||resuming){
@@ -435,6 +565,7 @@ window.chrome.webview.addEventListener('message',event=>{
  if(leaving||resized||!interactive||state.active===false)cancelBox(false);
  motion=state.motion;
  batch=state.batch===true;document.body.classList.toggle('batch',batch);deck.setAttribute('aria-label',batch?'待审核图片多选网格':'待归档图片圆环');
+ paintCursor();
  if(entering||leaving){
   for(const {element}of cards.values())for(const animation of element.getAnimations())animation.cancel();
   if(raf){cancelAnimationFrame(raf);raf=0;}onDragEnd();if(raf){cancelAnimationFrame(raf);raf=0;}
@@ -449,17 +580,19 @@ window.chrome.webview.addEventListener('message',event=>{
   let entry=cards.get(data.id);
   if(!entry){
    const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
-   const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';card.append(art,veil,message,spin,check,name);
+   const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';const tag=document.createElement('span');tag.className='g-tag';tag.hidden=true;card.append(art,veil,message,spin,check,name,tag);
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
    card.addEventListener('focus',()=>{
     if(batch||!active||!interactive||!card.matches(':focus-visible')||Math.abs(goal-entry.data.index)<.001)return;
     // Tab 到旁侧卡片时，圆环目标也跟随键盘焦点；确认键始终指向同一张。
     hostScroll=false;scrollSettle=true;beginMotion();goal=entry.data.index;mode='spring';wake();
    });
-   card.onclick=event=>{if(!interactive)return;if(ringEntry)finishRing();send({type:'select',id:entry.data.id,shift:event.shiftKey,ctrl:event.ctrlKey||event.metaKey});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
+   card.onclick=event=>{if(!interactive||batch&&tagTool)return;if(ringEntry)finishRing();send({type:'select',id:entry.data.id,shift:event.shiftKey,ctrl:event.ctrlKey||event.metaKey});};card.oncontextmenu=event=>{event.preventDefault();context(entry.data,event.clientX,event.clientY);};
    card.onkeydown=event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){event.preventDefault();const box=card.getBoundingClientRect();context(entry.data,box.left+box.width/2,box.top+box.height/2);}};
   }
   entry.data=data;
+  const painting=paintDrag?.indices.has(data.index)?paintDrag:paintPending?.indices.has(data.index)?paintPending:null;
+  showTagState(entry,painting?!painting.remove:!!data.tagMatched);
   entry.element.querySelector('.g-name').textContent=data.inboxName;
   // 平均色仅作中性底板上的 10% 局部染色；无平均色时仍有完整底板。
   if(data.avg){
@@ -631,7 +764,7 @@ deck.addEventListener('click',event=>{
  suppressClick=false;event.preventDefault();event.stopPropagation();
 },true);
 deck.addEventListener('click',event=>{
- if(batch&&interactive&&!dealLayer&&event.target instanceof Element&&!event.target.closest('.g-photo'))send({type:'clearSelection'});
+ if(batch&&interactive&&!tagTool&&!dealLayer&&event.target instanceof Element&&!event.target.closest('.g-photo'))send({type:'clearSelection'});
 });
 deck.addEventListener('dragstart',event=>event.preventDefault());
 deck.addEventListener('keydown',event=>{
