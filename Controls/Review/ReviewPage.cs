@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
+using Gallery.Controls.Tags;
 using Gallery.Services;
 using Microsoft.UI;
 using Microsoft.UI.Text;
@@ -65,7 +66,6 @@ public sealed partial class ReviewPage : Grid
     private readonly TextBlock _currentPathLabel = new() { Text = "当前位置", FontSize = 12, Opacity = .6, Visibility = Visibility.Collapsed };
     private readonly TextBlock _currentPath = Caption();
     private RowDefinition? _currentPathRow;
-    private readonly TextBlock _scopeHint = new() { FontSize = 11, Opacity = .65, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Text = "批量操作范围：全部待归档图片" };
     private readonly TextBlock _status = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
     private readonly StackPanel _tagGroups = new() { Spacing = 15 };
     private readonly StackPanel _archiveDirGroup = new() { Spacing = 10 };
@@ -73,8 +73,6 @@ public sealed partial class ReviewPage : Grid
     private readonly Button _pickFolder = new() { Content = "选择文件夹…", Padding = new Thickness(10, 6, 10, 6) };
     private readonly Button _archive = new() { Content = "归档此图，并查看下一张", HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Button _ignore = new() { Content = "忽略此图", HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly Button _archiveAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly Button _ignoreAll = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly ToggleButton _batchToggle = new() { Content = "批量审核", Padding = new Thickness(12, 6, 12, 6) };
     private readonly Button _selectAll = new() { Content = "全选", Visibility = Visibility.Collapsed };
     private readonly SelectionDropDown _cardSize = new() { Visibility = Visibility.Collapsed, MinWidth = 70 };
@@ -83,6 +81,13 @@ public sealed partial class ReviewPage : Grid
     {
         Content = "AI分析", Padding = new Thickness(10, 4, 10, 4), FontSize = 12,
         VerticalAlignment = VerticalAlignment.Center,
+    };
+    /// <summary>批量审核模式下对已勾选的图片逐张跑同一套模型识别；尺寸与「全选」「卡片大小」下拉一致，靠右贴着下拉。</summary>
+    private readonly Button _batchAiAnalyze = new()
+    {
+        Content = "AI分析", Padding = new Thickness(12, 6, 12, 6),
+        VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed,
+        HorizontalAlignment = HorizontalAlignment.Right,
     };
     private readonly StackPanel _imageDetails = new() { Spacing = 12 };
     private readonly StackPanel _tagSection = new() { Spacing = 12 };
@@ -258,10 +263,8 @@ public sealed partial class ReviewPage : Grid
             _carousel.ToggleRevealAll();
             UpdateButtons();
         };
-        _archive.Click += async (_, _) => await ArchiveAsync(false);
-        _archiveAll.Click += async (_, _) => await ArchiveAsync(true);
-        _ignore.Click += (_, _) => Ignore(false);
-        _ignoreAll.Click += (_, _) => Ignore(true);
+        _archive.Click += async (_, _) => await ArchiveAsync();
+        _ignore.Click += (_, _) => Ignore();
         _batchToggle.Click += (_, _) => SetBatchMode(_batchToggle.IsChecked == true);
         _selectAll.Click += (_, _) =>
         {
@@ -333,6 +336,12 @@ public sealed partial class ReviewPage : Grid
         selectionActions.Children.Add(_batchToggle);
         selectionActions.Children.Add(_selectAll);
         batchActions.Children.Add(selectionActions);
+        // 批量 AI 分析放在中间空隙的右端，靠右贴着卡片大小下拉，尺寸与两侧按钮一致。
+        _batchAiAnalyze.Click += async (_, _) => await AnalyzeBatchWithAiAsync();
+        AutomationProperties.SetName(_batchAiAnalyze, "用模型分析已选的图片");
+        ToolTipService.SetToolTip(_batchAiAnalyze, "对已勾选的待归档图片逐张重跑模型：角色、作品、类型、分级按结果顶替；作者和自定义不动");
+        Grid.SetColumn(_batchAiAnalyze, 1);
+        batchActions.Children.Add(_batchAiAnalyze);
         Grid.SetColumn(_cardSize, 2);
         batchActions.Children.Add(_cardSize);
         header.Children.Add(batchActions);
@@ -348,16 +357,8 @@ public sealed partial class ReviewPage : Grid
         Grid.SetRow(_carouselHost, 1);
         panel.Children.Add(_carouselHost);
         var footer = new StackPanel { Spacing = 10 };
-        var actions = new Grid { ColumnSpacing = 8 };
-        actions.ColumnDefinitions.Add(new ColumnDefinition());
-        actions.ColumnDefinitions.Add(new ColumnDefinition());
-        actions.Children.Add(_archiveAll);
-        Grid.SetColumn(_ignoreAll, 1);
-        actions.Children.Add(_ignoreAll);
-        footer.Children.Add(actions);
         footer.Children.Add(_revealAll);
         footer.Children.Add(_cleanHistory);
-        footer.Children.Add(_scopeHint);
         Grid.SetRow(footer, 2);
         panel.Children.Add(footer);
         return panel;
@@ -489,21 +490,12 @@ public sealed partial class ReviewPage : Grid
             lock (AppService.DbLock)
                 _rows = _rows.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(store, row) }).ToList();
         }
-        var pending = store.PendingIngestCount();
         _summary.Text = _state switch
         {
             "pending" => "待归档",
             "missing" => "文件丢失",
             _ => "历史",
         };
-        _scopeHint.Text = _state switch
-        {
-            "pending" => "批量操作范围：全部待归档图片",
-            "missing" => "源文件不可用；找回后可点「恢复待处理」",
-            _ => HistoryHint(store),
-        };
-        _archiveAll.Content = $"一键归档（{pending}）";
-        _ignoreAll.Content = $"一键忽略（{pending}）";
         if (string.IsNullOrWhiteSpace(_destination.Text))
         {
             var settings = AppService.Settings.Settings;
@@ -735,15 +727,6 @@ public sealed partial class ReviewPage : Grid
             BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
         foreach (var (category, text) in pending)
             if (_tagInputs.TryGetValue(category, out var input)) input.Text = text;
-    }
-
-    private string HistoryHint(StoreService store)
-    {
-        var stats = store.IngestStats();
-        var total = stats.GetValueOrDefault("done") + stats.GetValueOrDefault("ignored");
-        return total > _rows.Count
-            ? $"历史仅显示最近 {_rows.Count} 条，共 {total} 条；更早的用「清理历史」处理"
-            : "已归档与已忽略的队列记录；可跳回图库查看原图";
     }
 
     private void SetBatchMode(bool enabled)
@@ -1098,7 +1081,7 @@ public sealed partial class ReviewPage : Grid
         }
     }
 
-    /// <summary>单图重跑模型：四类按结果顶替，作者与自定义不动；写入后刷新标签与归档目录。</summary>
+    /// <summary>单图重跑模型：四类按结果顶替，作者与自定义不动；批量模式下同时给这张卡片播贴标签动画。</summary>
     private async Task AnalyzeWithAiAsync()
     {
         if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store
@@ -1114,23 +1097,13 @@ public sealed partial class ReviewPage : Grid
         _carousel.SetAnalyzing([row.Id]);
         try
         {
+            var before = IngestReview.Tags(row.Payload, row.Rating);
             var (error, _, device) = await Task.Run(() => ApplyModelToRow(store, row.Id));
             if (error.Length > 0) { _status.Text = "AI 分析失败：" + error; return; }
-            var updated = store.IngestRow(row.Id);
+            FinishAiRows(store, [row.Id]);
             var index = _rows.FindIndex(item => item.Id == row.Id);
-            if (updated is not null && index >= 0)
-            {
-                _rows[index] = updated with { ResolvedPath = _rows[index].ResolvedPath };
-                if (_index == index)
-                {
-                    _selected = _rows[index];
-                    _tags = IngestReview.Tags(updated.Payload, updated.Rating);
-                    RebuildTagGroups();
-                }
-            }
-            RefreshDestination();
+            if (index >= 0) FlyTagApply(row.Id, AddedLabels(before, IngestReview.Tags(_rows[index].Payload, _rows[index].Rating)));
             _carousel.RefreshPreview(preserveRevealed: true);
-            _carousel.SetItems(_rows, _index);
             _status.Text = "AI 分析完成" + (device == "gpu" ? "（显卡）" : "（CPU）");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
@@ -1172,6 +1145,119 @@ public sealed partial class ReviewPage : Grid
                 tags["kind"].Add(kind);
         store.UpdateIngestReview(id, IngestReview.ApplyModelOverwrite(row.Payload, tags, score.Rating, score), score.Rating);
         return ("", score.Rating, scorer.EffectiveDevice);
+    }
+
+    /// <summary>模型写回后刷新内存队列：单图模式同步当前详情，两种模式都重推卡片与工作台匹配。</summary>
+    private void FinishAiRows(StoreService store, IReadOnlyList<int> ids)
+    {
+        foreach (var id in ids.Distinct()) ApplyRowTagUpdate(store, id);
+        if (_batchMode) _carousel.UpdateTagRows(_rows, true);
+        else _carousel.SetItems(_rows, _index);
+        RefreshDestination();
+        UpdateWorkbenchState();
+        Changed?.Invoke();
+    }
+
+    /// <summary>把一条记录的最新标签写回内存队列；单图模式下顺带同步右侧详情。</summary>
+    private void ApplyRowTagUpdate(StoreService store, int id)
+    {
+        var index = _rows.FindIndex(item => item.Id == id);
+        if (index < 0 || store.IngestRow(id) is not { } updated) return;
+        _rows[index] = updated with { ResolvedPath = _rows[index].ResolvedPath };
+        if (!_batchMode && _selected?.Id == id)
+        {
+            _selected = _rows[index];
+            _tags = IngestReview.Tags(updated.Payload, updated.Rating);
+            RebuildTagGroups();
+        }
+        // 工作台按 payload 引用缓存，旧缓存要丢掉，否则喷涂匹配还按旧标签算。
+        _workbenchTagCache.Remove(id);
+    }
+
+    /// <summary>比较前后标签，挑出这次新增的项，用来从对应类型飞向卡片。</summary>
+    private static IReadOnlyList<PaletteTag> AddedLabels(
+        IReadOnlyDictionary<string, List<string>> before, IReadOnlyDictionary<string, List<string>> after)
+    {
+        var added = new List<PaletteTag>();
+        foreach (var (category, names) in after)
+        {
+            var old = before.GetValueOrDefault(category) ?? [];
+            foreach (var name in names)
+                if (!old.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    added.Add(new PaletteTag(category, name,
+                        category == "rating" ? RatingText.Level(name) : name));
+        }
+        return added;
+    }
+
+    /// <summary>把这张图这次新贴上的标签交给卡片：从工作台对应类型图标飞过去并缩进卡片。</summary>
+    private void FlyTagApply(int id, IReadOnlyList<PaletteTag> labels)
+    {
+        if (!_batchMode || !_active || labels.Count == 0) return;
+        var rays = labels.Select(tag =>
+        {
+            var colors = TagColors.Get(tag.Category, ActualTheme == ElementTheme.Dark);
+            // 标签都带类型，起点取工作台里对应的类型图标；图标没显示时退回卡片区中心。
+            var anchor = RailAnchor(tag.Category) ?? new Point(ActualWidth * .3, ActualHeight / 2);
+            return new ReviewCarousel.TagRay(id, tag.Category, tag.Display, anchor.X, anchor.Y,
+                colors.Bg, colors.Border, colors.Fg);
+        }).ToArray();
+        _carousel.FlyTagApply(rays);
+    }
+
+    /// <summary>
+    /// 批量「AI分析」：对已勾选的待归档图片逐张跑同一套完整识别并写回（规则同单图，作者与自定义不动）。
+    /// </summary>
+    private async Task AnalyzeBatchWithAiAsync()
+    {
+        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store || _batchSelected.Count == 0) return;
+        if (!AppService.FakeNsfwScorer && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir))
+        {
+            _status.Text = "还没有选择识别模型";
+            return;
+        }
+        var ids = _batchSelected.ToArray();
+        SetBusy(true);
+        UpdateButtons();
+        var done = 0;
+        var failures = new List<string>();
+        _status.Text = $"AI 分析中 0 / {ids.Length}…";
+        try
+        {
+            foreach (var id in ids)
+            {
+                if (AppService.IsShuttingDown) break;
+                _carousel.SetAnalyzing([id]);
+                var rows = _rows;
+                var at = rows.FindIndex(item => item.Id == id);
+                var before = at >= 0 ? IngestReview.Tags(rows[at].Payload, rows[at].Rating) : null;
+                var (error, _, _) = await Task.Run(() => ApplyModelToRow(store, id));
+                if (error.Length > 0) failures.Add($"#{id}：{error}");
+                done++;
+                _status.Text = $"AI 分析中 {done} / {ids.Length}…";
+                // 每张跑完立刻贴一张卡片的动画，而不是等整批结束。
+                ApplyRowTagUpdate(store, id);
+                var index = rows.FindIndex(item => item.Id == id);
+                if (before is not null && index >= 0)
+                    FlyTagApply(id, AddedLabels(before, IngestReview.Tags(rows[index].Payload, rows[index].Rating)));
+            }
+            FinishAiRows(store, ids);
+            _status.Text = $"AI 分析完成 {done - failures.Count} 张，失败 {failures.Count} 张"
+                + (failures.Count > 0 ? "\n" + string.Join("\n", failures.Take(3)) : "");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+            or Microsoft.ML.OnnxRuntime.OnnxRuntimeException or Microsoft.Data.Sqlite.SqliteException
+            or SixLabors.ImageSharp.UnknownImageFormatException or SixLabors.ImageSharp.InvalidImageContentException)
+        {
+            _status.Text = "AI 分析失败：" + ex.Message;
+        }
+        finally
+        {
+            _carousel.SetAnalyzing([]);
+            SetBusy(false);
+            UpdateButtons();
+            OpenDeferredNotification();
+        }
     }
 
     private async Task ClassifyBatchAsync()
@@ -1364,7 +1450,7 @@ public sealed partial class ReviewPage : Grid
         }
     }
 
-    private async Task ArchiveAsync(bool all)
+    private async Task ArchiveAsync()
     {
         if (_busy || _paintGesture || AppService.IsShuttingDown || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
         var destination = _destination.Text.Trim();
@@ -1395,7 +1481,6 @@ public sealed partial class ReviewPage : Grid
         }
 
         var ids = _batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).Select(row => row.Id).ToArray()
-            : all ? store.IngestRows("pending", int.MaxValue).Select(r => r.Id).ToArray()
             : _selected is { State: "pending" } row ? [row.Id] : Array.Empty<int>();
         if (ids.Length == 0) return;
         SetBusy(true);
@@ -1471,11 +1556,10 @@ public sealed partial class ReviewPage : Grid
             && tags["kind"].Count == 0 && tags["custom"].Count == 0;
     }
 
-    private void Ignore(bool all)
+    private void Ignore()
     {
         if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store) return;
-        var rows = _batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).ToList() : all
-            ? store.IngestRows("pending", int.MaxValue)
+        var rows = _batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).ToList()
             : _selected is { State: "pending" or "missing" } row
                 ? [row]
                 : new List<StoreService.PendingIngestRow>();
@@ -1594,8 +1678,6 @@ public sealed partial class ReviewPage : Grid
         _ignore.Visibility = _state is "pending" or "missing" ? Visibility.Visible : Visibility.Collapsed;
         _restore.Visibility = ignored || missing ? Visibility.Visible : Visibility.Collapsed;
         _restore.IsEnabled = !_busy && _selected is not null;
-        _archiveAll.IsEnabled = _ignoreAll.IsEnabled = !_busy && _state == "pending" && _rows.Count > 0;
-        _archiveAll.Visibility = _ignoreAll.Visibility = _state == "pending" && !_batchMode ? Visibility.Visible : Visibility.Collapsed;
         _batchToggle.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _batchToggle.Content = _batchMode ? "退出批量审核" : "批量审核";
         _batchToggle.IsEnabled = !_busy;
@@ -1620,11 +1702,13 @@ public sealed partial class ReviewPage : Grid
             _detailsPanel.Children.Remove(_archivePanel);
             _detailsHost.Children.Add(_archivePanel);
         }
-        UpdateWorkbenchState();
         _aiAnalyze.Visibility = _state == "pending" && !_batchMode ? Visibility.Visible : Visibility.Collapsed;
         _aiAnalyze.IsEnabled = !_busy && _selected is { State: "pending" };
-        if (_batchMode) _scopeHint.Text = $"操作范围：已选择的 {_batchSelected.Count} 张图片";
-        else if (_state == "pending") _scopeHint.Text = "批量操作范围：全部待归档图片";
+        _batchAiAnalyze.Visibility = _batchMode && _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
+        _batchAiAnalyze.IsEnabled = !_busy && _batchSelected.Count > 0;
+        _batchAiAnalyze.Content = _batchSelected.Count > 0 ? $"AI分析 ({_batchSelected.Count})" : "AI分析";
+        // 放在最后：工作台会按喷涂手势再压一遍上面这些按钮的可用状态。
+        UpdateWorkbenchState();
         _revealAll.Visibility = _state == "pending" && _carousel.HasBlurredRows ? Visibility.Visible : Visibility.Collapsed;
         _revealAll.IsEnabled = !_busy;
         _revealAllText.Text = _carousel.AllPreviewsRevealed ? "一键隐藏预览" : "一键显示预览";
@@ -1762,7 +1846,7 @@ public sealed partial class ReviewPage : Grid
         // 深色审核页统一为中性炭灰，WebView 从此承载层读取同一底色。
         Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark
             ? Windows.UI.Color.FromArgb(255, 32, 33, 35) : Colors.Transparent);
-        _archive.Style = _archiveAll.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
+        _archive.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
         _ignore.Opacity = .72;
         _revealAllText.Foreground = ResourceBrush("AccentTextFillColorPrimaryBrush");
     }

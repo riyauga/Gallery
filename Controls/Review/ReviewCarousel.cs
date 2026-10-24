@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using Gallery.Models;
 using Gallery.Services;
@@ -50,34 +50,39 @@ internal sealed class ReviewCarousel : Grid
     private string? _tagTool;
     private string _tagLabel = "";
     private string _tagBg = "", _tagBorder = "", _tagInk = "";
-    private bool _dragMask;
+    private string? _tagMarker;
     private readonly HashSet<int> _tagMatches = [];
     private int[] _rowOrder = [];
-    public event Action<IReadOnlyCollection<int>, bool, string>? TagStrokeRequested;
+    public event Action<IReadOnlyCollection<int>, TagStrokeIntent, string>? TagStrokeRequested;
+    /// <summary>网页里最后一次落笔的鼠标位置（网页坐标）；「清除」飞散动画用它当落点。</summary>
+    public event Action<Windows.Foundation.Point>? PointerReported;
     public event Action? ExitTagToolRequested;
     public event Action<bool>? TagUndoRequested;
 
-    public void SetTagTool(string? tool, string label, IReadOnlyCollection<int> matches,
-        string bg = "", string border = "", string ink = "")
+    /// <summary>调色板当前下发给卡片的工具状态；颜色为空时网页用默认值。</summary>
+    public readonly record struct TagToolState(
+        string? Tool, string Label, string? Marker, IReadOnlyCollection<int> Matches,
+        string Bg = "", string Border = "", string Ink = "")
     {
-        if (_tagTool == tool && _tagLabel == label && _tagMatches.SetEquals(matches)
-            && _tagBg == bg && _tagBorder == border && _tagInk == ink) return;
-        _tagTool = tool; _tagLabel = label; _tagBg = bg; _tagBorder = border; _tagInk = ink;
-        _tagMatches.Clear(); _tagMatches.UnionWith(matches);
+        public static TagToolState None { get; } = new(null, "", null, Array.Empty<int>());
+    }
+
+    /// <summary>网页一次喷涂笔画的性质：贴、擦、清除、撤销清除。</summary>
+    public enum TagStrokeIntent { Apply, Erase, Clear, UndoClear }
+
+    public void SetTagTool(TagToolState state)
+    {
+        if (_tagTool == state.Tool && _tagLabel == state.Label && _tagMatches.SetEquals(state.Matches)
+            && _tagBg == state.Bg && _tagBorder == state.Border && _tagInk == state.Ink && _tagMarker == state.Marker) return;
+        _tagTool = state.Tool; _tagLabel = state.Label; _tagBg = state.Bg; _tagBorder = state.Border;
+        _tagInk = state.Ink; _tagMarker = state.Marker;
+        _tagMatches.Clear(); _tagMatches.UnionWith(state.Matches);
         PublishState();
     }
 
     public void CancelTagStroke()
     {
         if (_ready) _browser.CoreWebView2.PostWebMessageAsJson("{\"type\":\"cancelPaint\"}");
-    }
-
-    /// <summary>拖到回收阈值时给网页区补一层压暗：WebView2 会盖住原生遮罩，左栏只能由网页自己压暗。</summary>
-    public void SetDragMask(bool on)
-    {
-        if (_dragMask == on) return;
-        _dragMask = on;
-        if (_ready) _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "dragMask", on }, Json));
     }
 
     public void UpdateTagRows(IReadOnlyList<StoreService.PendingIngestRow> rows, bool refreshProtection)
@@ -281,6 +286,62 @@ internal sealed class ReviewCarousel : Grid
         }, Json));
     }
 
+    /// <summary>某张卡片目前在页面坐标里的位置（不滚动、不等布局）；卡片还没建出来时返回 null。</summary>
+    public Windows.Foundation.Rect? CardBox(int id)
+    {
+        var index = -1;
+        for (var i = 0; i < _rowOrder.Length; i++)
+            if (_rowOrder[i] == id) { index = i; break; }
+        // 卡片尺寸和网页 gridGeometry() 同一套算法，这里只做换算，不改动网页布局。
+        var width0 = _browser.ActualWidth;
+        if (index < 0 || width0 <= 0) return null;
+        const double gap = 12, pad = 12;
+        var target = _gridSize switch { "small" => 112, "large" => 212, _ => 152 };
+        var cols = Math.Max(1, (int)Math.Floor((width0 - 2 * pad + gap) / target));
+        var width = (width0 - 2 * pad - gap * (cols - 1)) / cols;
+        var height = Math.Max(115, width * .72 + 28);
+        var origin = ViewportOrigin();
+        var left = (index % cols) * (width + gap);
+        var top = (index / cols) * (height + gap) + pad;
+        return new Windows.Foundation.Rect(origin.X + left, origin.Y + top, width, height);
+    }
+
+    /// <summary>左栏卡片区的位置换算：网页坐标加这个偏移才是页面坐标。</summary>
+    public Windows.Foundation.Point ViewportOrigin()
+    {
+        try
+        {
+            var origin = _browser.TransformToVisual(null).TransformPoint(new Windows.Foundation.Point(0, 0));
+            return new Windows.Foundation.Point(origin.X, origin.Y);
+        }
+        catch (ArgumentException) { return new Windows.Foundation.Point(0, 0); }
+    }
+
+    /// <summary>把这张图这次新贴上的标签交给网页：从工作台图标飞向该卡片并缩进。起点是页面坐标，网页会减掉自己的视口偏移。</summary>
+    public void FlyTagApply(IReadOnlyList<TagRay> rays)
+    {
+        if (!_ready || !_active || rays.Count == 0) return;
+        var origin = ViewportOrigin();
+        var local = rays.Select(ray => ray with { X1 = ray.X1 - origin.X, Y1 = ray.Y1 - origin.Y }).ToArray();
+        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "flyTagApply", rays = local }, Json));
+    }
+
+    /// <summary>「清除」的收尾动画：这些标签在卡片上就地出现，再一起飞向落点缩小消失。坐标同样是页面坐标。</summary>
+    public void FlyTagScatter(IReadOnlyList<ScatterRay> rays)
+    {
+        if (!_ready || !_active || rays.Count == 0) return;
+        var origin = ViewportOrigin();
+        var local = rays.Select(ray => ray with { X1 = ray.X1 - origin.X, Y1 = ray.Y1 - origin.Y, X2 = ray.X2 - origin.X, Y2 = ray.Y2 - origin.Y }).ToArray();
+        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "flyTagScatter", rays = local }, Json));
+    }
+
+    /// <summary>从卡片飞向落点的一组标签。</summary>
+    public sealed record ScatterRay(IReadOnlyList<string> Labels, double X1, double Y1, double X2, double Y2, string Bg, string Border, string Ink);
+
+    /// <summary>从类型图标飞向卡片的一个标签。</summary>
+    public sealed record TagRay(int Id, string Category, string Label,
+        double X1, double Y1, string Bg, string Border, string Ink);
+
     public void SetActive(bool active)
     {
         if (_active != active)
@@ -296,7 +357,6 @@ internal sealed class ReviewCarousel : Grid
         _active = active;
         if (!active)
         {
-            SetDragMask(false);
             _settingsVisible = false;
             _settingsScroll.Visibility = Visibility.Collapsed;
             _settingsInteracting = false;
@@ -465,7 +525,7 @@ internal sealed class ReviewCarousel : Grid
         }).ToArray();
         _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
-            type = "state", cards, tagTool = _tagTool, tagLabel = _tagLabel, tagBg = _tagBg, tagBorder = _tagBorder, tagInk = _tagInk, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
+            type = "state", cards, tagTool = _tagTool, marker = _tagMarker, tagLabel = _tagLabel, tagBg = _tagBg, tagBorder = _tagBorder, tagInk = _tagInk, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
             index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,
             design = new { angle = _angle, overlap = _overlap, size = _size, scale = _scale, drag = _drag, ease = _ease, aspect = 16.0 / 9 },
             theme = ActualTheme == ElementTheme.Dark ? "dark" : "light",
@@ -701,12 +761,25 @@ internal sealed class ReviewCarousel : Grid
             if (!message.TryGetProperty("viewGeneration", out var generation) || generation.GetInt32() != _viewGeneration) return;
             if (type == "paint")
             {
-                if (!_batchMode || !_interactionEnabled || _tagTool is null || message.GetProperty("tool").GetString() != _tagTool) return;
+                // 「清除」工具没有 tagTool，只有 marker；两种都算可喷。
+                var clear = message.TryGetProperty("clear", out var clearValue) && clearValue.ValueKind == JsonValueKind.True;
+                if (!_batchMode || !_interactionEnabled || (!clear && _tagTool is null)) return;
+                if (!clear && message.GetProperty("tool").GetString() != _tagTool) return;
                 var phase = message.GetProperty("phase").GetString() ?? "";
                 if (phase is not ("start" or "end" or "cancel")) return;
                 var ids = message.GetProperty("indices").EnumerateArray().Select(value => value.GetInt32())
                     .Where(index => index >= 0 && index < _rows.Count).Select(index => _rows[index].Id).Distinct().ToArray();
-                TagStrokeRequested?.Invoke(ids, message.GetProperty("remove").GetBoolean(), phase);
+                var remove = message.GetProperty("remove").GetBoolean();
+                var intent = clear
+                    ? (remove ? TagStrokeIntent.UndoClear : TagStrokeIntent.Clear)
+                    : (remove ? TagStrokeIntent.Erase : TagStrokeIntent.Apply);
+                TagStrokeRequested?.Invoke(ids, intent, phase);
+                return;
+            }
+            if (type == "pointerAt")
+            {
+                PointerReported?.Invoke(new Windows.Foundation.Point(
+                    message.GetProperty("x").GetDouble(), message.GetProperty("y").GetDouble()));
                 return;
             }
             if (type == "exitPaint") { ExitTagToolRequested?.Invoke(); return; }

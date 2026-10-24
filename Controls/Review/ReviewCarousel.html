@@ -51,12 +51,11 @@ img:not([src]),[hidden]{display:none!important}
 #selection-box{position:absolute;pointer-events:none;z-index:40;border:1px solid var(--g-accent);background:light-dark(#006cbe20,#9ad7ff25);display:none}
 .g-tag{display:none}.batch .g-tag:not([hidden]){display:block;position:absolute;right:8px;bottom:24px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--g-tag-bg);color:var(--g-tag-ink);border-radius:4px;padding:1px 5px;font-size:11px;z-index:6;pointer-events:none}
 .batch .g-tagged{outline:1px solid var(--g-tag-line);outline-offset:-2px}
-.g-fly-tag{position:fixed;z-index:160;pointer-events:none;font-size:11px;line-height:1.5;padding:1px 6px;border:1px solid var(--g-tag-line);border-radius:4px;background:var(--g-tag-bg);color:var(--g-tag-ink);white-space:nowrap;will-change:transform,opacity}
+.g-fly-tag{position:fixed;z-index:160;pointer-events:none;font-size:11px;line-height:1.5;padding:1px 6px;border:1px solid var(--g-tag-line);border-radius:4px;background:var(--g-tag-bg);color:var(--g-tag-ink);white-space:nowrap;will-change:transform,opacity;opacity:0}
+.g-fly-tag.g-fly-live{opacity:1}
 body.tag-painting #deck *{cursor:inherit!important}
-#drag-mask{position:fixed;inset:0;z-index:80;background:#000;opacity:0;pointer-events:none;transition:opacity .12s ease}
-body.palette-dragging #drag-mask{opacity:.3}
+body.tag-clearing .g-tagged .g-tag{display:none!important}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
-<div id="drag-mask"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
 <label>整组图片大小<output id="size-value"></output><input id="size" type="range" min="50" max="95" step="1"></label>
@@ -230,11 +229,11 @@ function startDeal(snapshot){
  }
  dealFrame=requestAnimationFrame(prepare);
 }
-let tagTool=null,tagLabel='',tagBg='',tagBorder='',tagInk='',paintDrag=null,paintFrame=0,paintPending=null,flyCount=0,cursorKey='';
+let tagTool=null,markerTool=null,tagLabel='',tagBg='',tagBorder='',tagInk='',paintDrag=null,paintFrame=0,paintPending=null,flyCount=0,cursorKey='';
 function paintCursor(){
  // Chromium 不接受 SVG 光标，用画布生成 PNG 再交给 cursor。
- if(!tagTool||!batch){if(cursorKey){cursorKey='';deck.style.cursor='';}return;}
- const fill=tagBg||'#eee4fc',line=tagBorder||'#80639c',key=fill+'|'+line;
+ if(!tagTool&&!markerTool||!batch){if(cursorKey){cursorKey='';deck.style.cursor='';}return;}
+ const fill=tagBg||(markerTool?'#e4e4e4':'#eee4fc'),line=tagBorder||(markerTool?'#c42b1c':'#80639c'),key=fill+'|'+line;
  if(key===cursorKey)return;
  cursorKey=key;
  const dpr=2,c=document.createElement('canvas');c.width=c.height=32*dpr;
@@ -250,12 +249,45 @@ function flyTag(entry,remove,clientX,clientY){
  const box=entry.element.getBoundingClientRect();
  const from=remove?{x:box.left+box.width/2,y:box.top+box.height/2}:{x:clientX,y:clientY};
  const to=remove?{x:clientX,y:clientY}:{x:box.left+box.width/2,y:box.top+box.height/2};
- const el=document.createElement('span');el.className='g-fly-tag';el.textContent=tagLabel;
+flyPoolRun(tagLabel,tagBg,tagBorder,tagInk,from,to,remove,420);
+}
+// 飞标签用对象池：元素只建一次，之后按空闲队列复用，避免每次创建/销毁 DOM。
+const flyPool=[],flyBusy=new Set();
+function flyElement(){
+ for(let i=0;i<flyPool.length;i++){const el=flyPool[i];if(!flyBusy.has(el)){flyBusy.add(el);return el;}}
+ const el=document.createElement('span');el.className='g-fly-tag';document.body.append(el);flyPool.push(el);flyBusy.add(el);return el;
+}
+function flyPoolRun(label,bg,border,ink,from,to,remove,duration){
+ if(flyCount>=40||!label)return;
+ const el=flyElement();
+ el.textContent=label;
  el.style.left=from.x+'px';el.style.top=from.y+'px';
- document.body.append(el);flyCount+=1;
+ if(bg)el.style.background=bg;else el.style.removeProperty('background');
+ if(border)el.style.borderColor=border;else el.style.removeProperty('border-color');
+ if(ink)el.style.color=ink;else el.style.removeProperty('color');
+ el.classList.add('g-fly-live');
+ flyCount+=1;
  const dx=to.x-from.x,dy=to.y-from.y;
- const animation=el.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(${remove?1.15:.4})`,opacity:remove?.15:0}],{duration:420,easing:'cubic-bezier(.2,.7,.3,1)',fill:'forwards'});
- animation.finished.catch(()=>{}).then(()=>{el.remove();flyCount-=1;});
+ const animation=el.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(${remove?1.15:.4})`,opacity:remove?.15:0}],{duration,easing:'cubic-bezier(.2,.7,.3,1)',fill:'forwards'});
+ animation.finished.catch(()=>{}).then(()=>{animation.cancel();el.classList.remove('g-fly-live');flyBusy.delete(el);flyCount-=1;});
+}
+// 「清除」：先把该图现有标签在原地显示出来，再一起飞向落点缩没；元素同样走对象池。
+function flyScatter(rays){
+ if(!batch||!rays)return;
+ for(const ray of rays){
+  for(const label of (ray.labels||[]))flyPoolRun(label,ray.bg,ray.border,ray.ink,{x:ray.x1,y:ray.y1},{x:ray.x2,y:ray.y2},true,460);
+ }
+}
+// AI 贴标签：从工作台对应类型图标飞向目标卡片中心，到卡片时缩进并淡出。
+function flyApply(rays){
+ if(!batch||!rays)return;
+ for(const ray of rays){
+  const entry=[...cards.values()].find(item=>item.data.id===ray.id);
+  if(!entry)continue;
+  const box=entry.element.getBoundingClientRect();
+  const from={x:ray.x1,y:ray.y1},to={x:box.left+box.width/2,y:box.top+box.height*.46};
+  flyPoolRun(ray.label,ray.bg,ray.border,ray.ink,from,to,false,520);
+ }
 }
 function paintPoint(clientX,clientY){const r=deck.getBoundingClientRect();return {x:clientX-r.left,y:clientY-r.top+deck.scrollTop};}
 function segmentHits(a,b,x,y,w,h){
@@ -285,9 +317,12 @@ function paintSegment(next){
   if(!segmentHits(a,b,g.pad+col*(g.width+g.gap),g.pad+row*(g.height+g.gap),g.width,g.height))continue;
   paintDrag.indices.add(index);
   for(const entry of cards.values())if(entry.data.index===index){
-   const was=entry.element.classList.contains('g-tagged'),next=!paintDrag.remove;
-   if(was!==next)flyTag(entry,paintDrag.remove,paintDrag.clientX,paintDrag.clientY);
-   showTagState(entry,next);
+   // 「清除」右键是撤销最近一次清除：恢复哪些标签由宿主决定，这里不预改本地标记。
+   if(markerTool&&paintDrag.remove)continue;
+   // 「清除」没有“已贴上”一态：扫到就是清除（标记为假），也不再放色块动画，清除后由宿主统一飞散。
+   const was=entry.element.classList.contains('g-tagged'),markNext=!markerTool&&!paintDrag.remove;
+   if(!markerTool&&was!==markNext)flyTag(entry,paintDrag.remove,paintDrag.clientX,paintDrag.clientY);
+   showTagState(entry,markNext);
   }
  }paintDrag.last=next;
 }
@@ -308,17 +343,20 @@ function finishPaint(cancel,notify=true){
  if(deck.hasPointerCapture(stroke.pointer))deck.releasePointerCapture(stroke.pointer);
  if(!cancel)paintPending={indices:stroke.indices,remove:stroke.remove};
  else for(const entry of cards.values())showTagState(entry,!!entry.data.tagMatched);
- if(notify)send({type:'paint',tool:stroke.tool,phase:cancel?'cancel':'end',indices:cancel?[]:[...stroke.indices],remove:stroke.remove});
+ if(notify)send({type:'paint',tool:stroke.tool,phase:cancel?'cancel':'end',indices:cancel?[]:[...stroke.indices],remove:stroke.remove,clear:!!markerTool});
  suppressClick=true;setTimeout(()=>suppressClick=false,0);
 }
 deck.addEventListener('pointerdown',event=>{
- if(!batch||!interactive||!tagTool||dealLayer||event.pointerType!=='mouse'||![0,2].includes(event.button)||event.target.closest('[data-reveal]'))return;
+ // 普通标签由 tagTool 开启喷涂；「清除」没有工具键，用 markerTool 开启：左键清空、右键撤销。
+ if(!batch||!interactive||!(tagTool||markerTool)||dealLayer||event.pointerType!=='mouse'||event.target.closest('[data-reveal]'))return;
+ // 普通标签左键贴、右键擦除；「清除」左键清空、右键撤销最近一次清除。
+ if(![0,2].includes(event.button))return;
  event.preventDefault();event.stopImmediatePropagation();
  if(paintDrag)return;
  const r=deck.getBoundingClientRect();if(event.clientX>r.right-12)return;
  paintDrag={pointer:event.pointerId,button:event.button,remove:event.button===2,tool:tagTool,indices:new Set(),last:paintPoint(event.clientX,event.clientY),clientX:event.clientX,clientY:event.clientY};
  deck.setPointerCapture(event.pointerId);
- send({type:'paint',tool:tagTool,phase:'start',indices:[],remove:paintDrag.remove});
+ send({type:'paint',tool:tagTool,phase:'start',indices:[],remove:paintDrag.remove,clear:!!markerTool});
  paintSegment(paintDrag.last);paintFrame=requestAnimationFrame(tickPaint);
 },true);
 window.addEventListener('pointermove',event=>{
@@ -330,14 +368,16 @@ window.addEventListener('pointermove',event=>{
 window.addEventListener('pointerup',event=>{
  if(!paintDrag||event.pointerId!==paintDrag.pointer||event.button!==paintDrag.button)return;
  paintSegment(paintPoint(event.clientX,event.clientY));finishPaint(false);event.preventDefault();
+ // 「清除」的飞散动画需要落点，把松手时的鼠标位置报给宿主（它只知道自己的页面坐标）。
+ if(markerTool){const r=deck.getBoundingClientRect();send({type:'pointerAt',x:event.clientX-r.left,y:event.clientY-r.top});}
 });
 window.addEventListener('pointercancel',()=>finishPaint(true));
 window.addEventListener('blur',()=>finishPaint(true));
 deck.addEventListener('lostpointercapture',()=>finishPaint(true));
-deck.addEventListener('contextmenu',event=>{if(batch&&tagTool){event.preventDefault();event.stopImmediatePropagation();}},true);
+deck.addEventListener('contextmenu',event=>{if(batch&&(tagTool||markerTool)){event.preventDefault();event.stopImmediatePropagation();}},true);
 document.addEventListener('keydown',event=>{
  if(!batch)return;
- if(event.key==='Escape'&&tagTool){finishPaint(true);tagTool=null;send({type:'exitPaint'});event.preventDefault();event.stopImmediatePropagation();}
+ if(event.key==='Escape'&&(tagTool||markerTool)){if(tagTool)finishPaint(true);tagTool=null;markerTool=null;send({type:'exitPaint'});event.preventDefault();event.stopImmediatePropagation();}
  else if(event.key==='Escape'&&!boxDrag){send({type:'clearSelection'});event.preventDefault();}
  else if(event.ctrlKey&&['z','y'].includes(event.key.toLowerCase())){if(!paintDrag)send({type:'undoPaint',redo:event.key.toLowerCase()==='y'||event.shiftKey});event.preventDefault();event.stopImmediatePropagation();}
 },true);
@@ -512,8 +552,8 @@ document.addEventListener('drop',event=>{
 window.chrome.webview.addEventListener('message',event=>{
  const state=event.data;
  if(state.type==='cancelPaint'){finishPaint(true);paintPending=null;return;}
- // 原生遮罩盖不住 WebView2 的左栏，这部分由网页自己用同一强度压暗。
- if(state.type==='dragMask'){document.body.classList.toggle('palette-dragging',state.on===true);return;}
+ if(state.type==='flyTagApply'){flyApply(state.rays);return;}
+ if(state.type==='flyTagScatter'){flyScatter(state.rays);return;}
  if(state.type==='panelScroll'){
   panelCommand=state.command;if(dealLayer){queuePanel();return;}if(batch)deck.scrollTop=state.value;else settingsPanel.scrollTop=state.value;queuePanel();return;
  }
@@ -539,8 +579,16 @@ window.chrome.webview.addEventListener('message',event=>{
  const nextGeneration=state.viewGeneration??0;
  if(paintDrag&&(viewGeneration!==nextGeneration||state.tagTool!==tagTool||!state.active||!state.interactive||!state.batch))finishPaint(true);
  viewGeneration=nextGeneration;
- tagTool=state.tagTool??null;tagLabel=state.tagLabel||'';
+ tagTool=state.tagTool??null;markerTool=state.marker??null;tagLabel=state.tagLabel||'';
  tagBg=state.tagBg||'';tagBorder=state.tagBorder||'';tagInk=state.tagInk||'';
+ // 退出喷涂时把卡片上残留的「✓ 标签」标记立刻还原成模型结果，不再等下次点到别的标签。
+ if(!tagTool&&tagLabel){
+  tagLabel='';
+  if(!state.marker){document.body.classList.remove('tag-clearing');for(const entry of cards.values())showTagState(entry,!!entry.data.tagMatched);}
+ }
+ // 「清除」也算喷涂态，鼠标整块变成同样的十字准星；卡片不留「✓ 标签」标记。
+ document.body.classList.toggle('tag-clearing',!!state.marker);
+ document.body.classList.toggle('tag-painting',!!tagTool||!!state.marker);
  if(tagBg)document.documentElement.style.setProperty('--g-tag-bg',tagBg);
  if(tagInk)document.documentElement.style.setProperty('--g-tag-ink',tagInk);
  if(tagBorder)document.documentElement.style.setProperty('--g-tag-line',tagBorder);

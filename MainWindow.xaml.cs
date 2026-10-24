@@ -312,6 +312,20 @@ public sealed partial class MainWindow : Window
     }
     private Controls.Review.ReviewPage? _reviewPage;
 
+    // 本机 Photos 的 WM_GETMINMAXINFO：200% 缩放时最小 1032×1032 像素，即 516×516 DIP。
+    private const int MinimumWindowWidthDip = 516, MinimumWindowHeightDip = 516;
+    private const uint WM_GETMINMAXINFO = 0x0024;
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X, Y;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowMinMaxInfo
+    {
+        public NativePoint Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize;
+    }
+
     private const int WM_ENTERSIZEMOVE = 0x0231;
     private const int WM_EXITSIZEMOVE = 0x0232;
     private const uint WM_WINDOWPOSCHANGED = 0x0047;
@@ -338,6 +352,17 @@ public sealed partial class MainWindow : Window
 
     private IntPtr OnWindowSubclass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
+        if (uMsg == WM_GETMINMAXINFO)
+        {
+            // 先保留框架计算的最大化／屏幕边界，只补最小跟踪尺寸；拖边时由系统直接约束。
+            var result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
+            var limits = Marshal.PtrToStructure<WindowMinMaxInfo>(lParam);
+            var scale = GetDpiForWindow(hWnd) / 96.0;
+            limits.MinTrackSize.X = Math.Max(limits.MinTrackSize.X, (int)Math.Ceiling(MinimumWindowWidthDip * scale));
+            limits.MinTrackSize.Y = Math.Max(limits.MinTrackSize.Y, (int)Math.Ceiling(MinimumWindowHeightDip * scale));
+            Marshal.StructureToPtr(limits, lParam, false);
+            return result;
+        }
         if ((uMsg == 0x00A1 || uMsg == 0x00A2) && wParam == (IntPtr)20) // HTCLOSE
         {
             if (uMsg == 0x00A1)

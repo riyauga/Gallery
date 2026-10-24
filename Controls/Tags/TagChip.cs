@@ -21,7 +21,7 @@ public static class TagColors
             ["kind"] = [("#eaf3eb", "#b5d0b8", "#3c6442"), ("#2d3d30", "#64856a", "#d3e8d6")],
             ["rating"] = [("#fbf2df", "#ddca9d", "#785e28"), ("#453b28", "#95804f", "#efe0b9")],
             ["resolution"] = [("#e5f3f4", "#a8ced2", "#32666c"), ("#293e41", "#577f85", "#cbe7ea")],
-            ["custom"] = [("#efedf3", "#c8c2d2", "#595064"), ("#38333f", "#797081", "#e0d9e8")],
+            ["custom"] = [("#f7f7f4", "#ddddd6", "#565650"), ("#5c5a55", "#9c9a93", "#f1f0eb")],
         };
 
     public static (string Bg, string Border, string Fg) Get(string category, bool dark)
