@@ -332,6 +332,7 @@ public sealed class ArchiveService(StoreService store)
     {
         try
         {
+            payload = store.NormalizeSkinPayload(payload);
             using var doc = JsonDocument.Parse(payload);
             if (doc.RootElement.TryGetProperty("review_tags", out var reviewed) && reviewed.ValueKind == JsonValueKind.Object)
             {
@@ -340,7 +341,13 @@ public sealed class ArchiveService(StoreService store)
                     .ToList();
                 if (edited.Count > 0)
                 {
-                    store.SetCategorizedTags([imageId], edited);
+                    using (var tx = store.Transaction())
+                    {
+                        store.SetCategorizedTags([imageId], edited);
+                        store.ApplyImageSkins(imageId, payload);
+                        tx.Success = true;
+                    }
+                    store.SyncSidecars([imageId]);
                     store.Commit();
                     AppService.RequestCatalogAlign();
                 }

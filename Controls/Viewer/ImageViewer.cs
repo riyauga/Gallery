@@ -35,9 +35,6 @@ public sealed class ImageViewer : Grid
     public event Action<double>? ZoomChanged;
     public event Action<bool>? LoadingChanged;
     public event Action<string>? LoadFailed;
-
-    /// <summary>普通滚轮翻页请求：-1 上一张 / +1 下一张（photos 语义，缩放改用 Ctrl+滚轮）。</summary>
-    public event Action<int>? NavigateRequested;
     public bool IsAnimating { get; set; }
 
     public ImageViewer()
@@ -235,19 +232,9 @@ public sealed class ImageViewer : Grid
         var point = e.GetCurrentPoint(this);
         int delta = point.Properties.MouseWheelDelta;
         if (delta == 0) return;
-        // photos 语义：普通滚轮翻页，Ctrl+滚轮才缩放
-        bool ctrl = Microsoft.UI.Input.InputKeyboardSource
-            .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
-            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        if (ctrl)
-        {
-            _state.ZoomAt(Math.Pow(1.2, delta / 120.0), point.Position.X, point.Position.Y);
-            Render();
-        }
-        else
-        {
-            NavigateRequested?.Invoke(delta > 0 ? -1 : 1);
-        }
+        // 详情页滚轮直接缩放，锚在指针位置；原来「普通滚轮翻页、Ctrl+滚轮缩放」的 photos 语义已弃用。
+        _state.ZoomAt(Math.Pow(1.2, delta / 120.0), point.Position.X, point.Position.Y);
+        Render();
         e.Handled = true;
     }
 

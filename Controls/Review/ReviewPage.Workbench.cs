@@ -28,7 +28,7 @@ public sealed partial class ReviewPage
     {
         public override string ToString() => $"{IngestReview.Titles[Array.IndexOf(IngestReview.Categories, Category)]} · {Suggestion.SearchDisplay}";
     }
-    private sealed record TagChange(int Id, string[] Before, string[] After, string RatingSource, Dictionary<string, List<string>>? BeforeTags = null);
+    private sealed record TagChange(int Id, string[] Before, string[] After, string RatingSource, Dictionary<string, List<string>>? BeforeTags = null, string[]? BeforeSkins = null, string[]? AfterSkins = null);
     private sealed record TagStroke(PaletteTag Tag, List<TagChange> Changes);
     /// <summary>「清除」不是真标签：单独放一个分类值，既不进存储也不参与搜索。</summary>
     private const string ClearCategory = "clear";
@@ -586,22 +586,21 @@ public sealed partial class ReviewPage
 
     private void ConnectPaletteButton(Button button, PaletteTag tag)
     {
+        // 这颗标签的中心：清除用它当飞散落点，普通标签用它当「贴上／摘下」动画的端点。
+        Point Anchor() => button.TransformToVisual(this)
+            .TransformPoint(new Point(button.ActualWidth / 2, button.ActualHeight / 2));
         button.Click += (_, _) =>
         {
             var skip = _suppressPaletteClick;
             _suppressPaletteClick = false;
             if (skip) return;
-            // 「清除」的飞散动画从这颗按钮出发；普通标签没有这个落点。
-            var origin = tag.Category == ClearCategory
-                ? button.TransformToVisual(this).TransformPoint(new Point(button.ActualWidth / 2, button.ActualHeight / 2))
-                : (Point?)null;
-            PaletteClicked(tag, false, origin);
+            PaletteClicked(tag, false, Anchor());
         };
         button.RightTapped += (_, args) =>
         {
             args.Handled = true;
             // 「清除」的右键是反向操作，不依赖选区；其余标签只在有选区时删除。
-            if (tag.Category == ClearCategory || _batchSelected.Count > 0) PaletteClicked(tag, true);
+            if (tag.Category == ClearCategory || _batchSelected.Count > 0) PaletteClicked(tag, true, Anchor());
         };
         button.PreviewKeyDown += (_, args) =>
         {
@@ -1241,7 +1240,7 @@ public sealed partial class ReviewPage
         PersistPalette(); RebuildPalette(); UpdateWorkbenchState();
     }
 
-    private void PaletteClicked(PaletteTag tag, bool remove, Point? clearOrigin = null)
+    private void PaletteClicked(PaletteTag tag, bool remove, Point? chipAnchor = null)
     {
         if (_busy || _paintGesture || _paletteDragging || _dragFinishing || !_batchMode || AppService.IsShuttingDown) return;
         // 「清除」的右键是反向操作：撤销最近一次清除（点标签本身没有扫过的图片，撤整笔）。
@@ -1258,15 +1257,17 @@ public sealed partial class ReviewPage
                 return;
             }
             ExitPaintMode();
-            _clearFlyTarget = clearOrigin;
+            TiltPaletteTag(tag);
+            _clearFlyTarget = chipAnchor;
             _paintTask = ClearTagsAsync(_batchSelected.ToArray(), _railCategory);
             return;
         }
         if (_batchSelected.Count > 0)
         {
             ExitPaintMode();
-            // 混合状态先补齐；全都有时再次左击删除；右键始终删除。
-            _paintTask = ApplyTagStrokeAsync(tag, _batchSelected.ToArray(), remove, toggleSelection: !remove);
+            TiltPaletteTag(tag);
+            // 混合状态先补齐；全都有时再次左击删除；右键始终删除。动画落点就是刚点的这颗标签。
+            _paintTask = ApplyTagStrokeAsync(tag, _batchSelected.ToArray(), remove, toggleSelection: !remove, flyAnchor: chipAnchor);
         }
         else
         {
@@ -1274,6 +1275,69 @@ public sealed partial class ReviewPage
             _paintTag = tag;
             RebuildPalette(); UpdateWorkbenchState();
         }
+    }
+
+    /// <summary>
+    /// 批量贴／撕时让刚点的那颗标签翘一下。离开喷涂会重建调色板、把原来那颗按钮换掉，
+    /// 所以按 key 找重建后的新按钮，并等它排版拿到实际宽高再播。
+    /// </summary>
+    private void TiltPaletteTag(PaletteTag tag)
+    {
+        var key = PaletteKey(tag);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            if (!_batchMode || !_paletteButtons.TryGetValue(key, out var button)) return;
+            if (button.ActualWidth > 0)
+            {
+                TiltChip(button);
+                return;
+            }
+            // 刚重建的按钮可能还没排版，等它拿到宽度再补一次。
+            void OnSize(object? sender, SizeChangedEventArgs e)
+            {
+                if (e.NewSize.Width <= 0) return;
+                button.SizeChanged -= OnSize;
+                TiltChip(button);
+            }
+            button.SizeChanged += OnSize;
+        });
+    }
+
+    /// <summary>
+    /// 点标签时的俏皮反馈：像被指尖按了一下，先向右翘起来再弹回去。
+    /// 只在真的动到选区（批量贴／撕）时播；系统禁用动画时不动。
+    /// </summary>
+    private static void TiltChip(Button? chip)
+    {
+        if (chip is null || chip.ActualWidth <= 0 || chip.ActualHeight <= 0) return;
+        if (!new Windows.UI.ViewManagement.UISettings().AnimationsEnabled) return;
+        if (chip.RenderTransform is not RotateTransform rotate)
+        {
+            rotate = new RotateTransform();
+            chip.RenderTransform = rotate;
+            // 轴心压在标签底部偏下，翘起来才像贴纸被指尖按了一下。
+            chip.RenderTransformOrigin = new Point(.5, .8);
+        }
+        var story = new Storyboard();
+        var tilt = new DoubleAnimationUsingKeyFrames { EnableDependentAnimation = true };
+        foreach (var (time, angle, ease) in new[]
+        {
+            (90, 8.0, EasingMode.EaseOut),
+            (190, -2.6, EasingMode.EaseInOut),
+            (330, 0.0, EasingMode.EaseOut),
+        })
+        {
+            tilt.KeyFrames.Add(new EasingDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(time)),
+                Value = angle,
+                EasingFunction = new CubicEase { EasingMode = ease },
+            });
+        }
+        Storyboard.SetTarget(tilt, rotate);
+        Storyboard.SetTargetProperty(tilt, "Angle");
+        story.Children.Add(tilt);
+        story.Begin();
     }
 
     /// <summary>工作台类型图标的当前位置（相对本页），作为 AI 贴标签动画的起点；图标没显示时返回 null。</summary>
@@ -1376,6 +1440,7 @@ public sealed partial class ReviewPage
                         var rating = snapshot.ContainsKey("rating") ? "" : next["rating"].FirstOrDefault() ?? "";
                         var source = JsonNode.Parse(row.Payload)?["rating_source"]?.GetValue<string>() ?? "";
                         var payload = JsonNode.Parse(IngestReview.UpdatePayload(row.Payload, next, rating))!.AsObject();
+                        if (snapshot.ContainsKey("character")) payload["review_skins"] = JsonSerializer.SerializeToNode(change.AfterSkins ?? []);
                         if (snapshot.ContainsKey("rating")) payload.Remove("rating_source");
                         else if (source.Length > 0) payload["rating_source"] = source;
                         else payload.Remove("rating_source");
@@ -1390,6 +1455,7 @@ public sealed partial class ReviewPage
                         var rating = restore["rating"].FirstOrDefault() ?? "";
                         var source = JsonNode.Parse(row.Payload)?["rating_source"]?.GetValue<string>() ?? "";
                         var payload = JsonNode.Parse(IngestReview.UpdatePayload(row.Payload, restore, rating))!.AsObject();
+                        if (snapshot.ContainsKey("character")) payload["review_skins"] = JsonSerializer.SerializeToNode(change.BeforeSkins ?? []);
                         if (snapshot.ContainsKey("rating"))
                         {
                             if (change.RatingSource.Length > 0) payload["rating_source"] = change.RatingSource;
@@ -1532,7 +1598,9 @@ public sealed partial class ReviewPage
                     else if (source.Length > 0) payload["rating_source"] = source;
                     else payload.Remove("rating_source");
                     store.UpdateIngestReview(id, payload.ToJsonString(), rating);
-                    changes.Add(new(id, [], [], source, affected));
+                    changes.Add(new(id, [], [], source, affected,
+                        store.ReviewSkins(row.Payload).Select(s => s.SkinKey).ToArray(),
+                        store.ReviewSkins(store.IngestRow(id)!.Payload).Select(s => s.SkinKey).ToArray()));
                 }
                 tx.Success = true;
                 return changes;
@@ -1623,7 +1691,7 @@ public sealed partial class ReviewPage
         else _paintTask = ApplyTagStrokeAsync(stack[^1].Tag, [], false, stack[^1], redo);
     }
 
-    private async Task ApplyTagStrokeAsync(PaletteTag tag, IReadOnlyCollection<int> ids, bool remove, TagStroke? history = null, bool redo = false, bool toggleSelection = false)
+    private async Task ApplyTagStrokeAsync(PaletteTag tag, IReadOnlyCollection<int> ids, bool remove, TagStroke? history = null, bool redo = false, bool toggleSelection = false, Point? flyAnchor = null)
     {
         if (_busy || AppService.Store is not { } store || AppService.IsShuttingDown) return;
         SetBusy(true); UpdateButtons();
@@ -1668,6 +1736,8 @@ public sealed partial class ReviewPage
                     var oldPayload = JsonNode.Parse(row.Payload)!.AsObject();
                     var source = oldPayload["rating_source"]?.GetValue<string>() ?? "";
                     var payload = JsonNode.Parse(IngestReview.UpdatePayload(row.Payload, tags, rating))!.AsObject();
+                    if (tag.Category == "character" && previous is not null)
+                        payload["review_skins"] = JsonSerializer.SerializeToNode((redo ? previous.AfterSkins : previous.BeforeSkins) ?? []);
                     if (tag.Category != "rating" || history is not null && !redo)
                     {
                         var keepSource = tag.Category != "rating" ? source : previous!.RatingSource;
@@ -1675,7 +1745,9 @@ public sealed partial class ReviewPage
                         else payload.Remove("rating_source");
                     }
                     store.UpdateIngestReview(id, payload.ToJsonString(), rating);
-                    changes.Add(new(id, before, after.ToArray(), source));
+                    changes.Add(new(id, before, after.ToArray(), source, BeforeSkins:
+                        store.ReviewSkins(row.Payload).Select(s => s.SkinKey).ToArray(), AfterSkins:
+                        store.ReviewSkins(store.IngestRow(id)!.Payload).Select(s => s.SkinKey).ToArray()));
                     if (store.IngestRow(id) is { } latest) updated.Add(latest with { ResolvedPath = row.ResolvedPath });
                 }
                 tx.Success = true;
@@ -1704,6 +1776,17 @@ public sealed partial class ReviewPage
             }
             UpdateWorkbenchState();
             _carousel.UpdateTagRows(_rows, tag.Category == "rating");
+            // 点工作台标签时给每张卡片补「贴上／摘下」的动作；喷涂、撤销重做各有自己的动画，不重复播。
+            if (flyAnchor is { } anchor)
+                foreach (var change in result.changes)
+                {
+                    var added = change.After.Except(change.Before, StringComparer.OrdinalIgnoreCase)
+                        .Select(name => LabelTag(tag.Category, name)).ToArray();
+                    var removed = change.Before.Except(change.After, StringComparer.OrdinalIgnoreCase)
+                        .Select(name => LabelTag(tag.Category, name)).ToArray();
+                    if (added.Length > 0) FlyTagApply(change.Id, added, anchor);
+                    if (removed.Length > 0) FlyTagDetach(change.Id, removed, anchor);
+                }
             RefreshDestination();
             Changed?.Invoke();
         }
@@ -1711,6 +1794,10 @@ public sealed partial class ReviewPage
         { _status.Text = (committed ? "标签已保存，但界面刷新失败：" : "标签操作失败，整笔未保存：") + ex.Message; }
         finally { SetBusy(false); UpdateButtons(); OpenDeferredNotification(); }
     }
+
+    /// <summary>按分类把标签名补成工作台标签：分级显示成「普通／性感／暗示／露骨」，其余直接用原名。</summary>
+    private static PaletteTag LabelTag(string category, string name) =>
+        new(category, name, category == "rating" ? RatingText.Level(name) : name);
 
     private void LoadPalette()
     {

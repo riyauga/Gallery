@@ -33,6 +33,11 @@ public sealed partial class ReviewPage : Grid
         ViewportSize = 9,
     };
     private bool _syncingScroll, _scrollDragging;
+    // 整页底色：深色是有意的不透明炭灰（WebView 透明表面要从这层取同一底色），
+    // 宿主把它复用给内容区左侧那段留白，避免页面左缘露出一条内容岛底色的灰缝。
+    private readonly SolidColorBrush _surface = new(Microsoft.UI.Colors.Transparent);
+    /// <summary>页面底色画笔（主题切换时原地改色，宿主可直接持有同一个实例）。</summary>
+    public SolidColorBrush SurfaceBrush => _surface;
     // 新版从 70:30 起步；旧版比例不再读取，后续拖动仍写回设置。
     private const string SplitRatioSetting = "review_split_ratio_v2";
     private double _splitRatio = .7;
@@ -131,6 +136,8 @@ public sealed partial class ReviewPage : Grid
     // 历史只加载最近这么多条；更早的交给「清理历史」处理，避免一次拉几万条。
     private const int HistoryLimit = 200;
     private int _index, _selectionGeneration;
+    /// <summary>待归档队列里见过的最大 ID：比它更大的记录进来就算新图，用来回到最新那张。</summary>
+    private int _newestSeen;
     private bool _busy, _active = true;
     private TaskCompletionSource? _workCompleted;
 
@@ -161,7 +168,7 @@ public sealed partial class ReviewPage : Grid
     public ReviewPage(Window owner)
     {
         _owner = owner;
-        Background = new SolidColorBrush(Colors.Transparent);
+        Background = _surface;
         AddHandler(TappedEvent, new TappedEventHandler(OnBackgroundTapped), true);
         _path.MaxLines = 2;
         _path.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -257,7 +264,14 @@ public sealed partial class ReviewPage : Grid
         {
             if (!_settingDestination) _destinationEdited = true;
         };
-        AppService.Settings.Changed += RefreshDestination;
+        // 设置保存可能来自后台线程（例如「添加文件夹」在 Task.Run 里落盘），
+        // 那时直接改控件会抛「接口为不同线程封送」，异常会顺着 Save 冒出去，
+        // 把添加根目录这类已经开了事务的操作整笔回滚掉。统一回到 UI 线程再刷新。
+        AppService.Settings.Changed += () =>
+        {
+            if (DispatcherQueue.HasThreadAccess) RefreshDestination();
+            else DispatcherQueue.TryEnqueue(RefreshDestination);
+        };
         _revealAll.Click += (_, _) =>
         {
             _carousel.ToggleRevealAll();
@@ -484,7 +498,7 @@ public sealed partial class ReviewPage : Grid
         var history = _state == "history";
         _rows = history
             ? store.IngestHistory(HistoryLimit)
-            : store.IngestRows(_state, int.MaxValue).OrderBy(row => row.ReceivedAt).ThenBy(row => row.Id).ToList();
+            : store.IngestRows(_state, int.MaxValue).OrderByDescending(row => row.ReceivedAt).ThenByDescending(row => row.Id).ToList();
         if (history)
         {
             lock (AppService.DbLock)
@@ -506,12 +520,22 @@ public sealed partial class ReviewPage : Grid
             _settingDestination = false;
         }
         var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
+        // 队列改成上新下旧（下标 0 是最新）。待归档里出现更大的 ID 就说明来了新图／新一批导入，直接停到最新那张。
+        var newest = _state == "pending" && _rows.Count > 0 ? _rows[0].Id : 0;
+        var arrived = newest > _newestSeen;
+        if (newest > _newestSeen) _newestSeen = newest;
         if (_batchMode)
         {
             var validIds = _rows.Select(row => row.Id).ToHashSet();
             _batchSelected.IntersectWith(validIds);
             foreach (var id in _workbenchTagCache.Keys.Where(id => !validIds.Contains(id)).ToArray()) _workbenchTagCache.Remove(id);
             RenderBatchSelection(false);
+        }
+        else if (arrived)
+        {
+            // 有新图时不再还原切走前记住的旧中心，回来就停在最新那张。
+            _carousel.ForgetResumeCenter();
+            Select(0, false);
         }
         else Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1), false);
         UpdateButtons();
@@ -852,6 +876,12 @@ public sealed partial class ReviewPage : Grid
             UpdateButtons();
             return;
         }
+        if (row.State == "pending" && AppService.Store is { } skinStore)
+        {
+            skinStore.NormalizeIngestSkins(row.Id);
+            row = skinStore.IngestRow(row.Id) ?? row;
+            _selected = _rows[_index] = row;
+        }
         _title.Text = row.InboxName.Length > 0 ? row.InboxName : Path.GetFileName(IngestReview.LocalPath(row));
         _time.Text = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         _spec.Text = _imageSpecs.GetValueOrDefault(IngestReview.CurrentPath(row), "—");
@@ -1033,8 +1063,29 @@ public sealed partial class ReviewPage : Grid
                         Rebuild();
                     };
                     var label = TagLabel(category, name);
+                    var skins = category == "character" && _selected is { } skinRow && AppService.Store is { } skinStore
+                        ? skinStore.SkinsForCharacter(skinRow.Payload, name)
+                        : new List<CharacterSkin>();
+                    if (skins.Count > 0) label += " · " + string.Join(" / ", skins.Select(s => s.Display));
                     var chip = new Tags.TagChip(category, label, remove);
                     ToolTipService.SetToolTip(chip, label == name ? name : $"{label} · {name}");
+                    if (skins.Count > 0)
+                    {
+                        var menu = new MenuFlyout();
+                        foreach (var skin in skins)
+                        {
+                            var edit = new MenuFlyoutItem { Text = $"编辑皮肤中文名：{skin.Display}" };
+                            edit.Click += async (_, _) =>
+                            {
+                                var skinGeneration = _selectionGeneration;
+                                await EditSkinChineseNameAsync(skin);
+                                if (skinGeneration == _selectionGeneration) Rebuild();
+                            };
+                            menu.Items.Add(edit);
+                        }
+                        chip.ContextFlyout = menu;
+                        ToolTipService.SetToolTip(chip, $"{label}\n原始标签：{string.Join(", ", skins.Select(s => s.SourceTag))}\n右键可编辑皮肤中文名");
+                    }
                     chips.Children.Add(chip);
                 }
             }
@@ -1047,6 +1098,24 @@ public sealed partial class ReviewPage : Grid
                 chips.Children.Add(classify);
             }
         }
+    }
+
+    private async Task EditSkinChineseNameAsync(CharacterSkin skin)
+    {
+        if (DialogService.IsShowing || AppService.Store is not { } store) return;
+        var input = new TextBox { Text = skin.Zh, PlaceholderText = "输入可靠的中文皮肤名；留空恢复待译", MaxLength = 160 };
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(new TextBlock { Text = skin.En, TextWrapping = TextWrapping.Wrap });
+        content.Children.Add(input);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "皮肤中文名", Content = content,
+            PrimaryButtonText = "保存", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await DialogService.ShowAsync(dialog) != ContentDialogResult.Primary) return;
+        try { store.SetSkinChineseName(skin.SkinKey, input.Text); }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException)
+        { _status.Text = "皮肤名称保存失败：" + ex.Message; }
     }
 
     /// <summary>只判定当前待归档文件，后台推理期间锁定编辑，结果写回同一条队列记录。</summary>
@@ -1190,19 +1259,34 @@ public sealed partial class ReviewPage : Grid
         return added;
     }
 
-    /// <summary>把这张图这次新贴上的标签交给卡片：从工作台对应类型图标飞过去并缩进卡片。</summary>
-    private void FlyTagApply(int id, IReadOnlyList<PaletteTag> labels)
+    /// <summary>
+    /// 把这张图这次新贴上的标签交给卡片：飞过去并缩进卡片。
+    /// origin 为空时起点取工作台里对应的类型图标（AI 分析走这条路）；点击工作台标签时传那颗标签的中心。
+    /// </summary>
+    private void FlyTagApply(int id, IReadOnlyList<PaletteTag> labels, Point? origin = null)
     {
         if (!_batchMode || !_active || labels.Count == 0) return;
         var rays = labels.Select(tag =>
         {
             var colors = TagColors.Get(tag.Category, ActualTheme == ElementTheme.Dark);
-            // 标签都带类型，起点取工作台里对应的类型图标；图标没显示时退回卡片区中心。
-            var anchor = RailAnchor(tag.Category) ?? new Point(ActualWidth * .3, ActualHeight / 2);
+            // 图标没显示时退回卡片区中心，起点永远有一个确定值。
+            var anchor = origin ?? RailAnchor(tag.Category) ?? new Point(ActualWidth * .3, ActualHeight / 2);
             return new ReviewCarousel.TagRay(id, tag.Category, tag.Display, anchor.X, anchor.Y,
                 colors.Bg, colors.Border, colors.Fg);
         }).ToArray();
         _carousel.FlyTagApply(rays);
+    }
+
+    /// <summary>批量移除时这张卡的对应标签：先在卡片上弹一下，再飞向工作台那颗标签并缩没。</summary>
+    private void FlyTagDetach(int id, IReadOnlyList<PaletteTag> labels, Point target)
+    {
+        if (!_batchMode || !_active || labels.Count == 0) return;
+        var rays = labels.Select(tag =>
+        {
+            var colors = TagColors.Get(tag.Category, ActualTheme == ElementTheme.Dark);
+            return new ReviewCarousel.DetachRay(id, tag.Display, colors.Bg, colors.Border, colors.Fg);
+        }).ToArray();
+        _carousel.FlyTagDetach(rays, target);
     }
 
     /// <summary>
@@ -1757,6 +1841,7 @@ public sealed partial class ReviewPage : Grid
     /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>
     public async Task ImportAsync(IReadOnlyList<string> sources)
     {
+        AppService.DebugLog($"import-review: ImportAsync busy={_busy} shuttingDown={AppService.IsShuttingDown} n={sources.Count}");
         if (_busy || AppService.IsShuttingDown || sources.Count == 0) return;
         SetBusy(true);
         UpdateButtons();
@@ -1775,8 +1860,12 @@ public sealed partial class ReviewPage : Grid
     private async Task<bool> ImportCoreAsync(IReadOnlyList<string> sources)
     {
         var root = XamlRoot ?? _owner.Content?.XamlRoot;
+        AppService.DebugLog("import-review: root=" + (root is null ? "<null>" : "ok")
+            + " showing=" + DialogService.IsShowing);
         if (root is null) return false;
         var result = await LocalImportFlow.RunAsync(root, sources);
+        AppService.DebugLog("import-review: result=" + (result is null ? "<null>"
+            : $"added={result.Added} skipped={result.Skipped}"));
         if (result is null) return false;
         if (result.Added == 0 && result.Skipped == 0)
         {
@@ -1844,8 +1933,8 @@ public sealed partial class ReviewPage : Grid
     private void ApplyColors()
     {
         // 深色审核页统一为中性炭灰，WebView 从此承载层读取同一底色。
-        Background = new SolidColorBrush(ActualTheme == ElementTheme.Dark
-            ? Windows.UI.Color.FromArgb(255, 32, 33, 35) : Colors.Transparent);
+        _surface.Color = ActualTheme == ElementTheme.Dark
+            ? Windows.UI.Color.FromArgb(255, 32, 33, 35) : Colors.Transparent;
         _archive.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
         _ignore.Opacity = .72;
         _revealAllText.Foreground = ResourceBrush("AccentTextFillColorPrimaryBrush");

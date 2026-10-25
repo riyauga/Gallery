@@ -28,7 +28,7 @@ public sealed record ImageRow(
 /// replace_roots 事务、sidecar 写入与导入、mark_missing。
 /// 兼容红线见迁移计划 §5。
 /// </summary>
-public sealed class StoreService : IDisposable
+public sealed partial class StoreService : IDisposable
 {
     public const string SidecarName = ".gallery.json";
     public const string SidecarSchema = "gallery.sidecar/2";
@@ -712,8 +712,11 @@ public sealed class StoreService : IDisposable
             // galleryold 语义：标签 / 中文别名 / 文件名（别名经 tag_aliases 命中标签）
             var ph = $"$p{args.Count}";
             args.Add("%" + LikeEscape(search) + "%");
+            var skinSearch = "EXISTS(SELECT 1 FROM image_skins sk JOIN character_skins cs ON cs.skin_key=sk.skin_key " +
+                $"WHERE sk.image_id=i.id AND (cs.zh LIKE {ph} ESCAPE '\\' OR cs.en LIKE {ph} ESCAPE '\\' " +
+                $"OR EXISTS(SELECT 1 FROM skin_source_tags st WHERE st.skin_key=cs.skin_key AND st.tag LIKE {ph} ESCAPE '\\')))";
             where.Add(
-                $"(i.name LIKE {ph} ESCAPE '\\' OR EXISTS(" +
+                $"(i.name LIKE {ph} ESCAPE '\\' OR {skinSearch} OR EXISTS(" +
                 "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
                 "LEFT JOIN tag_profiles tp ON tp.tag_id=t.id " +
                 $"WHERE it.image_id=i.id AND (t.name LIKE {ph} ESCAPE '\\' " +
@@ -1020,6 +1023,16 @@ public sealed class StoreService : IDisposable
             cmd.CommandText = $"UPDATE images SET managed=1 WHERE id IN ({idMarks})";
             for (var i = 0; i < idList.Count; i++)
                 cmd.Parameters.AddWithValue($"$id{i}", idList[i]);
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText = $"DELETE FROM image_skins WHERE image_id IN ({idMarks}) AND NOT EXISTS(" +
+                "SELECT 1 FROM character_skins s JOIN image_tags it ON it.image_id=image_skins.image_id " +
+                "JOIN tags t ON t.id=it.tag_id LEFT JOIN tag_identities ti ON ti.tag_id=t.id " +
+                "WHERE s.skin_key=image_skins.skin_key AND t.category='character' " +
+                "AND (t.name=s.character_tag COLLATE NOCASE OR ti.identity_key=s.identity_key))";
+            for (var i = 0; i < idList.Count; i++) cmd.Parameters.AddWithValue($"$id{i}", idList[i]);
             cmd.ExecuteNonQuery();
         }
         Commit();
@@ -1365,6 +1378,7 @@ public sealed class StoreService : IDisposable
         lock (SyncRoot)
         {
             var conn = _conn;
+            payloadJson = NormalizeSkinPayload(payloadJson);
             using var tx = conn.BeginTransaction();
 
             if (ingestId.Length > 0)
@@ -1661,7 +1675,7 @@ public sealed class StoreService : IDisposable
             }
 
             // 界面上的 payload 可能停在后台补基础信息之前，只把人工可改的部分叠到最新记录上。
-            try { payload = IngestReview.MergeReview(currentPayload, payload, rating); }
+            try { payload = NormalizeSkinPayload(IngestReview.MergeReview(currentPayload, payload, rating)); }
             catch (JsonException) { }
 
             using var cmd = _conn.CreateCommand();
@@ -2665,7 +2679,7 @@ public sealed class StoreService : IDisposable
             var rating = row.Rating;
             if (tags.Count == 0 && rating == 0 && !row.Managed) continue;
 
-            var entry = new Dictionary<string, object> { ["tags"] = tags };
+            var entry = new Dictionary<string, object> { ["tags"] = tags, ["character_skins"] = ExportImageSkins(row.Id) };
             if (row.ImageUuid is not null) entry["image_uuid"] = row.ImageUuid;
 
             var aliases = new Dictionary<string, object>();
@@ -2878,6 +2892,7 @@ public sealed class StoreService : IDisposable
                         Exec($"INSERT OR IGNORE INTO image_manual_categories VALUES({imageId},'{category}')");
                 }
             }
+            ImportImageSkins(imageId, element);
             imported++;
         }
         Commit();

@@ -11,7 +11,11 @@ public static class DialogService
 
     public static async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
     {
-        if (_showing || AppService.IsShuttingDown) return ContentDialogResult.None;
+        if (_showing || AppService.IsShuttingDown)
+        {
+            AppService.DebugLog($"import-review: dialog gated showing={_showing} shuttingDown={AppService.IsShuttingDown}");
+            return ContentDialogResult.None;
+        }
         _showing = true;
         _current = dialog;
         try

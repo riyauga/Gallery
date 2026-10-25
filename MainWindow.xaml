@@ -16,6 +16,7 @@
             <KeyboardAccelerator Key="Right" Invoked="OnRightInvoked" />
             <KeyboardAccelerator Key="Delete" Invoked="OnDeleteInvoked" />
             <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="OnSearchInvoked" />
+            <KeyboardAccelerator Key="F5" Invoked="OnRefreshInvoked" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />

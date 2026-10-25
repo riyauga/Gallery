@@ -396,6 +396,7 @@ public static class IngestReview
         if (JsonNode.Parse(updatedPayload) is not JsonObject updated) return updatedPayload;
         if (updated["review_tags"] is JsonNode review)
             current["review_tags"] = review.DeepClone();
+        if (updated["review_skins"] is JsonNode skins) current["review_skins"] = skins.DeepClone();
         if (rating.Length > 0)
         {
             current["rating"] = rating;

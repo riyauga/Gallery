@@ -11,7 +11,9 @@ public static class LocalImportFlow
     public static async Task<Result?> RunAsync(XamlRoot root, IReadOnlyList<string> sources)
     {
         if (sources.Count == 0) return null;
+        AppService.DebugLog("import-review: flow enter sources=" + string.Join("|", sources));
         var options = await ImportDialog.ShowAsync(root, sources);
+        AppService.DebugLog("import-review: options=" + (options is null ? "<null>" : "ok"));
         if (options is null) return null;
 
         var folders = sources.Where(Directory.Exists).ToList();

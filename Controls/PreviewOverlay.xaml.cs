@@ -76,7 +76,6 @@ public sealed partial class PreviewOverlay : Grid
             return result;
         };
         Viewer.ZoomChanged += SyncZoomControls;
-        Viewer.NavigateRequested += Move;
         Viewer.LoadingChanged += loading =>
         {
             LoadingText.Text = "正在加载图片…";
@@ -123,7 +122,6 @@ public sealed partial class PreviewOverlay : Grid
             FileActions.OpenImage(item.FullPath,
                 AppService.Settings.Settings.open_mode,
                 AppService.Settings.Settings.open_custom_exe);
-        SizeChanged += (_, _) => Relayout();
 
         // 百分比下拉（Photos 缩放条）：预设档位，当前缩放以占位文本显示
         foreach (var percent in new[] { "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%" })
@@ -144,7 +142,6 @@ public sealed partial class PreviewOverlay : Grid
     private CastingConnection? _castingConnection;
     private bool _fullscreen;
     private bool _infoInFullscreen;
-    private bool _wasMaximized;
     private double _pointerX;
     private Storyboard? _topBarAnimation;
 
@@ -238,52 +235,36 @@ public sealed partial class PreviewOverlay : Grid
     private void ZoomOut_Click(object sender, RoutedEventArgs e) => Viewer.ZoomBy(1 / 1.25);
     private void ZoomIn_Click(object sender, RoutedEventArgs e) => Viewer.ZoomBy(1.25);
 
-    private void Fullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(!IsFullscreen);
+    private void Fullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(!_fullscreen);
 
     private bool IsFullscreen =>
         GetAppWindow()?.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen;
 
-    /// <summary>
-    /// 全屏：切窗口 presenter + 收起应用标题栏行 + 遮罩转不透明 + 图片区上下留白对齐
-    /// （原来只在窗口层全屏、`ContentArea` 还留着 52 的标题栏上边距，导致顶部一条黑带）。
-    /// 证据：Photos 的 FullScreenService（TryEnter/Exit/ToggleFullScreenMode + FullScreenModeChanged）
-    /// 与 ViewerRootViewModel.GetTitleBarRowHeight(isFullScreenMode) —— 具体实现是原生 WinRT 组件，源码不可读。
-    /// </summary>
     private void SetFullscreen(bool full)
     {
-        var appWindow = GetAppWindow();
-        if (appWindow is null) return;
-        _fullscreen = full;
-        _infoInFullscreen = false;
-        if (full)
+        if (MainWindow.Instance is not { } window || _closing || !IsOpen || _fullscreen == full) return;
+        _animation?.Stop();
+        _animation = null;
+        Viewer.IsAnimating = false;
+        Opacity = 1;
+        FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
+        FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
+        // 不隐藏内容、不插入黑帧：窗口 presenter 与布局在一次同步操作内切换。
+        window.SetViewerFullscreen(full, () =>
         {
-            _wasMaximized = appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter
-                { State: Microsoft.UI.Windowing.OverlappedPresenterState.Maximized };
-            appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
-        }
-        else
-        {
-            // 必须回到默认 presenter 实例，不能新建 Overlapped：新建实例会先按 Restored
-            // 尺寸显示一帧，再恢复原最大化状态，表现为整窗“小 → 大 → 小”。
-            appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
-            if (_wasMaximized && appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
-                presenter.Maximize();
-        }
-        MainWindow.Instance?.SetTitleBarHidden(full);
-        // 全屏时遮罩转不透明（否则图库在下面隐约可见）
-        Background = new SolidColorBrush(full
-            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0, 0, 0)
-            : Microsoft.UI.ColorHelper.FromArgb(0xCC, 0, 0, 0));
-        // 全屏是沉浸式：图片贴边铺满，只留顶栏/缩放条/左右箭头这些按需浮出的控件
-        ContentArea.Margin = full
-            ? new Thickness(0)
-            : new Thickness(16, 52, 16, 16);
-        FullscreenIcon.Glyph = full ? "\uE73F" : "\uE740";
-        TopBar.Visibility = Visibility.Collapsed;
-        TopBar.Opacity = 0;
-        CloseButton.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
-        ApplyFullscreenLayout();
-        UpdateVideoBar();
+            _fullscreen = full;
+            _infoInFullscreen = false;
+            Background = new SolidColorBrush(full
+                ? Microsoft.UI.Colors.Black
+                : Microsoft.UI.ColorHelper.FromArgb(0xCC, 0, 0, 0));
+            ContentArea.Margin = full ? new Thickness(0) : new Thickness(16, 52, 16, 16);
+            FullscreenIcon.Glyph = full ? "\uE73F" : "\uE740";
+            CloseButton.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+            TopBar.Visibility = Visibility.Collapsed;
+            TopBar.Opacity = 0;
+            ApplyFullscreenLayout();
+            UpdateVideoBar();
+        });
     }
 
     /// <summary>
@@ -454,10 +435,8 @@ public sealed partial class PreviewOverlay : Grid
     /// <summary>退出全屏并恢复标题栏（打开/关闭查看器时都要回到普通窗口）。</summary>
     private void RestoreChrome()
     {
-        var appWindow = GetAppWindow();
-        if (appWindow is not null && appWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
-            appWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped);
-        MainWindow.Instance?.SetTitleBarHidden(false);
+        if (IsFullscreen) MainWindow.Instance?.SetViewerFullscreen(false, () => _fullscreen = false);
+        else MainWindow.Instance?.SetTitleBarHidden(false);
         Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xCC, 0, 0, 0));
         ContentArea.Margin = new Thickness(16, 52, 16, 16);
         FullscreenIcon.Glyph = "\uE740";
@@ -540,10 +519,18 @@ public sealed partial class PreviewOverlay : Grid
         sb.Begin();
     }
 
-    private void Relayout()
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        // 在测量子控件前确定图片区，避免 SizeChanged 后改 Margin 引发第二轮适应／回弹。
+        Relayout(availableSize.Width, availableSize.Height);
+        return base.MeasureOverride(availableSize);
+    }
+
+    private void Relayout() => Relayout(ActualWidth, ActualHeight);
+
+    private void Relayout(double areaW, double areaH)
     {
         // 照 galleryold layout_panels：宽 ≥900 左图+右详情 360；窄窗上下分栏（图片区高 50%）
-        double areaW = ActualWidth, areaH = ActualHeight;
         if (areaW <= 0) return;
         if (_fullscreen)
         {
@@ -750,7 +737,7 @@ public sealed partial class PreviewOverlay : Grid
         ShowCurrent();
     }
 
-    private void VideoFullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(!IsFullscreen);
+    private void VideoFullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(!_fullscreen);
 
     private void VideoSeekSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -914,7 +901,7 @@ public sealed partial class PreviewOverlay : Grid
         switch (key)
         {
             // Photos 语义：全屏时 Esc 先退出全屏，再按一次才关查看器
-            case VirtualKey.Escape when IsFullscreen: SetFullscreen(false); break;
+            case VirtualKey.Escape when _fullscreen: SetFullscreen(false); break;
             case VirtualKey.Escape: Close(); break;
             case VirtualKey.Left: Move(-1); break;
             case VirtualKey.Right: Move(1); break;
@@ -1052,7 +1039,7 @@ public sealed partial class PreviewOverlay : Grid
         }
     }
 
-    private static List<(string Category, string Name)> LoadTagPairs(int imageId)
+    private List<(string Category, string Name)> LoadTagPairs(int imageId)
     {
         var pairs = new List<(string, string)>();
         if (AppService.Store is null || imageId <= 0) return pairs;
@@ -1062,7 +1049,16 @@ public sealed partial class PreviewOverlay : Grid
             {
                 var details = AppService.Store.TagDetailsForImages([imageId]);
                 if (details.TryGetValue(imageId, out var list))
+                {
+                    RefreshTagDisplay();
+                    var skins = AppService.Store.ImageSkins(imageId);
+                    foreach (var tag in list.Where(t => t.Category == "character"))
+                    {
+                        var owned = skins.Where(s => s.IdentityKey == tag.IdentityKey || string.Equals(s.CharacterTag, tag.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                        if (owned.Count > 0) _tagDisplay[tag.Name] = tag.Display + " · " + string.Join(" / ", owned.Select(s => s.Display));
+                    }
                     pairs.AddRange(list.Select(t => (t.Category, t.Name)));
+                }
             }
             catch { }
         }

@@ -328,7 +328,15 @@ public sealed partial class MainWindow : Window
 
     private const int WM_ENTERSIZEMOVE = 0x0231;
     private const int WM_EXITSIZEMOVE = 0x0232;
+    private const uint WM_WINDOWPOSCHANGING = 0x0046;
     private const uint WM_WINDOWPOSCHANGED = 0x0047;
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsZoomed(IntPtr hwnd);
+
+    private bool _restoringMaximizedViewer;
+    private int _suppressedViewerRestoreBounds;
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -352,6 +360,24 @@ public sealed partial class MainWindow : Window
 
     private IntPtr OnWindowSubclass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
+        if (uMsg == WM_WINDOWPOSCHANGING && _restoringMaximizedViewer)
+        {
+            // 先保留框架的非客户区／Z 序处理，再阻止 presenter 恢复期间的普通窗口尺寸落地。
+            // 不调用 SetWindowPos/Maximize，不派发新消息，避免窗口消息重入。
+            var result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
+            if (!IsZoomed(hWnd))
+            {
+                var position = Marshal.PtrToStructure<WindowPosition>(lParam);
+                const uint noSizeOrMove = 0x0001 | 0x0002; // SWP_NOSIZE | SWP_NOMOVE
+                if ((position.Flags & noSizeOrMove) != noSizeOrMove)
+                {
+                    position.Flags |= noSizeOrMove;
+                    Marshal.StructureToPtr(position, lParam, false);
+                    _suppressedViewerRestoreBounds++;
+                }
+            }
+            return result;
+        }
         if (uMsg == WM_GETMINMAXINFO)
         {
             // 先保留框架计算的最大化／屏幕边界，只补最小跟踪尺寸；拖边时由系统直接约束。
@@ -448,6 +474,65 @@ public sealed partial class MainWindow : Window
         TitleBar.Visibility = hidden ? Visibility.Collapsed : Visibility.Visible;
         RootGrid.RowDefinitions[0].Height = new GridLength(hidden ? 0 : 48);
     }
+    [DllImport("dwmapi.dll", ExactSpelling = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, uint attribute, in int value, uint size);
+
+    private OverlappedPresenter? _viewerWindowedPresenter;
+    private bool _viewerWindowWasMaximized;
+
+    /// <summary>
+    /// 查看器进出全屏：临时禁用该窗口的 DWM 过渡，统一提交 presenter、标题栏与查看器布局。
+    /// applyViewerLayout 必须同步更新布局属性，不得入队、等待或开启缩放动画。
+    /// </summary>
+    public void SetViewerFullscreen(bool full, Action applyViewerLayout)
+    {
+        if (AppWindowInstance is not { } appWindow) return;
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        const uint transitionsForceDisabled = 3; // DWMWA_TRANSITIONS_FORCEDISABLED，Win32 BOOL
+        int disabled = 1;
+        int result = DwmSetWindowAttribute(hwnd, transitionsForceDisabled, in disabled, sizeof(int));
+        if (result < 0) AppService.DebugLog($"fullscreen: disable DWM transitions failed hr=0x{result:X8}");
+        try
+        {
+            if (full && appWindow.Presenter is OverlappedPresenter windowed)
+            {
+                _viewerWindowedPresenter = windowed;
+                _viewerWindowWasMaximized = windowed.State == OverlappedPresenterState.Maximized;
+            }
+            // SetPresenter 可能先恢复普通窗口，再恢复最大化。期间禁止普通尺寸覆盖全屏边界。
+            _restoringMaximizedViewer = !full && _viewerWindowWasMaximized;
+            _suppressedViewerRestoreBounds = 0;
+            SetTitleBarHidden(full);
+            applyViewerLayout();
+            if (full)
+                appWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+            else
+            {
+                // 复用进入全屏前的实例；不创建新的普通窗口 presenter。
+                if (_viewerWindowedPresenter is { } saved) appWindow.SetPresenter(saved);
+                else appWindow.SetPresenter(AppWindowPresenterKind.Default);
+                if (_viewerWindowWasMaximized && appWindow.Presenter is OverlappedPresenter presenter)
+                    presenter.Maximize();
+            }
+            // 只在本次窗口切换末尾统一排版一次；不在 SizeChanged/LayoutUpdated 内重入。
+            RootGrid.UpdateLayout();
+            if (_restoringMaximizedViewer)
+                AppService.DebugLog($"fullscreen exit: suppressedRestoreBounds={_suppressedViewerRestoreBounds} "
+                    + $"maximized={IsZoomed(hwnd)} client={appWindow.ClientSize.Width}x{appWindow.ClientSize.Height}");
+        }
+        finally
+        {
+            _restoringMaximizedViewer = false;
+            // 本项目没有其他 DWM 过渡禁用者；恢复系统动画只影响后续窗口操作。
+            if (result >= 0)
+            {
+                disabled = 0;
+                int restored = DwmSetWindowAttribute(hwnd, transitionsForceDisabled, in disabled, sizeof(int));
+                if (restored < 0) AppService.DebugLog($"fullscreen: restore DWM transitions failed hr=0x{restored:X8}");
+            }
+        }
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -785,6 +870,10 @@ public sealed partial class MainWindow : Window
         foreach (var child in ContentHost.Children)
             child.Visibility = ReferenceEquals(child, page) ? Visibility.Visible : Visibility.Collapsed;
         _reviewPage?.SetActive(ReferenceEquals(page, _reviewPage));
+        // 归档审阅页自己铺一层不透明炭灰，比内容岛底色深，而内容区左边还留着 16 DIP 给拖拽把手，
+        // 那段露出的是岛底色，看上去就是页面左缘一条灰缝。切到该页时把这段留白刷成同一底色，
+        // 切走就还原（其它页是透明的，留白要和内容岛一致）。
+        MainPanel.Background = ReferenceEquals(page, _reviewPage) ? _reviewPage?.SurfaceBrush : null;
     }
 
     private void ShowPage(int navIndex)
@@ -811,6 +900,73 @@ public sealed partial class MainWindow : Window
         if (Preview.IsOpen || HasKeyboardPopup()) return;
         SearchBox.FocusSearch();
         args.Handled = true;
+    }
+
+    /// <summary>
+    /// F5 主动刷新：重扫当前所在目录后重画网格。停在「图库/全部」时扫全部已添加目录。
+    /// 扫描与缺失判定都是根目录级的，所以文件夹里刷新的是它所在的根，避免把别的目录误标成缺失。
+    /// </summary>
+    private async void OnRefreshInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (Preview.IsOpen || HasKeyboardPopup()) return;
+        args.Handled = true;
+        await RefreshLibraryAsync();
+    }
+
+    private bool _refreshing;
+
+    private async Task RefreshLibraryAsync()
+    {
+        if (_refreshing || _quitting) return;
+        if (AppService.Store is not { } store || AppService.Scanner is not { } scanner)
+        {
+            ShowToast("库未连接，无法刷新");
+            return;
+        }
+
+        var (rootId, _) = _page.CurrentDirectory;
+        var rootIds = rootId is int id
+            ? [id]
+            : store.Roots().Where(r => r.Enabled).Select(r => r.Id).ToArray();
+        if (rootIds.Length == 0)
+        {
+            ShowToast("还没有图库目录，先添加文件夹");
+            return;
+        }
+
+        _refreshing = true;
+        ShowToast(rootId is null ? "正在刷新图库…" : "正在刷新当前目录…");
+        try
+        {
+            var results = await Task.Run(() => rootIds
+                .Select(scanId => scanner.ScanRoot(scanId, cancel: () => _quitting || AppService.IsShuttingDown))
+                .ToArray());
+            if (_quitting || AppService.IsShuttingDown) return;
+            var scanned = results.Sum(r => r.Scanned);
+            var added = results.Sum(r => r.Added);
+            var updated = results.Sum(r => r.Updated);
+            var missing = results.Sum(r => r.Missing);
+            var error = results.SelectMany(r => r.Errors).FirstOrDefault();
+
+            AppService.Recount();
+            BuildDirectoryTree();
+            _page.RefreshFromStore();
+
+            var parts = new List<string> { $"扫描 {scanned} 个文件" };
+            if (added > 0) parts.Add($"新增 {added}");
+            if (updated > 0) parts.Add($"更新 {updated}");
+            if (missing > 0) parts.Add($"移出 {missing}");
+            ShowToast(error is null ? "已刷新：" + string.Join("，", parts)
+                : "刷新完成，但有文件读不了：" + error,
+                error is null ? ToastKind.Success : ToastKind.Pending);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or ObjectDisposedException or Microsoft.Data.Sqlite.SqliteException or InvalidOperationException)
+        {
+            AppService.DebugLog("refresh failed: " + ex);
+            ShowToast("刷新失败：" + ex.Message, ToastKind.Pending);
+        }
+        finally { _refreshing = false; }
     }
 
     /// <summary>photos 的「添加文件夹」：选目录 → 备份 → 事务入库 → 首扫。</summary>
@@ -866,6 +1022,7 @@ public sealed partial class MainWindow : Window
         AddFolderButton.IsEnabled = true;
         if (outcome.Error is not null)
         {
+            AppService.DebugLog("add-root failed: " + outcome.Error);
             ShowToast(outcome.Error, ToastKind.Pending);
             return;
         }
@@ -899,20 +1056,45 @@ public sealed partial class MainWindow : Window
             picker.FileTypeFilter.Add("*");
             picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
             var folder = await picker.PickSingleFolderAsync();
+            AppService.DebugLog("import-review: picked=" + (folder?.Path ?? "<null>"));
             if (folder is null) return;
 
-            _reviewPage ??= CreateReviewPage();
+            var page = _reviewPage ??= CreateReviewPage();
+            AppService.DebugLog("import-review: page xamlRoot="
+                + (page.XamlRoot is null ? "<null>" : "ok"));
             Nav.SelectedItem = ReviewNavItem;
-            await _reviewPage.ImportAsync([folder.Path]);
+            AppService.DebugLog("import-review: navSelected="
+                + ReferenceEquals(Nav.SelectedItem, ReviewNavItem)
+                + " attached=" + ContentHost.Children.Contains(page)
+                + " visible=" + (page.Visibility == Visibility.Visible)
+                + " loaded=" + page.IsLoaded);
+            await WaitUntilLoadedAsync(page);
+            AppService.DebugLog("import-review: loaded=" + page.IsLoaded);
+            await page.ImportAsync([folder.Path]);
+            AppService.DebugLog("import-review: returned");
         }
         catch (Exception ex)
         {
+            AppService.DebugLog("import-review: exception " + ex);
             ShowToast($"打开文件夹选择器失败：{ex.Message}", ToastKind.Pending);
         }
     }
 
-    private sealed record AddRootOutcome(RootInfo? Root, ScanResult? Scan, string? Error)
+    /// <summary>等元素真正进入可视树并完成首次排版：刚挂上去的页面立刻弹 ContentDialog 会卡住不显示。</summary>
+    private static Task WaitUntilLoadedAsync(FrameworkElement element)
     {
+        if (element.IsLoaded) return Task.CompletedTask;
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            element.Loaded -= OnLoaded;
+            done.TrySetResult();
+        }
+        element.Loaded += OnLoaded;
+        return done.Task;
+    }
+
+    private sealed record AddRootOutcome(RootInfo? Root, ScanResult? Scan, string? Error)    {
         public static AddRootOutcome Ok(RootInfo root, ScanResult scan) => new(root, scan, null);
         public static AddRootOutcome Fail(string error) => new(null, null, error);
     }
@@ -1285,7 +1467,7 @@ public sealed partial class MainWindow : Window
         BuildDirectoryTree();
         AppService.Recount();
         AppService.Watcher?.Start();
-        _page.SetDirectory(null, null);
+        _page.SetDirectory(null, null, force: true); // 目录没变（停在「图库/全部」）也要重建：被移除目录的图要立刻消失
         Nav.SelectedItem = Nav.MenuItems[0];
         ShowToast($"已从图库移除：{Path.GetFileName(target)}（磁盘文件保留）", ToastKind.Success);
     }

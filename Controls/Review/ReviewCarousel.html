@@ -289,6 +289,35 @@ function flyApply(rays){
   flyPoolRun(ray.label,ray.bg,ray.border,ray.ink,from,to,false,520);
  }
 }
+// 批量移除：标签先在卡片上弹一下再松开，飞向工作台那颗标签缩没。卡片位置用实际布局，滚动后也对得上。
+function flyDetach(rays,target){
+ if(!batch||!rays||!target)return;
+ for(const ray of rays){
+  const entry=[...cards.values()].find(item=>item.data.id===ray.id);
+  if(!entry)continue;
+  const box=entry.element.getBoundingClientRect();
+  flyPoolDetach(ray.label,ray.bg,ray.border,ray.ink,{x:box.left+box.width/2,y:box.top+box.height*.5},target);
+ }
+}
+function flyPoolDetach(label,bg,border,ink,from,to){
+ if(flyCount>=40||!label)return;
+ const el=flyElement();
+ el.textContent=label;
+ el.style.left=from.x+'px';el.style.top=from.y+'px';
+ if(bg)el.style.background=bg;else el.style.removeProperty('background');
+ if(border)el.style.borderColor=border;else el.style.removeProperty('border-color');
+ if(ink)el.style.color=ink;else el.style.removeProperty('color');
+ el.classList.add('g-fly-live');
+ flyCount+=1;
+ const dx=to.x-from.x,dy=to.y-from.y;
+ const animation=el.animate([
+  {transform:'translate(-50%,-50%) scale(.72)',opacity:0,offset:0},
+  {transform:'translate(-50%,-58%) scale(1.08)',opacity:1,offset:.26},
+  {transform:'translate(-50%,-54%) scale(1)',opacity:1,offset:.42},
+  {transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(.34)`,opacity:0,offset:1}
+ ],{duration:560,easing:'cubic-bezier(.3,.6,.25,1)',fill:'forwards'});
+ animation.finished.catch(()=>{}).then(()=>{animation.cancel();el.classList.remove('g-fly-live');flyBusy.delete(el);flyCount-=1;});
+}
 function paintPoint(clientX,clientY){const r=deck.getBoundingClientRect();return {x:clientX-r.left,y:clientY-r.top+deck.scrollTop};}
 function segmentHits(a,b,x,y,w,h){
  let low=0,high=1;const dx=b.x-a.x,dy=b.y-a.y;
@@ -553,6 +582,7 @@ window.chrome.webview.addEventListener('message',event=>{
  const state=event.data;
  if(state.type==='cancelPaint'){finishPaint(true);paintPending=null;return;}
  if(state.type==='flyTagApply'){flyApply(state.rays);return;}
+ if(state.type==='flyTagDetach'){flyDetach(state.rays,state.target);return;}
  if(state.type==='flyTagScatter'){flyScatter(state.rays);return;}
  if(state.type==='panelScroll'){
   panelCommand=state.command;if(dealLayer){queuePanel();return;}if(batch)deck.scrollTop=state.value;else settingsPanel.scrollTop=state.value;queuePanel();return;

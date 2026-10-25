@@ -338,9 +338,31 @@ internal sealed class ReviewCarousel : Grid
     /// <summary>从卡片飞向落点的一组标签。</summary>
     public sealed record ScatterRay(IReadOnlyList<string> Labels, double X1, double Y1, double X2, double Y2, string Bg, string Border, string Ink);
 
+    /// <summary>批量移除时某张卡片上被拿掉的标签；落点统一是工作台那颗标签。</summary>
+    public sealed record DetachRay(int Id, string Label, string Bg, string Border, string Ink);
+
+    /// <summary>
+    /// 批量移除：标签先在卡片上弹一下，再飞向工作台那颗标签并缩没。
+    /// 卡片位置由网页按实际布局取，避免滚动后算偏；target 是页面坐标。
+    /// </summary>
+    public void FlyTagDetach(IReadOnlyList<DetachRay> rays, Windows.Foundation.Point target)
+    {
+        if (!_ready || !_active || rays.Count == 0) return;
+        var origin = ViewportOrigin();
+        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "flyTagDetach",
+            target = new { x = target.X - origin.X, y = target.Y - origin.Y },
+            rays = rays.Select(ray => new { id = ray.Id, label = ray.Label, bg = ray.Bg, border = ray.Border, ink = ray.Ink }).ToArray(),
+        }, Json));
+    }
+
     /// <summary>从类型图标飞向卡片的一个标签。</summary>
     public sealed record TagRay(int Id, string Category, string Label,
         double X1, double Y1, string Bg, string Border, string Ink);
+
+    /// <summary>丢掉「切走时记住的中心卡牌」：来了新图、宿主已改停最新时，返回页面不再还原旧中心。</summary>
+    public void ForgetResumeCenter() => _resumeCenterId = null;
 
     public void SetActive(bool active)
     {

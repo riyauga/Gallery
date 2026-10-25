@@ -248,6 +248,7 @@ public static class AppService
                 CatalogImported = reports.Count;
                 var align = catalog.AlignTags();
                 CatalogAligned = align;
+                store.NormalizePendingSkins();
             }
             catch (Exception ex)
             {

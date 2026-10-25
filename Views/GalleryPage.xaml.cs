@@ -422,10 +422,10 @@ public sealed partial class GalleryPage : UserControl
         return result;
     }
 
-    /// <summary>目录树选择（null = 全部图库）。</summary>
-    public void SetDirectory(int? rootId, string? dirRel)
+    /// <summary>目录树选择（null = 全部图库）；force = 目标没变也重建（移除目录后用）。</summary>
+    public void SetDirectory(int? rootId, string? dirRel, bool force = false)
     {
-        if (_dirRootId == rootId && string.Equals(_dirRel ?? "", dirRel ?? "", StringComparison.Ordinal)) return;
+        if (!force && _dirRootId == rootId && string.Equals(_dirRel ?? "", dirRel ?? "", StringComparison.Ordinal)) return;
         _dirRootId = rootId;
         _dirRel = dirRel;
         _rebuildPending = true;
@@ -433,6 +433,9 @@ public sealed partial class GalleryPage : UserControl
         _dirTitle = ResolveDirectoryTitle(rootId, dirRel);
         if (IsLoaded) Rebuild();
     }
+
+    /// <summary>当前目录（null = 全部图库）；F5 刷新据此决定扫描范围。</summary>
+    public (int? RootId, string? DirRel) CurrentDirectory => (_dirRootId, _dirRel);
 
     /// <summary>
     /// 目录页标题（photos SimplePageHeader.Title ← CurrentPageInfo 的名称）。

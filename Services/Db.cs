@@ -42,7 +42,7 @@ public sealed class Db : IDisposable
     }
 
     /// <summary>
-    /// 空库直接建 v5；v3 旧库先备份升级到 v4，再增量升到 v5；
+    /// 空库直接建当前 v7；旧库依次增量迁移；
     /// 其他版本一律拒绝打开，避免误改用户数据。
     /// </summary>
     private void EnsureSchema()
@@ -58,6 +58,9 @@ public sealed class Db : IDisposable
             try
             {
                 Exec(reader.ReadToEnd());
+                Exec("ALTER TABLE images ADD COLUMN commentary_title TEXT; ALTER TABLE images ADD COLUMN commentary_desc TEXT;");
+                Exec(LibraryMigrationV7.SchemaSql);
+                Exec("UPDATE meta SET value='7' WHERE key='schema_version'");
                 Exec("COMMIT");
             }
             catch
@@ -87,9 +90,14 @@ public sealed class Db : IDisposable
             LibraryMigrationV6.Upgrade(Connection, DbPath);
             version = SchemaVersion;
         }
-        if (version != LibraryMigrationV6.TargetVersion)
+        if (version == 6)
+        {
+            LibraryMigrationV7.Upgrade(Connection, DbPath);
+            version = SchemaVersion;
+        }
+        if (version != LibraryMigrationV7.TargetVersion)
             throw new InvalidDataException(
-                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV6.TargetVersion}），未修改原有数据结构。");
+                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV7.TargetVersion}），未修改原有数据结构。");
     }
 
     public int SchemaVersion

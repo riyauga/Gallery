@@ -49,12 +49,6 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉 —— 桌面端没收到就
 下次启动接着投递（`bridge.js` 里的 `queueFlush`）。
 
-## 自测
+## 维护边界
 
-```powershell
-node --test extension/tests/*.mjs        # 69 个用例：规则、X 元数据、持久化队列
-node extension/tools/e2e-bridge.mjs <桌面端 --dataroot 目录>
-```
-
-`e2e-bridge.mjs` 会读该沙箱 `config/settings.json` 里的端口和令牌，用插件自己的 `bridge.js`
-对桌面端做一次真实往返：ping → probe → 投递 → 重投（重复幂等）→ `/ui/open` → 错令牌。
+旧“69／70 项通过”只属历史记录，不代表当前版本或真实下载链路验收。扩展单元测试与一次性 E2E 脚本属于本次待清理范围，但删除被执行策略拒绝，文件仍在；本轮未运行它们。规则模拟器是保留的配置辅助工具，不启动 Gallery；浏览器安装、真实下载和入队由用户手动核对。
