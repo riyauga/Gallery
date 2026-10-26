@@ -464,6 +464,32 @@ window.addEventListener('pointerup',event=>{
 window.addEventListener('pointercancel',()=>cancelBox(true));
 window.addEventListener('blur',()=>cancelBox(true));
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&boxDrag){cancelBox(true);event.preventDefault();}});
+// 批量网格中键按住平移；捕获指针，移出视口后仍可继续并可靠结束。
+let gridPan=null;
+function finishGridPan(){
+ if(!gridPan)return;
+ const pointer=gridPan.pointer;gridPan=null;
+ deck.classList.remove('g-dragging');
+ if(deck.hasPointerCapture(pointer))deck.releasePointerCapture(pointer);
+}
+deck.addEventListener('pointerdown',event=>{
+ if(!active||!batch||!interactive||dealLayer||paintDrag||boxDrag||gridPan||event.pointerType!=='mouse'||event.button!==1)return;
+ event.preventDefault();
+ gridPan={pointer:event.pointerId,y:event.clientY,top:deck.scrollTop};
+ deck.setPointerCapture(event.pointerId);deck.classList.add('g-dragging');
+});
+window.addEventListener('pointermove',event=>{
+ if(!gridPan||event.pointerId!==gridPan.pointer)return;
+ if(!(event.buttons&4)){finishGridPan();return;}
+ event.preventDefault();deck.scrollTop=gridPan.top+gridPan.y-event.clientY;
+});
+window.addEventListener('pointerup',event=>{
+ if(gridPan&&event.pointerId===gridPan.pointer&&event.button===1){event.preventDefault();finishGridPan();}
+});
+window.addEventListener('pointercancel',finishGridPan);
+window.addEventListener('blur',finishGridPan);
+deck.addEventListener('lostpointercapture',finishGridPan);
+deck.addEventListener('auxclick',event=>{if(batch&&event.button===1)event.preventDefault();});
 const settingsPanel=tweak.querySelector('.controls');
 let panelFrame=0,panelWidth=0,panelCommand=0,panelUserInput=false;
 function publishPanel(){
@@ -607,6 +633,7 @@ window.chrome.webview.addEventListener('message',event=>{
  if(state.type!=='state')return;
  const resuming=state.active!==false&&!active;
  const nextGeneration=state.viewGeneration??0;
+ if(gridPan&&(viewGeneration!==nextGeneration||!state.active||!state.interactive||!state.batch||gridSize!==(state.gridSize||'medium')))finishGridPan();
  if(paintDrag&&(viewGeneration!==nextGeneration||state.tagTool!==tagTool||!state.active||!state.interactive||!state.batch))finishPaint(true);
  viewGeneration=nextGeneration;
  tagTool=state.tagTool??null;markerTool=state.marker??null;tagLabel=state.tagLabel||'';

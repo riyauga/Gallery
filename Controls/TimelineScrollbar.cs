@@ -257,17 +257,65 @@ public sealed class TimelineScrollbar : Grid
 
     private RepeatButton CreateArrow(string glyph, int direction)
     {
-        var icon = new FontIcon
-        {
-            Glyph = glyph,
-            FontSize = ArrowFontSize,
-            Height = ArrowGlyphHeight,
-            FontFamily = new FontFamily("Segoe Fluent Icons"),
-            Foreground = AnyBrush("ScrollBarButtonArrowForeground", Color.FromArgb(0x9E, 0, 0, 0))
-        };
+        // Photos 的专用滚动条模板：状态只改变箭头，不能使用 RepeatButton 的矩形高亮。
+        var template = (ControlTemplate)XamlReader.Load($$"""
+            <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                             TargetType="RepeatButton">
+                <Grid Padding="{TemplateBinding Padding}"
+                      Background="{ThemeResource ScrollBarButtonBackground}"
+                      BorderBrush="{ThemeResource ScrollBarButtonBorderBrush}">
+                    <FontIcon x:Name="Arrow" Glyph="{{glyph}}" FontSize="{{ArrowFontSize}}"
+                              Height="{{ArrowGlyphHeight}}" FontFamily="Segoe Fluent Icons"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              Foreground="{ThemeResource ScrollBarButtonArrowForeground}"
+                              RenderTransformOrigin="0.5,0.5">
+                        <FontIcon.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                        </FontIcon.RenderTransform>
+                    </FontIcon>
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver">
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Arrow" Storyboard.TargetProperty="Foreground">
+                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource ScrollBarButtonArrowForegroundPointerOver}" />
+                                    </ObjectAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </VisualState>
+                            <VisualState x:Name="Pressed">
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Arrow" Storyboard.TargetProperty="Foreground">
+                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource ScrollBarButtonArrowForegroundPressed}" />
+                                    </ObjectAnimationUsingKeyFrames>
+                                    <DoubleAnimationUsingKeyFrames RepeatBehavior="Forever" Storyboard.TargetName="Arrow"
+                                                                  Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)">
+                                        <DiscreteDoubleKeyFrame KeyTime="0:0:0.016" Value="{ThemeResource ScrollBarButtonArrowScalePressed}" />
+                                        <DiscreteDoubleKeyFrame KeyTime="0:0:30" Value="{ThemeResource ScrollBarButtonArrowScalePressed}" />
+                                    </DoubleAnimationUsingKeyFrames>
+                                    <DoubleAnimationUsingKeyFrames RepeatBehavior="Forever" Storyboard.TargetName="Arrow"
+                                                                  Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)">
+                                        <DiscreteDoubleKeyFrame KeyTime="0:0:0.016" Value="{ThemeResource ScrollBarButtonArrowScalePressed}" />
+                                        <DiscreteDoubleKeyFrame KeyTime="0:0:30" Value="{ThemeResource ScrollBarButtonArrowScalePressed}" />
+                                    </DoubleAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Arrow" Storyboard.TargetProperty="Foreground">
+                                        <DiscreteObjectKeyFrame KeyTime="0" Value="{ThemeResource ScrollBarButtonArrowForegroundDisabled}" />
+                                    </ObjectAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateManager.VisualStateGroups>
+                </Grid>
+            </ControlTemplate>
+            """);
         var button = new RepeatButton
         {
-            Content = icon,
+            Template = template,
             IsTabStop = false,
             AllowFocusOnInteraction = false,
             HorizontalAlignment = HorizontalAlignment.Stretch,

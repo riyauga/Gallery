@@ -133,6 +133,7 @@ public static class AppService
             Settings.Changed += ApplyWriteSettings;
             DbReady = true;
             StartCatalogImport();
+            StartPackWatch();
             StartBridge();
             StartIngestReconciliation();
         }
@@ -235,8 +236,7 @@ public static class AppService
     }
 
     /// <summary>后台导入角色词库：只有摘要变化才会真正写库，失败只记日志不打扰用户。</summary>
-    private static void StartCatalogImport()
-    {
+    private static void StartCatalogImport()    {
         if (Store is null) return;
         var store = Store;
         _catalogTask = Task.Run(() =>
@@ -255,6 +255,89 @@ public static class AppService
                 CatalogError = ex.Message;
             }
         });
+    }
+
+    /// <summary>资料包（词库／识别模型）热插拔完成后通知界面，参数是给用户看的一句话。</summary>
+    public static event Action<string>? PackChanged;
+
+    internal static void NotifyPackRemoved() => PackChanged?.Invoke("导入项已移除");
+    internal static void NotifyPersonalRulesRestored() => PackChanged?.Invoke("个人规则已恢复");
+
+    private static PackWatcher? _packWatcher;
+
+    /// <summary>
+    /// 开始监听 <c>archive</c>（资料库包）和 <c>models</c>（识别模型）：
+    /// 用户把下载到的包拖进设置页或直接拷进目录，静置 1.5 秒后自动导入，不用重启。
+    /// </summary>
+    public static void StartPackWatch()
+    {
+        try
+        {
+            PackFolders.EnsureDirs();
+            ApplyModelPack();
+            _packWatcher?.Dispose();
+            var watcher = new PackWatcher(PackFolders.Archive, PackFolders.Models);
+            if (!watcher.IsWatching)
+            {
+                watcher.Dispose();
+                DebugLog("pack watch skipped: " + PackFolders.Root);
+                return;
+            }
+            watcher.CatalogChanged += ReloadCatalogPacks;
+            watcher.ModelsChanged += ApplyModelPack;
+            _packWatcher = watcher;
+            DebugLog("pack watch started: " + watcher.Describe());
+        }
+        catch (Exception ex)
+        {
+            DebugLog("pack watch failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>资料库包有变化：按摘要重导一次；摘要没变（或文件还没写完）就什么都不做。</summary>
+    public static void ReloadCatalogPacks()
+    {
+        try { ImportCatalogPacks(); }
+        catch (Exception ex) { DebugLog("hot catalog import failed: " + ex.Message); }
+    }
+
+    /// <summary>交互导入必须向调用方报告入库错误，不能只记日志后显示成功。</summary>
+    public static void ImportCatalogPacks()
+    {
+        if (IsShuttingDown || Store is null) throw new InvalidOperationException("资料库尚未就绪");
+        var catalog = Catalog ?? new TagCatalogService(Store);
+        var reports = catalog.ImportAll(log: null);
+        if (reports.Count > 0)
+        {
+            catalog.AlignTags();
+            Store.NormalizePendingSkins();
+        }
+        PackChanged?.Invoke(reports.Count > 1 ? $"资料库已更新（{reports.Count} 份）" : "资料库已更新");
+    }
+
+    /// <summary>模型目录有新包：仅启用唯一的可用模型，写回设置；下一次识别就用它。</summary>
+    public static void ApplyModelPack()
+    {
+        if (IsShuttingDown || PackFolders.ModelPacks().Count == 0) return;
+        try { ActivateModelPack(); }
+        catch (Exception ex) { DebugLog("hot model switch failed: " + ex.Message); }
+    }
+
+    public static void ActivateModelPack()
+    {
+        var dir = PackFolders.SingleModelDir()
+            ?? throw new InvalidOperationException("需要且只能有一个有效模型包");
+        if (string.Equals(Settings.Settings.nsfw_model_dir, dir, StringComparison.OrdinalIgnoreCase)) return;
+        Settings.Settings.nsfw_model_dir = dir;
+        Settings.Save();
+        PackChanged?.Invoke("识别模型已就绪");
+    }
+
+    private static void StopPackWatch()
+    {
+        try { _packWatcher?.Dispose(); }
+        catch { /* 退出阶段忽略 */ }
+        _packWatcher = null;
     }
 
     /// <summary>扫描/入库/手改标签后，后台补一次对齐；同一时间只跑一个。</summary>
@@ -293,6 +376,7 @@ public static class AppService
     {
         BeginShutdown();
         Settings.Save();
+        StopPackWatch();
         await Task.WhenAll(Watcher?.StopAsync() ?? Task.CompletedTask,
             Bridge?.StopAsync() ?? Task.CompletedTask);
         await Task.WhenAll(_retiredBridgeTasks.ToArray());

@@ -20,17 +20,18 @@ public static class OrganizeService
         var report = new StringBuilder();
         report.AppendLine($"库    : {db}");
         report.AppendLine($"规则  : 受管 {string.Join("、", map.ManagedDirs)} · " +
-                          $"跳过 {map.SkipDirs.Count} 个子目录 · 例外 {map.Rules.Count} 条");
+                          $"跳过 {map.SkipDirs.Count} 个子目录 · 目录名覆盖 {map.Rules.Count} 条 · 标签路由 {map.RoutingRules.Count} 条");
         report.AppendLine($"模式  : {(apply ? "执行" : "预演（不改盘上文件、不改库）")}");
         report.AppendLine();
 
+        if (map.LoadError.Length > 0) return "目录配置无效，整理已停止：" + map.LoadError;
         var all = ReadImages(db);
         var known = all.Where(r => r.Missing == 0).ToList();
         var items = new List<Item>();
         var unmanaged = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var row in known)
         {
-            var target = map.TargetDirRel(row.DirRel, row.Works, row.Artists);
+            var target = map.ResolveForExisting(row.DirRel, row.Tags);
             if (target is null)
             {
                 // 一级目录受管但被 skip_dirs 排除的，按相对目录记账，免得混进「不受管的顶层目录」里
@@ -195,48 +196,46 @@ public static class OrganizeService
     // ------------------------------------------------------------------ 读盘工具
 
     private sealed record Row(int Id, int RootId, string DirRel, string Name, long Missing,
-        List<string> Works, List<string> Artists);
+        List<string> Works, List<string> Artists, Dictionary<string, List<string>> Tags);
 
     private static List<Row> ReadImages(string dbPath)
     {
-        var works = new Dictionary<long, List<string>>();
-        var artists = new Dictionary<long, List<string>>();
-        using (var conn = Open(dbPath))
+        var tags = new Dictionary<long, Dictionary<string, List<string>>>();
+        using var conn = Open(dbPath);
+        using (var cmd = conn.CreateCommand())
         {
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = "SELECT it.image_id,t.category,t.name FROM image_tags it " +
-                                  "JOIN tags t ON t.id=it.tag_id JOIN images i ON i.id=it.image_id WHERE i.missing=0";
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    var category = reader.IsDBNull(1) ? "custom" : reader.GetString(1);
-                    if (category == "work") Add(works, reader.GetInt64(0), reader.GetString(2));
-                    else if (category == "artist") Add(artists, reader.GetInt64(0), reader.GetString(2));
-                }
-            }
-        }
-        var list = new List<Row>();
-        using (var conn = Open(dbPath))
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id,root_id,dir_rel,name,missing FROM images";
+            cmd.CommandText = "SELECT it.image_id,t.category,t.name FROM image_tags it " +
+                "JOIN tags t ON t.id=it.tag_id JOIN images i ON i.id=it.image_id WHERE i.missing=0";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
                 var id = reader.GetInt64(0);
-                list.Add(new Row((int)id, (int)reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
-                    reader.GetInt64(4),
-                    works.GetValueOrDefault(id, []), artists.GetValueOrDefault(id, [])));
+                if (!tags.TryGetValue(id, out var categories)) tags[id] = categories = new();
+                var category = reader.IsDBNull(1) ? "custom" : reader.GetString(1);
+                if (!categories.TryGetValue(category, out var names)) categories[category] = names = [];
+                names.Add(reader.GetString(2));
+            }
+        }
+        var list = new List<Row>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id,root_id,dir_rel,name,missing,COALESCE(nsfw,'') FROM images";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var id = reader.GetInt64(0);
+                var categories = tags.GetValueOrDefault(id) ?? new();
+                var rating = reader.GetString(5);
+                if (rating.Length > 0)
+                {
+                    if (!categories.TryGetValue("rating", out var names)) categories["rating"] = names = [];
+                    names.Add(rating);
+                }
+                list.Add(new Row((int)id, (int)reader.GetInt64(1), reader.GetString(2), reader.GetString(3), reader.GetInt64(4),
+                    categories.GetValueOrDefault("work", []), categories.GetValueOrDefault("artist", []), categories));
             }
         }
         return list;
-
-        static void Add(Dictionary<long, List<string>> map, long id, string name)
-        {
-            if (!map.TryGetValue(id, out var names)) map[id] = names = [];
-            names.Add(name);
-        }
     }
 
     private static string Show(string dirRel, string name) => dirRel + "/" + name;

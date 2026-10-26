@@ -1,16 +1,18 @@
 # Gallery 浏览器插件（图片自动归类）
 
+更新时间：2026-10-26 11:42（Asia/Tokyo）；本次文档整理时间，不代表重新运行或验收。
+
 Chrome / Edge（Manifest V3）扩展。它在浏览器里接住图片下载，把来源页、帖子身份、标签和分辨率
 整理成一条记录，**通过本地回环端口**推给 Gallery 桌面端，由桌面端做审核与归档。
 
 桌面端只监听 `127.0.0.1`，并要求 `X-Gallery-Token`；端口和令牌都在桌面端
-「设置 → 浏览器桥接」里显示（可复制令牌）。
+「设置 → 浏览器插件」里显示（可复制令牌）。
 
 ## 安装（开发者模式）
 
 1. 打开 `chrome://extensions`（Edge 是 `edge://extensions`），右上角打开「开发者模式」。
 2. 点「加载已解压的扩展程序」，选中仓库里的 `extension/` 目录。
-3. 点扩展图标 →「设置」，把桌面端「设置 → 浏览器桥接」里的**端口**和**令牌**粘进去，
+3. 点扩展图标 →「设置」，把桌面端「设置 → 浏览器插件」里的**端口**和**令牌**粘进去，
    点「测试连接」，应显示已连接。
 
 ## 支持的站点
@@ -45,10 +47,25 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 | `GET` | `/tags` | 桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
 | `POST` | `/ingest` | 带 `X-Gallery-Token`；`{probe:true}` 只验证不落库；真实记录需 `download_state:"complete"`；返回 `{ok, persisted, queued, duplicate, ingest_id, name}` |
 | `POST` | `/ui/open` | `{view:"library"\|"review", path}` 唤起桌面端窗口并定位 |
+| `GET` | `/sources` | 待补来源清单 `{total, items:[{md5, name}]}`：只列 `source_url` 为空、且文件名带 danbooru md5 的图，按 md5 去重 |
+| `POST` | `/sources` | 带 `X-Gallery-Token`；`{items:[{md5, page_url, source_url, post_id}]}` → `{received, updated}`。**只填空值，已有来源不覆盖** |
 
 插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉 —— 桌面端没收到就
 下次启动接着投递（`bridge.js` 里的 `queueFlush`）。
 
+## 补全图片来源
+
+弹窗里的「补全图片来源」按文件名末尾的 32 位 danbooru md5 反查帖子，把 `page_url` / `source_url` /
+`post_id` 回写桌面端。
+
+- 为什么在浏览器里跑：Danbooru 前面有 Cloudflare 人机校验，命令行请求会拿到「Just a moment…」的等待页；
+  只有带浏览器指纹与 cookie 的请求能过。
+- 前提：先在本机浏览器正常打开 `danbooru.donmai.us` 通过校验；插件需要 `danbooru.donmai.us` 的 host 权限。
+- 进度存在 `chrome.storage.local` 的 `sourceJob`：`{running,total,done,found,updated,missing,error}`。
+  弹窗关掉不影响后台继续跑。
+- 单个 md5 至少间隔 180ms，命中批次 40 条回写一次；被限流（429）或校验挡回时整批中止并写 `error`。
+- 覆盖范围有限：只有文件名本身就带 md5 的图能查；时间戳名、纯数字名、Twitter media key 名都查不到。
+
 ## 维护边界
 
-旧“69／70 项通过”只属历史记录，不代表当前版本或真实下载链路验收。扩展单元测试与一次性 E2E 脚本属于本次待清理范围，但删除被执行策略拒绝，文件仍在；本轮未运行它们。规则模拟器是保留的配置辅助工具，不启动 Gallery；浏览器安装、真实下载和入队由用户手动核对。
+旧“69／70 项通过”只属历史记录，不代表当前版本或真实下载链路验收。本次（2026-10-26）仅整理文档，未运行扩展测试或真实下载链路；历史临时产物清理结果见 [归档文档](../ARCHIVE_REVIEW.md#验证边界)。规则模拟器仍是配置辅助工具；开发与自测边界见 [AGENTS](../AGENTS.md#一构建验证与改动边界)，浏览器安装、真实下载和入队仍需人工核对。

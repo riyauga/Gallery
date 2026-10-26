@@ -303,8 +303,8 @@ public sealed partial class ReviewPage : Grid
         _showInExplorer.Click += (_, _) => RevealInExplorer();
         _cleanHistory.Click += async (_, _) => await CleanHistoryAsync();
         _pickFolder.Click += async (_, _) => await PickFolderAsync();
-        Loaded += (_, _) => { _active = true; _carousel.SetActive(true); Reload(); };
-        Unloaded += (_, _) => SetActive(false);
+        Loaded += (_, _) => { FolderMap.Changed += OnDirectoryRulesChanged; _active = true; _carousel.SetActive(true); Reload(); };
+        Unloaded += (_, _) => { FolderMap.Changed -= OnDirectoryRulesChanged; SetActive(false); };
         ActualThemeChanged += (_, _) => { ApplyColors(); RebuildPalette(); };
         SizeChanged += (_, _) =>
         {
@@ -762,6 +762,7 @@ public sealed partial class ReviewPage : Grid
         ExitPaintMode();
         if (!enabled) CancelPaletteDrag();
         _batchMode = enabled;
+        _destinationEdited = false;
         _batchToggle.IsChecked = enabled;
         _batchSelected.Clear();
         _boxSelectionBase = null;
@@ -1448,17 +1449,18 @@ public sealed partial class ReviewPage : Grid
         }
     }
 
+    private void OnDirectoryRulesChanged() => DispatcherQueue.TryEnqueue(RefreshDestination);
+
     /// <summary>开启「按标签自动分目录」时，当前这张的目录随标签走；用户手改过就不覆盖。</summary>
     private void RefreshDestination()
     {
         if (_state != "pending") return;
         if (_batchMode)
         {
-            if (_destinationEdited) return;
+            if (_destinationEdited && !string.IsNullOrWhiteSpace(_destination.Text)) return;
             _settingDestination = true;
             _destination.Text = "";
-            _destination.PlaceholderText = AppService.Settings.Settings.archive_auto_by_tags
-                ? "按每张图片的标签分别归档" : "请选择统一归档目录";
+            _destination.PlaceholderText = "留空：按每张图片的推荐目录分别归档";
             _settingDestination = false;
             return;
         }
@@ -1473,28 +1475,16 @@ public sealed partial class ReviewPage : Grid
     }
 
     /// <summary>
-    /// 按标签算归档目录（绝对路径）。类型含「真人」走真人规则：真人\h|n\作者（未分级只到 真人）；
-    /// 其余按作品/作者两级，缺作品进 no_source、缺作者进 _无作者。
+    /// 按个人目录路由计算归档目录（绝对路径）；未命中时使用作品/画师两级。
     /// </summary>
     private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
     {
         if (AppService.Store is not { } store) return "";
         var root = ArchiveRoot(store);
         if (root is null) return "";
-        var artists = tags.TryGetValue("artist", out var a) ? a : new List<string>();
-        string relative;
-        if (tags.TryGetValue("kind", out var kinds)
-            && kinds.Contains(FolderMap.RealPerson, StringComparer.OrdinalIgnoreCase))
-        {
-            var rating = tags.TryGetValue("rating", out var r) ? r.FirstOrDefault() ?? "" : "";
-            relative = FolderMap.RealPersonDirRel(rating, artists);
-        }
-        else
-        {
-            var map = FolderMap.Load(AppPaths.FolderMapPath);
-            var works = tags.TryGetValue("work", out var w) ? w : new List<string>();
-            relative = map.TargetDirRel(works, artists);
-        }
+        var map = FolderMap.Load(AppPaths.FolderMapPath);
+        var relative = map.Resolve(tags);
+        if (relative.Length == 0) return "";
         return Path.Combine(root.Path, relative.Replace('/', Path.DirectorySeparatorChar));
     }
 
@@ -1538,9 +1528,9 @@ public sealed partial class ReviewPage : Grid
     {
         if (_busy || _paintGesture || AppService.IsShuttingDown || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
         var destination = _destination.Text.Trim();
-        var auto = AppService.Settings.Settings.archive_auto_by_tags;
-        // 开着自动分目录、且这张没被手改过时，每张图用自己算出来的目录，不再校验框里那一个
-        var fixedDestination = !auto || _destinationEdited;
+        var auto = _batchMode || AppService.Settings.Settings.archive_auto_by_tags;
+        // 批量留空始终按各图标签推荐目录；有明确目录才统一归档。
+        var fixedDestination = _batchMode ? destination.Length > 0 : !auto || _destinationEdited;
         try
         {
             if (fixedDestination && (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0))
@@ -1557,9 +1547,7 @@ public sealed partial class ReviewPage : Grid
 
         string DestOf(int id)
         {
-            if (_batchMode && _destinationEdited) return destination;
-            if (!auto) return destination;
-            if (_selected is { } current && current.Id == id && _destinationEdited) return destination;
+            if (fixedDestination) return destination;
             var record = store.IngestRow(id);
             return record is null ? "" : ArchiveTargetFor(IngestReview.Tags(record.Payload, record.Rating));
         }
@@ -1578,7 +1566,7 @@ public sealed partial class ReviewPage : Grid
             {
                 _status.Text = $"正在归档 {succeeded + failures.Count + 1} / {ids.Length}…";
                 // 自动分目录时，没有任何标签的图先跑一次模型，让归档目录跟着识别结果走。
-                if (auto && !_destinationEdited && NeedsModelBeforeArchive(store, id))
+                if (!fixedDestination && NeedsModelBeforeArchive(store, id))
                 {
                     _status.Text = $"正在识别标签 {succeeded + failures.Count + 1} / {ids.Length}…";
                     _carousel.SetAnalyzing([id]);

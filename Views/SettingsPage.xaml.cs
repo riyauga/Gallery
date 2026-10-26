@@ -1,6 +1,7 @@
 using Gallery.Services;
 using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -25,7 +26,7 @@ public sealed partial class SettingsPage : UserControl
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnBackgroundPointerPressed), true);
         _theme = ThemeService.Parse(AppService.Settings.Settings.theme);
         ApplyState();
-        foreach (var text in new[] { BridgeStatusText, PendingText, NsfwModelText, NsfwScanText, ThumbCacheText, SyncErrorText })
+        foreach (var text in new[] { BridgeStatusText, PendingText, NsfwScanText, ThumbCacheText, SyncErrorText })
             text.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => RefreshSettingsSummaries());
         NsfwCancelButton.RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => RefreshSettingsSummaries());
         RefreshSettingsSummaries();
@@ -33,9 +34,15 @@ public sealed partial class SettingsPage : UserControl
         {
             RefreshBridge();
             RefreshThumbCacheAsync();
+            RefreshDirectoryRules();
+            AppService.PackChanged += OnPackChanged;
+            ApplyNsfwState();
         };
-        Unloaded += (_, _) => SaveBlurStrength();
+        Unloaded += (_, _) => { AppService.PackChanged -= OnPackChanged; SaveBlurStrength(); };
     }
+
+    private void OnPackChanged(string message)
+        => DispatcherQueue.TryEnqueue(() => { if (!_packBusy) ApplyNsfwState(); });
 
     private FrameworkElement _currentSettingsPanel = null!;
     private readonly Dictionary<FrameworkElement, double> _settingsOffsets = new();
@@ -50,6 +57,7 @@ public sealed partial class SettingsPage : UserControl
         var panel = (entry.Tag as string) switch
         {
             "Import" => ImportSettingsPanel,
+            "Catalog" => CatalogSettingsPanel,
             "Recognition" => RecognitionSettingsPanel,
             "Bridge" => BridgeSettingsPanel,
             "Storage" => StorageSettingsPanel,
@@ -101,6 +109,10 @@ public sealed partial class SettingsPage : UserControl
             : $"{(string.IsNullOrWhiteSpace(AppService.Settings.Settings.nsfw_model_dir) ? "模型未配置" : "模型已配置")} · 导入自动识别{(AutoModelTagsToggle.IsOn ? "已开启" : "已关闭")}";
         BridgeSettingsEntry.Description = $"{BridgeStatusText.Text} · 待处理 {PendingText.Text}";
         StorageSettingsEntry.Description = $"缓存：{ThumbCacheText.Text} · 最近错误 {SyncErrorText.Text}";
+        var packs = PackFolders.ArchivePacks();
+        CatalogSettingsEntry.Description = packs.Count == 0
+            ? "拖入词库包，可并存多个"
+            : $"{packs.Count} 个来源 · 拖入新包追加";
     }
 
     private void OnBackgroundPointerPressed(object sender, PointerRoutedEventArgs args)
@@ -337,12 +349,7 @@ public sealed partial class SettingsPage : UserControl
         _sysSyncing = false;
         _nsfwSyncing = false;
 
-        var dir = settings.nsfw_model_dir;
-        NsfwModelText.Text = string.IsNullOrWhiteSpace(dir)
-            ? "未配置"
-            : Services.PixaiScorer.LooksConfigured(dir)
-                ? dir
-                : dir + "（需要 PixAI model.onnx 和 config.json）";
+        RefreshPackLists();
 
         var store = Services.AppService.Store;
         if (store is null)
@@ -357,6 +364,22 @@ public sealed partial class SettingsPage : UserControl
 
     private async void NsfwPickFolder_Click(object sender, RoutedEventArgs e)
     {
+        if (_packBusy) return;
+        var folder = await PickFolderAsync();
+        if (folder is null) return;
+        await ImportPacksAsync(new[] { (Windows.Storage.IStorageItem)folder }, isModel: true);
+    }
+
+    private async void CatalogPickFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_packBusy) return;
+        var folder = await PickFolderAsync();
+        if (folder is null) return;
+        await ImportPacksAsync(new[] { (Windows.Storage.IStorageItem)folder }, isModel: false);
+    }
+
+    private async Task<Windows.Storage.StorageFolder?> PickFolderAsync()
+    {
         var picker = new Windows.Storage.Pickers.FolderPicker();
         picker.FileTypeFilter.Add("*");
         if (MainWindow.Instance is { } window &&
@@ -364,12 +387,364 @@ public sealed partial class SettingsPage : UserControl
         {
             WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
         }
+        return await picker.PickSingleFolderAsync();
+    }
 
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is null) return;
-        Services.AppService.Settings.Settings.nsfw_model_dir = folder.Path;
-        Services.AppService.Settings.Save();
-        ApplyNsfwState();
+    // ---- 资料包拖拽 / 导入 ----
+
+    private bool _packBusy;
+
+    private void PackDrop_DragOver(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        e.AcceptedOperation = DataPackageOperation.None;
+        if (_packBusy || !e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+        // 模型只能留一个：已经是模型框且已有模型时，直接显示拒绝，而不是拖进去才失败。
+        if (ReferenceEquals(sender, ModelDropZone) && PackLibrary.HasModel)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            if (e.DragUIOverride is { } refused)
+            {
+                refused.Caption = "已有模型，先移除再导入";
+                refused.IsCaptionVisible = true;
+            }
+            return;
+        }
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        SetPackDropHighlight(sender, true);
+        if (e.DragUIOverride is { } accept)
+        {
+            accept.Caption = "松开即可导入";
+            accept.IsCaptionVisible = true;
+        }
+    }
+
+    private void PackDrop_DragLeave(object sender, DragEventArgs e)
+    {
+        SetPackDropHighlight(sender, false);
+    }
+
+    private void SetPackDropHighlight(object sender, bool highlighted)
+    {
+        var outline = ReferenceEquals(sender, ModelDropZone) ? ModelDropOutline : CatalogDropOutline;
+        outline.Stroke = (Brush)Application.Current.Resources[highlighted ? "AccentFillColorDefaultBrush" : "CardStrokeColorDefaultBrush"];
+    }
+
+    private async void PackDrop_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        SetPackDropHighlight(sender, false);
+        if (_packBusy || !e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+        var isModel = ReferenceEquals(sender, ModelDropZone);
+        var deferral = e.GetDeferral();
+        try
+        {
+            var items = await e.DataView.GetStorageItemsAsync();
+            if (items.Count > 0) await ImportPacksAsync(items, isModel);
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("pack drop failed: " + ex);
+            SetPackStatus(isModel, "无法读取拖入的文件：" + ex.Message, isError: true);
+        }
+        finally { deferral.Complete(); }
+    }
+
+    private async Task ImportPacksAsync(IReadOnlyList<Windows.Storage.IStorageItem> items, bool isModel)
+    {
+        if (_packBusy) return;
+        _packBusy = true;
+        NsfwPickButton.IsEnabled = false;
+        CatalogPickButton.IsEnabled = false;
+        PersonalRulesExportButton.IsEnabled = false;
+        PersonalRulesImportButton.IsEnabled = false;
+        SetPackStatus(isModel, "正在导入…", isError: false);
+        try
+        {
+            var report = await PackLibrary.ImportAsync(items, isModel);
+            foreach (var error in report.Errors) AppService.DebugLog("pack import: " + error);
+            if (report.Model > 0) Services.AppService.ActivateModelPack();
+            if (report.Catalog > 0) await Task.Run(Services.AppService.ImportCatalogPacks);
+            ApplyNsfwState();
+            RefreshPackLists();
+
+            if (report.Errors.Count > 0)
+                SetPackStatus(isModel, string.Join("；", report.Errors), isError: true);
+            else if (report.Any)
+                SetPackStatus(isModel, isModel ? "模型已导入，下次识别时使用。" : "资料库已导入。", isError: false);
+            else
+                SetPackStatus(isModel, "这些资料已导入，无需重复添加。", isError: false);
+        }
+        catch (Exception ex)
+        {
+            // 拖放走的是 async void，异常逃出去就是整个应用崩掉；这里兜住并留证据。
+            AppService.DebugLog("pack import failed: " + ex);
+            SetPackStatus(isModel, "导入失败：" + ex.Message, isError: true);
+        }
+        finally
+        {
+            _packBusy = false;
+            NsfwPickButton.IsEnabled = !PackLibrary.HasModel;
+            CatalogPickButton.IsEnabled = true;
+            PersonalRulesExportButton.IsEnabled = true;
+            PersonalRulesImportButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>卡片内的状态行：成功用次要色，失败用系统危险色。空字符串表示隐藏。</summary>
+    private void SetPackStatus(bool isModel, string message, bool isError)
+    {
+        var host = isModel ? ModelPackStatus : CatalogPackStatus;
+        if (host is null) return;
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            host.Visibility = Visibility.Collapsed;
+            host.Text = "";
+            return;
+        }
+        host.Text = message;
+        host.Visibility = Visibility.Visible;
+        host.Foreground = isError
+            ? (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"]
+            : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+    }
+
+    /// <summary>重画两处已导入列表；模型单一、资料库多个。</summary>
+    private void RefreshPackLists()
+    {
+        var entries = PackLibrary.List();
+        var models = entries.Where(e => e.IsModel).ToList();
+        var catalogs = entries.Where(e => !e.IsModel).ToList();
+        BuildPackList(ModelPackList, models, "还没有导入模型");
+        BuildPackList(CatalogPackList, catalogs, "还没有导入资料库");
+        NsfwPickButton.IsEnabled = !_packBusy && models.Count == 0;
+        RefreshSettingsSummaries();
+    }
+
+    private void BuildPackList(StackPanel host, List<PackEntry> entries, string emptyHint)
+    {
+        host.Children.Clear();
+        if (entries.Count == 0)
+        {
+            host.Children.Add(new TextBlock
+            {
+                Text = emptyHint,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Opacity = 0.55,
+            });
+            return;
+        }
+        foreach (var entry in entries) host.Children.Add(BuildPackRow(entry));
+    }
+
+    private FrameworkElement BuildPackRow(PackEntry entry)
+    {
+        var border = new Border
+        {
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(12, 8, 8, 8),
+            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+        };
+        var grid = new Grid { ColumnSpacing = 8 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        if (entry.IsModel) ToolTipService.SetToolTip(text, entry.Path);
+        text.Children.Add(new TextBlock
+        {
+            Text = entry.Name,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = entry.Detail,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Opacity = 0.6,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        grid.Children.Add(text);
+
+        var remove = new Button
+        {
+            Width = 32,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Content = new FontIcon { Glyph = "\uE711", FontSize = 10 },
+        };
+        ToolTipService.SetToolTip(remove, entry.IsModel ? "移除模型" : "移除这个资料库");
+        AutomationProperties.SetName(remove, "移除 " + entry.Name);
+        remove.Click += (_, _) => { if (!_packBusy) ShowRemoveConfirm(grid, entry); };
+        Grid.SetColumn(remove, 1);
+        grid.Children.Add(remove);
+
+        border.Child = grid;
+        return border;
+    }
+
+    /// <summary>行内二级确认：清除来源资料，保留图片已有标签与人工修改。</summary>
+    private void ShowRemoveConfirm(Grid row, PackEntry entry)
+    {
+        row.Children.Clear();
+        var stack = new StackPanel { Spacing = 6 };
+        stack.Children.Add(new TextBlock { Text = $"移除「{entry.Name}」？" });
+        stack.Children.Add(new TextBlock
+        {
+            Text = entry.IsModel
+                ? "移除后要重新拖入模型才能继续识别。"
+                : "将清除这份资料库提供的资料；图片已有标签和人工修改会保留。",
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Opacity = 0.6,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        var cancel = new Button { Content = "取消" };
+        var confirm = new Button
+        {
+            Content = "移除",
+            Style = (Style)Application.Current.Resources["AccentButtonStyle"],
+        };
+        cancel.Click += (_, _) => RefreshPackLists();
+        confirm.Click += async (_, _) =>
+        {
+            if (_packBusy) return;
+            _packBusy = true;
+            confirm.IsEnabled = false;
+            cancel.IsEnabled = false;
+            NsfwPickButton.IsEnabled = false;
+            CatalogPickButton.IsEnabled = false;
+            try
+            {
+                await PackLibrary.RemoveAsync(entry);
+                ApplyNsfwState();
+            }
+            catch (Exception ex)
+            {
+                AppService.DebugLog("pack remove failed: " + ex);
+                SetPackStatus(entry.IsModel, "移除失败：" + ex.Message, isError: true);
+            }
+            finally
+            {
+                _packBusy = false;
+                RefreshPackLists();
+                CatalogPickButton.IsEnabled = true;
+            }
+        };
+        buttons.Children.Add(cancel);
+        buttons.Children.Add(confirm);
+        stack.Children.Add(buttons);
+        Grid.SetColumnSpan(stack, 2);
+        row.Children.Add(stack);
+    }
+
+    private async void PersonalRulesExport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_packBusy || AppService.Catalog is not { } catalog) return;
+        _packBusy = true;
+        PersonalRulesExportButton.IsEnabled = false;
+        PersonalRulesImportButton.IsEnabled = false;
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker { SuggestedFileName = $"Gallery-个人规则-{DateTime.Now:yyyyMMdd}" };
+            picker.FileTypeChoices.Add("个人规则备份", new List<string> { ".json" });
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance!));
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            await Task.Run(() => catalog.ExportPersonalRules(file.Path));
+            PersonalRulesStatus.Text = "个人规则已导出，请妥善保管，不要作为公共资料包发布。";
+            PersonalRulesStatus.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            PersonalRulesStatus.Text = "导出失败：" + ex.Message;
+            PersonalRulesStatus.Visibility = Visibility.Visible;
+            AppService.DebugLog("personal rules export failed: " + ex);
+        }
+        finally
+        {
+            _packBusy = false;
+            PersonalRulesExportButton.IsEnabled = true;
+            PersonalRulesImportButton.IsEnabled = true;
+        }
+    }
+
+    private async void PersonalRulesImport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_packBusy || AppService.Catalog is not { } catalog) return;
+        _packBusy = true;
+        PersonalRulesExportButton.IsEnabled = false;
+        PersonalRulesImportButton.IsEnabled = false;
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            picker.FileTypeFilter.Add(".json");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance!));
+            var file = await picker.PickSingleFileAsync();
+            if (file is null) return;
+            var choice = await DialogService.ShowAsync(new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "怎样恢复个人备份？",
+                Content = new TextBlock
+                {
+                    Text = "保留现在的设置：只补充尚未设置的项目。\n采用备份中的设置：同一标签的关联和显示设置改回备份中的值；若备份包含目录规则，也恢复该版本。\n两种方式都不会删除图片，备份中的历史整理规则只处理没有关联图片的重复标签。",
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                PrimaryButtonText = "保留现在的设置",
+                SecondaryButtonText = "采用备份中的设置",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+            });
+            if (choice == ContentDialogResult.None) return;
+            await Task.Run(() => catalog.ImportPersonalRules(file.Path, choice == ContentDialogResult.Secondary));
+            RefreshDirectoryRules();
+            AppService.NotifyPersonalRulesRestored();
+            PersonalRulesStatus.Text = choice == ContentDialogResult.Secondary
+                ? "已恢复备份中的个人设置。" : "已补充个人规则，现有设置已保留。";
+            PersonalRulesStatus.Visibility = Visibility.Visible;
+            ApplyNsfwState();
+        }
+        catch (Exception ex)
+        {
+            PersonalRulesStatus.Text = "恢复失败：" + ex.Message;
+            PersonalRulesStatus.Visibility = Visibility.Visible;
+            AppService.DebugLog("personal rules import failed: " + ex);
+        }
+        finally
+        {
+            _packBusy = false;
+            PersonalRulesExportButton.IsEnabled = true;
+            PersonalRulesImportButton.IsEnabled = true;
+        }
+    }
+
+    private async Task ShowInfoAsync(string title, string message)
+    {
+        var dialog = new ContentDialog
+        {
+            // 代码里新建的 ContentDialog 不会自动挂到可视树，缺 XamlRoot 会直接抛参数错误（不是返回失败）。
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+            CloseButtonText = "知道了",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        try
+        {
+            await Gallery.Services.DialogService.ShowAsync(dialog);
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("settings dialog failed: " + ex.Message + " | " + title + " / " + message);
+        }
     }
 
     private void ApplySyncErrorState()

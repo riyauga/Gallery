@@ -1,5 +1,7 @@
 # 视频接入（mp4）
 
+更新时间：2026-10-26 11:42（Asia/Tokyo）；本次文档整理时间，不代表重新运行或验收。
+
 > 代码已接入；真实播放／声音、长视频、菜单、跨屏与资源释放仍按下文待人工验收。全屏临时小窗口修复的用户确认不覆盖视频。共享窗口规则见 [UI_CONVENTIONS.md](UI_CONVENTIONS.md)。
 
 ## 一、范围（已与用户确认）
@@ -17,26 +19,28 @@
 
 ## 二、硬约束（改代码前必读）
 
-1. `Gallery.exe` 运行时会锁输出文件，构建前先关进程。
-2. 交付构建只写 `bin\Debug\net9.0-windows10.0.19041.0\win-x64`，必须 0 警告 0 错误。
-3. **不要**把 `.mp4` 加进 `ScannerService.ImageExts`：待审核导入（`LocalImageImport`）也共用这份白名单，加进去会让视频进入尚未适配的审核流程。扫描单独用 `MediaExts`。
-4. 当前数据库为 schema v7；视频字段在 v5 引入。旧“当前 v5、其他版本拒绝”描述已过时；升级顺序由 `Db.Initialize` 和迁移实现决定，不能用视频阶段文档回退版本。
-5. `images` 表同时承载标签、收藏、NSFW、整理等图片语义。视频入库后，图片专属批处理必须显式排除 `media_kind='video'`，不要让 ImageSharp 去解 mp4。
-6. 视频播放会持有文件句柄：切图、关闭、删除、重命名前必须暂停并释放 `MediaSource`。
-7. 助手不启动应用做 UI 验收；播放手感、拖动、长视频内存由用户手动确认。
+构建、进程与自测授权统一见 [AGENTS](AGENTS.md#一构建验证与改动边界)。本节只列视频特有约束。
+
+1. **不要**把 `.mp4` 加进 `ScannerService.ImageExts`：待审核导入（`LocalImageImport`）也共用这份白名单，加进去会让视频进入尚未适配的审核流程。扫描单独用 `MediaExts`。
+2. 当前数据库为 schema v7；视频字段在 v5 引入。旧“当前 v5、其他版本拒绝”描述已过时；升级顺序由 `Db.Initialize` 和迁移实现决定，不能用视频阶段文档回退版本。
+3. `images` 表同时承载标签、收藏、NSFW、整理等图片语义。视频入库后，图片专属批处理必须显式排除 `media_kind='video'`，不要让 ImageSharp 去解 mp4。
+4. 视频播放会持有文件句柄：切图、关闭、删除、重命名前必须暂停并释放 `MediaSource`。
+5. 助手不启动应用做 UI 验收；播放手感、拖动、长视频内存由用户手动确认。
 
 ## 三、状态
 
-数据、扫描、封面、预览与文件生命周期均已接入；构建记录仅证明当时编译，手动验收范围见文末，不再维护逐步完成清单。
+数据、扫描、封面、预览与文件生命周期已有接入；2026-10-22 的构建／沙箱记录保留在 [验证记录](#六验证记录)，不等于当前版本重新验证。真实播放等未验收范围仍见该节。
+
+**计划与实现差异（2026-10-26 源码核对）**：范围表中的“不参与整理／去重”是视频阶段目标；`OrganizeService.ReadImages` 与 `RowDedupeService` 的记录查询没有按 `media_kind` 排除视频，现有维护命令仍可能处理视频记录。本次不修改代码，不把这项排除宣称为已实现。视频字段在 v5 引入，当前初始化目标已经是 v7。
 
 ## 四、实施要点
 
 ### 1. 数据层
 
 - `images` 新增：`media_kind TEXT NOT NULL DEFAULT 'image'`、`duration REAL`（秒）。
-- 空库：`Services/LibrarySchema.sql` 直接建 v5。
+- 空库：`Db.EnsureSchema` 在事务内读取 `Services/LibrarySchema.sql`（基础脚本标 v5），补 v6 的评论字段与 v7 皮肤结构，最终写 `schema_version=7`。
 - 旧库：`Services/LibraryMigrationV5.cs` 用 `VACUUM INTO` 备份 → 单事务 `ALTER TABLE` → `meta.schema_version=5`，幂等。
-- `Db.cs`：v3→v4→v5，目标版本改为 5。
+- `Db.cs`：旧库按 v3→v4→v5→v6→v7 逐级迁移，最终版本检查使用 `LibraryMigrationV7.TargetVersion`；视频迁移只负责 v4→v5 这一步。
 - `StoreService`：`ImageRow` 增加 `MediaKind`、`Duration`；`QuerySpec.MediaKind`（`null`/`image`/`video`）；`UpsertImage` 写入两列。
 - `ScannerService`：新增 `VideoExts={".mp4"}`、`MediaExts`；视频元数据读取失败不阻断入库。
 - 安全：`NsfwService` 的候选查询加 `media_kind='image'`；其它图片专属批处理只加过滤条件，不改行为。
@@ -64,13 +68,13 @@
 - 设置菜单：画面比例（适应窗口/填满窗口）、播放速度（0.5×–2.0×）、投放到设备。投放走 `CastingDevicePicker` + `MediaPlayer.GetAsCastingSource()`，失败只提示、不影响本地播放。
 - 键盘：内容区 `←/→` 翻页、`Esc` 先退出全屏再关闭；视频内容区 `Space` 播放/暂停。按钮保留 Enter/Space，进度和音量滑块保留方向键；菜单、模态、文本输入及 Ctrl/Alt 组合不进入查看器快捷键。窗口加速器与冒泡按键共用 `PreviewOverlay.TryHandleKey`，视频条按钮保留原生键盘定位框，全屏操作栏支持 Tab 唤出且持有焦点期间不隐藏；删除/重命名/移动在真正执行文件操作前由 `GalleryPage.FileOperationStarting` 通知浮层释放视频。
 - 失败：显示「无法播放，可能缺少系统编解码器」，仍可翻页/关闭。
-- 已知边界：整理与去重是显式维护操作，仍按原文件级逻辑处理视频（不额外解码）；本期没有为视频做整理/去重界面适配。
+- 整理／去重的计划与实际查询差异见 [状态](#三状态)，尚未做视频专属界面适配。
 
 ## 五、文件地图
 
 | 文件 | 作用 |
 |---|---|
-| `Services/LibrarySchema.sql` | 新建库结构（v5） |
+| `Services/LibrarySchema.sql` | 基础结构脚本（v5）；新库最终 v7 由 `Db.EnsureSchema` 补齐 |
 | `Services/Db.cs` | 版本判断与迁移入口 |
 | `Services/LibraryMigrationV5.cs` | v4→v5 增量迁移（新增） |
 | `Services/StoreService.cs` | 数据模型、查询筛选、Upsert |
@@ -78,7 +82,7 @@
 | `Services/ScannerService.cs` | 扫描白名单、视频元数据 |
 | `Services/ThumbnailService.cs` | 视频封面抽取与缓存 |
 | `Services/ImageLoader.cs` | 视频缩略图走封面路径 |
-| `Models/PhotoItem.cs` | `IsVideo` / `DurationSeconds` |
+| `DataModels/PhotoItem.cs` | `IsVideo` / `DurationSeconds` |
 | `Views/GalleryPage.xaml.cs` | 媒体筛选、映射、右键菜单、计数 |
 | `Controls/PhotoTile.cs` | 时长角标、封面占位 |
 | `Controls/Viewer/VideoViewer.cs` | 播放面与播放状态 API（新增）；播放条在 `PreviewOverlay` |
@@ -88,7 +92,7 @@
 
 ## 六、验证记录
 
-（每步完成后追加：构建结果、可复现检查、尚未验证项。）
+以下为 2026-10-22 历史记录，保留当时的 schema、输出与样本口径；本次文档整理未复跑。后续只补新的独有证据，不重复追加同类构建日志。
 
 - 2026-10-22：现状核对完成。确认 `ScannerService.ImageExts` 无 mp4、`GalleryPage` 视频筛选返回空、预览浮层为自绘图片查看器、数据库锁定 v4、待审核导入共用图片白名单。
 - 2026-10-22：代码完成，`dotnet build Gallery.csproj -c Debug` 0 警告 0 错误，输出 `bin\Debug\net9.0-windows10.0.19041.0\win-x64`。
@@ -105,4 +109,4 @@
 - 改 `images` 查询时注意 `ReadImage` 按列名容错，新增列必须给默认值，避免旧行读出异常。
 - 迁移必须可重入；已升到 v5 的库再次打开不得重复备份/改结构。
 - 任何涉及播放器的文件操作，先 `Pause` 再释放，否则 Windows 会锁文件。
-- 构建产物只在约定目录，不要在其它位置留可运行副本。
+- 构建与交付边界见 [AGENTS](AGENTS.md#一构建验证与改动边界)。

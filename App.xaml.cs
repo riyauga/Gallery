@@ -58,6 +58,22 @@ public partial class App : Application
             return;
         }
 
+        // --verify-packs <路径>：沙箱内验收资料包导入（不出窗口，不碰真实目录）
+        var vpk = Array.IndexOf(cli, "--verify-packs");
+        if (vpk >= 0 && vpk + 1 < cli.Length)
+        {
+            try
+            {
+                Task.Run(() => RunVerifyPacks(cli[vpk + 1])).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                AppService.DebugLog("verify-packs failed: " + ex);
+            }
+            Exit();
+            return;
+        }
+
         // --verify-query：批次 1 验收（8 键排序 + 搜索，写报告后退出）
         if (cli.Contains("--verify-query"))
         {
@@ -697,6 +713,59 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "verify_video.txt"), report.ToString());
+    }
+
+    /// <summary>
+    /// 资料包导入验收：只在 --dataroot 沙箱里跑，把给定 zip／文件夹导入后检查落盘位置、
+    /// 条目列表与词库导入结果。只覆盖数据链路；拖拽手感与提示框仍需人工验收。
+    /// </summary>
+    private static void RunVerifyPacks(string source)
+    {
+        var report = new StringBuilder();
+        try
+        {
+            if (AppPaths.Sandbox is null)
+            {
+                report.AppendLine("ERROR: --verify-packs 必须在 --dataroot 沙箱内运行");
+            }
+            else
+            {
+                AppPaths.EnsureDirs();
+                report.AppendLine($"source = {source}");
+                report.AppendLine($"pack root = {PackFolders.Root}");
+                report.AppendLine($"archive = {PackFolders.Archive}");
+                report.AppendLine($"models = {PackFolders.Models}");
+
+                Windows.Storage.IStorageItem item = Directory.Exists(source)
+                    ? Windows.Storage.StorageFolder.GetFolderFromPathAsync(source).AsTask().GetAwaiter().GetResult()
+                    : Windows.Storage.StorageFile.GetFileFromPathAsync(source).AsTask().GetAwaiter().GetResult();
+
+                var result = PackLibrary.ImportAsync(new[] { item }).GetAwaiter().GetResult();
+                report.AppendLine($"imported: catalog={result.Catalog} model={result.Model}");
+                foreach (var error in result.Errors) report.AppendLine("  error: " + error);
+
+                var entries = PackLibrary.List();
+                report.AppendLine($"entries = {entries.Count}");
+                foreach (var entry in entries)
+                {
+                    var exists = Directory.Exists(entry.Path) ? "ok" : "missing";
+                    report.AppendLine($"  [{(entry.IsModel ? "model" : "catalog")}] {entry.Name} · {entry.Detail} · {exists}");
+                }
+
+                var store = new StoreService(AppPaths.DbPath);
+                var catalog = new TagCatalogService(store);
+                var reports = catalog.ImportAll(log: line => report.AppendLine("  " + line));
+                report.AppendLine($"catalog imports = {reports.Count}");
+            }
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("ERROR: " + ex);
+        }
+        var outDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "ptv");
+        Directory.CreateDirectory(outDir);
+        File.WriteAllText(Path.Combine(outDir, "verify_packs.txt"), report.ToString());
     }
 
     /// <summary>

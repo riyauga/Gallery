@@ -67,6 +67,7 @@ public sealed partial class PreviewOverlay : Grid
         // 详情面板的贴纸显示中文名（词库补出来的），点开/编辑仍然用原名
         Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
         Detail.RatingTooltip = BuildRatingTooltip;
+        Detail.TagCopied += text => ToastRequested?.Invoke("已复制标签：" + text);
         Detail.FavoriteRequested = async (item, favorite) =>
         {
             var result = FavoriteRequested is null
@@ -947,6 +948,18 @@ public sealed partial class PreviewOverlay : Grid
         if (ReferenceEquals(e.OriginalSource, this)) Close();
     }
 
+    /// <summary>
+    /// 切页前收摊：不做飞回动画。飞回的终点是图库里那张格子，切页后它已经不在视野里，
+    /// 动画只会和新页面抢 300ms 的显示时间。
+    /// </summary>
+    public void CloseImmediate()
+    {
+        if (!IsOpen) return;
+        _animation?.Stop();
+        _ = StopCastingAsync();
+        ResetAfterClose(restoreFocus: false);
+    }
+
     private void Close()
     {
         if (_closing || !IsOpen) return;
@@ -1000,25 +1013,27 @@ public sealed partial class PreviewOverlay : Grid
             }
         }
 
-        sb.Completed += (_, _) =>
-        {
-            // 先移出焦点再隐藏，避免 XAML 自动选中窗口内第一个输入框。
-            ReturnFocusRequested?.Invoke();
-            Visibility = Visibility.Collapsed;
-            RestoreChrome();
-            Viewer.Clear();
-            Viewer.IsAnimating = false;
-            VideoPlayer.Clear();
-            _shownPath = null;
-            _items = Array.Empty<PhotoItem>();
-            _request = null;
-            _animation = null;
-            _closing = false;
-            FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
-            FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
-        };
+        sb.Completed += (_, _) => ResetAfterClose(restoreFocus: true);
         _animation = sb;
         sb.Begin();
+    }
+
+    /// <summary>收起遮罩并清掉这次预览的状态；是否把焦点还给图库由调用方决定。</summary>
+    private void ResetAfterClose(bool restoreFocus)
+    {
+        if (restoreFocus) ReturnFocusRequested?.Invoke();
+        Visibility = Visibility.Collapsed;
+        RestoreChrome();
+        Viewer.Clear();
+        Viewer.IsAnimating = false;
+        VideoPlayer.Clear();
+        _shownPath = null;
+        _items = Array.Empty<PhotoItem>();
+        _request = null;
+        _animation = null;
+        _closing = false;
+        FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
+        FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
     }
     /// <summary>标签保存后重新读一次，让详情面板立刻显示新集合。</summary>
     private readonly Dictionary<string, string> _tagDisplay = new(StringComparer.Ordinal);

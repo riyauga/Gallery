@@ -20,9 +20,30 @@ async function run(button,fn){
   try{await fn();feedback("已完成");}catch(error){feedback(error.message,true);}
   finally{button.disabled=false;}
 }
+async function pollSource(){
+  try{
+    const {job}=await message({type:"sourceJobState"});
+    if(!job){$("source-title").textContent="来源补全未运行";$("source-detail").textContent="按文件名里的 danbooru md5 反查帖子";return false;}
+    if(job.running){
+      $("source-title").textContent="正在补全 "+job.done+"/"+job.total;
+      $("source-detail").textContent="已写回 "+job.updated+" 张 · 未找到 "+job.missing;
+      return true;
+    }
+    $("source-title").textContent=job.error ? "补全中断" : "来源补全已完成";
+    $("source-detail").textContent=job.error ? job.error : "查 "+job.total+" 个 md5 · 写回 "+job.updated+" 张 · 未找到 "+job.missing;
+    $("source-title").style.color=job.error ? "#f87171" : "";
+    return false;
+  }catch(error){return false;}
+}
+$("backfill-sources").onclick=()=>run($("backfill-sources"),async()=>{
+  await message({type:"backfillSources"});
+  await new Promise(r=>setTimeout(r,800));
+  for(let i=0;i<600;i++){if(!await pollSource())break;await new Promise(r=>setTimeout(r,1000));}
+});
 $("open-gallery").onclick=()=>run($("open-gallery"),()=>message({type:"openDesktop",view:"library"}));
 $("open-pending").onclick=()=>run($("open-pending"),()=>message({type:"openDesktop",view:"pending"}));
 $("settings").onclick=()=>chrome.runtime.openOptionsPage();
 $("retry").onclick=()=>run($("retry"),async()=>{await message({type:"retry"});await load();});
 load();
+pollSource();
 

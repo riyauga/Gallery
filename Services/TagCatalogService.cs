@@ -26,19 +26,22 @@ public sealed class TagCatalogService
         string SourceId, int Records, int MissingNames, string SourceUrl,
         List<string> Gaps, string Digest);
 
-    /// <summary>程序目录旁的词库目录（用户改这里不用重新打包）。</summary>
-    public static string ExternalDir =>
-        Path.Combine(AppContext.BaseDirectory, "data", "tag_catalog");
+    /// <summary>旧版外部词库目录；仍参与读取，保证早先解压到这里的包不失效。</summary>
+    public static string ExternalDir => PackFolders.LegacyCatalog;
 
     /// <summary>随程序分发的内置词库。</summary>
     public static string BundleDir =>
         Path.Combine(AppContext.BaseDirectory, "assets", "tag_catalog");
 
-    /// <summary>外部在前、内置在后；同名文件外部优先。</summary>
+    /// <summary>外部在前、内置在后；按来源 ID 去重，最近导入的包优先。</summary>
     public static List<string> BundleDirs()
     {
         var dirs = new List<string>();
-        foreach (var candidate in new[] { ExternalDir, BundleDir })
+        var candidates = new List<string>();
+        candidates.AddRange(PackFolders.ArchivePacks().OrderByDescending(Directory.GetCreationTimeUtc));
+        candidates.Add(ExternalDir);
+        candidates.Add(BundleDir);
+        foreach (var candidate in candidates)
         {
             string resolved;
             try { resolved = Path.GetFullPath(candidate); }
@@ -105,15 +108,13 @@ public sealed class TagCatalogService
     public static List<Bundle> ReadBundles(string? directory = null)
     {
         var dirs = directory is null ? BundleDirs() : [directory];
-        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenSources = new HashSet<string>(StringComparer.Ordinal);
         var bundles = new List<Bundle>();
         foreach (var dir in dirs)
         {
             if (!Directory.Exists(dir)) continue;
             foreach (var path in Directory.EnumerateFiles(dir, "*.json").OrderBy(p => p, StringComparer.Ordinal))
             {
-                var name = System.IO.Path.GetFileName(path);
-                if (!seenNames.Add(name)) continue;
                 try
                 {
                     var raw = File.ReadAllBytes(path);
@@ -121,6 +122,8 @@ public sealed class TagCatalogService
                     var root = doc.RootElement.Clone();
                     if (root.ValueKind != JsonValueKind.Object) continue;
                     if (!root.TryGetProperty("source", out _) || !root.TryGetProperty("records", out _)) continue;
+                    var sid = root.GetProperty("source").GetProperty("id").GetString() ?? "";
+                    if (!seenSources.Add(sid)) continue;
                     bundles.Add(new Bundle(path, Sha256Hex(raw), root));
                 }
                 catch (Exception) { }
@@ -154,7 +157,14 @@ public sealed class TagCatalogService
     /// <summary>
     /// 整批原子导入：任一来源校验失败就整体回滚，返回本次真正写入的来源报告。
     /// </summary>
+    private static readonly object PackGate = new();
+
     public List<ImportReport> ImportAll(string? directory = null, Action<string>? log = null)
+    {
+        lock (PackGate) return ImportAllCore(directory, log);
+    }
+
+    private List<ImportReport> ImportAllCore(string? directory, Action<string>? log)
     {
         var bundles = ReadBundles(directory);
         if (bundles.Count == 0) return [];
@@ -183,18 +193,6 @@ public sealed class TagCatalogService
 
         Backup(conn);
 
-        // 成员关系要按“全部来源”重建，只按本次新增来源重建会丢掉旧来源的作品关系。
-        var allSources = new List<(Bundle Bundle, string SourceId, string SourceUrl)>();
-        foreach (var bundle in bundles)
-        {
-            var root = bundle.Root;
-            if (!root.TryGetProperty("source", out var source)) continue;
-            var sid = source.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
-            if (sid.Length == 0) continue;
-            var url = source.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
-            allSources.Add((bundle, sid, url));
-        }
-
         var reports = new List<ImportReport>();
         using (var tx = conn.BeginTransaction())
         {
@@ -205,24 +203,7 @@ public sealed class TagCatalogService
                 foreach (var (bundle, sid, sourceUrl, kind, policy) in pending)
                     reports.Add(ImportOne(conn, tx, bundle, sid, sourceUrl, kind, policy, log));
 
-                // 成员关系整体重建：身份只认记录里显式写出的 identity_key
-                Exec(conn, tx, "DELETE FROM catalog_memberships");
-                foreach (var (bundle, sid, sourceUrl) in allSources)
-                {
-                    foreach (var rec in Records(bundle))
-                    {
-                        var key = sid + ":" + rec.Key;
-                        // 已清理掉的条目不要再凭空生成身份/作品关系。
-                        var identity = IdentityKey(conn, tx, key);
-                        if (identity is null) continue;
-                        var games = new List<string> { rec.Game };
-                        games.AddRange(rec.Works);
-                        foreach (var game in games.Distinct())
-                            Exec(conn, tx,
-                                "INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url) VALUES($i,$g,$s)",
-                                ("$i", identity), ("$g", game), ("$s", rec.SourceUrl ?? sourceUrl));
-                    }
-                }
+                RebuildMemberships(conn, tx, bundles);
 
                 // 新导入的来源条目也要有独立身份记录，否则标签关联会指向不存在的身份。
                 var now = (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds
@@ -243,6 +224,130 @@ public sealed class TagCatalogService
             }
         }
         return reports;
+    }
+
+    private static void RebuildMemberships(SqliteConnection conn, SqliteTransaction tx, IEnumerable<Bundle> bundles)
+    {
+        // 人工保留的实体同时保留已有作品关系。
+        var manual = new List<(string Identity, string Game, string Url)>();
+        using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = "SELECT identity_key,game_key,source_url FROM catalog_memberships WHERE identity_key IN " +
+                "(SELECT identity_key FROM catalog_entities WHERE source_kind='manual')";
+            using var reader = read.ExecuteReader();
+            while (reader.Read()) manual.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+        }
+        Exec(conn, tx, "DELETE FROM catalog_memberships");
+        foreach (var bundle in bundles)
+        {
+            var source = bundle.Root.GetProperty("source");
+            var sid = source.GetProperty("id").GetString()!;
+            var url = Str(source, "url");
+            foreach (var rec in Records(bundle))
+            {
+                var identity = IdentityKey(conn, tx, sid + ":" + rec.Key);
+                if (identity is null) continue;
+                foreach (var game in new[] { rec.Game }.Concat(rec.Works).Distinct())
+                    Exec(conn, tx, "INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url) VALUES($i,$g,$s)",
+                        ("$i", identity), ("$g", game), ("$s", rec.SourceUrl ?? url));
+            }
+        }
+        foreach (var row in manual)
+            Exec(conn, tx, "INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url) VALUES($i,$g,$s)",
+                ("$i", row.Identity), ("$g", row.Game), ("$s", row.Url));
+    }
+
+    /// <summary>复用正式导入的字段和记录校验，落盘前就拒绝坏包。</summary>
+    public static void ValidatePackFile(string path)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+        var root = doc.RootElement;
+        var sid = root.GetProperty("source").GetProperty("id").GetString() ?? "";
+        if (sid.Length == 0 || sid.Contains(':') || root.GetProperty("records").ValueKind != JsonValueKind.Array
+            || root.GetProperty("records").EnumerateArray().Any(r => r.ValueKind != JsonValueKind.Object))
+            throw new InvalidDataException("资料库来源或记录格式无效");
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rec in Records(new Bundle(path, "", root)))
+            if (rec.Key.Length == 0 || rec.Game.Length == 0 || (rec.Zh.Length == 0 && rec.En.Length == 0)
+                || !ValidStatus.Contains(rec.Status) || !seen.Add(rec.Key))
+                throw new InvalidDataException("资料库记录字段无效或 key 重复：" + sid + ":" + rec.Key);
+    }
+
+    /// <summary>撤下来源资料；独立身份、图片标签、人工资料继续保留。</summary>
+    public void RemovePack(string path)
+    {
+        lock (PackGate)
+        {
+            var removed = ReadBundles(path);
+            var active = ReadBundles().ToDictionary(b => b.Root.GetProperty("source").GetProperty("id").GetString()!, StringComparer.Ordinal);
+            var stagingRoot = Path.Combine(PackFolders.Root, ".staging");
+            Directory.CreateDirectory(stagingRoot);
+            var detached = Path.Combine(stagingRoot, "remove-" + Guid.NewGuid().ToString("N"));
+            Directory.Move(path, detached);
+            try
+            {
+                var remaining = ReadBundles();
+                var remainingIds = remaining.Select(b => b.Root.GetProperty("source").GetProperty("id").GetString()!)
+                    .ToHashSet(StringComparer.Ordinal);
+                using var conn = Open();
+                Backup(conn);
+                using var tx = conn.BeginTransaction();
+                foreach (var bundle in removed)
+                {
+                    var sid = bundle.Root.GetProperty("source").GetProperty("id").GetString()!;
+                    // 同来源有其它包／内置版本时，让它重新接管，不误删共享资料。
+                    Exec(conn, tx, "DELETE FROM catalog_imports WHERE source_id=$s", ("$s", sid));
+                    var originals = Records(active.GetValueOrDefault(sid) ?? bundle).ToDictionary(r => sid + ":" + r.Key, StringComparer.Ordinal);
+                    var deletes = new List<string>();
+                    var editedKeys = new List<string>();
+                    var games = new HashSet<string>();
+                    using (var read = conn.CreateCommand())
+                    {
+                        read.Transaction = tx;
+                        read.CommandText = "SELECT entity_key,zh,en,aliases,game_key,source_kind FROM catalog_entities " +
+                            "WHERE substr(entity_key,1,$n)=$p";
+                        read.Parameters.AddWithValue("$n", sid.Length + 1);
+                        read.Parameters.AddWithValue("$p", sid + ":");
+                        using var reader = read.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            var key = reader.GetString(0);
+                            // 旧版人工编辑没有独立标记，和原包不同的名称／别名也保留。
+                            var edited = reader.GetString(5) == "manual"
+                                || originals.TryGetValue(key, out var original) &&
+                                   (reader.GetString(1) != original.Zh || reader.GetString(2) != original.En
+                                    || reader.GetString(3) != JsonSerializer.Serialize(original.Aliases));
+                            if (edited) { editedKeys.Add(key); continue; }
+                            deletes.Add(key);
+                            games.Add(reader.GetString(4));
+                        }
+                    }
+                    foreach (var key in editedKeys)
+                        Exec(conn, tx, "UPDATE catalog_entities SET source_kind='manual' WHERE entity_key=$k", ("$k", key));
+                    if (remainingIds.Contains(sid)) continue;
+                    foreach (var key in deletes)
+                    {
+                        Exec(conn, tx, "DELETE FROM catalog_names WHERE entity_key=$k", ("$k", key));
+                        Exec(conn, tx, "DELETE FROM catalog_source_tags WHERE entity_key=$k", ("$k", key));
+                        Exec(conn, tx, "DELETE FROM catalog_entities WHERE entity_key=$k", ("$k", key));
+                    }
+                    foreach (var game in games)
+                        Exec(conn, tx, "DELETE FROM catalog_games WHERE game_key=$g " +
+                            "AND NOT EXISTS(SELECT 1 FROM catalog_entities WHERE game_key=$g) " +
+                            "AND NOT EXISTS(SELECT 1 FROM catalog_memberships m JOIN catalog_entities e ON e.identity_key=m.identity_key WHERE m.game_key=$g)", ("$g", game));
+                }
+                RebuildMemberships(conn, tx, remaining);
+                tx.Commit();
+            }
+            catch
+            {
+                Directory.Move(detached, path);
+                throw;
+            }
+            Directory.Delete(detached, recursive: true);
+            ImportAllCore(null, null);
+        }
     }
 
     private static void Backup(SqliteConnection conn)
@@ -366,7 +471,8 @@ public sealed class TagCatalogService
             if (seen.Contains(oldKey[(sid.Length + 1)..])) continue;
             using var hasProfile = conn.CreateCommand();
             hasProfile.Transaction = tx;
-            hasProfile.CommandText = "SELECT 1 FROM tag_profiles WHERE entity_key=$k";
+            hasProfile.CommandText = "SELECT 1 FROM tag_profiles WHERE entity_key=$k UNION ALL " +
+                "SELECT 1 FROM catalog_entities WHERE entity_key=$k AND source_kind='manual'";
             hasProfile.Parameters.AddWithValue("$k", oldKey);
             if (hasProfile.ExecuteScalar() is not null) continue;   // 人工身份保留
             Exec(conn, tx, "DELETE FROM catalog_entities WHERE entity_key=$k", ("$k", oldKey));
@@ -396,6 +502,11 @@ public sealed class TagCatalogService
         foreach (var r in records)
         {
             var key = sid + ":" + r.Key;
+            using var manual = conn.CreateCommand();
+            manual.Transaction = tx;
+            manual.CommandText = "SELECT 1 FROM catalog_entities WHERE entity_key=$k AND source_kind='manual'";
+            manual.Parameters.AddWithValue("$k", key);
+            if (manual.ExecuteScalar() is not null) continue;
             var identity = string.IsNullOrEmpty(r.IdentityKey) ? key : r.IdentityKey!;
             var recordUrl = r.SourceUrl ?? sourceUrl;
             if (recordUrl.Length == 0) continue;    // 没出处的记录不进库
@@ -769,67 +880,238 @@ public sealed class TagCatalogService
     private sealed record TagPlan(List<PlanLink> Links, List<PlanTagState> States,
         List<PlanTagMerge> Merges);
 
-    /// <summary>读取 assets/tag_catalog/tag_identity.json：人工身份映射、标签状态、重复标签合并。</summary>
+    public const string PublicRelationsFile = "catalog_relations.json";
+    public static string PersonalRulesPath => Path.Combine(AppPaths.AppDataDir, "personal_rules.json");
+
+    /// <summary>公共来源只加载实体关系；个人处理规则只从当前用户目录读取。</summary>
     private static TagPlan LoadIdentityPlan()
     {
+        var links = new Dictionary<string, PlanLink>(StringComparer.Ordinal);
         foreach (var dir in BundleDirs())
         {
-            var path = Path.Combine(dir, "tag_identity.json");
+            var path = Path.Combine(dir, PublicRelationsFile);
             if (!File.Exists(path)) continue;
-            using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
-            var root = doc.RootElement;
-            var links = new List<PlanLink>();
-            if (root.TryGetProperty("identity_links", out var linkEl) &&
-                linkEl.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var e in linkEl.EnumerateArray())
-                {
-                    if (e.ValueKind != JsonValueKind.Object) continue;
-                    var member = Str(e, "member");
-                    var identity = Str(e, "identity");
-                    if (member.Length == 0 || identity.Length == 0) continue;
-                    links.Add(new PlanLink(member, identity, Str(e, "origin"), Str(e, "note")));
-                }
-            }
-
-            var states = new List<PlanTagState>();
-            if (root.TryGetProperty("tag_states", out var stateEl) &&
-                stateEl.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var e in stateEl.EnumerateArray())
-                {
-                    if (e.ValueKind != JsonValueKind.Object) continue;
-                    var tag = Str(e, "tag");
-                    if (tag.Length == 0) continue;
-                    states.Add(new PlanTagState(
-                        tag, Str(e, "category", "character"), Str(e, "status"),
-                        Str(e, "identity"), Str(e, "origin"), Str(e, "display_mode"),
-                        Str(e, "display_name"), Str(e, "note")));
-                }
-            }
-
-            var merges = new List<PlanTagMerge>();
-            if (root.TryGetProperty("tag_merges", out var mergeEl) &&
-                mergeEl.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var e in mergeEl.EnumerateArray())
-                {
-                    if (e.ValueKind != JsonValueKind.Object) continue;
-                    var loser = List(e, "loser");
-                    var winner = List(e, "winner");
-                    if (loser.Count < 2 || winner.Count < 2) continue;
-                    merges.Add(new PlanTagMerge(loser[0], loser[1], winner[0], winner[1],
-                        Str(e, "note")));
-                }
-            }
-            return new TagPlan(links, states, merges);
+            using var doc = JsonDocument.Parse(PublicRelationsBytes(path));
+            foreach (var link in ParsePlan(doc.RootElement, false).Links)
+                links.TryAdd(link.Member, link);
         }
-        return new TagPlan([], [], []);
+        var personal = LoadPersonalPlan();
+        foreach (var link in personal.Links) links[link.Member] = link;
+        return new TagPlan(links.Values.ToList(), personal.States, personal.Merges);
     }
 
-    private static int TagId(SqliteConnection conn, string category, string name)
+    private static TagPlan LoadPersonalPlan()
+        => File.Exists(PersonalRulesPath) ? ReadPersonalPlan(PersonalRulesPath) : new([], [], []);
+
+    private static TagPlan ReadPersonalPlan(string path)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+        var root = doc.RootElement;
+        if (Str(root, "format") != "gallery-personal-rules" || root.GetProperty("version").GetInt32() != 1)
+            throw new InvalidDataException("请选择 Gallery 个人规则备份，不要选择公共资料包");
+        var plan = ParsePlan(root, true);
+        if (root.GetProperty("tag_states").ValueKind != JsonValueKind.Array
+            || root.GetProperty("tag_merges").ValueKind != JsonValueKind.Array
+            || plan.States.Count != root.GetProperty("tag_states").GetArrayLength()
+            || plan.Merges.Count != root.GetProperty("tag_merges").GetArrayLength()
+            || plan.States.Any(s => s.Status is not ("" or "manual" or "resolved" or "external" or "original")
+                || s.Category is not ("character" or "artist" or "work" or "kind" or "custom" or "rating")
+                || s.DisplayMode is not ("" or "zh_full" or "zh_short" or "alias" or "original" or "canonical"))
+            || plan.States.Select(s => (s.Category, s.Tag)).Distinct().Count() != plan.States.Count)
+            throw new InvalidDataException("个人规则备份包含无效或重复的标签设置");
+        return plan;
+    }
+
+    /// <summary>兼容旧资料包的混合文件，但仅提取实体关系，绝不带入个人状态和清理操作。</summary>
+    public static byte[] PublicRelationsBytes(string path)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+        var root = doc.RootElement;
+        if (Path.GetFileName(path) != "tag_identity.json"
+            && (Str(root, "format") != "gallery-catalog-relations" || root.GetProperty("version").GetInt32() != 1))
+            throw new InvalidDataException("公共实体关系格式无效");
+        var links = root.GetProperty("identity_links");
+        if (links.ValueKind != JsonValueKind.Array || links.EnumerateArray().Any(l =>
+                l.ValueKind != JsonValueKind.Object || Str(l, "member").Length == 0 || Str(l, "identity").Length == 0))
+            throw new InvalidDataException("公共实体关系缺少来源实体键");
+        return JsonSerializer.SerializeToUtf8Bytes(new { format = "gallery-catalog-relations", version = 1, identity_links = links });
+    }
+
+    private static TagPlan ParsePlan(JsonElement root, bool personal)
+    {
+        var links = new List<PlanLink>();
+        if (root.TryGetProperty("identity_links", out var linkEl) &&
+            linkEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var e in linkEl.EnumerateArray())
+            {
+                if (e.ValueKind != JsonValueKind.Object) continue;
+                var member = Str(e, "member");
+                var identity = Str(e, "identity");
+                if (member.Length == 0 || identity.Length == 0) continue;
+                links.Add(new PlanLink(member, identity, Str(e, "origin"), Str(e, "note")));
+            }
+        }
+
+        var states = new List<PlanTagState>();
+        if (personal && root.TryGetProperty("tag_states", out var stateEl) &&
+            stateEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var e in stateEl.EnumerateArray())
+            {
+                if (e.ValueKind != JsonValueKind.Object) continue;
+                var tag = Str(e, "tag");
+                if (tag.Length == 0) continue;
+                states.Add(new PlanTagState(
+                    tag, Str(e, "category", "character"), Str(e, "status"),
+                    Str(e, "identity"), Str(e, "origin"), Str(e, "display_mode"),
+                    Str(e, "display_name"), Str(e, "note")));
+            }
+        }
+
+        var merges = new List<PlanTagMerge>();
+        if (personal && root.TryGetProperty("tag_merges", out var mergeEl) &&
+            mergeEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var e in mergeEl.EnumerateArray())
+            {
+                if (e.ValueKind != JsonValueKind.Object) continue;
+                var loser = List(e, "loser");
+                var winner = List(e, "winner");
+                if (loser.Count < 2 || winner.Count < 2) continue;
+                merges.Add(new PlanTagMerge(loser[0], loser[1], winner[0], winner[1],
+                    Str(e, "note")));
+            }
+        }
+        return new TagPlan(links, states, merges);
+    }
+
+    private TagPlan CurrentPersonalPlan(SqliteConnection conn)
+    {
+        var saved = LoadPersonalPlan();
+        var states = saved.States.ToDictionary(s => (s.Category, s.Tag));
+        var current = TagDisplayState.Load(conn);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT t.id,t.name,t.category,COALESCE(i.identity_key,''),COALESCE(i.link_status,'')," +
+            "COALESCE(i.note,''),COALESCE(i.locked,0) FROM tags t LEFT JOIN tag_identities i ON i.tag_id=t.id";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var id = reader.GetInt32(0);
+            var tag = reader.GetString(1);
+            var category = reader.GetString(2);
+            if (current.TryGetValue(id, out var state))
+                states[(category, tag)] = new(tag, category, state.Status, state.IdentityKey, state.OriginGame,
+                    state.DisplayMode, state.DisplayName, state.Note);
+            else if (reader.GetInt32(6) != 0 || reader.GetString(4) == "independent")
+                states[(category, tag)] = new(tag, category, reader.GetString(4) == "independent" ? "original" : "manual",
+                    reader.GetString(3), "", "", "", reader.GetString(5));
+        }
+        return new(saved.Links, states.Values.ToList(), saved.Merges);
+    }
+
+    private static byte[] PersonalPlanBytes(TagPlan plan, string mode, JsonElement directoryRules)
+        => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            format = "gallery-personal-rules", version = 1, global_display_mode = mode, directory_rules = directoryRules,
+            identity_links = plan.Links.Select(l => new { member = l.Member, identity = l.Identity, origin = l.Origin, note = l.Note }),
+            tag_states = plan.States.Select(s => new { tag = s.Tag, category = s.Category, status = s.Status, identity = s.Identity,
+                origin = s.Origin, display_mode = s.DisplayMode, display_name = s.DisplayName, note = s.Note }),
+            tag_merges = plan.Merges.Select(m => new { loser = new[] { m.LoserCategory, m.LoserName },
+                winner = new[] { m.WinnerCategory, m.WinnerName }, note = m.Note }),
+        }, new JsonSerializerOptions { WriteIndented = true });
+
+    public void ExportPersonalRules(string destination)
+    {
+        using var conn = Open();
+        File.WriteAllBytes(destination, PersonalPlanBytes(CurrentPersonalPlan(conn), TagDisplayState.GlobalMode(conn), FolderMap.Load(AppPaths.FolderMapPath).ToJson()));
+    }
+
+    /// <summary>恢复时由用户现场选择保留当前设置或采用备份；标签按分类和名字匹配，不使用跨库数字 ID。</summary>
+    public void ImportPersonalRules(string source, bool overwrite)
+    {
+        lock (PackGate)
+        {
+            var incoming = ReadPersonalPlan(source);
+            using var doc = JsonDocument.Parse(File.ReadAllBytes(source));
+            var incomingMode = Str(doc.RootElement, "global_display_mode", TagDisplayState.DefaultGlobalMode);
+            if (incomingMode is not ("zh_full" or "zh_short" or "alias" or "original" or "canonical"))
+                throw new InvalidDataException("备份中的显示方式无效");
+            using var conn = Open();
+            var current = CurrentPersonalPlan(conn);
+            var first = overwrite ? incoming : current;
+            var second = overwrite ? current : incoming;
+            var merged = new TagPlan(first.Links.Concat(second.Links).GroupBy(l => l.Member).Select(g => g.First()).ToList(),
+                first.States.Concat(second.States).GroupBy(s => (s.Category, s.Tag)).Select(g => g.First()).ToList(),
+                first.Merges.Concat(second.Merges).GroupBy(m => (m.LoserCategory, m.LoserName)).Select(g => g.First()).ToList());
+            var existingKeys = current.States.Select(s => (s.Category, s.Tag)).ToHashSet();
+            using var modeQuery = conn.CreateCommand();
+            modeQuery.CommandText = "SELECT value FROM meta WHERE key=$k";
+            modeQuery.Parameters.AddWithValue("$k", TagDisplayState.GlobalModeKey);
+            var hasCurrentMode = modeQuery.ExecuteScalar() is string currentMode && currentMode.Length > 0;
+            var mode = overwrite || !hasCurrentMode ? incomingMode : TagDisplayState.GlobalMode(conn);
+            var oldDirectories = File.Exists(AppPaths.FolderMapPath) ? File.ReadAllBytes(AppPaths.FolderMapPath) : null;
+            var directories = FolderMap.Load(AppPaths.FolderMapPath);
+            var restoreDirectories = doc.RootElement.TryGetProperty("directory_rules", out var directoryElement);
+            if (restoreDirectories)
+            {
+                var incomingDirectories = FolderMap.Parse(directoryElement);
+                directories = oldDirectories is null ? incomingDirectories : FolderMap.Merge(directories, incomingDirectories, overwrite);
+            }
+            var directoryJson = directories.ToJson();
+            var directoryPending = AppPaths.FolderMapPath + ".restore.tmp";
+            var oldFile = File.Exists(PersonalRulesPath) ? File.ReadAllBytes(PersonalRulesPath) : null;
+            var pending = PersonalRulesPath + ".tmp";
+            Directory.CreateDirectory(AppPaths.AppDataDir);
+            File.WriteAllBytes(pending, PersonalPlanBytes(merged, mode, directoryJson));
+            if (restoreDirectories) File.WriteAllBytes(directoryPending, JsonSerializer.SerializeToUtf8Bytes(directoryJson, new JsonSerializerOptions { WriteIndented = true }));
+            Backup(conn);
+            var states = TagDisplayState.Load(conn);
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                foreach (var rule in incoming.States)
+                {
+                    if (!overwrite && existingKeys.Contains((rule.Category, rule.Tag))) continue;
+                    var id = TagId(conn, rule.Category, rule.Tag, tx);
+                    if (id == 0) continue; // 规则仍保存在个人文件中，待对应标签出现后补齐。
+                    states[id] = new(rule.Status, rule.Identity, rule.Origin, rule.DisplayMode, rule.DisplayName, rule.Note);
+                    if (rule.Identity.Length > 0) WriteProfile(conn, tx, id, rule.Identity, null);
+                    WriteTagIdentity(conn, id, rule.Identity, rule.Status == "original" ? "independent" :
+                        rule.Identity.Length > 0 ? "linked" : "pending", locked: true, source: "manual", note: rule.Note, tx: tx);
+                }
+                TagDisplayState.Save(conn, states, tx);
+                Exec(conn, tx, "INSERT INTO meta(key,value) VALUES($k,$v) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    ("$k", TagDisplayState.GlobalModeKey), ("$v", mode));
+                File.Move(pending, PersonalRulesPath, overwrite: true);
+                if (restoreDirectories) File.Move(directoryPending, AppPaths.FolderMapPath, overwrite: true);
+                tx.Commit();
+            }
+            catch
+            {
+                if (oldFile is not null) File.WriteAllBytes(PersonalRulesPath, oldFile);
+                else if (File.Exists(PersonalRulesPath)) File.Delete(PersonalRulesPath);
+                if (restoreDirectories)
+                {
+                    if (oldDirectories is not null) File.WriteAllBytes(AppPaths.FolderMapPath, oldDirectories);
+                    else if (File.Exists(AppPaths.FolderMapPath)) File.Delete(AppPaths.FolderMapPath);
+                }
+                throw;
+            }
+            finally
+            {
+                if (File.Exists(pending)) File.Delete(pending);
+                if (File.Exists(directoryPending)) File.Delete(directoryPending);
+            }
+            if (restoreDirectories) FolderMap.NotifyChanged();
+            AlignTags();
+        }
+    }
+
+    private static int TagId(SqliteConnection conn, string category, string name, SqliteTransaction? tx = null)
     {
         using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT id FROM tags WHERE name=$n COLLATE NOCASE " +
             "AND COALESCE(category,'custom')=$c LIMIT 1";
@@ -894,7 +1176,7 @@ public sealed class TagCatalogService
     }
 
     /// <summary>
-    /// 先按 tag_identity.json 写入人工状态/身份映射，再把剩余 character 标签按唯一名称接到身份上。
+    /// 先按当前用户个人规则写入人工状态/身份映射，再把剩余 character 标签按唯一名称接到身份上。
     /// 已有人工/外部/原创/已解析状态、0 图标签、非 character 标签都不再自动猜。
     /// </summary>
     public AlignReport AlignTags(bool overwrite = false, bool dryRun = false, Action<string>? log = null)
@@ -1367,6 +1649,16 @@ public sealed class TagCatalogService
                 log?.Invoke($"标签合并跳过（{merge.LoserName} 有 {images} 张图，请用 --merge-tags）");
                 continue;
             }
+            var currentState = TagDisplayState.Load(conn).GetValueOrDefault(loserId);
+            using var protectedTag = conn.CreateCommand();
+            protectedTag.CommandText = "SELECT 1 FROM tag_identities WHERE tag_id=$t AND (locked<>0 OR link_status='independent')";
+            protectedTag.Parameters.AddWithValue("$t", loserId);
+            if (currentState?.BlocksAutoAlign == true || !string.IsNullOrEmpty(currentState?.DisplayName)
+                || !string.IsNullOrEmpty(currentState?.DisplayMode) || protectedTag.ExecuteScalar() is not null)
+            {
+                log?.Invoke($"标签合并跳过（{merge.LoserName} 已有个人设置）");
+                continue;
+            }
             if (dryRun)
             {
                 log?.Invoke($"[预演] 合并标签 custom/{merge.LoserName} -> {merge.WinnerCategory}/{merge.WinnerName}");
@@ -1678,7 +1970,7 @@ public sealed class TagCatalogService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "UPDATE catalog_entities SET zh=$z,en=$e,aliases=$a WHERE entity_key=$k";
+                "UPDATE catalog_entities SET zh=$z,en=$e,aliases=$a,source_kind='manual' WHERE entity_key=$k";
             cmd.Parameters.AddWithValue("$z", zh.Trim());
             cmd.Parameters.AddWithValue("$e", en.Trim());
             cmd.Parameters.AddWithValue("$a", aliasJson);

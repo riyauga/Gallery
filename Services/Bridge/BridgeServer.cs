@@ -178,8 +178,15 @@ public sealed partial class BridgeServer : IDisposable
                     return;
                 }
 
+                if (method.Equals("GET", StringComparison.OrdinalIgnoreCase) && path == "/sources")
+                {
+                    Touch();
+                    await WriteAsync(stream, 200, BuildSourceBackfillQueue(), token, origin).ConfigureAwait(false);
+                    return;
+                }
+
                 if (!method.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
-                    (path != "/ingest" && path != "/ui/open"))
+                    (path != "/ingest" && path != "/ui/open" && path != "/sources"))
                 {
                     await DrainAsync(stream, headers, token).ConfigureAwait(false);
                     await WriteAsync(stream, 404, JsonError("未知路径"), token, origin).ConfigureAwait(false);
@@ -209,6 +216,12 @@ public sealed partial class BridgeServer : IDisposable
                 {
                     HandleUiOpen(raw);
                     await WriteAsync(stream, 200, "{\"ok\":true}", token, origin).ConfigureAwait(false);
+                    return;
+                }
+
+                if (path == "/sources")
+                {
+                    await WriteAsync(stream, 200, HandleSourceBackfill(raw), token, origin).ConfigureAwait(false);
                     return;
                 }
 
@@ -245,9 +258,59 @@ public sealed partial class BridgeServer : IDisposable
         UiRequested?.Invoke(view, path);
     }
 
-    private (int Status, string Body) HandleIngest(string raw)
+    /// <summary>扩展要查的 md5 清单：只列缺来源、且文件名带 danbooru md5 的图（按 md5 去重）。</summary>
+    private string BuildSourceBackfillQueue()
     {
-        JsonDocument doc;
+        var items = _store.PendingSourceBackfill();
+        var total = items.Sum(item => item.Count);
+        var sb = new StringBuilder();
+        sb.Append("{\"ok\":true,\"total\":").Append(total).Append(",\"items\":[");
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (i > 0) sb.Append(',');
+            sb.Append("{\"md5\":").Append(JsonSerializer.Serialize(items[i].Md5, JsonOut))
+                .Append(",\"name\":").Append(JsonSerializer.Serialize(items[i].Name, JsonOut))
+                .Append('}');
+        }
+        sb.Append("]}");
+        return sb.ToString();
+    }
+
+    /// <summary>扩展查到出处后回写：只填空值，已有来源不覆盖。</summary>
+    private string HandleSourceBackfill(string raw)
+    {
+        var rows = new List<(string Md5, string PageUrl, string SourceUrl, string PostId)>();
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("items", out var items) &&
+                items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    rows.Add((Prop(item, "md5"), Prop(item, "page_url"), Prop(item, "source_url"), Prop(item, "post_id")));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return JsonError("请求体不是合法 JSON");
+        }
+
+        var updated = _store.ApplySourceBackfill(rows);
+        Touch();
+        return "{\"ok\":true,\"received\":" + rows.Count + ",\"updated\":" + updated + "}";
+    }
+
+    private static string Prop(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? (value.GetString() ?? "").Trim()
+            : "";
+
+    private (int Status, string Body) HandleIngest(string raw)
+    {        JsonDocument doc;
         try
         {
             doc = JsonDocument.Parse(raw);

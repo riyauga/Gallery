@@ -17,6 +17,18 @@
     Background="Transparent">
 
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="PackDropBackgroundBrush" Color="#151515" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PackDropBackgroundBrush" Color="#E3E3E3" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="PackDropBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         <!-- 设置页选项按内容宽度排列，避免原生最小宽度撑大短标签之间的距离。 -->
         <Style TargetType="RadioButton" BasedOn="{StaticResource DefaultRadioButtonStyle}">
             <Setter Property="MinWidth" Value="0" />
@@ -24,6 +36,7 @@
         <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
             <Setter Property="MinWidth" Value="0" />
         </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid x:Name="SettingsRoot" Background="Transparent" IsTabStop="True" UseSystemFocusVisuals="False">
@@ -226,6 +239,13 @@
                         <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
                     </ctc:SettingsCard>
 
+                    <ctc:SettingsCard x:Name="CatalogSettingsEntry" Header="资料库"
+                        Description="拖入词库包，可并存多个" Tag="Catalog" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE8F1;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+
                     <ctc:SettingsCard x:Name="RecognitionSettingsEntry" Header="智能识别"
                         Description="模型、导入自动识别与全库重新识别" Tag="Recognition" IsClickEnabled="True"
                         IsActionIconVisible="True" Click="SettingsCategory_Click">
@@ -260,13 +280,34 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="按作品和画师自动建子文件夹"
+                        Description="按个人目录规则选择目标，未命中时按作品和画师分目录"
                         Header="按标签自动分目录">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8B7;" />
                         </ctc:SettingsCard.HeaderIcon>
                         <ToggleSwitch x:Name="ArchiveAutoByTagsToggle" Toggled="ArchiveAutoByTagsToggle_Toggled" />
                     </ctc:SettingsCard>
+
+                    <Border Margin="0,12,0,12" Padding="16" CornerRadius="{ThemeResource ControlCornerRadius}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="标签与归档目录" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="同时命中时采用最上面的启用规则。未命中时按作品和画师分目录。"
+                                        TextWrapping="Wrap" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
+                                <Button x:Name="DirectoryRuleAddButton" Grid.Column="1" Content="添加规则" Click="DirectoryRuleAdd_Click" />
+                            </Grid>
+                            <StackPanel x:Name="DirectoryRulesList" Spacing="6" />
+                            <TextBlock Text="保存规则不会搬动已有图片；只影响之后的归档和手动整理。规则随个人备份保存。"
+                                TextWrapping="Wrap" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock x:Name="DirectoryRulesStatus" TextWrapping="Wrap" Visibility="Collapsed"
+                                Style="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
+                    </Border>
 
                     <ctc:SettingsCard
                         Description="清理历史时的默认保留范围；只删队列记录，不删文件"
@@ -315,21 +356,87 @@
                 <StackPanel x:Name="RecognitionSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
                     <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="模型与设备" />
 
-                    <ctc:SettingsCard
-                        Description="PixAI v1.0 · model.onnx 与 config.json 放在同一文件夹"
-                        Header="识别模型">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <Grid ColumnSpacing="8" MaxWidth="420">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="NsfwModelText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Text="未配置" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=NsfwModelText}" />
-                            <Button Grid.Column="1" x:Name="NsfwPickButton" VerticalAlignment="Center" Click="NsfwPickFolder_Click" Content="选择文件夹" />
-                        </Grid>
-                    </ctc:SettingsCard>
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    Margin="0,2,0,0"
+                                    FontSize="16"
+                                    Glyph="&#xE8B7;"
+                                    VerticalAlignment="Top" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" Text="识别模型" />
+                                    <TextBlock
+                                        Opacity="0.6"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="支持压缩包或文件夹，同时只能保留一个模型"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid
+                                x:Name="ModelDropZone"
+                                Height="96"
+                                AllowDrop="True"
+                                Background="Transparent"
+                                DragLeave="PackDrop_DragLeave"
+                                DragOver="PackDrop_DragOver"
+                                Drop="PackDrop_Drop">
+                                <Rectangle x:Name="ModelDropOutline"
+                                    Fill="{ThemeResource PackDropBackgroundBrush}"
+                                    IsHitTestVisible="False"
+                                    RadiusX="6"
+                                    RadiusY="6"
+                                    Stroke="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    StrokeDashArray="4 3"
+                                    StrokeThickness="1" />
+                                <StackPanel
+                                    Margin="48,8"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False"
+                                    Spacing="4">
+                                    <FontIcon FontSize="16" Glyph="&#xE8E5;" Opacity="0.55" />
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        TextWrapping="Wrap"
+                                        TextAlignment="Center"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="拖入模型压缩包或文件夹" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="NsfwPickButton"
+                                    Width="36"
+                                    Height="36"
+                                    Padding="0"
+                                    Margin="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.Name="选择模型文件夹"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="NsfwPickFolder_Click"
+                                    ToolTipService.ToolTip="选择模型文件夹">
+                                    <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                                </Button>
+                            </Grid>
+                            <StackPanel x:Name="ModelPackList" Spacing="6" />
+                            <TextBlock
+                                x:Name="ModelPackStatus"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                TextWrapping="Wrap"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                    </Border>
 
                     <ctc:SettingsCard
                         Description="自动：先用显卡，跑不通回退 CPU"
@@ -495,6 +602,101 @@
                             <Button Click="KindWhitelistReset_Click" Content="恢复默认" />
                         </StackPanel>
                     </ctc:SettingsCard>
+                </StackPanel>
+
+                <StackPanel x:Name="CatalogSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="资料库" />
+
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    Margin="0,2,0,0"
+                                    FontSize="16"
+                                    Glyph="&#xE8F1;"
+                                    VerticalAlignment="Top" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" Text="资料库" />
+                                    <TextBlock
+                                        Opacity="0.6"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="拖入下载到的资料库文件，可以放多个"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid
+                                x:Name="CatalogDropZone"
+                                Height="96"
+                                AllowDrop="True"
+                                Background="Transparent"
+                                DragLeave="PackDrop_DragLeave"
+                                DragOver="PackDrop_DragOver"
+                                Drop="PackDrop_Drop">
+                                <Rectangle x:Name="CatalogDropOutline"
+                                    Fill="{ThemeResource PackDropBackgroundBrush}"
+                                    IsHitTestVisible="False"
+                                    RadiusX="6"
+                                    RadiusY="6"
+                                    Stroke="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    StrokeDashArray="4 3"
+                                    StrokeThickness="1" />
+                                <StackPanel
+                                    Margin="48,8"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False"
+                                    Spacing="4">
+                                    <FontIcon FontSize="16" Glyph="&#xE8E5;" Opacity="0.55" />
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        TextWrapping="Wrap"
+                                        TextAlignment="Center"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="拖入资料库压缩包、文件夹或 JSON" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="CatalogPickButton"
+                                    Width="36"
+                                    Height="36"
+                                    Padding="0"
+                                    Margin="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.Name="选择资料库文件夹"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="CatalogPickFolder_Click"
+                                    ToolTipService.ToolTip="选择资料库文件夹">
+                                    <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                                </Button>
+                            </Grid>
+                            <StackPanel x:Name="CatalogPackList" Spacing="6" />
+                            <TextBlock
+                                x:Name="CatalogPackStatus"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                TextWrapping="Wrap"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                    </Border>
+                    <ctc:SettingsCard Margin="0,12,0,0" Header="个人规则备份"
+                        Description="保存和恢复标签关联、显示设置、目录规则与历史整理决定；不随公共资料包共享">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="PersonalRulesImportButton" Content="导入个人备份" Click="PersonalRulesImport_Click" />
+                            <Button x:Name="PersonalRulesExportButton" Content="导出个人备份" Click="PersonalRulesExport_Click" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+                    <TextBlock x:Name="PersonalRulesStatus" TextWrapping="Wrap" Visibility="Collapsed"
+                        Style="{StaticResource CaptionTextBlockStyle}" Margin="16,6,16,0" />
                 </StackPanel>
 
                 <StackPanel x:Name="BridgeSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">

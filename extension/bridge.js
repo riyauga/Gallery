@@ -44,6 +44,17 @@ export async function bridgeSend(port,token,payload,timeout=8000) {
 export async function openDesktop(port,token,view="library",path="") {
   return request(port,"/ui/open",{method:"POST",headers:{"Content-Type":"application/json","X-Gallery-Token":String(token || "")},body:JSON.stringify({view,path:String(path || "")})});
 }
+/** 桌面端里缺来源、且文件名带 danbooru md5 的图，按 md5 去重后的清单。 */
+export async function bridgeSourceQueue(port,timeout=15000) {
+  return request(port,"/sources",{method:"GET"},timeout);
+}
+/** 把查到的出处回写桌面端；桌面端只填空值。 */
+export async function bridgeSourceApply(port,token,items,timeout=20000) {
+  return request(port,"/sources",{
+    method:"POST",headers:{"Content-Type":"application/json","X-Gallery-Token":String(token || "")},
+    body:JSON.stringify({items})
+  },timeout);
+}
 export async function queueAdd(record) {
   return locked(async () => {
     if (!record.ingest_id) record={...record,ingest_id:crypto.randomUUID(),version:1,metadata_complete:false};

@@ -619,6 +619,13 @@ public sealed partial class MainWindow : Window
         };
         Preview.TagsEdited += _ => _page.RefreshFromStore();
         Preview.ToastRequested += ShowToast;
+        // 资料包热插拔（data\tag_catalog / data\models 新增或替换）后提示一下，并刷新图库标签
+        Services.AppService.PackChanged += message => DispatcherQueue.TryEnqueue(() =>
+        {
+            ShowToast(message);
+            _page.RefreshFromStore();
+            if (_reviewPage is { IsLoaded: true }) _reviewPage.RefreshPreview();
+        });
         Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
         Preview.DeleteRequested = _page.DeleteAsync;
         Preview.RenameRequested = _page.RenameAsync;
@@ -729,6 +736,8 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem { Tag: string tag }) return;
+        // 详情层是全窗遮罩：切页前先收掉，否则新页面被压在下面（用户实测：开着详情点「查看并归档」没反应）。
+        if (Preview.IsOpen) Preview.CloseImmediate();
         if (tag == "settings")
         {
             SearchBox.DefaultFocusAnchor = ContentHost;

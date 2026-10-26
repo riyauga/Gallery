@@ -30,6 +30,9 @@ public sealed class DetailPanel : Grid
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
+
+    /// <summary>双击标签复制后回调，参数是刚复制走的文字（宿主用它弹提示）。</summary>
+    public event Action<string>? TagCopied;
     public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public DetailPanel()
@@ -223,6 +226,12 @@ public sealed class DetailPanel : Grid
                     : label == name ? name : $"{label} · {name}";
                 ToolTipService.SetToolTip(chip, tip);
                 chip.HorizontalAlignment = HorizontalAlignment.Left;
+                // 双击复制：复制屏幕上看到的那一段（有中文就复制中文）。
+                chip.DoubleTapped += (_, args) =>
+                {
+                    args.Handled = true;
+                    CopyTagText(label);
+                };
                 row.Children.Add(chip);
             }
             group.Children.Add(row);
@@ -230,6 +239,26 @@ public sealed class DetailPanel : Grid
         }
         if (itemTags.Count == 0)
             _tagsHost.Children.Add(new TextBlock { Text = "未打标签", FontSize = 13, Opacity = 0.5 });
+    }
+
+    /// <summary>把标签的可见文字放进剪贴板；失败只记日志，不打断预览。</summary>
+    private void CopyTagText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        try
+        {
+            var data = new Windows.ApplicationModel.DataTransfer.DataPackage
+            {
+                RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy,
+            };
+            data.SetText(text);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(data);
+            TagCopied?.Invoke(text);
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("copy tag failed: " + ex.Message);
+        }
     }
 
     private static TextBlock InfoText() => new()

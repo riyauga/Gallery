@@ -1,7 +1,7 @@
 /** Gallery download coordinator: persist post snapshots, bind downloads, deliver durable records. */
 import {DEFAULT_SETTINGS,DEFAULT_RULES,SEED_VERSION,normalizeRules,findRule,isImageDownload,ruleFromUrl} from "./rules.js";
 import {chooseMetadata,completeMetadata,validPost,MD5_RE} from "./metadata.js";
-import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
+import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop,bridgeSourceQueue,bridgeSourceApply} from "./bridge.js";
 import {isXPage,xPost,xImageKey,isXDownload,xMetadata} from './x-metadata.js';
 import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,matchPixivTags} from './pixiv-metadata.js';
 import {isPinterestPage,pinImageHash,isPinterestDownload} from './pinterest-metadata.js';
@@ -329,6 +329,86 @@ async function initialize() {
   await reconcile();
   await flush();
 }
+// ---- 按文件名里的 danbooru md5 补全来源 ----
+// 桌面端给出待查清单 → 本页同源查 posts.json → 回写 page_url/source_url。
+// 之所以在浏览器里跑而不是桌面端跑：Danbooru 前面有 Cloudflare 人机校验，只有浏览器能过。
+const SOURCE_KEY="sourceJob";
+const DANBOORU_API="https://danbooru.donmai.us/posts.json";
+let sourceRunning=null;
+
+async function sourceJob() {
+  return (await chrome.storage.local.get(SOURCE_KEY))[SOURCE_KEY] || null;
+}
+async function saveSourceJob(job) {
+  await chrome.storage.local.set({[SOURCE_KEY]:job});
+}
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+/** 查一个 md5。返回 null 表示 Danbooru 没有这张图；抛错表示通道被挡。 */
+async function danbooruPost(md5) {
+  const url=DANBOORU_API+"?tags=md5:"+encodeURIComponent(md5)+"&only=id,md5,source";
+  const response=await fetch(url,{credentials:"include",cache:"no-store"});
+  const type=response.headers.get("content-type") || "";
+  if (response.status === 429) throw new Error("Danbooru 限流（429），请过几分钟再试");
+  if (!response.ok || !type.includes("json")) {
+    throw new Error("Danbooru 返回的不是数据（多半是人机校验）。先在浏览器打开 danbooru.donmai.us 通过校验，再点一次补全");
+  }
+  const data=await response.json();
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const post=data[0];
+  const id=String(post.id || "");
+  return {
+    md5,
+    post_id:id,
+    page_url:id ? "https://danbooru.donmai.us/posts/"+id : "",
+    source_url:typeof post.source === "string" ? post.source.trim() : ""
+  };
+}
+
+async function backfillSources(settings) {
+  if (sourceRunning) throw new Error("补全正在进行中");
+  sourceRunning=(async () => {
+    const queue=await bridgeSourceQueue(settings.bridgePort);
+    if (!queue.ok) throw new Error(queue.error || "读不到待补清单");
+    const items=queue.data.items || [];
+    const job={running:true,total:items.length,done:0,found:0,updated:0,missing:0,error:"",startedAt:Date.now(),finishedAt:0};
+    await saveSourceJob(job);
+    if (items.length === 0) { await saveSourceJob({...job,running:false,finishedAt:Date.now()}); return job; }
+
+    let batch=[];
+    const send=async () => {
+      if (batch.length === 0) return;
+      const result=await bridgeSourceApply(settings.bridgePort,settings.bridgeToken,batch);
+      if (!result.ok) throw new Error(result.error || "回写失败");
+      job.updated+=Number(result.data.updated) || 0;
+      batch=[];
+      await saveSourceJob({...job});
+    };
+    try {
+      for (const item of items) {
+        const hit=await danbooruPost(item.md5);
+        job.done+=1;
+        if (hit) { job.found+=1; batch.push(hit); }
+        else job.missing+=1;
+        if (batch.length >= 40) await send();
+        await saveSourceJob({...job});
+        await sleep(180);
+      }
+      await send();
+      job.running=false; job.finishedAt=Date.now();
+      await saveSourceJob(job);
+      return job;
+    } catch (error) {
+      await send().catch(() => {});
+      job.running=false; job.finishedAt=Date.now(); job.error=String(error.message || error);
+      await saveSourceJob(job);
+      throw error;
+    }
+  })();
+  try { return await sourceRunning; }
+  finally { sourceRunning=null; }
+}
+
 chrome.runtime.onInstalled.addListener(() => initialize().catch(captureError));
 chrome.runtime.onStartup.addListener(() => initialize().catch(captureError));
 chrome.alarms.onAlarm.addListener(alarm => {
@@ -393,6 +473,13 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
         }
         case "openOptions":
           await chrome.runtime.openOptionsPage(); sendResponse({ok:true}); break;
+        case "backfillSources":
+          backfillSources(s.settings).catch(error=>captureError(error));
+          sendResponse({ok:true});
+          break;
+        case "sourceJobState":
+          sendResponse({ok:true,job:await sourceJob()});
+          break;
         default: throw new Error("未知操作");
       }
     } catch(error) { sendResponse({ok:false,error:String(error.message || error)}); }

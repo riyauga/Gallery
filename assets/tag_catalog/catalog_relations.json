@@ -1,0 +1,2598 @@
+{
+  "format": "gallery-catalog-relations",
+  "version": 1,
+  "identity_links": [
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:336",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:806",
+      "origin": "zenless_zone_zero",
+      "note": "猫又 / 猫宫又奈（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E7%8C%AB%E5%8F%88",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Nekomiya_Mana"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:384",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:893",
+      "origin": "zenless_zone_zero",
+      "note": "莱卡恩 / 冯·莱卡恩（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%8E%B1%E5%8D%A1%E6%81%A9",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Von_Lycaon"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3949",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:24762",
+      "origin": "zenless_zone_zero",
+      "note": "真斗 / 狛野真斗（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E7%9C%9F%E6%96%97",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Komano_Manato"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2991",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:25013",
+      "origin": "zenless_zone_zero",
+      "note": "柚叶 / 浮波柚叶（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%9F%9A%E5%8F%B6",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Ukinami_Yuzuha"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:796",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3371",
+      "origin": "zenless_zone_zero",
+      "note": "悠真 / 浅羽悠真（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%82%A0%E7%9C%9F",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Asaba_Harumasa"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:402",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:1022",
+      "origin": "zenless_zone_zero",
+      "note": "雅 / 星见雅（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E9%9B%85",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Hoshimi_Miyabi"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:797",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3370",
+      "origin": "zenless_zone_zero",
+      "note": "柳 / 月城柳（简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%9F%B3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Tsukishiro_Yanagi"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3691",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:29451",
+      "origin": "zenless_zone_zero",
+      "note": "奥菲丝&「鬼火」/ 奥菲丝・马格努森&「鬼火」（全简称）",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%A5%A5%E8%8F%B2%E4%B8%9D%26%E3%80%8C%E9%AC%BC%E7%81%AB%E3%80%8D",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Orphie_Magnusson_%26_Magus"
+    },
+    {
+      "member": "cn-genshin:wiki.biligame.com:page:171396",
+      "identity": "genshin-impact-wiki:genshin-impact:page:478473",
+      "origin": "genshin",
+      "note": "海珊娜 / 海珊那（译名差异）",
+      "member_source_url": "https://wiki.biligame.com/ys/%E6%B5%B7%E7%8F%8A%E9%82%A3",
+      "identity_source_url": "https://genshin-impact.fandom.com/wiki/Hussaina"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:41165",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "耀嘉音：ZZZ 起源，HSR 联动角色",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%80%80%E5%98%89%E9%9F%B3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Astra_Yao"
+    },
+    {
+      "member": "honkai-star-rail-wiki:honkai-star-rail:page:168850",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "耀嘉音：ZZZ 起源，HSR 联动 NPC",
+      "member_source_url": "https://honkai-star-rail.fandom.com/wiki/Astra_Yao",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Astra_Yao"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3945",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:30439",
+      "origin": "zenless_zone_zero",
+      "note": "卢西娅 / Lucia Elowen 的简写",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%8D%A2%E8%A5%BF%E5%A8%85",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Lucia_Elowen"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5306",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:46899",
+      "origin": "zenless_zone_zero",
+      "note": "诺姆 / Norma Hollowell 的简写；与 norma_hollowell 同一身份",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%AF%BA%E5%A7%86",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Norma_Hollowell"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:26",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·黎明，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E9%BB%8E%E6%98%8E",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:28021",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·深红囚影，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E5%9B%9A%E5%BD%B1",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:3113",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·鸦羽，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E9%B8%A6%E7%BE%BD",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:33733",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·誓焰，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E8%AA%93%E7%84%B0",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:41016",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·逆冕，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E9%80%86%E5%86%95",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:781",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR 露西亚·红莲，和深红之渊是同一角色的不同机体",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E7%BA%A2%E8%8E%B2",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:153",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Crimson Abyss",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Crimson_Abyss",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:10501",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Inverse Crown",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Inverse_Crown",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:107",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Lotus",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Lotus",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:131",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Dawn",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Dawn",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:517",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Plume",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Plume",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:5404",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Crimson Weave",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Crimson_Weave",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "punishing-gray-raven-wiki:punishing-gray-raven:page:7214",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2251",
+      "origin": "punishing_gray_raven",
+      "note": "PGR Lucia - Pyroath",
+      "member_source_url": "https://punishing-gray-raven.fandom.com/wiki/Lucia_-_Pyroath",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E8%A5%BF%E4%BA%9A%C2%B7%E6%B7%B1%E7%BA%A2%E4%B9%8B%E6%B8%8A"
+    },
+    {
+      "member": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "origin": "Fate",
+      "note": "Saber：Fate 起源（外部作品），HSR 联动锚点",
+      "member_source_url": "https://honkai-star-rail.fandom.com/wiki/Saber",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Saber"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:522",
+      "identity": "reverse1999-wiki:reverse1999:page:672",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E4%B8%BD%E8%8E%8E%26%E8%B7%AF%E6%98%93%E6%96%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Twins_Sleep"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4376",
+      "identity": "reverse1999-wiki:reverse1999:page:4639",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E4%BC%8A%E7%B4%A2%E5%B0%94%E5%BE%B7",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Isolde"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:869",
+      "identity": "reverse1999-wiki:reverse1999:page:177",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%85%94%E6%AF%9B%E6%89%8B%E8%A2%8B",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Medicine_Pocket"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:280",
+      "identity": "reverse1999-wiki:reverse1999:page:995",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%86%AC",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/%D0%97%D0%B8%D0%BC%D0%B0"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7934",
+      "identity": "reverse1999-wiki:reverse1999:page:13505",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%86%B7%E5%91%A8%E5%85%AD",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Hissabeth"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4672",
+      "identity": "reverse1999-wiki:reverse1999:page:5335",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%8C%97%E6%96%B9%E5%93%A8%E6%AD%8C",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Windsong"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:172",
+      "identity": "reverse1999-wiki:reverse1999:page:578",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%8D%81%E5%9B%9B%E8%A1%8C%E8%AF%97",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Sonetto"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4848",
+      "identity": "reverse1999-wiki:reverse1999:page:5799",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%8D%A1%E5%8D%A1%E5%B0%BC%E4%BA%9A",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Kakania"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3659",
+      "identity": "reverse1999-wiki:reverse1999:page:3544",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%8F%AF%E7%87%83%E7%82%B9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Spathodea"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:529",
+      "identity": "reverse1999-wiki:reverse1999:page:1143",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%90%B5%E9%97%B9%E9%AC%BC",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Poltergeist"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:9983",
+      "identity": "reverse1999-wiki:reverse1999:page:23696",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%91%8A%E6%AD%BB%E9%B8%9F",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Corvus"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3660",
+      "identity": "reverse1999-wiki:reverse1999:page:3892",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%92%8C%E5%B9%B3%E4%B9%8C%E9%B2%81",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Ulu"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:526",
+      "identity": "reverse1999-wiki:reverse1999:page:1053",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%93%92%E5%93%92%E8%BE%BE%E5%88%A9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Darley_Clatter"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:958",
+      "identity": "reverse1999-wiki:reverse1999:page:168",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%96%80%E5%9A%93%E5%96%80%E5%9A%93",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Click"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:8998",
+      "identity": "reverse1999-wiki:reverse1999:page:16667",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%9A%BC%E5%9A%BC%E6%9D%BE%E6%9E%9C",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Buddy_Fairchild"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7090",
+      "identity": "reverse1999-wiki:reverse1999:page:10047",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%9B%BE%E5%9B%BE%E7%9F%B3%E5%AD%90",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Fatutu"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3519",
+      "identity": "reverse1999-wiki:reverse1999:page:816",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%9D%8E%E5%90%89%E6%8B%89",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Kanjira"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:534",
+      "identity": "reverse1999-wiki:reverse1999:page:724",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%9D%A6%E5%8D%97%E7%89%B9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Tennant"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:959",
+      "identity": "reverse1999-wiki:reverse1999:page:1353",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%9F%83%E9%87%8C%E5%85%8B",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Erick"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:289",
+      "identity": "reverse1999-wiki:reverse1999:page:913",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%A4%8F%E5%88%A9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Charlie"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:294",
+      "identity": "reverse1999-wiki:reverse1999:page:889",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%A9%B4%E5%84%BF%E8%93%9D",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Baby_Blue"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:282",
+      "identity": "reverse1999-wiki:reverse1999:page:640",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%B0%8F%E6%98%A5%E9%9B%80%E5%84%BF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Eagle"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:530",
+      "identity": "reverse1999-wiki:reverse1999:page:826",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%B0%8F%E6%A2%85%E6%96%AF%E6%A2%85%E5%B0%94",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Mesmer_Jr."
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:658",
+      "identity": "reverse1999-wiki:reverse1999:page:1058",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%B0%BC%E5%85%8B%C2%B7%E6%B3%A2%E9%A1%BF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Nick_Bottom"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:537",
+      "identity": "reverse1999-wiki:reverse1999:page:844",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%B8%95%E7%B1%B3%E5%9F%83",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Dikke"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7935",
+      "identity": "reverse1999-wiki:reverse1999:page:13506",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%BA%93%E7%8F%80%E8%8A%B1%E7%8E%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Kiperina"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:287",
+      "identity": "reverse1999-wiki:reverse1999:page:802",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%BC%84%E8%87%A3",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/The_Fool"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3442",
+      "identity": "reverse1999-wiki:reverse1999:page:636",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%81%90%E6%80%96%E9%80%9A",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Horropedia"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:2094",
+      "identity": "reverse1999-wiki:reverse1999:page:874",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%8C%96%E6%8E%98%E8%89%BA%E6%9C%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Diggers"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:538",
+      "identity": "reverse1999-wiki:reverse1999:page:439",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%96%B0%E5%B7%B4%E5%88%AB%E5%A1%94",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Ms._NewBabel"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:147",
+      "identity": "reverse1999-wiki:reverse1999:page:576",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%98%9F%E9%94%91",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Regulus"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:138",
+      "identity": "reverse1999-wiki:reverse1999:page:549",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%9C%AA%E9%94%88%E9%93%A0",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/A_Knight"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:291",
+      "identity": "reverse1999-wiki:reverse1999:page:149",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%9F%8F%E6%9E%97%E4%BB%A5%E4%B8%9C",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Bkornblume"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:2092",
+      "identity": "reverse1999-wiki:reverse1999:page:588",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%A2%85%E5%85%B0%E5%A6%AE",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Melania"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:179",
+      "identity": "reverse1999-wiki:reverse1999:page:153",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%A7%B2%E5%AF%84%E7%94%9F",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Druvis_III"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:290",
+      "identity": "reverse1999-wiki:reverse1999:page:970",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B0%94%E7%90%83%E6%B4%BE%E5%AF%B9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Balloon_Party"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3683",
+      "identity": "reverse1999-wiki:reverse1999:page:3884",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B2%99%E4%B8%9D%E7%BB%92",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Desert_Flannel"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:539",
+      "identity": "reverse1999-wiki:reverse1999:page:716",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B3%A5%E9%AF%AD%E7%9A%84%E5%A3%AB",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/An-an_Lee"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:524",
+      "identity": "reverse1999-wiki:reverse1999:page:1048",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B4%8B%E8%91%B1%E5%A4%B4",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/ONiON"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:6072",
+      "identity": "reverse1999-wiki:reverse1999:page:9177",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B4%9B%E4%BD%A9%E6%8B%89",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Lopera"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:868",
+      "identity": "reverse1999-wiki:reverse1999:page:174",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E6%B8%A9%E5%A6%AE%E5%BC%97%E9%9B%B7%E5%BE%B7",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Eternity"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:10024",
+      "identity": "reverse1999-wiki:reverse1999:page:23698",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%81%B0%E8%B0%83%E8%93%9D",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Brume"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3439",
+      "identity": "reverse1999-wiki:reverse1999:page:708",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%89%99%E4%BB%99",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Tooth_Fairy"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:9781",
+      "identity": "reverse1999-wiki:reverse1999:page:20239",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%8E%9B%E4%B8%BD%E5%AE%89%E5%A8%9C",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Sentinel"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:293",
+      "identity": "reverse1999-wiki:reverse1999:page:931",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%8E%9B%E4%B8%BD%E8%8E%B2",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Sweetheart"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:10256",
+      "identity": "reverse1999-wiki:reverse1999:page:23328",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%8E%9B%E5%B0%94%E7%BA%B1",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Marsha"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:5005",
+      "identity": "reverse1999-wiki:reverse1999:page:6233",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%8E%AF%E7%8A%B6%E6%B0%B4%E6%98%9F",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Mercuria"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:186",
+      "identity": "reverse1999-wiki:reverse1999:page:577",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%99%BE%E5%A4%AB%E9%95%BF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Centurion"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:2093",
+      "identity": "reverse1999-wiki:reverse1999:page:707",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%9A%AE%E5%85%8B%E5%8B%92%E6%96%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Pickles"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:6482",
+      "identity": "reverse1999-wiki:reverse1999:page:9096",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%AC%83%E7%AC%83%E9%AA%A8",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Willow"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:183",
+      "identity": "reverse1999-wiki:reverse1999:page:579",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%BA%A2%E5%BC%A9%E7%AE%AD",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Lilya"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:531",
+      "identity": "reverse1999-wiki:reverse1999:page:1049",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%BA%A2%E6%96%97%E7%AF%B7",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Mondlicht"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4850",
+      "identity": "reverse1999-wiki:reverse1999:page:5714",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%BD%97%E8%95%BE%E8%8E%B1",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Lorelei"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7089",
+      "identity": "reverse1999-wiki:reverse1999:page:9554",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8A%AD%E5%8D%A1%E6%B4%9B%E5%84%BF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Barcarola"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:281",
+      "identity": "reverse1999-wiki:reverse1999:page:628",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8A%AD%E5%A6%AE%E8%8A%AD%E5%A6%AE",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Bunny_Bunny"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:365",
+      "identity": "reverse1999-wiki:reverse1999:page:157",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8B%8F%E8%8A%99%E6%AF%94",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Sotheby"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:523",
+      "identity": "reverse1999-wiki:reverse1999:page:1051",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8E%89%E6%8B%89%E5%A6%AE",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Leilani"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:528",
+      "identity": "reverse1999-wiki:reverse1999:page:1050",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8E%AB%E6%A1%91%E5%A5%B3%E5%A3%AB",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Ms._Moissan"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7633",
+      "identity": "reverse1999-wiki:reverse1999:page:10535",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%8F%B2%E6%9E%97%E5%A3%AB%E5%A4%9A",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Noire"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3758",
+      "identity": "reverse1999-wiki:reverse1999:page:4458",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%91%9B%E5%A4%A9",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Getian"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:5590",
+      "identity": "reverse1999-wiki:reverse1999:page:7395",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%93%9D%E6%89%8B%E5%B8%95",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Tuesday"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7771",
+      "identity": "reverse1999-wiki:reverse1999:page:11500",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%99%9A%E6%9E%84%E9%9B%86",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Recoleta"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:536",
+      "identity": "reverse1999-wiki:reverse1999:page:876",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%AE%A3%E5%91%8A%E4%BA%BA",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Necrologist"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:10023",
+      "identity": "reverse1999-wiki:reverse1999:page:23697",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%B4%9D%E4%B8%BD%E5%B0%94",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Beryl"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:514",
+      "identity": "reverse1999-wiki:reverse1999:page:1047",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E8%B4%9D%E8%92%82",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Bette"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:9982",
+      "identity": "reverse1999-wiki:reverse1999:page:22604",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%87%8E%E6%A0%91%E8%8E%93",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Rubuska"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3441",
+      "identity": "reverse1999-wiki:reverse1999:page:634",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%87%91%E8%9C%9C%E5%84%BF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Blonney"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:532",
+      "identity": "reverse1999-wiki:reverse1999:page:863",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%93%85%E7%8E%BB%E7%92%83",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Cristallo"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:872",
+      "identity": "reverse1999-wiki:reverse1999:page:1854",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%97%A8",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Door"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:5605",
+      "identity": "reverse1999-wiki:reverse1999:page:7986",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%98%BF%E5%B0%94%E5%8F%A4%E6%96%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Argus"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:279",
+      "identity": "reverse1999-wiki:reverse1999:page:1084",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%9B%BE%E8%A1%8C%E8%80%85",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Oliver_Fog"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4377",
+      "identity": "reverse1999-wiki:reverse1999:page:4746",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%A9%AC%E5%BA%93%E6%96%AF",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Marcus"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3511",
+      "identity": "reverse1999-wiki:reverse1999:page:821",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%AC%83%E6%AF%9B%E6%B2%99%E7%A0%BE",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Shamane"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:18685",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:61429",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/Archer",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Archer"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:18686",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:100763",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/Saber",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Saber"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14830",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76664",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%87%E6%95%8C",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Mydei"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:161",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:215",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%89%E6%9C%88%E4%B8%83%E2%80%A2%E5%AD%98%E6%8A%A4",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/March_7th"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:28363",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:135179",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%8D%E6%AD%BB%E9%80%94",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Ashveil"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:154",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:231",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%B9%E6%81%92",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Dan_Heng"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:19932",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:116431",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%B9%E6%81%92%E2%80%A2%E8%85%BE%E8%8D%92",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Dan_Heng_%E2%80%A2_Permansor_Terrae"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3663",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:13929",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B8%B9%E6%81%92%E2%80%A2%E9%A5%AE%E6%9C%88",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Dan_Heng_%E2%80%A2_Imbibitor_Lunae"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:13574",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:61885",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%B9%B1%E7%A0%B4",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Rappa"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:12500",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:42150",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%BA%91%E7%92%83",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Yunli"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:190",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:593",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E4%BD%A9%E6%8B%89",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Pela"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:263",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1586",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%81%9C%E4%BA%91",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Tingyun"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:159",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:232",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%85%8B%E6%8B%89%E6%8B%89",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Clara"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:245",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1062",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%88%83",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Blade"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14835",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:88759",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%88%BB%E5%BE%8B%E5%BE%B7%E8%8F%88",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Cerydra"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8667",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22308",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%8A%A0%E6%8B%89%E8%B5%AB",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Gallagher"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:37834",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:153337",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%8D%83%E5%86%B6%E2%80%A2%E5%88%83",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Mortenax_Blade"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:228",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:679",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%8D%A1%E8%8A%99%E5%8D%A1",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Kafka"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:2587",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:9007",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%8D%A2%E5%8D%A1",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Luka"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:38578",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:157906",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%90%89%E5%B0%94%E4%BC%BD%E7%BE%8E%E4%BB%80",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Gilgamesh"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:24195",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:129015",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%A4%A7%E4%B8%BD%E8%8A%B1",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/The_Dahlia"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14803",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76562",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%A4%A7%E9%BB%91%E5%A1%94",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/The_Herta"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:163",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:230",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%A7%AC%E5%AD%90",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Himeko"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:38551",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:157867",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%A7%AC%E5%AD%90%E2%80%A2%E5%90%AF%E8%A1%8C",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Himeko_%E2%80%A2_Nova"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:6761",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:18871",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%AF%92%E9%B8%A6",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Hanya"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:129",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:590",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%B8%83%E6%B4%9B%E5%A6%AE%E5%A8%85",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Bronya"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:157",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:241",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%B8%8C%E5%84%BF",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Seele"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:192",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:594",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%B8%8C%E9%9C%B2%E7%93%A6",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Serval"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:264",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1579",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BD%A6%E5%8D%BF",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Yanqing"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14209",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:68835",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BF%98%E5%BD%92%E4%BA%BA",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Fugue"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14836",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76668",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%98%94%E6%B6%9F",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Cyrene"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8670",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22301",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%98%9F%E6%9C%9F%E6%97%A5",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Sunday"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:229",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1064",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%99%AF%E5%85%83",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Jing_Yuan"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:162",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:238",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%9D%B0%E5%B8%95%E5%BE%B7",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Gepard"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3404",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:14986",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%A1%82%E4%B9%83%E8%8A%AC",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Guinaifen"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:191",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:591",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%A1%91%E5%8D%9A",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Sampo"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:12506",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:42179",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%A4%92%E4%B8%98",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Jiaoqiu"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:10479",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:31370",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%B3%A2%E6%8F%90%E6%AC%A7",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Boothill"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8666",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22307",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%B5%81%E8%90%A4",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Firefly"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14834",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:88753",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%B5%B7%E7%91%9F%E9%9F%B3",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Hysilens"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:28239",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:134571",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%81%AB%E8%8A%B1",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Sparxie"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:12671",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:42220",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%81%B5%E7%A0%82",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Lingsha"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:28191",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:6522",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%88%BB%E5%85%89",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Yao_Guang"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3222",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:9082",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%8E%B2%E5%8F%AF",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Lynx"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:158",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:216",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%93%A6%E5%B0%94%E7%89%B9",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Welt"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14833",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76666",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%99%BD%E5%8E%84",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Phainon"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:261",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1584",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%99%BD%E9%9C%B2",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Bailu"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:13129",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:35864",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%9C%9F%E7%8F%A0",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Pearl"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:7519",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:19878",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%9C%9F%E7%90%86%E5%8C%BB%E7%94%9F",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Dr._Ratio"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8665",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22302",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%9F%A5%E6%9B%B4%E9%B8%9F",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Robin"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:39008",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:161533",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%9F%A5%E6%9B%B4%E9%B8%9F%E2%80%A2%E6%99%B4%E6%AD%8C",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Robin_%E2%80%A2_Summeretto"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8128",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:19459",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%A0%82%E9%87%91",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Aventurine"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:39009",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:161538",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%A0%82%E9%87%91%E2%80%A2%E6%88%8F%E6%B5%AA",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Aventurine_%E2%80%A2_Waveflair"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:923",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1728",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%AC%A6%E7%8E%84",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Fu_Xuan"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8582",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22255",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%B1%B3%E6%B2%99",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Misha"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:28361",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:135177",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%BB%AF%E8%8B%B1",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Evanescia"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14827",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76655",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%BC%87%E5%AE%9D",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Tribbie"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:222",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:902",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%BD%97%E5%88%B9",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Luocha"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:10904",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:33918",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E7%BF%A1%E7%BF%A0",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Jade"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:160",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:239",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%89%BE%E4%B8%9D%E5%A6%B2",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Asta"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8577",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:22250",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%8A%B1%E7%81%AB",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Sparkle"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:6738",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:18850",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%97%BF%E8%97%BF",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Huohuo"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:164",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:486",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%99%8E%E5%85%8B",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Hook"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:12670",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:42219",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%B2%8A%E6%B3%BD",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Moze"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14831",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76669",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%B5%9B%E9%A3%9E%E5%84%BF",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Cipher"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:38577",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:157910",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E8%BF%9C%E5%9D%82%E5%87%9B",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Rin_Tohsaka"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14832",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76665",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%81%90%E8%9D%B6",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Castorice"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14828",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76660",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%82%A3%E5%88%BB%E5%A4%8F",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Anaxa"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:6751",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:18863",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%93%B6%E6%9E%9D",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Argenti"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:219",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:681",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%93%B6%E7%8B%BC",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Silver_Wolf"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:29515",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:139828",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%93%B6%E7%8B%BCLV.999",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Silver_Wolf_LV.999"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3471",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:6649",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%95%9C%E6%B5%81",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Jingliu"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:19929",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:116363",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%95%BF%E5%A4%9C%E6%9C%88",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Evernight"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3209",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1555",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%98%AE%E2%80%A2%E6%A2%85",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Ruan_Mei"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:225",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:672",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%98%BF%E5%85%B0",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Arlan"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14808",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76587",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%98%BF%E6%A0%BC%E8%8E%B1%E9%9B%85",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Aglaea"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:3221",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:5580",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%9B%AA%E8%A1%A3",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Xueyi"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:262",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1585",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%9D%92%E9%9B%80",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Qingque"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14829",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:76663",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%A3%8E%E5%A0%87",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Hyacine"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:12669",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:6520",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%A3%9E%E9%9C%84",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Feixiao"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:1538",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:1944",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%A9%AD%E7%A9%BA",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Yukong"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:8525",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:21850",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%BB%84%E6%B3%89",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Acheron"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:227",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:675",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%BB%91%E5%A1%94",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Herta"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:5083",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:9396",
+      "origin": "star_rail",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E9%BB%91%E5%A4%A9%E9%B9%85",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Black_Swan"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1783",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:530",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%B8%B9%E7%91%BE",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Danjin"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3978",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:40856",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%B8%BD%E8%B4%9D%E5%8D%A1",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Rebecca"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1899",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:631",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%87%8C%E9%98%B3",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lingyang"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1897",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:632",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%A1%E5%8D%A1%E7%BD%97",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Calcharo"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1898",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:570",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%90%9F%E9%9C%96",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Yinlin"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1782",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:522",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%AE%89%E5%8F%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Encore"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1895",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:525",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%BF%8C%E7%82%8E",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Jiyan"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2232",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:9635",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%8A%98%E6%9E%9D",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Zhezhi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1781",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:588",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%95%A3%E5%8D%8E",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Sanhua"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1763",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:578",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%A1%83%E7%A5%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Taoqi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1885",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:591",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B8%8A%E6%AD%A6",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Yuanwu"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1716",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:510",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%82%BD%E9%9C%9E",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Chixia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1639",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:624",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%99%BD%E8%8A%B7",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Baizhi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2231",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:1567",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%9B%B8%E9%87%8C%E8%A6%81",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Xiangli_Yao"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1784",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:585",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%8B%E6%B0%B4",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Aalto"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1628",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:512",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%A7%E7%A7%A7",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Yangyang"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1780",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:620",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%BB%B4%E9%87%8C%E5%A5%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Verina"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1896",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:594",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8E%AB%E7%89%B9%E6%96%90",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Mortefi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2767",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24784",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8F%B2%E6%AF%94",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Phoebe"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3683",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37541",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%A5%BF%E6%A0%BC%E8%8E%89%E5%8D%A1",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Sigrika"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3004",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24793",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%B5%9E%E5%A6%AE",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Zani"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2200",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:1126",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%95%BF%E7%A6%BB",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Changli"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3825",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:40855",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E8%A5%BF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lucy"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:387",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:580",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E3%80%8C11%E5%8F%B7%E3%80%8D",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Soldier_11"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:3683",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:29355",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E3%80%8C%E5%B8%AD%E5%BE%B7%E3%80%8D",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Seed"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2586",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:5034",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E3%80%8C%E6%89%B3%E6%9C%BA%E3%80%8D",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Trigger"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2827",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:20269",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E4%BB%AA%E7%8E%84",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Yixuan"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5290",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:51156",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E4%BD%A9%E6%B4%9B%E4%BC%8A%E6%96%AF",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Pyrois"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4955",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:43336",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%8D%83%E5%A4%8F",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Sunna"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4617",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:20652",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%8F%B6%E7%9E%AC%E5%85%89",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Ye_Shunguang"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5092",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:46894",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%B8%8C%E5%B8%8C%E8%8A%99",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Cissia"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5172",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:46898",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%99%AE%E7%BD%97%E7%B1%B3%E5%A8%85",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Promeia"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:720",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:2243",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%9C%B1%E9%B8%A2",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Zhu_Yuan"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2790",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:18944",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%A9%98%E7%A6%8F%E7%A6%8F",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Ju_Fufu"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2862",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:20647",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E6%BD%98%E5%BC%95%E5%A3%B6",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Pan_Yinhu"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4610",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:20646",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E7%85%A7",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Zhao"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4959",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:43343",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E7%88%B1%E8%8A%AE",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Aria"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4425",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:39569",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E7%90%89%E9%9F%B3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Dialyn"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2098",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:15114",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%80%80%E5%98%89%E9%9F%B3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Astra_Yao"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:4429",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:39567",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%88%AC%E5%B2%B3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Banyue"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:715",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:1626",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%8B%8D%E8%A7%92",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Soukaku"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:1580",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:6633",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E8%8E%B1%E7%89%B9",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Lighter"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:2573",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:17234",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E9%9B%B6%E5%8F%B7%C2%B7%E5%AE%89%E6%AF%94",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Soldier_0_-_Anby"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:1064",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:3278",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 audit: same work, Chinese and English source names; 同一 game_key + exact zh + kind=character；恰有两条实体、跨来源，en 在大小写/空格/标点折叠后相同；来源链接均指向角色页。逐 source 保留 entity_key，建议 identity_key 指向 Fandom 来源规范锚点。",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E9%9D%92%E8%A1%A3",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Qingyi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3991",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:512",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%A7%A7%E7%A7%A7",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Yangyang"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4022",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:329",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%BC%82%E6%B3%8A%E8%80%85",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Rover"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4096",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37545",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%B4%9B%E7%91%9F%E8%8F%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lucilla"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3979",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37545",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B4%9B%E7%91%9F%E8%8F%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lucilla"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4154",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:1074",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%BC%97%E6%B4%9B%E6%B4%9B",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Phrolova"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3253",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:1074",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%BC%97%E6%B4%9B%E6%B4%9B",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Phrolova"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4159",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:40855",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E9%9C%B2%E8%A5%BF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lucy"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4347",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:40856",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E4%B8%BD%E8%B4%9D%E5%8D%A1",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Rebecca"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4349",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:39187",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E8%BE%BE%E5%A6%AE%E5%A8%85",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Denia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3848",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:39187",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%BE%BE%E5%A6%AE%E5%A8%85",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Denia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4422",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:10662",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%AE%88%E5%B2%B8%E4%BA%BA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Shorekeeper"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2233",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:10662",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%AE%88%E5%B2%B8%E4%BA%BA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Shorekeeper"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4754",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31296",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%B0%A4%E8%AF%BA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Iuno"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3328",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31296",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%B0%A4%E8%AF%BA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Iuno"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5506",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41349",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%99%AF%E7%87%83",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Jingran"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:6206",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41349",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%99%AF%E7%87%83",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Jingran"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5509",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:599",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%A4%BF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Camellya"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2517",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:599",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%A4%BF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Camellya"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5512",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37543",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%90%B3%E5%A5%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lynae"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3842",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37543",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%90%B3%E5%A5%88",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lynae"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5515",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37544",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E9%99%86%C2%B7%E8%B5%AB%E6%96%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Luuk_Herssen"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3844",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37544",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%99%86%C2%B7%E8%B5%AB%E6%96%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Luuk_Herssen"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5517",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:38537",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E7%88%B1%E5%BC%A5%E6%96%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Aemeath"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3847",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:38537",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%88%B1%E5%BC%A5%E6%96%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Aemeath"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5523",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37540",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E8%8E%AB%E5%AE%81",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Mornye"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3843",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:37540",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E8%8E%AB%E5%AE%81",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Mornye"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:5526",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31283",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%8D%83%E5%92%B2",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Chisa"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3473",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31283",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%83%E5%92%B2",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Chisa"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:6085",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:26196",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E5%8D%A1%E6%8F%90%E5%B8%8C%E5%A8%85",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Cartethyia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3033",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:26196",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%A1%E6%8F%90%E5%B8%8C%E5%A8%85",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Cartethyia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:6139",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41351",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: normalized namespace title matches same-work named character source",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E8%A7%92%E8%89%B2/%E6%B8%85%E5%AE%B5",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Qingxiao"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:6205",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41351",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 audit: clean and namespace-title pages name the same same-work character",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B8%85%E5%AE%B5",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Qingxiao"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:7936",
+      "identity": "reverse1999-wiki:reverse1999:page:9515",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（命名日），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/reverse1999/%E5%91%BD%E5%90%8D%E6%97%A5; Fandom=https://reverse1999.fandom.com/wiki/Name_Day",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%91%BD%E5%90%8D%E6%97%A5",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Name_Day"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3759",
+      "identity": "reverse1999-wiki:reverse1999:page:4295",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（小叶尼塞），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/reverse1999/%E5%B0%8F%E5%8F%B6%E5%B0%BC%E5%A1%9E; Fandom=https://reverse1999.fandom.com/wiki/Yenisei",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E5%B0%8F%E5%8F%B6%E5%B0%BC%E5%A1%9E",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Yenisei"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4671",
+      "identity": "reverse1999-wiki:reverse1999:page:4812",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（维拉），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/reverse1999/%E7%BB%B4%E6%8B%89; Fandom=https://reverse1999.fandom.com/wiki/Vila",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%BB%B4%E6%8B%89",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Vila"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:4673",
+      "identity": "reverse1999-wiki:reverse1999:page:4891",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（阿夫西维），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/reverse1999/%E9%98%BF%E5%A4%AB%E8%A5%BF%E7%BB%B4; Fandom=https://reverse1999.fandom.com/wiki/Avgust",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E9%98%BF%E5%A4%AB%E8%A5%BF%E7%BB%B4",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Avgust"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:193",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:592",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（娜塔莎），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/sr/%E5%A8%9C%E5%A1%94%E8%8E%8E; Fandom=https://honkai-star-rail.fandom.com/wiki/Natasha",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%A8%9C%E5%A1%94%E8%8E%8E",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Natasha"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3421",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31286",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（仇远），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%BB%87%E8%BF%9C; Fandom=https://wutheringwaves.fandom.com/wiki/Qiuyuan",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%BB%87%E8%BF%9C",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Qiuyuan"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3474",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31556",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（卜灵），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%9C%E7%81%B5; Fandom=https://wutheringwaves.fandom.com/wiki/Buling",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%8D%9C%E7%81%B5",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Buling"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3420",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31295",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（嘉贝莉娜），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%98%89%E8%B4%9D%E8%8E%89%E5%A8%9C; Fandom=https://wutheringwaves.fandom.com/wiki/Galbrena",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%98%89%E8%B4%9D%E8%8E%89%E5%A8%9C",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Galbrena"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2988",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:27951",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（坎特蕾拉），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%9D%8E%E7%89%B9%E8%95%BE%E6%8B%89; Fandom=https://wutheringwaves.fandom.com/wiki/Cantarella",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%9D%8E%E7%89%B9%E8%95%BE%E6%8B%89",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Cantarella"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3005",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:28670",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（夏空），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A4%8F%E7%A9%BA; Fandom=https://wutheringwaves.fandom.com/wiki/Ciaccona",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A4%8F%E7%A9%BA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Ciaccona"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3326",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:31310",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（奥古斯塔），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A5%A5%E5%8F%A4%E6%96%AF%E5%A1%94; Fandom=https://wutheringwaves.fandom.com/wiki/Augusta",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%A5%A5%E5%8F%A4%E6%96%AF%E5%A1%94",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Augusta"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2850",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24786",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（布兰特），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%B8%83%E5%85%B0%E7%89%B9; Fandom=https://wutheringwaves.fandom.com/wiki/Brant",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E5%B8%83%E5%85%B0%E7%89%B9",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Brant"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2530",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24789",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（洛可可），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B4%9B%E5%8F%AF%E5%8F%AF; Fandom=https://wutheringwaves.fandom.com/wiki/Roccia",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E6%B4%9B%E5%8F%AF%E5%8F%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Roccia"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2516",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:20501",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（灯灯），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%81%AF%E7%81%AF; Fandom=https://wutheringwaves.fandom.com/wiki/Lumi",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%81%AF%E7%81%AF",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lumi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2529",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:24790",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（珂莱塔），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%8F%82%E8%8E%B1%E5%A1%94; Fandom=https://wutheringwaves.fandom.com/wiki/Carlotta",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%8F%82%E8%8E%B1%E5%A1%94",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Carlotta"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3992",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41346",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（秧秧·玄翎），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%A7%E7%A7%A7%C2%B7%E7%8E%84%E7%BF%8E; Fandom=https://wutheringwaves.fandom.com/wiki/Yangyang%3A_Xuanling",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A7%A7%E7%A7%A7%C2%B7%E7%8E%84%E7%BF%8E",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Yangyang%3A_Xuanling"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:4147",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:41347",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（穗穗），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A9%97%E7%A9%97; Fandom=https://wutheringwaves.fandom.com/wiki/Suisui",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%A9%97%E7%A9%97",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Suisui"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2234",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:10663",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（釉瑚），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%87%89%E7%91%9A; Fandom=https://wutheringwaves.fandom.com/wiki/Youhu",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%87%89%E7%91%9A",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Youhu"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3032",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:30940",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（露帕），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E5%B8%95; Fandom=https://wutheringwaves.fandom.com/wiki/Lupa",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E5%B8%95",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Lupa"
+    },
+    {
+      "member": "cn-zenless_zone_zero:wiki.biligame.com:page:5091",
+      "identity": "zenless-zone-zero-wiki:zenless-zone-zero:page:43345",
+      "origin": "zenless_zone_zero",
+      "note": "2026-10-21 individual review: 同作 kind=character；两实体的 zh 完全相同（南宫羽），两条 source_url 都是该游戏的角色页面；一条为 Bilibili 角色页，一条为 Fandom 同名角色页。Bilibili en 为空但页面中文标题和路径与另一源完全一致，故建议保留两个 entity_key 并把来源 identity 指向 Fandom 锚点。Bili=https://wiki.biligame.com/zzz/%E5%8D%97%E5%AE%AB%E7%BE%BD; Fandom=https://zenless-zone-zero.fandom.com/wiki/Nangong_Yu",
+      "member_source_url": "https://wiki.biligame.com/zzz/%E5%8D%97%E5%AE%AB%E7%BE%BD",
+      "identity_source_url": "https://zenless-zone-zero.fandom.com/wiki/Nangong_Yu"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3559",
+      "identity": "reverse1999-wiki:reverse1999:page:851",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: 英语数字名 Six 与数字字符 6 是同一表示；两条来源 URL 都是本作该角色页，中文名称一致。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/6",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/6"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:3527",
+      "identity": "reverse1999-wiki:reverse1999:page:818",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: Black Dwarf 是 Kaalaa Baunaa 在国服/早期本地化使用的称谓；Fandom 来源页是 Kaalaa Baunaa，同作同一中文角色页。数据库页面链接及检索到的 Reverse:1999 内容把两名并列作同一角色称谓。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E4%BC%BD%E8%8F%88%E6%B3%A2%E9%82%A3",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Kaalaa_Baunaa"
+    },
+    {
+      "member": "cn-reverse_1999:wiki.biligame.com:page:1821",
+      "identity": "reverse1999-wiki:reverse1999:page:448",
+      "origin": "reverse_1999",
+      "note": "2026-10-21 individual review: Matilda 是 Matilda Bouanich 的简称；Fandom 角色页明示全名 Matilda Bouanich，且两来源中文显示名同为玛蒂尔达。",
+      "member_source_url": "https://wiki.biligame.com/reverse1999/%E7%8E%9B%E8%92%82%E5%B0%94%E8%BE%BE",
+      "identity_source_url": "https://reverse1999.fandom.com/wiki/Matilda"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:5124",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:17298",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: Topaz and Numby 与 Topaz & Numby 只有连接词格式差异；tag_identity.json 中 topaz 已指向 Fandom page:17298 复合角色身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E6%89%98%E5%B8%95%26%E8%B4%A6%E8%B4%A6",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Topaz_%26_Numby"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:2199",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:936",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: Bili 的 jinxi 是同一中文名今汐的拼音写法；Fandom 页面名 Jinhsi 是另一语言采用的罗马字，两个来源都是鸣潮角色页。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E4%BB%8A%E6%B1%90",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Jinhsi"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:3633",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:40075",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: Bili 页面用中文拼音 Feixue，Fandom 页面用英文名 Hiyuki；两者同一中文名“绯雪”，同作角色页；该记录为本地化差异，不是角色异体。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E7%BB%AF%E9%9B%AA",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Hiyuki"
+    },
+    {
+      "member": "cn-wuthering_waves:wiki.biligame.com:page:1729",
+      "identity": "wutheringwaves-wiki:wutheringwaves:page:633",
+      "origin": "wuthering_waves",
+      "note": "2026-10-21 individual review: Bili en `jianixn` 与 Fandom `Jianxin`：前者拼写颠倒/错字，中文名鉴心和来源页面一致。",
+      "member_source_url": "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%89%B4%E5%BF%83",
+      "identity_source_url": "https://wutheringwaves.fandom.com/wiki/Jianxin"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:29081",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:9001",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“21号”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:9001。",
+      "member_source_url": "https://wiki.biligame.com/zspms/21%E5%8F%B7%C2%B7%E6%A3%AE%E6%81%AF",
+      "identity_source_url": "https://wiki.biligame.com/zspms/21%E5%8F%B7%C2%B7XXI"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:20773",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:784",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“七实”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:784。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E9%81%A5%E6%98%9F%E4%B9%8B%E5%BA%A7",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E9%A3%8E%E6%9A%B4"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:34618",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:784",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“七实”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:784。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E8%8A%92%E6%98%9F%E4%B9%8B%E8%BF%B9",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E9%A3%8E%E6%9A%B4"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:793",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:784",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“七实”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:784。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E8%84%89%E5%86%B2",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%83%E5%AE%9E%C2%B7%E9%A3%8E%E6%9A%B4"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:33318",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:6702",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“万事”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:6702。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%87%E4%BA%8B%C2%B7%E6%98%8E%E6%99%B0%E6%A2%A6",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%87%E4%BA%8B%C2%B7%E6%98%8E%E8%A7%89"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:13074",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:782",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“丽芙”下的来源别名分别为：[、[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:782。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E6%9E%81%E6%98%BC",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E8%9A%80%E6%9A%97"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:38825",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:782",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“丽芙”下的来源别名分别为：[、[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:782。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E9%9C%81%E6%A2%A6",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E8%9A%80%E6%9A%97"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:788",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:782",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“丽芙”下的来源别名分别为：[、[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:782。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E6%B5%81%E5%85%89",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E8%9A%80%E6%9A%97"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:790",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:782",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“丽芙”下的来源别名分别为：[、[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:782。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E4%BB%B0%E5%85%89",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E4%B8%BD%E8%8A%99%C2%B7%E8%9A%80%E6%9A%97"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:22157",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:786",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“卡列尼娜”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:786。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E8%BE%89%E6%99%93",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E7%88%86%E8%A3%82"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:41677",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:786",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“卡列尼娜”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:786。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E7%83%AC%E8%88%AA",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E7%88%86%E8%A3%82"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:792",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:786",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“卡列尼娜”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:786。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E7%83%AC%E7%87%83",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%8D%A1%E5%88%97%E5%B0%BC%E5%A8%9C%C2%B7%E7%88%86%E8%A3%82"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:32836",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:28635",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“含英”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:28635。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%90%AB%E8%8B%B1%C2%B7%E6%AA%80%E5%BF%83",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%90%AB%E8%8B%B1%C2%B7%E6%B8%85%E5%95%86"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:7316",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2883",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“库洛姆”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:2883。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%BA%93%E6%B4%9B%E5%A7%86%C2%B7%E8%8D%A3%E5%85%89",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%BA%93%E6%B4%9B%E5%A7%86%C2%B7%E5%BC%A7%E5%85%89"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:24304",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:783",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“比安卡”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:783。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E6%B7%B1%E7%97%95",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E9%9B%B6%E5%BA%A6"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:2816",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:783",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“比安卡”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:783。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E7%9C%9F%E7%90%86",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E9%9B%B6%E5%BA%A6"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:37817",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:783",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“比安卡”下的来源别名分别为：[、[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:783。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E6%99%96%E6%9A%AE",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E6%AF%94%E5%AE%89%E5%8D%A1%C2%B7%E9%9B%B6%E5%BA%A6"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:2514",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:787",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“渡边”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:787。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E6%B8%A1%E8%BE%B9%C2%B7%E5%A4%99%E6%98%9F",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E6%B8%A1%E8%BE%B9%C2%B7%E5%A4%9C%E5%88%83"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:30964",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:787",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“渡边”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:787。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E6%B8%A1%E8%BE%B9%C2%B7%E5%B0%98%E9%93%AD",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E6%B8%A1%E8%BE%B9%C2%B7%E5%A4%9C%E5%88%83"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:40421",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:785",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“神威”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:785。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E7%A5%9E%E5%A8%81%C2%B7%E4%B8%8D%E8%90%BD%E6%97%A5",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E7%A5%9E%E5%A8%81%C2%B7%E9%87%8D%E8%83%BD"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:791",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:785",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“神威”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:785。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E7%A5%9E%E5%A8%81%C2%B7%E6%9A%97%E8%83%BD",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E7%A5%9E%E5%A8%81%C2%B7%E9%87%8D%E8%83%BD"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:39797",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:3498",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“罗塞塔”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:3498。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E7%BD%97%E5%A1%9E%E5%A1%94%C2%B7%E6%9E%81%E9%94%8B",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E7%BD%97%E5%A1%9E%E5%A1%94%C2%B7%E5%87%9B%E5%86%BD"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:26939",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:2517",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“艾拉”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:2517。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E8%89%BE%E6%8B%89%C2%B7%E4%B8%87%E5%8D%8E",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E8%89%BE%E6%8B%89%C2%B7%E6%BA%A2%E5%BD%A9"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:10221",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:3327",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“薇拉”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:3327。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E8%96%87%E6%8B%89%C2%B7%E7%BB%AF%E8%80%80",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E8%96%87%E6%8B%89%C2%B7%E7%91%B0%E4%B8%BD"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:37043",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:3327",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“薇拉”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:3327。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E8%96%87%E6%8B%89%C2%B7%E7%81%BC%E6%83%98",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E8%96%87%E6%8B%89%C2%B7%E7%91%B0%E4%B8%BD"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:35913",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:16656",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“赛琳娜”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:16656。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E8%B5%9B%E7%90%B3%E5%A8%9C%C2%B7%E5%B8%8C%E5%A3%B0",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E8%B5%9B%E7%90%B3%E5%A8%9C%C2%B7%E5%B9%BB%E5%A5%8F"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:26200",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:780",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“里”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:780。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%87%8C%C2%B7%E8%B6%85%E5%88%BB",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%87%8C%C2%B7%E5%BC%82%E7%81%AB"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:789",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:780",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“里”下的来源别名分别为：[、[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:780。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%87%8C%C2%B7%E4%B9%B1%E6%95%B0",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%87%8C%C2%B7%E5%BC%82%E7%81%AB"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:31801",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:4066",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual review: 同一 PGR 角色名“露娜”下的来源别名分别为：[、[；各 URL 均为同一 wiki 的角色/机体页，差异是不同机体/形态。现有 tag_identity.json 已将露西亚多机体并入 page:2251，为同类身份归并提供项目内既有判例。保留各 entity_key，统一 identity_key 到代表页 cn-punishing_gray_raven:wiki.biligame.com:page:4066。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E5%A8%9C%C2%B7%E7%BB%88%E7%84%89",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E9%9C%B2%E5%A8%9C%C2%B7%E9%93%B6%E5%86%95"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:11816",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 实体别名分别为开拓者•同谐、开拓者•记忆、开拓者•欢愉、开拓者•毁灭、开拓者•存护；它们是同一开拓者的命途形态。tag_identity.json 中 trailblazer 的人工状态明确以基础页 page:754 为身份锚点，并说明命途/形态不另立身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BC%80%E6%8B%93%E8%80%85%E2%80%A2%E5%90%8C%E8%B0%90",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Trailblazer"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:14811",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 实体别名分别为开拓者•同谐、开拓者•记忆、开拓者•欢愉、开拓者•毁灭、开拓者•存护；它们是同一开拓者的命途形态。tag_identity.json 中 trailblazer 的人工状态明确以基础页 page:754 为身份锚点，并说明命途/形态不另立身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BC%80%E6%8B%93%E8%80%85%E2%80%A2%E8%AE%B0%E5%BF%86",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Trailblazer"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:29552",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 实体别名分别为开拓者•同谐、开拓者•记忆、开拓者•欢愉、开拓者•毁灭、开拓者•存护；它们是同一开拓者的命途形态。tag_identity.json 中 trailblazer 的人工状态明确以基础页 page:754 为身份锚点，并说明命途/形态不另立身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BC%80%E6%8B%93%E8%80%85%E2%80%A2%E6%AC%A2%E6%84%89",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Trailblazer"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:942",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 实体别名分别为开拓者•同谐、开拓者•记忆、开拓者•欢愉、开拓者•毁灭、开拓者•存护；它们是同一开拓者的命途形态。tag_identity.json 中 trailblazer 的人工状态明确以基础页 page:754 为身份锚点，并说明命途/形态不另立身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BC%80%E6%8B%93%E8%80%85%E2%80%A2%E6%AF%81%E7%81%AD",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Trailblazer"
+    },
+    {
+      "member": "cn-star_rail:wiki.biligame.com:page:943",
+      "identity": "honkai-star-rail-wiki:honkai-star-rail:page:754",
+      "origin": "star_rail",
+      "note": "2026-10-21 individual review: 实体别名分别为开拓者•同谐、开拓者•记忆、开拓者•欢愉、开拓者•毁灭、开拓者•存护；它们是同一开拓者的命途形态。tag_identity.json 中 trailblazer 的人工状态明确以基础页 page:754 为身份锚点，并说明命途/形态不另立身份。",
+      "member_source_url": "https://wiki.biligame.com/sr/%E5%BC%80%E6%8B%93%E8%80%85%E2%80%A2%E5%AD%98%E6%8A%A4",
+      "identity_source_url": "https://honkai-star-rail.fandom.com/wiki/Trailblazer"
+    },
+    {
+      "member": "princess-connect-wiki:princess-connect:page:10928",
+      "identity": "princess-connect-wiki:princess-connect:page:100",
+      "origin": "princess_connect",
+      "note": "2026-10-21 individual review: 同一来源 Fandom 的 Pecorine 与 Pecorine (New Year) 页面；括号明确是新年版本/服装，而非另一个角色。保留页面 entity_key，统一 identity 到基础 Pecorine page:100。",
+      "member_source_url": "https://princess-connect.fandom.com/wiki/Pecorine_%28New_Year%29",
+      "identity_source_url": "https://princess-connect.fandom.com/wiki/Pecorine"
+    },
+    {
+      "member": "cn-punishing_gray_raven:wiki.biligame.com:page:39187",
+      "identity": "cn-punishing_gray_raven:wiki.biligame.com:page:31574",
+      "origin": "punishing_gray_raven",
+      "note": "2026-10-21 individual source-page verification: 资产源快照的aliases字段分别解析为“布偶熊·觅语”和“布偶熊·骇影”。两页是同一布偶熊角色的不同机体/形态：觅语页档案将角色称为布偶熊并描述其机体，骇影页与好感剧情/语音继续以布偶熊为同一角色。保留两个来源entity_key，建议将page:39187链接到page:31574。",
+      "member_source_url": "https://wiki.biligame.com/zspms/%E5%B8%83%E5%81%B6%E7%86%8A%C2%B7%E9%AA%87%E5%BD%B1",
+      "identity_source_url": "https://wiki.biligame.com/zspms/%E5%B8%83%E5%81%B6%E7%86%8A%C2%B7%E8%A7%85%E8%AF%AD"
+    },
+    {
+      "member": "silver-palace-official-web:silver-official:web-character:1",
+      "identity": "silver-palace-official-web:silver-official:web-character:0",
+      "origin": "silver_palace",
+      "note": "2026-10-21 individual source-page verification: 官方JS中的两个数组项均名为Detective，描述都称为“the protagonist of this work”并使用相同主线经历与人物描述；两项career分别为The Raven’s Claws/Beak，符合主角的两种可选表现，而非两位独立角色。保留两个官方索引实体，identity链接至索引0。",
+      "member_source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js",
+      "identity_source_url": "https://www.silverpalace.cn/_nuxt/DegiX84o.js"
+    }
+  ]
+}

@@ -19,3 +19,8 @@ crash.log
 # Agent 工作记忆 —— 本机私人笔记，不跟代码走
 # （聊天记录本身在 ~/.workbuddy/projects/ 下，不在项目内）
 .workbuddy/
+
+# 本地导入的模型、资料库及落盘暂存，不随源码提交
+/models/
+/archive/
+/.staging/
