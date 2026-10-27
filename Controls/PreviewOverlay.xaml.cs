@@ -960,6 +960,9 @@ public sealed partial class PreviewOverlay : Grid
         ResetAfterClose(restoreFocus: false);
     }
 
+    /// <summary>导航后退先收起预览，不改变页面历史。</summary>
+    public void CloseFromNavigation() => Close();
+
     private void Close()
     {
         if (_closing || !IsOpen) return;

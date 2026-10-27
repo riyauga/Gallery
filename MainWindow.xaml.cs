@@ -38,6 +38,12 @@ public sealed partial class MainWindow : Window
         Tag = "settings", Content = "设置", Visibility = Visibility.Collapsed,
     };
     private readonly SettingsPage _settingsPage = new();
+
+    // 导航历史：主页与设置页共用一条，记的是「位置标识」而不是控件引用（目录树会重建）。
+    private readonly List<string> _navHistory = [];
+    private int _navIndex = -1;
+    private bool _replayingHistory;
+    private const int NavHistoryLimit = 50;
     /// <summary>建待审核页并挂上角标刷新。</summary>
     private Controls.Review.ReviewPage CreateReviewPage()
     {
@@ -328,6 +334,9 @@ public sealed partial class MainWindow : Window
 
     private const int WM_ENTERSIZEMOVE = 0x0231;
     private const int WM_EXITSIZEMOVE = 0x0232;
+    private const uint WM_XBUTTONDOWN = 0x020B;
+    private const uint WM_XBUTTONUP = 0x020C;
+    private const uint WM_APPCOMMAND = 0x0319;
     private const uint WM_WINDOWPOSCHANGING = 0x0046;
     private const uint WM_WINDOWPOSCHANGED = 0x0047;
 
@@ -397,6 +406,43 @@ public sealed partial class MainWindow : Window
                 _captionInputTraceMask = 0;
             }
             AppService.DebugLog($"caption close message=0x{uMsg:X}");
+        }
+        // XAML 内容位于子窗口，侧键可能经默认窗口过程转换成浏览器前进／后退命令。
+        if (uMsg == WM_APPCOMMAND)
+        {
+            var command = (int)(((long)lParam >> 16) & 0x0FFF);
+            if (command is 1 or 2)
+            {
+                var delta = command == 1 ? -1 : 1;
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (!HasKeyboardPopup()) HandleHistoryInput(delta);
+                });
+                return (IntPtr)1;
+            }
+        }
+        // 鼠标侧键：XBUTTON1 后退、XBUTTON2 前进。
+        // 抬起也一并吞掉，避免控件收到半个手势；没有可去的位置时同样不往下传。
+        if (uMsg == WM_XBUTTONDOWN)
+        {
+            var button = (int)((long)wParam >> 16) & 0xFFFF;
+            if (button is 1 or 2)
+            {
+                // 不能在窗口过程里直接切页：NavigationView 选区变化会同步创建／刷新页面内容，
+                // 在输入处理回调里重入 XAML 会把输入队列卡住（实测：第二下侧键就再也收不到消息）。
+                var delta = button == 1 ? -1 : 1;
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (HasKeyboardPopup()) return;
+                    HandleHistoryInput(delta);
+                });
+                return (IntPtr)1;
+            }
+        }
+        else if (uMsg == WM_XBUTTONUP)
+        {
+            var button = (int)((long)wParam >> 16) & 0xFFFF;
+            if (button is 1 or 2) return (IntPtr)1;
         }
         var inputBit = uMsg switch
         {
@@ -539,6 +585,8 @@ public sealed partial class MainWindow : Window
         Instance = this;
 
         Nav.MenuItems.Add(_settingsNavigationItem);
+        // 设置页内部换面板也算一步，和主页共用同一条历史。
+        _settingsPage.SectionChanged += section => RecordLocation("set:" + section);
         Title = "Gallery";
 
         ExtendsContentIntoTitleBar = true;
@@ -634,7 +682,9 @@ public sealed partial class MainWindow : Window
         _page.FileOperationStarting += Preview.ReleaseVideo;
         ContentHost.Children.Add(_page);
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnGalleryBlankPointerPressed), true);
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnNavigationPointerPressed), true);
         RootGrid.PreviewKeyDown += OnGalleryPreviewKeyDown;
+        RootGrid.PreviewKeyDown += OnNavHistoryKeyDown;
         RootGrid.SizeChanged += (_, _) => UpdateTitleBarRegions();
         TitleBar.SizeChanged += (_, _) => UpdateTitleBarRegions();
         SearchBox.SizeChanged += (_, _) => UpdateTitleBarRegions();
@@ -742,6 +792,7 @@ public sealed partial class MainWindow : Window
         {
             SearchBox.DefaultFocusAnchor = ContentHost;
             ShowContent(_settingsPage);
+            RecordLocation("set:" + _settingsPage.CurrentSection);
             return;
         }
         if (tag == "review")
@@ -750,6 +801,7 @@ public sealed partial class MainWindow : Window
             _reviewPage ??= CreateReviewPage();
             _reviewPage.Reload();
             ShowContent(_reviewPage);
+            RecordLocation("nav:" + tag);
             return;
         }
         if (tag == "catalog")
@@ -762,6 +814,7 @@ public sealed partial class MainWindow : Window
             SearchBox.DefaultFocusAnchor = ContentHost;
             _catalogPage ??= new Controls.Catalog.CatalogPage(Services.AppService.Catalog);
             ShowContent(_catalogPage);
+            RecordLocation("nav:" + tag);
             return;
         }
         SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
@@ -786,6 +839,98 @@ public sealed partial class MainWindow : Window
                 }
                 break;
         }
+        RecordLocation("nav:" + tag);
+    }
+
+    /// <summary>把一次真实切换记进历史；历史回放期间和重复位置都不记。</summary>
+    private void RecordLocation(string location)
+    {
+        if (_replayingHistory) return;
+        if (_navIndex >= 0 && _navIndex < _navHistory.Count && _navHistory[_navIndex] == location) return;
+        if (_navIndex < _navHistory.Count - 1)
+            _navHistory.RemoveRange(_navIndex + 1, _navHistory.Count - _navIndex - 1);
+        _navHistory.Add(location);
+        if (_navHistory.Count > NavHistoryLimit) _navHistory.RemoveAt(0);
+        _navIndex = _navHistory.Count - 1;
+    }
+
+    /// <summary>沿历史前移／后移一步；没有可去的位置时返回 false。</summary>
+    private bool NavigateHistory(int delta)
+    {
+        if (_replayingHistory) return false;
+        var next = _navIndex + delta;
+        while (next >= 0 && next < _navHistory.Count && !CanApplyLocation(_navHistory[next]))
+            next += delta;
+        if (next < 0 || next >= _navHistory.Count) return false;
+        _navIndex = next;
+        ApplyLocation(_navHistory[next]);
+        return true;
+    }
+
+    private bool HandleHistoryInput(int delta)
+    {
+        if (Preview.IsOpen)
+        {
+            if (delta < 0) Preview.CloseFromNavigation();
+            return true;
+        }
+        return NavigateHistory(delta);
+    }
+
+    private void OnNavigationPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var delta = e.GetCurrentPoint(RootGrid).Properties.PointerUpdateKind switch
+        {
+            Microsoft.UI.Input.PointerUpdateKind.XButton1Pressed => -1,
+            Microsoft.UI.Input.PointerUpdateKind.XButton2Pressed => 1,
+            _ => 0,
+        };
+        if (delta == 0) return;
+        e.Handled = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!HasKeyboardPopup()) HandleHistoryInput(delta);
+        });
+    }
+
+    private bool CanApplyLocation(string location)
+    {
+        if (location.StartsWith("set:", StringComparison.Ordinal)) return true;
+        return location.StartsWith("nav:", StringComparison.Ordinal)
+            && FindNavItem(Nav.MenuItems, location[4..]) is not null;
+    }
+
+    /// <summary>回放一个历史位置。期间所有切换都不再写入历史，避免自激。</summary>
+    private void ApplyLocation(string location)
+    {
+        _replayingHistory = true;
+        try
+        {
+            if (location.StartsWith("set:", StringComparison.Ordinal))
+            {
+                Nav.SelectedItem = _settingsNavigationItem;
+                _settingsPage.ShowSection(location[4..]);
+            }
+            else if (location.StartsWith("nav:", StringComparison.Ordinal))
+            {
+                var tag = location[4..];
+                if (tag == "all") Nav.SelectedItem = Nav.MenuItems[0];
+                else if (FindNavItem(Nav.MenuItems, tag) is { } item) Nav.SelectedItem = item;
+            }
+        }
+        finally { _replayingHistory = false; }
+    }
+
+    /// <summary>按 Tag 在导航树里找项；目录树会重建，所以每次回放都重新找。</summary>
+    private static NavigationViewItem? FindNavItem(IList<object> items, string tag)
+    {
+        foreach (var entry in items)
+        {
+            if (entry is not NavigationViewItem item) continue;
+            if (item.Tag is string value && value == tag) return item;
+            if (FindNavItem(item.MenuItems, tag) is { } hit) return hit;
+        }
+        return null;
     }
 
     /// <summary>审阅页「在图库中查看」：把窗口唤到前台并定位到当前文件。</summary>
@@ -1168,6 +1313,25 @@ public sealed partial class MainWindow : Window
         }
         if (_page.Visibility == Visibility.Visible && _page.ExitSelection()) args.Handled = true;
     }
+
+    /// <summary>
+    /// Alt+← / Alt+→：导航历史后退／前进。
+    /// 走隧道阶段而不是 KeyboardAccelerator：图库已经用无修饰的 ← → 翻图，
+    /// 两个同名加速键共存时无法保证按修饰键分流。
+    /// </summary>
+    private void OnNavHistoryKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled || HasKeyboardPopup()) return;
+        if (e.Key is not (Windows.System.VirtualKey.Left or Windows.System.VirtualKey.Right)) return;
+        if (!AltDown()) return;
+        var moved = e.Key == Windows.System.VirtualKey.Left ? HandleHistoryInput(-1) : HandleHistoryInput(1);
+        if (moved) e.Handled = true;
+    }
+
+    private static bool AltDown()
+        => Microsoft.UI.Input.InputKeyboardSource
+            .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
     private void OnLeftInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {

@@ -21,6 +21,7 @@ public static class AutoStart
 
     public static void Apply(bool enabled)
     {
+        if (AppPaths.Sandbox is not null) return;
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);
         if (key is null) return;
 

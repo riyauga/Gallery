@@ -70,6 +70,47 @@ public sealed partial class SettingsPage : UserControl
     private void SettingsBack_Click(object sender, RoutedEventArgs e)
         => NavigateSettings(HomeSettingsPanel, "设置", NavigationFocus((Control)sender));
 
+    /// <summary>当前面板的稳定键（Home / Import / Catalog / Recognition / Bridge / Storage），供导航历史记录与回放。</summary>
+    public string CurrentSection => SectionKey(_currentSettingsPanel);
+
+    /// <summary>面板切换完成时触发，携带切换后的稳定键。</summary>
+    public event Action<string>? SectionChanged;
+
+    /// <summary>按稳定键切回对应面板，用于导航历史回放；未知键回首页。</summary>
+    public void ShowSection(string key)
+    {
+        var panel = key switch
+        {
+            "Import" => ImportSettingsPanel,
+            "Catalog" => CatalogSettingsPanel,
+            "Recognition" => RecognitionSettingsPanel,
+            "Bridge" => BridgeSettingsPanel,
+            "Storage" => StorageSettingsPanel,
+            _ => HomeSettingsPanel,
+        };
+        NavigateSettings(panel, SectionTitle(panel), FocusState.Pointer);
+    }
+
+    private static string SectionKey(FrameworkElement panel) => panel.Name switch
+    {
+        "ImportSettingsPanel" => "Import",
+        "CatalogSettingsPanel" => "Catalog",
+        "RecognitionSettingsPanel" => "Recognition",
+        "BridgeSettingsPanel" => "Bridge",
+        "StorageSettingsPanel" => "Storage",
+        _ => "Home",
+    };
+
+    private string SectionTitle(FrameworkElement panel) => SectionKey(panel) switch
+    {
+        "Import" => "导入与归档",
+        "Catalog" => "资料库",
+        "Recognition" => "智能识别",
+        "Bridge" => "浏览器插件",
+        "Storage" => "存储与诊断",
+        _ => "设置",
+    };
+
     /// <summary>窗口 Esc 返回设置首页；已在首页时不处理。</summary>
     public bool TryGoBack()
     {
@@ -99,6 +140,7 @@ public sealed partial class SettingsPage : UserControl
         else SettingsHomeBreadcrumb.Focus(focusState);
         // 聚焦入口可能触发自动滚动，最后恢复该页自己的滚动位置。
         SettingsScroll.ChangeView(null, _settingsOffsets.GetValueOrDefault(panel), null, true);
+        SectionChanged?.Invoke(SectionKey(panel));
     }
 
     private void RefreshSettingsSummaries()
