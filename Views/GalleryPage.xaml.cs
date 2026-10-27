@@ -662,6 +662,14 @@ public sealed partial class GalleryPage : UserControl
         }
         ScheduleViewport();
     }
+    /// <summary>
+    /// 右键菜单改收藏只落在模型上，已实现的瓦片不会自己重读；
+    /// 重绑一次让红心立刻跟着变（Bind 里解析相同会跳过缩略图重载）。
+    /// </summary>
+    private void SyncFavoriteTiles()
+    {
+        foreach (var tile in Panel.Children) tile.Bind(tile.Item);
+    }
     private void ReconcileViewport()
     {
         if (!_active || _items.Count == 0) return;
@@ -1238,7 +1246,8 @@ public sealed partial class GalleryPage : UserControl
             lock (AppService.DbLock)
                 foreach (var id in ids) AppService.Store!.SetFavorite(id, favorite);
             foreach (var target in items) target.Favorite = favorite;
-            if (_favoritesMode) Rebuild(); else UpdateHeader();
+            if (_favoritesMode) Rebuild();
+            else { UpdateHeader(); SyncFavoriteTiles(); }
             ToastKindRequested?.Invoke(items.Count == 1
                     ? (favorite ? "已添加到收藏夹" : "已从收藏夹中移除")
                     : (favorite ? $"已添加 {items.Count} 张到收藏夹" : $"已移除 {items.Count} 张的收藏"),

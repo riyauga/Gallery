@@ -37,6 +37,7 @@ img:not([src]),[hidden]{display:none!important}
 #grid-space{height:0;pointer-events:none}
 .batch #deck .g-photo{left:0;top:0;margin:0;padding:7px 7px 29px;border:2px solid var(--g-line);border-radius:10px;box-shadow:0 2px 7px #0002;transform-origin:center}
 .batch #deck .g-photo.g-selected{border-color:var(--g-accent);box-shadow:0 0 0 1px var(--g-accent)}
+.batch.g-pointer-input #deck .g-photo:focus-visible{outline:none}
 .batch #deck .g-art{object-fit:contain;filter:none;box-shadow:none;max-width:100%;max-height:100%}
 .g-check,.g-name{display:none;pointer-events:none}
 .batch #deck .g-check{display:flex;position:absolute;right:7px;top:7px;z-index:5;width:22px;height:22px;border:1px solid #ffffffb0;border-radius:6px;background:#24242499;align-items:center;justify-content:center;color:white}
@@ -735,7 +736,8 @@ function focusRingKeyboardTarget(restoreFocus=false){
  const target=[...cards.values()].find(entry=>entry.data.index===ringKeyboardTarget);
  if(target){target.element.focus({preventScroll:true});ringKeyboardTarget=null;}
 }
-document.addEventListener('pointerdown',()=>{ringKeyboardTarget=null;},true);
+document.addEventListener('pointerdown',()=>{ringKeyboardTarget=null;document.body.classList.add('g-pointer-input');},true);
+document.addEventListener('keydown',event=>{if(['Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter',' '].includes(event.key))document.body.classList.remove('g-pointer-input');},true);
 function wake(){if(active&&!raf){lastT=performance.now();raf=requestAnimationFrame(frame);}}
 function frame(now){
  raf=0;

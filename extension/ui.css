@@ -23,3 +23,8 @@ input,select{min-width:0;max-width:100%}.row,.savebar,.popup .actions{flex-wrap:
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 .popup{max-width:100%}
 button{border:0}button:focus-visible{outline:none;outline-offset:0}
+/* 上面那条 button{border:0} 让弹窗里的次级按钮和背景同色、看不出是按钮；
+   这里只补边框，不动 background，避免盖掉 hover / active 状态。
+   设置页保持原来的扁平风格。 */
+.popup button:not(.link):not(.primary){border:1px solid var(--line)}
+.popup .actions.links{justify-content:center;gap:16px}

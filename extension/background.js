@@ -7,6 +7,8 @@ import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,matchP
 import {isPinterestPage,pinImageHash,isPinterestDownload} from './pinterest-metadata.js';
 
 const ALARM="gallery-retry-v2";
+/** 已送达的下载记录保留时长；到期后由 reconcile 清理，避免 storage 无限增长。 */
+const DELIVERED_KEEP_MS=7*24*60*60*1000;
 let mutation=Promise.resolve();
 let flushing=null;
 function serial(fn) {
@@ -277,10 +279,18 @@ chrome.downloads.onChanged.addListener(delta => {
 });
 async function reconcile() {
   const data=await chrome.storage.local.get(null);
+  const stale=[];
   for (const [key,record] of Object.entries(data)) {
-    if (!key.startsWith("download:") || ['queued','delivered','interrupted'].includes(record.state)) continue;
+    if (!key.startsWith("download:")) continue;
+    if (record.state === "delivered") {
+      // delivered 是「已送达」的记忆，删早了会重新入队，只清长期没再被触发过的。
+      if (Date.now() - (Date.parse(record.start_time || "") || 0) > DELIVERED_KEEP_MS) stale.push(key);
+      continue;
+    }
+    if (['queued','interrupted'].includes(record.state)) continue;
     await finishDownload(record.download_id);
   }
+  if (stale.length) await chrome.storage.local.remove(stale);
 }
 async function flush() {
   if (flushing) return flushing;

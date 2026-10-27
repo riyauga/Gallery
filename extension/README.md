@@ -53,6 +53,10 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉 —— 桌面端没收到就
 下次启动接着投递（`bridge.js` 里的 `queueFlush`）。
 
+送达后对应的 `download:` 记录**不删除**，改标 `state:"delivered"` 作为「已处理」标记。删掉它等于抹掉记忆：
+同一下载再触发一次事件时 `bindDownload` 会重建记录，并用同一个 `ingest_id` 重新入队，桌面端判重后仍要再推一遍。
+`delivered` 记录保留 7 天，由 `reconcile` 顺手清理。
+
 ## 补全图片来源
 
 弹窗里的「补全图片来源」按文件名末尾的 32 位 danbooru md5 反查帖子，把 `page_url` / `source_url` /

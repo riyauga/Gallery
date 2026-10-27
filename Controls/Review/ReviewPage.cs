@@ -163,6 +163,7 @@ public sealed partial class ReviewPage : Grid
     }
     private bool _destinationEdited;   // 用户手改过当前这张的归档目录
     private bool _settingDestination;  // 程序正在往 _destination 里填内容
+    private string _autoDestination = "";  // 程序最近一次写入的目录值，用来区分自动填充和手改
     public event Action? Changed;
 
     public ReviewPage(Window owner)
@@ -262,7 +263,9 @@ public sealed partial class ReviewPage : Grid
         };
         _destination.TextChanged += (_, _) =>
         {
-            if (!_settingDestination) _destinationEdited = true;
+            // 只比对值，不依赖事件时机：程序写入的目录即使晚到一步也算「自动值」，不会被当成人手改。
+            if (_settingDestination || _destination.Text == _autoDestination) return;
+            _destinationEdited = true;
         };
         // 设置保存可能来自后台线程（例如「添加文件夹」在 Task.Run 里落盘），
         // 那时直接改控件会抛「接口为不同线程封送」，异常会顺着 Save 冒出去，
@@ -513,10 +516,12 @@ public sealed partial class ReviewPage : Grid
         if (string.IsNullOrWhiteSpace(_destination.Text))
         {
             var settings = AppService.Settings.Settings;
-            _settingDestination = true;
-            _destination.Text = settings.archive_root.Length > 0
+            var fallback = settings.archive_root.Length > 0
                 ? Path.Combine(settings.archive_root, settings.archive_sub)
                 : store.Roots().FirstOrDefault(r => r.Enabled)?.Path ?? "";
+            _settingDestination = true;
+            _autoDestination = fallback;
+            _destination.Text = fallback;
             _settingDestination = false;
         }
         var found = keep.HasValue ? _rows.FindIndex(r => r.Id == keep.Value) : -1;
@@ -1459,6 +1464,7 @@ public sealed partial class ReviewPage : Grid
         {
             if (_destinationEdited && !string.IsNullOrWhiteSpace(_destination.Text)) return;
             _settingDestination = true;
+            _autoDestination = "";
             _destination.Text = "";
             _destination.PlaceholderText = "留空：按每张图片的推荐目录分别归档";
             _settingDestination = false;
@@ -1470,6 +1476,7 @@ public sealed partial class ReviewPage : Grid
         var target = ArchiveTargetFor(_tags);
         if (target.Length == 0) return;
         _settingDestination = true;
+        _autoDestination = target;
         _destination.Text = target;
         _settingDestination = false;
     }

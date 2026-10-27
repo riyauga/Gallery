@@ -95,11 +95,12 @@ export async function queueFlush(port,token) {
       if (!result.ok) { stopped=result.error; break; }
       await locked(() => chrome.storage.local.remove(record._outbox_key));
       if (record.download_key) {
-        if (record.metadata_complete) await chrome.storage.local.remove(record.download_key);
-        else {
-          const current=(await chrome.storage.local.get(record.download_key))[record.download_key];
-          if (current && !current.page?.tags_complete) await chrome.storage.local.set({[record.download_key]:{...current,state:'delivered'}});
-        }
+        // 送达后只标记 delivered，不删记录。删掉等于抹掉「已处理」的记忆：
+        // 同一下载再触发一次事件时 findDownload 找不到，bindDownload 会重建记录并
+        // 用同一个 ingest_id 重新入队，桌面端判重后还要再推一遍，形成推送循环。
+        const current=(await chrome.storage.local.get(record.download_key))[record.download_key];
+        if (current && (record.metadata_complete || !current.page?.tags_complete))
+          await chrome.storage.local.set({[record.download_key]:{...current,state:'delivered'}});
       }
       sent++;
     }
