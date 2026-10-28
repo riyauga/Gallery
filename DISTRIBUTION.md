@@ -2,7 +2,29 @@
 
 ## 分发内容与依赖
 
-版本由 `Gallery.csproj` 显式维护为 1.0.0，程序集和文件版本为 1.0.0.0。按 [项目规范](AGENTS.md#一构建验证与改动边界) 构建，分发约定输出目录的完整内容，不只复制 Gallery.exe。此构建为 x64、依赖 .NET 9 x64 Runtime；目标环境为 Windows 11，并需可用的 Microsoft Edge WebView2 Runtime。Windows App SDK 依赖随程序携带；当前没有安装器或 .NET 自包含承诺。
+版本由 `Gallery.csproj` 显式维护为 1.0.0，程序集和文件版本为 1.0.0.0。按 [项目规范](AGENTS.md#一构建验证与改动边界) 构建，分发约定输出目录的完整内容，不只复制 Gallery.exe。发布为 **x64 自包含**：`--self-contained true` 且 `WindowsAppSDKSelfContained=true`，.NET 9 与 Windows App SDK 运行时随包携带，用户无需预先安装。目标环境为 Windows 10 1809 及以上或 Windows 11 x64，仍需可用的 Microsoft Edge WebView2 Runtime（Win11 自带，Win10 缺失时需单独安装）。
+
+## 发布形态
+
+两种产物内容相同，均在 [Releases](https://github.com/riyauga/Gallery/releases) 提供：
+
+| 产物 | 行为 |
+|---|---|
+| `Gallery-1.0.0-setup.exe` | Inno Setup 安装版，per-user 装到 `%LOCALAPPDATA%\Programs\Gallery`，不请求管理员权限；建开始菜单快捷方式、可选桌面图标、注册卸载项 |
+| `Gallery-1.0.0-win-x64.zip` | 免安装版，解压得到单层 `Gallery-1.0.0\` 目录，双击 `Gallery.exe` 运行 |
+
+打包步骤（发布目录与产物都写 `%TEMP%`，仓库内只保留 `bin\Debug` 交付构建）：
+
+```powershell
+dotnet publish Gallery.csproj -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true -o "$env:TEMP\ptv\publish"
+# 把 publish 复制成 Gallery-1.0.0\、删掉 *.pdb，再压成 zip：
+tar.exe -a -c -f Gallery-1.0.0-win-x64.zip Gallery-1.0.0
+# 安装包：脚本在 tools\installer.iss，版本号与 Gallery.csproj 同步
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /DSourceDir="$env:TEMP\ptv\publish" /DOutDir="$env:TEMP\ptv\dist" tools\installer.iss
+gh release create v1.0.0 <两个产物> --title "Gallery 1.0.0" --notes-file <说明.md>
+```
+
+未做代码签名，首次运行会触发 SmartScreen 提示（更多信息 → 仍要运行）；安装向导为英文界面，官方 Unofficial 语言目录已无简体中文 isl。
 
 程序包包含用户说明 `USER_GUIDE.md`、运行依赖、图标、Photos Fluent Icons 字体及可加载的 `extension/`。项目所有者于 2026-10-28 确认已取得该字体的分发授权；不据此推定其他项目也拥有该授权。扩展安装及配对见 [扩展说明](extension/README.md)。
 
@@ -23,3 +45,5 @@
 2026-10-28 已执行：构建 0 警告／0 错误；临时沙箱验证 26 项（默认值、配置兼容、空库、目录规则、资料移除与重新接入、损坏文件保护、桥接鉴权、微型 ONNX 推理／会话释放、模拟图库重连）；独立干净用户服务启动与关闭 5 项；现有扩展测试 70 项及 GET 配对码传递检查 3 项。测试未启动前台 UI，未访问真实图库数据库，未运行用户真实模型；不等同于真实设备或人工观感验收。
 
 另已核对实际 Gallery.exe 的隐藏无窗口空库验证（.NET 9 程序入口）、126 个 PDB 文档路径映射、显式版本、模型路径大小写兼容，以及全部输出文件不含开发者用户名；最终输出清单排除旧样例、内置资料与个人数据。SourceLink 自动仓库指针已关闭。
+
+2026-10-29 发布 v1.0.0 实测：自包含发布目录 247 MB（含 3 个 pdb 共 12 MB，发布包已剔除）；便携 zip 91 MB，解压 235 MB、单层 `Gallery-1.0.0\` 目录；安装包 64 MB。安装包已跑通 静默安装 → 启动 → 静默卸载 闭环：装后 239 MB，卸载后安装目录清空、无残留进程。未做代码签名，未在第二台机器验证，未做外观与手感验收。
