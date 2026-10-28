@@ -37,17 +37,10 @@ public sealed class DetailPanel : Grid
 
     public DetailPanel()
     {
-        bool dark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
         Width = 360;
         HorizontalAlignment = HorizontalAlignment.Right;
         CornerRadius = new CornerRadius(12);
         BorderThickness = new Thickness(1);
-        Background = new SolidColorBrush(dark
-            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2b, 0x2b, 0x2b)
-            : Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xff, 0xff, 0xff));
-        BorderBrush = new SolidColorBrush(dark
-            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x4a, 0x4a, 0x4a)
-            : Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xde, 0xde, 0xde));
 
         _title = new TextBlock
         {
@@ -130,6 +123,28 @@ public sealed class DetailPanel : Grid
             }
         };
         Children.Add(scroll);
+        ActualThemeChanged += (_, _) => ApplyTheme();
+        Loaded += (_, _) => ApplyTheme();
+        ApplyTheme();
+    }
+
+    /// <summary>
+    /// 面板底色/边框/收藏图标跟随元素实际主题。
+    /// 不能用 Application.RequestedTheme：本项目主题是挂在根元素上的 ElementTheme，
+    /// 切到浅色后应用级的值仍是系统主题，会涂出深底配深字的不可读组合。
+    /// </summary>
+    private void ApplyTheme()
+    {
+        var dark = ActualTheme == ElementTheme.Dark;
+        Background = new SolidColorBrush(dark
+            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2b, 0x2b, 0x2b)
+            : Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xff, 0xff, 0xff));
+        BorderBrush = new SolidColorBrush(dark
+            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x4a, 0x4a, 0x4a)
+            : Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xde, 0xde, 0xde));
+        _favorite.OutlineForeground = new SolidColorBrush(dark
+            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xff, 0xff, 0xff)
+            : Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x1a, 0x1a, 0x1a));
     }
 
     public void SetItem(PhotoItem item)

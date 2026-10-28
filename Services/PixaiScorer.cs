@@ -27,6 +27,7 @@ public sealed class PixaiScorer
     private static readonly object LoadGate = new();
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly InferenceSession _session;
+    private volatile bool _retired;
     private readonly string _input;
     private readonly string[] _tags;
     private readonly (int Start, int Count) _characters, _works;
@@ -131,16 +132,42 @@ public sealed class PixaiScorer
         error = "";
         if (!LooksConfigured(dir)) { error = "识别模型未配置：需要 PixAI model.onnx 和 config.json"; return null; }
         var mode = NormalizeDevice(device ?? AppService.Settings.Settings.nsfw_device);
-        var key = Path.GetFullPath(dir!) + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir!, "model.onnx")).Ticks
-            + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir!, "config.json")).Ticks + "|" + mode;
-        if (Cache.TryGetValue(key, out var cached)) return cached;
+        var key = CacheKey(dir!, mode);
         lock (LoadGate)
         {
-            if (Cache.TryGetValue(key, out cached)) return cached;
+            RetainCache(key);
+            if (Cache.TryGetValue(key, out var cached)) return cached;
             try { var scorer = new PixaiScorer(dir!, mode); Cache[key] = scorer; return scorer; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
                 or InvalidOperationException or KeyNotFoundException or ArgumentException or OnnxRuntimeException)
             { error = "PixAI 模型加载失败：" + ex.Message; return null; }
+        }
+    }
+
+    private static string CacheKey(string dir, string mode)
+        => Path.GetFullPath(dir) + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "model.onnx")).Ticks
+            + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "config.json")).Ticks + "|" + mode;
+
+    /// <summary>配置变更或包移除后释放旧会话；等待当前单张推理结束，不释放正在使用的原生资源。</summary>
+    public static void RefreshCache(string? dir)
+    {
+        lock (LoadGate)
+            RetainCache(LooksConfigured(dir) ? CacheKey(dir!, NormalizeDevice(AppService.Settings.Settings.nsfw_device)) : null);
+    }
+
+    private static void RetainCache(string? key)
+    {
+        foreach (var entry in Cache)
+        {
+            if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase) || !Cache.TryRemove(entry.Key, out var scorer)) continue;
+            scorer._retired = true;
+            void ReleaseSession()
+            {
+                try { scorer._session.Dispose(); }
+                finally { scorer._inferenceGate.Release(); }
+            }
+            if (scorer._inferenceGate.Wait(0)) ReleaseSession();
+            else _ = Task.Run(() => { scorer._inferenceGate.Wait(); ReleaseSession(); });
         }
     }
 
@@ -150,6 +177,7 @@ public sealed class PixaiScorer
         try
         {
             token.ThrowIfCancellationRequested();
+            if (_retired) throw new InvalidOperationException("识别模型已移除或更换，请重新开始识别");
             var input = Preprocess(path);
             token.ThrowIfCancellationRequested();
             using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_input,

@@ -8,12 +8,16 @@ Chrome / Edge（Manifest V3）扩展。它在浏览器里接住图片下载，�
 桌面端只监听 `127.0.0.1`，并要求 `X-Gallery-Token`；端口和令牌都在桌面端
 「设置 → 浏览器插件」里显示（可复制令牌）。
 
+桌面端新用户默认关闭桥接，需在设置中主动开启并复制配对码；已有用户的开启状态保留。
+
 ## 安装（开发者模式）
 
 1. 打开 `chrome://extensions`（Edge 是 `edge://extensions`），右上角打开「开发者模式」。
-2. 点「加载已解压的扩展程序」，选中仓库里的 `extension/` 目录。
+2. 点「加载已解压的扩展程序」，选中分发包中的 `extension/` 目录（开发时也可选仓库同名目录）。
 3. 点扩展图标 →「设置」，把桌面端「设置 → 浏览器插件」里的**端口**和**令牌**粘进去，
    点「测试连接」，应显示已连接。
+
+应用标识统一使用桌面端的黑底白色相框：`icons/icon16/32/48/128.png` 从 `assets/Gallery.ico` 对应图层导出；工具栏、扩展管理页、通知和设置页标签共用这套资源。运行仓库的 `python tools/make_icon.py` 可同步重新生成。更新后重新加载扩展，已打开的设置页也需刷新。
 
 ## 支持的站点
 
@@ -43,12 +47,14 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/ping` | `{ok, app:"gallery", version, port, tokenRequired, received, pending, protocol:2}` |
-| `GET` | `/tags` | 桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
+| `GET` | `/ping` | 未配对仅返回 `{ok, app:"gallery", version, port, tokenRequired, protocol:2}`；携带有效 `X-Gallery-Token` 才附带 `received, pending` |
+| `GET` | `/tags` | 需 `X-Gallery-Token`；桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
 | `POST` | `/ingest` | 带 `X-Gallery-Token`；`{probe:true}` 只验证不落库；真实记录需 `download_state:"complete"`；返回 `{ok, persisted, queued, duplicate, ingest_id, name}` |
 | `POST` | `/ui/open` | `{view:"library"\|"review", path}` 唤起桌面端窗口并定位 |
-| `GET` | `/sources` | 待补来源清单 `{total, items:[{md5, name}]}`：只列 `source_url` 为空、且文件名带 danbooru md5 的图，按 md5 去重 |
+| `GET` | `/sources` | 需 `X-Gallery-Token`；待补来源清单 `{total, items:[{md5, name}]}`：只列 `source_url` 为空、且文件名带 danbooru md5 的图，按 md5 去重 |
 | `POST` | `/sources` | 带 `X-Gallery-Token`；`{items:[{md5, page_url, source_url, post_id}]}` → `{received, updated}`。**只填空值，已有来源不覆盖** |
+
+升级桌面端后需重新加载分发包里的扩展，配对配置继续保留；旧扩展的无令牌私有 GET 请求会被拒绝。
 
 插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉 —— 桌面端没收到就
 下次启动接着投递（`bridge.js` 里的 `queueFlush`）。
@@ -72,4 +78,4 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 
 ## 维护边界
 
-旧“69／70 项通过”只属历史记录，不代表当前版本或真实下载链路验收。本次（2026-10-26）仅整理文档，未运行扩展测试或真实下载链路；历史临时产物清理结果见 [归档文档](../ARCHIVE_REVIEW.md#验证边界)。规则模拟器仍是配置辅助工具；开发与自测边界见 [AGENTS](../AGENTS.md#一构建验证与改动边界)，浏览器安装、真实下载和入队仍需人工核对。
+旧“69／70 项通过”只属历史记录，不代表当前版本或真实下载链路验收。2026-10-28 扩展现有 70 项测试通过，另核对三项 GET 请求携带配对码；未操作真实浏览器下载链路；历史临时产物清理结果见 [归档文档](../ARCHIVE_REVIEW.md#验证边界)。规则模拟器仍是配置辅助工具；开发与自测边界见 [AGENTS](../AGENTS.md#一构建验证与改动边界)，浏览器安装、真实下载和入队仍需人工核对。

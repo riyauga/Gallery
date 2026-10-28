@@ -93,7 +93,7 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 ### 拖出与侧栏移动
 
 图库拖出规则：拖已选图片导出全部选中记录（包含屏幕外项目）；在选择模式拖未选图片，先清空原选区、选中起拖图，再只导出该图。文件列表须写入 `DragStartingEventArgs.Data`，允许和请求操作均为 Copy，不搬移源文件；缺失文件及模糊保护沿用原整批拒绝语义。点击窗口 XAML 内非交互空白通过根级已处理事件路由退出并清空；卡片、按钮、输入框、导航项、滚动条及分隔拖动把手不触发退出。Esc 继续使用窗口级加速器，查看器优先；`GalleryPage.ExitSelection()` 无选择时返回 false。只适用于图库/收藏夹/目录视图，不套用待审核的批量网格规则。修饰键、跨屏范围、拖出到外部程序及空白/Esc 的实际表现待用户手动确认。
-拖入侧栏目录：应用内拖拽经过某个目录项时，该项直接借用自带的悬停视觉亮起（与鼠标悬停完全同一套 PointerStates，不另造底色或描边）；同一时刻只亮一项，选中项落回 `PointerOverSelected` 而非普通悬停，父项 DragLeave 不清除已被子项接管的亮起；离开、落到该项或拖拽结束即熄灭，目录树重建时引用作废；外部文件拖入不亮起。状态由 `NavigationViewItemPresenter` 承载，改的是 presenter 而不是 item 本身。
+拖入侧栏目录：应用内拖拽经过某个目录项时，该项直接借用自带的悬停视觉亮起（与鼠标悬停完全同一套 PointerStates，不另造底色或描边）；同一时刻只亮一项，选中项落回 `PointerOverSelected` 而非普通悬停，父项 DragLeave 不清除已被子项接管的亮起；离开、落到该项或拖拽结束即熄灭，目录项被移除时引用作废；外部文件拖入不亮起。状态由 `NavigationViewItemPresenter` 承载，改的是 presenter 而不是 item 本身。文件监听刷新目录树时复用已有导航项并原位更新计数，仅增删实际变化的目录项，避免在指针输入期间整树替换。
 
 ## 模态弹窗与退出
 
@@ -127,6 +127,8 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 - 实现依赖原生 AutoSuggestBox 的文本框与弹层 ListView；不提供独立查询、排序或存储。Tab 进入时把整棵原生候选视图临时转入独立 Popup，沿用原有位置、行模板及原生提交，结束时归还；避免 AutoSuggestBox 失焦强制关单。导航期间暂时关闭 `UpdateTextOnSelect`，完成后恢复。此轮仅静态与构建核对，Tab 循环、反向退出、Enter、Esc 和鼠标混用仍需人工验收。
 
 ## 设置页的选项与识别配置布局
+
+新用户默认关闭开机自启、浏览器桥接和按标签自动分目录；已有配置文件中的明确值保留。分发与依赖见 [分发说明](DISTRIBUTION.md)。
 
 设置采用首页加五个二级页面：
 
@@ -310,6 +312,10 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 - 面向用户写文案，不暴露内部路径或术语；说明不重复标题；按钮以动作命名。反例（2026-10-26 已修）：资料库页曾把「会存到 D:\...\archive」「zenless-zone-zero-wiki · 1558 条 · 2026-10-15」「按摘要增量导入」直接写给用户——路径、来源 ID、实现机制都属于开发者视角。写法应是「拖入下载到的资料库文件，可以放多个」「绝区零 · 1558 条」。
 - 文档维护、组件说明要素与验收规则统一见 [AGENTS](AGENTS.md#三文档与交付)。
 
+
+## 应用窗口图标
+
+应用沿用原始黑底白色 WinUI 字形，`tools/make_icon.py` 生成 `assets/Gallery.ico`；标题栏和侧栏继续使用原有 FontIcon。主窗口创建后显式调用 `AppWindow.SetIcon` 加载同一 ICO，供任务栏、Alt+Tab 和 Win+Tab 使用；这项设置独立于 EXE 的 `ApplicationIcon`。托盘从同一文件加载小图标。不能仅凭非零句柄认定显示已更新，应核对运行时图标像素和 Shell 提取结果；观感仍需用户确认。不要自动删除全局 Shell 图标缓存。
 
 ## 窗口拖动与标题栏
 

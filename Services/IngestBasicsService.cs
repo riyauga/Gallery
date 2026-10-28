@@ -14,8 +14,6 @@ public sealed class IngestBasicsService
     private Func<string, CancellationToken, PixaiScore>? _score;
     private string _modelName = "";
     private string _modelHash = "";
-    private bool _scorerTried;
-    private string _scorerError = "";
 
     public IngestBasicsService(StoreService store, string modelDir)
     {
@@ -146,13 +144,6 @@ public sealed class IngestBasicsService
     private bool TryScorer(out string error)
     {
         error = "";
-        if (_scorerTried)
-        {
-            error = _scorerError;
-            return _score is not null;
-        }
-
-        _scorerTried = true;
         if (AppService.FakeNsfwScorer)
         {
             _score = (path, _) => new PixaiScore("", "", "", 0, "", 0, "test", "test",
@@ -164,10 +155,9 @@ public sealed class IngestBasicsService
             return true;
         }
 
-        var scorer = PixaiScorer.TryCreate(_modelDir, out _scorerError);
+        var scorer = PixaiScorer.TryCreate(_modelDir, out error);
         if (scorer is null)
         {
-            error = _scorerError;
             return false;
         }
         _modelName = scorer.ModelName;

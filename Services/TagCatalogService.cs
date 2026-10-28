@@ -29,18 +29,13 @@ public sealed class TagCatalogService
     /// <summary>旧版外部词库目录；仍参与读取，保证早先解压到这里的包不失效。</summary>
     public static string ExternalDir => PackFolders.LegacyCatalog;
 
-    /// <summary>随程序分发的内置词库。</summary>
-    public static string BundleDir =>
-        Path.Combine(AppContext.BaseDirectory, "assets", "tag_catalog");
-
-    /// <summary>外部在前、内置在后；按来源 ID 去重，最近导入的包优先。</summary>
+    /// <summary>archive 在前、旧版外部目录在后；按来源 ID 去重，最近导入的包优先。</summary>
     public static List<string> BundleDirs()
     {
         var dirs = new List<string>();
         var candidates = new List<string>();
         candidates.AddRange(PackFolders.ArchivePacks().OrderByDescending(Directory.GetCreationTimeUtc));
         candidates.Add(ExternalDir);
-        candidates.Add(BundleDir);
         foreach (var candidate in candidates)
         {
             string resolved;
@@ -104,7 +99,7 @@ public sealed class TagCatalogService
 
     public sealed record Bundle(string Path, string Digest, JsonElement Root);
 
-    /// <summary>读取词库（directory 给定时只读那一个目录，否则外部 + 内置合并）。</summary>
+    /// <summary>读取词库（directory 给定时只读那一个目录，否则合并当前外部包）。</summary>
     public static List<Bundle> ReadBundles(string? directory = null)
     {
         var dirs = directory is null ? BundleDirs() : [directory];
@@ -126,7 +121,8 @@ public sealed class TagCatalogService
                     if (!seenSources.Add(sid)) continue;
                     bundles.Add(new Bundle(path, Sha256Hex(raw), root));
                 }
-                catch (Exception) { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException)
+                { throw new InvalidDataException("资料文件读取失败：" + path, ex); }
             }
         }
         return bundles;
@@ -167,7 +163,6 @@ public sealed class TagCatalogService
     private List<ImportReport> ImportAllCore(string? directory, Action<string>? log)
     {
         var bundles = ReadBundles(directory);
-        if (bundles.Count == 0) return [];
 
         // 先算哪些来源需要重导（摘要一致就跳过）
         using var conn = Open();
@@ -185,7 +180,18 @@ public sealed class TagCatalogService
             if (StoredDigest(conn, sid) == policy) continue;
             pending.Add((bundle, sid, url, kind, policy));
         }
-        if (pending.Count == 0)
+        var activeIds = bundles.Select(b => b.Root.GetProperty("source").GetProperty("id").GetString()!).ToHashSet(StringComparer.Ordinal);
+        var missing = new List<string>();
+        using (var read = conn.CreateCommand())
+        {
+            read.CommandText = "SELECT source_id FROM catalog_imports";
+            using var reader = read.ExecuteReader();
+            while (reader.Read())
+                if (!activeIds.Contains(reader.GetString(0))) missing.Add(reader.GetString(0));
+        }
+        // 指定目录的增量导入不能撤下其它目录的来源。
+        if (directory is not null) missing.Clear();
+        if (pending.Count == 0 && missing.Count == 0)
         {
             log?.Invoke("词库已是最新，无需导入");
             return [];
@@ -200,10 +206,21 @@ public sealed class TagCatalogService
             write.Transaction = tx;
             try
             {
+                foreach (var sid in missing)
+                {
+                    Exec(conn, tx, "DELETE FROM catalog_entities WHERE substr(entity_key,1,$n)=$p AND source_kind<>'manual'",
+                        ("$n", sid.Length + 1), ("$p", sid + ":"));
+                    Exec(conn, tx, "DELETE FROM catalog_imports WHERE source_id=$s", ("$s", sid));
+                }
                 foreach (var (bundle, sid, sourceUrl, kind, policy) in pending)
                     reports.Add(ImportOne(conn, tx, bundle, sid, sourceUrl, kind, policy, log));
 
-                RebuildMemberships(conn, tx, bundles);
+                RebuildMemberships(conn, tx, directory is null ? bundles : ReadBundles().Concat(bundles));
+                if (directory is null)
+                {
+                    Exec(conn, tx, "DELETE FROM catalog_games WHERE game_key NOT IN (SELECT game_key FROM catalog_entities) " +
+                        "AND game_key NOT IN (SELECT game_key FROM catalog_memberships)");
+                }
 
                 // 新导入的来源条目也要有独立身份记录，否则标签关联会指向不存在的身份。
                 var now = (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds
@@ -296,7 +313,7 @@ public sealed class TagCatalogService
                 foreach (var bundle in removed)
                 {
                     var sid = bundle.Root.GetProperty("source").GetProperty("id").GetString()!;
-                    // 同来源有其它包／内置版本时，让它重新接管，不误删共享资料。
+                    // 同来源有其它包时，让它重新接管，不误删共享资料。
                     Exec(conn, tx, "DELETE FROM catalog_imports WHERE source_id=$s", ("$s", sid));
                     var originals = Records(active.GetValueOrDefault(sid) ?? bundle).ToDictionary(r => sid + ":" + r.Key, StringComparer.Ordinal);
                     var deletes = new List<string>();

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Gallery.Models;
 using Gallery.Services;
@@ -80,9 +81,24 @@ internal sealed class ReviewCarousel : Grid
         PublishState();
     }
 
+    /// <summary>
+    /// 控件从可视树卸载时 CoreWebView2 可能已不可用，而 _ready 不会复位；
+    /// 发往网页的消息经这里检查生命周期。
+    /// </summary>
+    private void PostToWeb(string json)
+    {
+        if (!IsLoaded || !_ready || _browser.CoreWebView2 is not { } core) return;
+        try { core.PostWebMessageAsJson(json); }
+        catch (COMException ex) when (ex.HResult == unchecked((int)0x8007139F))
+        {
+            // Unloaded can invalidate the native WebView before CoreWebView2 becomes null.
+            AppService.DebugLog("review renderer unavailable during teardown: " + ex.Message);
+        }
+    }
+
     public void CancelTagStroke()
     {
-        if (_ready) _browser.CoreWebView2.PostWebMessageAsJson("{\"type\":\"cancelPaint\"}");
+        PostToWeb("{\"type\":\"cancelPaint\"}");
     }
 
     public void UpdateTagRows(IReadOnlyList<StoreService.PendingIngestRow> rows, bool refreshProtection)
@@ -117,7 +133,7 @@ internal sealed class ReviewCarousel : Grid
         _settingsScroll.ValueChanged += value =>
         {
             if (_settingsSyncing || !_ready || !_active) return;
-            _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "panelScroll", value, command = ++_settingsCommand }, Json));
+            PostToWeb(JsonSerializer.Serialize(new { type = "panelScroll", value, command = ++_settingsCommand }, Json));
         };
         _settingsScroll.InteractionStarted += () => _settingsInteracting = true;
         _settingsScroll.InteractionCompleted += () => _settingsInteracting = false;
@@ -272,7 +288,7 @@ internal sealed class ReviewCarousel : Grid
     {
         if (!_active || !_ready || _rows.Count == 0) return;
         position = Math.Clamp(position, 0, _rows.Count - 1);
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "scroll", position, follow }, Json));
+        PostToWeb(JsonSerializer.Serialize(new { type = "scroll", position, follow }, Json));
     }
 
     /// <summary>滚动轴结束：落到整数并让网页回 settled，由宿主统一提交详情。</summary>
@@ -280,7 +296,7 @@ internal sealed class ReviewCarousel : Grid
     {
         if (!_active || !_ready || _rows.Count == 0) return;
         index = Math.Clamp(index, 0, _rows.Count - 1);
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        PostToWeb(JsonSerializer.Serialize(new
         {
             type = "scroll", position = (double)index, follow = false, settle = true,
         }, Json));
@@ -323,7 +339,7 @@ internal sealed class ReviewCarousel : Grid
         if (!_ready || !_active || rays.Count == 0) return;
         var origin = ViewportOrigin();
         var local = rays.Select(ray => ray with { X1 = ray.X1 - origin.X, Y1 = ray.Y1 - origin.Y }).ToArray();
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "flyTagApply", rays = local }, Json));
+        PostToWeb(JsonSerializer.Serialize(new { type = "flyTagApply", rays = local }, Json));
     }
 
     /// <summary>「清除」的收尾动画：这些标签在卡片上就地出现，再一起飞向落点缩小消失。坐标同样是页面坐标。</summary>
@@ -332,7 +348,7 @@ internal sealed class ReviewCarousel : Grid
         if (!_ready || !_active || rays.Count == 0) return;
         var origin = ViewportOrigin();
         var local = rays.Select(ray => ray with { X1 = ray.X1 - origin.X, Y1 = ray.Y1 - origin.Y, X2 = ray.X2 - origin.X, Y2 = ray.Y2 - origin.Y }).ToArray();
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "flyTagScatter", rays = local }, Json));
+        PostToWeb(JsonSerializer.Serialize(new { type = "flyTagScatter", rays = local }, Json));
     }
 
     /// <summary>从卡片飞向落点的一组标签。</summary>
@@ -349,7 +365,7 @@ internal sealed class ReviewCarousel : Grid
     {
         if (!_ready || !_active || rays.Count == 0) return;
         var origin = ViewportOrigin();
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        PostToWeb(JsonSerializer.Serialize(new
         {
             type = "flyTagDetach",
             target = new { x = target.X - origin.X, y = target.Y - origin.Y },
@@ -417,7 +433,7 @@ internal sealed class ReviewCarousel : Grid
     public async void FreezeForWindowMove()
     {
         _freezeRequested = true;
-        if (_frozen || _freezing || !_ready) return;
+        if (_frozen || _freezing || !_ready || _browser.CoreWebView2 is null) return;
         _freezing = true;
         try
         {
@@ -545,7 +561,7 @@ internal sealed class ReviewCarousel : Grid
                 Analyzed = IsAnalyzed(row), Analyzing = _analyzing.Contains(row.Id),
                 Avg = preview?.Average ?? "" };
         }).ToArray();
-        _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        PostToWeb(JsonSerializer.Serialize(new
         {
             type = "state", cards, tagTool = _tagTool, marker = _tagMarker, tagLabel = _tagLabel, tagBg = _tagBg, tagBorder = _tagBorder, tagInk = _tagInk, active = _active, viewGeneration = _viewGeneration, batch = _batchMode, gridSize = _gridSize, interactive = _interactionEnabled,
             index = _index, seq = _selectSeq, authoritative = _selectSeq < 0, count = _rows.Count,

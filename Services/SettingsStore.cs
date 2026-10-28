@@ -51,7 +51,7 @@ public sealed class AppSettings
     public int thumb_quality { get; set; } = 82;
     public string inbox_root { get; set; } = "";
     public string inbox_folder { get; set; } = "_inbox";
-    public bool bridge_enabled { get; set; } = true;
+    public bool bridge_enabled { get; set; }
     public int bridge_port { get; set; } = 47821;
     public string bridge_token { get; set; } = "";
     public string kind_whitelist_path { get; set; } = "";
@@ -75,7 +75,7 @@ public sealed class AppSettings
     public string theme { get; set; } = "system";
     public string settings_section { get; set; } = "general";
     public bool auto_archive { get; set; } = true;
-    public bool start_at_login { get; set; } = true;
+    public bool start_at_login { get; set; }
     public bool notify_exceptions { get; set; } = true;
     public bool notify_new_images { get; set; } = true;
     /// <summary>详情面板显示作者评论（Danbooru 帖子的作者说明）；关掉后整块不出现。</summary>
@@ -87,7 +87,7 @@ public sealed class AppSettings
     public string archive_sub { get; set; } = "";
 
     /// <summary>归档时按标签自动算「作品/画师」两级目录（关掉则用 archive_root + archive_sub 那一个固定目录）。</summary>
-    public bool archive_auto_by_tags { get; set; } = true;
+    public bool archive_auto_by_tags { get; set; }
 
     /// <summary>清理历史时的默认保留天数；0 = 永久保留（不清理）。</summary>
     public int history_keep_days { get; set; }

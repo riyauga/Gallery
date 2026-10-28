@@ -130,7 +130,7 @@ const TAG_INDEX_KEY='tagIndex';
 async function tagIndex(settings) {
   const cached=(await chrome.storage.local.get(TAG_INDEX_KEY))[TAG_INDEX_KEY];
   if(cached && Date.now()-(cached.at||0) < 86400000) return cached.index;
-  const result=await bridgeTags(settings.bridgePort);
+  const result=await bridgeTags(settings.bridgePort,settings.bridgeToken);
   if(result.ok && result.data?.works) {
     const index={works:result.data.works,characters:result.data.characters||[],aliases:result.data.aliases||{}};
     await chrome.storage.local.set({[TAG_INDEX_KEY]:{at:Date.now(),index}});
@@ -298,7 +298,7 @@ async function flush() {
     const {settings}=await state();
     const queued=await queueSize();
     const result=await queueFlush(settings.bridgePort,settings.bridgeToken);
-    const ping=await bridgePing(settings.bridgePort);
+    const ping=await bridgePing(settings.bridgePort,settings.bridgeToken);
     if (ping.ok && settings.bridgeToken) await bridgeVerify(settings.bridgePort,settings.bridgeToken);
     const total=result.left + (ping.ok ? Number(ping.data.pending || 0) : 0);
     await chrome.action.setBadgeText({text:total ? String(Math.min(total,99)) + (total > 99 ? "+" : "") : ""});
@@ -378,7 +378,7 @@ async function danbooruPost(md5) {
 async function backfillSources(settings) {
   if (sourceRunning) throw new Error("补全正在进行中");
   sourceRunning=(async () => {
-    const queue=await bridgeSourceQueue(settings.bridgePort);
+    const queue=await bridgeSourceQueue(settings.bridgePort,settings.bridgeToken);
     if (!queue.ok) throw new Error(queue.error || "读不到待补清单");
     const items=queue.data.items || [];
     const job={running:true,total:items.length,done:0,found:0,updated:0,missing:0,error:"",startedAt:Date.now(),finishedAt:0};
@@ -445,7 +445,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
       const s=await state();
       switch(message?.type) {
         case "getState": {
-          const ping=await bridgePing(s.settings.bridgePort);
+          const ping=await bridgePing(s.settings.bridgePort,s.settings.bridgeToken);
           const pair=ping.ok ? await bridgeVerify(s.settings.bridgePort,s.settings.bridgeToken) : {ok:false,error:ping.error};
           sendResponse({ok:true,...s,bridge:{running:ping.ok,paired:pair.ok,error:pair.error,queued:await queueSize(),pending:ping.data?.pending || 0,protocol:ping.data?.protocol || 0}});
           break;

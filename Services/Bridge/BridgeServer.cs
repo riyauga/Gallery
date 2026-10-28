@@ -159,15 +159,24 @@ public sealed partial class BridgeServer : IDisposable
 
                 if (method.Equals("GET", StringComparison.OrdinalIgnoreCase) && path == "/ping")
                 {
-                    Touch();
-                    var pending = _store.PendingIngestCount();
+                    var paired = TokenMatches(headers.GetValueOrDefault("x-gallery-token", ""));
+                    if (paired) Touch();
+                    var counts = paired ? $"\"received\":{Received},\"pending\":{_store.PendingIngestCount()}," : "";
                     var body = "{" +
                                "\"ok\":true,\"app\":\"gallery\"," +
                                $"\"version\":{JsonSerializer.Serialize(_version, JsonOut)}," +
-                               $"\"port\":{Port},\"tokenRequired\":true," +
-                               $"\"received\":{Received},\"pending\":{pending}," +
+                               $"\"port\":{Port},\"tokenRequired\":true," + counts +
                                $"\"protocol\":{ProtocolVersion}}}";
                     await WriteAsync(stream, 200, body, token, origin).ConfigureAwait(false);
+                    return;
+                }
+
+                var provided = headers.GetValueOrDefault("x-gallery-token", "");
+                if (!TokenMatches(provided))
+                {
+                    await DrainAsync(stream, headers, token).ConfigureAwait(false);
+                    await WriteAsync(stream, 401,
+                        JsonError("令牌无效，请在插件设置页重新粘贴"), token, origin).ConfigureAwait(false);
                     return;
                 }
 
@@ -190,15 +199,6 @@ public sealed partial class BridgeServer : IDisposable
                 {
                     await DrainAsync(stream, headers, token).ConfigureAwait(false);
                     await WriteAsync(stream, 404, JsonError("未知路径"), token, origin).ConfigureAwait(false);
-                    return;
-                }
-
-                var provided = headers.GetValueOrDefault("x-gallery-token", "");
-                if (!TokenMatches(provided))
-                {
-                    await DrainAsync(stream, headers, token).ConfigureAwait(false);
-                    await WriteAsync(stream, 401,
-                        JsonError("令牌无效，请在插件设置页重新粘贴"), token, origin).ConfigureAwait(false);
                     return;
                 }
 

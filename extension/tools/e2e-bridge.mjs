@@ -7,7 +7,7 @@ const cfg = JSON.parse(readFileSync(sb + "/config/settings.json", "utf8"));
 const port = cfg.bridge_port || 47821;
 const token = cfg.bridge_token || "";
 
-console.log("ping:", JSON.stringify(await bridgePing(port)));
+console.log("ping:", JSON.stringify(await bridgePing(port, token)));
 console.log("verify:", JSON.stringify(await bridgeVerify(port, token)));
 
 const record = {

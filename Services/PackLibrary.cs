@@ -60,6 +60,7 @@ public static class PackLibrary
                     throw new InvalidOperationException("只能移除已导入的资料包目录");
                 if (entry.IsModel)
                 {
+                    PixaiScorer.RefreshCache(null);
                     Directory.Delete(path, recursive: true);
                     if (string.Equals(AppService.Settings.Settings.nsfw_model_dir, path, StringComparison.OrdinalIgnoreCase))
                     {

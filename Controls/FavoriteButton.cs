@@ -23,6 +23,22 @@ public sealed class FavoriteButton : Button
 
     public event Func<bool, Task<bool>>? ToggleRequested;
 
+    private Brush? _outlineForeground;
+
+    /// <summary>
+    /// 未收藏时的心形颜色。默认取应用级主题资源（缩略图上就是白心）；
+    /// 宿主面板若是主题化的浅色/深色底，可改设成对比色。
+    /// </summary>
+    public Brush? OutlineForeground
+    {
+        get => _outlineForeground;
+        set
+        {
+            _outlineForeground = value;
+            ApplyGlyphColor();
+        }
+    }
+
     public bool Favorite
     {
         get => _favorite;
@@ -30,13 +46,15 @@ public sealed class FavoriteButton : Button
         {
             _favorite = value;
             _icon.Glyph = value ? FilledGlyph : OutlineGlyph;
-            _icon.Foreground = value
-                ? new SolidColorBrush(FavoriteRed)
-                : (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+            ApplyGlyphColor();
             AutomationProperties.SetName(this, value ? "取消收藏" : "添加到收藏夹");
             ToolTipService.SetToolTip(this, value ? "取消收藏" : "添加到收藏夹");
         }
     }
+
+    private void ApplyGlyphColor() => _icon.Foreground = _favorite
+        ? new SolidColorBrush(FavoriteRed)
+        : _outlineForeground ?? (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
 
     public FavoriteButton()
     {

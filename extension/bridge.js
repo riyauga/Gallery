@@ -21,12 +21,12 @@ async function request(port,path,options,timeout=5000) {
   } catch(error) { return {ok:false,error:error.name === "AbortError" ? "连接超时" : "桌面端未连接"}; }
   finally { clearTimeout(timer); }
 }
-export async function bridgePing(port,timeout=900) {
-  return request(port,"/ping",{method:"GET"},timeout);
+export async function bridgePing(port,token,timeout=900) {
+  return request(port,"/ping",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
 }
 /** 库里已有的作品/角色名单，用于 Pixiv 标签过滤。 */
-export async function bridgeTags(port,timeout=4000) {
-  return request(port,"/tags",{method:"GET"},timeout);
+export async function bridgeTags(port,token,timeout=4000) {
+  return request(port,"/tags",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
 }
 export async function bridgeVerify(port,token) {
   return request(port,'/ingest',{method:'POST',headers:{'Content-Type':'application/json','X-Gallery-Token':String(token || '')},body:JSON.stringify({probe:true,filename:'__gallery_probe__',client:'gallery-extension'})});
@@ -45,8 +45,8 @@ export async function openDesktop(port,token,view="library",path="") {
   return request(port,"/ui/open",{method:"POST",headers:{"Content-Type":"application/json","X-Gallery-Token":String(token || "")},body:JSON.stringify({view,path:String(path || "")})});
 }
 /** 桌面端里缺来源、且文件名带 danbooru md5 的图，按 md5 去重后的清单。 */
-export async function bridgeSourceQueue(port,timeout=15000) {
-  return request(port,"/sources",{method:"GET"},timeout);
+export async function bridgeSourceQueue(port,token,timeout=15000) {
+  return request(port,"/sources",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
 }
 /** 把查到的出处回写桌面端；桌面端只填空值。 */
 export async function bridgeSourceApply(port,token,items,timeout=20000) {

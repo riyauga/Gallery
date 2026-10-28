@@ -280,7 +280,7 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="按个人目录规则选择目标，未命中时按作品和画师分目录"
+                        Description="按已配置的个人目录规则分流；未配置时请先添加规则"
                         Header="按标签自动分目录">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8B7;" />

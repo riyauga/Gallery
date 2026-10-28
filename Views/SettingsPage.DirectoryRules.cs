@@ -26,7 +26,7 @@ public sealed partial class SettingsPage
             return;
         }
         if (_directoryMap.RoutingRules.Count == 0)
-            DirectoryRulesList.Children.Add(new TextBlock { Text = "暂无标签分流规则，使用作品／画师目录。", Opacity = .6 });
+            DirectoryRulesList.Children.Add(new TextBlock { Text = _directoryMap.ManagedDirs.Count > 0 ? "暂无标签分流规则，使用已有作品／画师目录配置。" : "暂无目录规则，归档到你选择的目录。", Opacity = .6 });
         for (var i = 0; i < _directoryMap.RoutingRules.Count; i++)
         {
             var index = i;

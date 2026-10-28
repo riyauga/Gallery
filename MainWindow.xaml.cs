@@ -1,4 +1,4 @@
-﻿using Microsoft.UI;
+using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -602,6 +602,7 @@ public sealed partial class MainWindow : Window
         AppWindowInstance = appWindow;
         if (appWindow is not null)
         {
+            appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "assets", "Gallery.ico"));
             appWindow.TitleBar.PreferredHeightOption =
                 Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
 
@@ -737,6 +738,10 @@ public sealed partial class MainWindow : Window
             AppService.Settings.Save();
         };
         Nav.LayoutUpdated += (_, _) => UpdateGripperPosition();
+        Nav.PaneOpening += (_, _) => AppService.DebugLog($"nav pane opening pid={Environment.ProcessId}");
+        Nav.PaneOpened += (_, _) => AppService.DebugLog($"nav pane opened pid={Environment.ProcessId}");
+        Nav.PaneClosing += (_, _) => AppService.DebugLog($"nav pane closing pid={Environment.ProcessId}");
+        Nav.PaneClosed += (_, _) => AppService.DebugLog($"nav pane closed pid={Environment.ProcessId}");
         Nav.RegisterPropertyChangedCallback(NavigationView.IsPaneOpenProperty, (_, _) => UpdateGripperPosition());
         Nav.OpenPaneLength = Math.Clamp(AppService.Settings.Settings.sidebar_width, 180, 500);
 
@@ -753,9 +758,14 @@ public sealed partial class MainWindow : Window
         => DispatcherQueue.TryEnqueue(() =>
         {
             if (_quitting) return;
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            AppService.DebugLog($"nav library refresh begin pid={Environment.ProcessId} changes={changes.Count}");
             AppService.Recount();
+            AppService.DebugLog($"nav library recount done elapsedMs={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0}");
             BuildDirectoryTree();
+            AppService.DebugLog($"nav directory refresh done elapsedMs={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0}");
             _page.RefreshFromStore();
+            AppService.DebugLog($"nav library refresh end elapsedMs={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0}");
         });
 
     private void OnWatchFailed(string message)
@@ -786,6 +796,15 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem { Tag: string tag }) return;
+        var kind = tag.StartsWith("dir:", StringComparison.Ordinal) ? "directory" : tag;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        AppService.DebugLog($"nav selection begin pid={Environment.ProcessId} target={kind} paneOpen={Nav.IsPaneOpen}");
+        try { NavigateSelection(tag); }
+        finally { AppService.DebugLog($"nav selection end pid={Environment.ProcessId} target={kind} elapsedMs={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0}"); }
+    }
+
+    private void NavigateSelection(string tag)
+    {
         // 详情层是全窗遮罩：切页前先收掉，否则新页面被压在下面（用户实测：开着详情点「查看并归档」没反应）。
         if (Preview.IsOpen) Preview.CloseImmediate();
         if (tag == "settings")
@@ -1359,6 +1378,7 @@ public sealed partial class MainWindow : Window
 
     // 拖拽落点高亮：直接借用导航项自带的悬停视觉（PointerStates），同一时刻最多亮一项。
     private NavigationViewItem? _dragTargetItem;
+    private readonly Dictionary<int, string> _directoryRootPaths = [];
 
     /// <summary>亮起/切换拖拽命中的目录项；传 null 表示全部熄灭。</summary>
     private void SetDragTarget(NavigationViewItem? item)
@@ -1404,32 +1424,47 @@ public sealed partial class MainWindow : Window
     /// <summary>重建目录树（挂在「收藏夹」之后的分隔线 + 各启用根）。</summary>
     private void BuildDirectoryTree()
     {
-        // 旧项即将被丢弃，引用一并作废。
-        _dragTargetItem = null;
-        // 注意：NavigationViewItemSeparator 继承 NavigationViewItemBase 而非
-        // NavigationViewItem——用 is NavigationViewItem 匹配会漏掉分隔线，导致
-        // 每次重建目录树都累积一条横线（实测 bug）。
-        for (var i = Nav.MenuItems.Count - 1; i >= 0; i--)
-            if (Nav.MenuItems[i] is NavigationViewItemBase item &&
-                item.Tag is string t && (t.StartsWith("dir:", StringComparison.Ordinal) || t == "dirsep"))
-                Nav.MenuItems.RemoveAt(i);
-
         var store = AppService.Store;
         if (store is null) return;
-        // 照搬 photos：整个目录树区上方只一条分隔线
-        bool separatorAdded = false;
-        foreach (var root in store.Roots().Where(r => r.Enabled))
+        var roots = store.Roots().Where(r => r.Enabled)
+            .Select(root => (Root: root, Path: store.RootPath(root.Id)))
+            .Where(pair => pair.Path is not null).ToArray();
+        var wantedTags = roots.Select(pair => $"dir:{pair.Root.Id}:").ToHashSet(StringComparer.Ordinal);
+        var wantedIds = roots.Select(pair => pair.Root.Id).ToHashSet();
+        foreach (var staleId in _directoryRootPaths.Keys.Where(id => !wantedIds.Contains(id)).ToArray())
+            _directoryRootPaths.Remove(staleId);
+        for (var i = Nav.MenuItems.Count - 1; i >= 0; i--)
         {
-            var rootPath = store.RootPath(root.Id);
-            if (rootPath is null) continue;
-            if (!separatorAdded)
+            if (Nav.MenuItems[i] is not NavigationViewItemBase { Tag: string tag }) continue;
+            if (tag.StartsWith("dir:", StringComparison.Ordinal) && !wantedTags.Contains(tag))
             {
-                Nav.MenuItems.Add(new NavigationViewItemSeparator { Tag = "dirsep" });
-                separatorAdded = true;
+                if (ReferenceEquals(_dragTargetItem, Nav.MenuItems[i])) _dragTargetItem = null;
+                Nav.MenuItems.RemoveAt(i);
             }
-            var folders = store.Folders(root.Id);
-            var item = BuildDirNode(root.Id, "", folders, rootPath, isRoot: true);
-            Nav.MenuItems.Add(item);
+        }
+        var separator = Nav.MenuItems.OfType<NavigationViewItemSeparator>()
+            .FirstOrDefault(item => Equals(item.Tag, "dirsep"));
+        if (roots.Length == 0)
+        {
+            if (separator is not null) Nav.MenuItems.Remove(separator);
+            return;
+        }
+        if (separator is null) Nav.MenuItems.Add(new NavigationViewItemSeparator { Tag = "dirsep" });
+        foreach (var (root, rootPath) in roots)
+        {
+            var tag = $"dir:{root.Id}:";
+            var existing = Nav.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(item => Equals(item.Tag, tag));
+            if (existing is not null && _directoryRootPaths.TryGetValue(root.Id, out var oldPath)
+                && !string.Equals(oldPath, rootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                if (ReferenceEquals(_dragTargetItem, existing)) _dragTargetItem = null;
+                Nav.MenuItems.Remove(existing);
+                existing = null;
+            }
+            var item = BuildDirNode(root.Id, "", store.Folders(root.Id), rootPath!, isRoot: true, existing: existing);
+            if (existing is null) Nav.MenuItems.Add(item);
+            _directoryRootPaths[root.Id] = rootPath!;
         }
     }
 
@@ -1438,7 +1473,8 @@ public sealed partial class MainWindow : Window
     /// 关键：无图的中间目录也要建节点，否则层级断裂（testimages/sub 教训）。
     /// </summary>
     private NavigationViewItem BuildDirNode(
-        int rootId, string dirRel, List<FolderCount> folders, string rootPath, bool isRoot)
+        int rootId, string dirRel, List<FolderCount> folders, string rootPath, bool isRoot,
+        NavigationViewItem? existing = null)
     {
         var prefix = dirRel.Length > 0 ? dirRel + "/" : "";
         var own = folders.FirstOrDefault(f => f.DirRel == dirRel)?.Count ?? 0;
@@ -1461,6 +1497,30 @@ public sealed partial class MainWindow : Window
         var display = isRoot
             ? Path.GetFileName(rootPath.TrimEnd('\\')) is { Length: > 0 } leaf ? leaf : rootPath
             : dirRel[(dirRel.LastIndexOf('/') + 1)..];
+
+        if (existing is not null)
+        {
+            var count = (TextBlock)((Grid)existing.Content).Children[1];
+            count.Text = total > 0 ? total.ToString() : "";
+            var wanted = childRels.OrderBy(c => c, StringComparer.OrdinalIgnoreCase).ToArray();
+            var wantedTags = wanted.Select(rel => $"dir:{rootId}:{rel}").ToHashSet(StringComparer.Ordinal);
+            for (var i = existing.MenuItems.Count - 1; i >= 0; i--)
+            {
+                if (existing.MenuItems[i] is not NavigationViewItem { Tag: string tag } child
+                    || wantedTags.Contains(tag)) continue;
+                if (ReferenceEquals(_dragTargetItem, child)) _dragTargetItem = null;
+                existing.MenuItems.RemoveAt(i);
+            }
+            foreach (var childRel in wanted)
+            {
+                var tag = $"dir:{rootId}:{childRel}";
+                var child = existing.MenuItems.OfType<NavigationViewItem>()
+                    .FirstOrDefault(item => Equals(item.Tag, tag));
+                if (child is null) existing.MenuItems.Add(BuildDirNode(rootId, childRel, folders, rootPath, isRoot: false));
+                else BuildDirNode(rootId, childRel, folders, rootPath, isRoot: false, existing: child);
+            }
+            return existing;
+        }
 
         var content = new Grid
         {

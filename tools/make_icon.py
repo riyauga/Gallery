@@ -3,6 +3,7 @@
 字形取 Segoe Fluent Icons 的 E91B（就是 MainWindow.xaml 里标题栏那个 FontIcon 用的码位），
 字体用系统自带的 C:\\Windows\\Fonts\\SegoeIcons.ttf（不进仓库、不随项目分发）。
 样式：深灰 #2B2B2B 圆角方底 + 浅描边 + 白字形；尺寸 16/20/24/32/40/48/64/128/256。
+同时从 ICO 导出 extension/icons 下的 16/32/48/128px PNG，保持插件与桌面应用一致。
 
 用法：
     python tools/make_icon.py                      # 写 assets/Gallery.ico
@@ -62,6 +63,12 @@ def main() -> None:
     target = os.path.join(root, "assets", "Gallery.ico")
     master.save(target, format="ICO", sizes=[(s, s) for s in SIZES])
     print(f"wrote {target} ({os.path.getsize(target)} bytes, sizes={SIZES})")
+
+    with Image.open(target) as icon:
+        for size in [16, 32, 48, 128]:
+            extension_icon = os.path.join(root, "extension", "icons", f"icon{size}.png")
+            icon.ico.getimage((size, size)).save(extension_icon)
+            print(f"wrote {extension_icon}")
 
     if args.preview:
         master.save(args.preview)

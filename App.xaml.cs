@@ -26,7 +26,8 @@ public partial class App : Application
     {
         try
         {
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"),
+            Directory.CreateDirectory(AppPaths.LocalDataDir);
+            File.WriteAllText(Path.Combine(AppPaths.LocalDataDir, "crash.log"),
                 $"{DateTimeOffset.Now:O} pid={Environment.ProcessId} source={source}{Environment.NewLine}{error}");
         }
         catch { }

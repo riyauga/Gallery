@@ -307,19 +307,27 @@ public static class AppService
         if (IsShuttingDown || Store is null) throw new InvalidOperationException("资料库尚未就绪");
         var catalog = Catalog ?? new TagCatalogService(Store);
         var reports = catalog.ImportAll(log: null);
-        if (reports.Count > 0)
-        {
-            catalog.AlignTags();
-            Store.NormalizePendingSkins();
-        }
+        catalog.AlignTags();
+        Store.NormalizePendingSkins();
         PackChanged?.Invoke(reports.Count > 1 ? $"资料库已更新（{reports.Count} 份）" : "资料库已更新");
     }
 
     /// <summary>模型目录有新包：仅启用唯一的可用模型，写回设置；下一次识别就用它。</summary>
     public static void ApplyModelPack()
     {
-        if (IsShuttingDown || PackFolders.ModelPacks().Count == 0) return;
-        try { ActivateModelPack(); }
+        if (IsShuttingDown) return;
+        try
+        {
+            var current = Settings.Settings.nsfw_model_dir;
+            if (PackFolders.ModelPacks().Count > 0) ActivateModelPack();
+            else if (current.Length > 0 && !PixaiScorer.LooksConfigured(current))
+            {
+                Settings.Settings.nsfw_model_dir = "";
+                Settings.Save();
+                PackChanged?.Invoke("识别模型已移除");
+            }
+            PixaiScorer.RefreshCache(Settings.Settings.nsfw_model_dir);
+        }
         catch (Exception ex) { DebugLog("hot model switch failed: " + ex.Message); }
     }
 
@@ -385,6 +393,7 @@ public static class AppService
         Task? align;
         lock (CatalogWorkGate) align = _catalogAlignTask;
         if (align is not null) await align;
+        PixaiScorer.RefreshCache(null);
         if (Store is { } store)
         {
             lock (store.SyncRoot) store.Dispose();
@@ -488,6 +497,7 @@ public static class AppService
 
     private static void ApplyWriteSettings()
     {
+        PixaiScorer.RefreshCache(Settings.Settings.nsfw_model_dir);
         if (Store is null) return;
         lock (Store.SyncRoot)
         {

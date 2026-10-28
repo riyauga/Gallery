@@ -15,6 +15,8 @@ public sealed class WatcherService : IDisposable
     private readonly AppSettings _settings;
     private readonly Dictionary<int, FileSystemWatcher> _watchers = [];
     private readonly System.Threading.Timer _timer;
+    private readonly System.Threading.Timer _reconnectTimer;
+    private int _refreshing;
     private readonly object _gate = new();
     private readonly HashSet<(int RootId, string DirRel)> _pending = [];
     private bool _flushing;
@@ -29,9 +31,24 @@ public sealed class WatcherService : IDisposable
         _scanner = scanner;
         _settings = settings;
         _timer = new System.Threading.Timer(Flush, null, Timeout.Infinite, Timeout.Infinite);
+        _reconnectTimer = new System.Threading.Timer(_ =>
+        {
+            if (Interlocked.Exchange(ref _refreshing, 1) != 0) return;
+            try { if (!_disposed) RefreshRoots(scanNew: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                or Microsoft.Data.Sqlite.SqliteException) { Failed?.Invoke(ex.Message); }
+            finally { Volatile.Write(ref _refreshing, 0); }
+        }, null, Timeout.Infinite, Timeout.Infinite);
     }
 
     public void Start()
+    {
+        RefreshRoots(scanNew: false);
+        lock (_gate)
+            if (!_disposed) _reconnectTimer.Change(3000, 3000);
+    }
+
+    private void RefreshRoots(bool scanNew)
     {
         var roots = _settings.watch_filesystem
             ? _store.Roots().Where(root => root.Enabled && Directory.Exists(root.Path)).ToArray() : [];
@@ -67,9 +84,22 @@ public sealed class WatcherService : IDisposable
                     }
                     catch (IOException) { }
                 };
-                watcher.Error += (_, _) => Queue(root.Id, ""); // 溢出时全根补扫，避免丢失变更。
+                watcher.Error += (_, _) =>
+                {
+                    lock (_gate)
+                    {
+                        if (_disposed) return;
+                        if (_watchers.Remove(root.Id, out var broken)) broken.Dispose();
+                    }
+                    // 设备断开或监听溢出后由重连计时器重新建监听，并补扫整根。
+                };
                 _watchers[root.Id] = watcher;
                 watcher.EnableRaisingEvents = true;
+                if (scanNew)
+                {
+                    _pending.Add((root.Id, ""));
+                    _timer.Change(DebounceMs, Timeout.Infinite);
+                }
             }
         }
     }
@@ -157,6 +187,7 @@ public sealed class WatcherService : IDisposable
             foreach (var watcher in _watchers.Values) watcher.Dispose();
             _watchers.Clear();
         }
+        await _reconnectTimer.DisposeAsync();
         await _timer.DisposeAsync();
     }
 
@@ -166,6 +197,7 @@ public sealed class WatcherService : IDisposable
         {
             _disposed = true;
             _pending.Clear();
+            _reconnectTimer.Dispose();
             _timer.Dispose();
             foreach (var watcher in _watchers.Values) watcher.Dispose();
             _watchers.Clear();

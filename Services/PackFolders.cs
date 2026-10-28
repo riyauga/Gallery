@@ -1,4 +1,4 @@
-﻿namespace Gallery.Services;
+namespace Gallery.Services;
 
 /// <summary>
 /// 可热插拔的资料包目录：开发时在项目根目录，独立分发时在程序根目录。
@@ -51,16 +51,12 @@ public static class PackFolders
     {
         try
         {
-            if (!Directory.Exists(Archive)) return [];
             return Directory.EnumerateDirectories(Archive)
                 .Where(dir => Directory.EnumerateFiles(dir, "*.json").Any())
                 .OrderBy(dir => Path.GetFileName(dir), StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-        catch
-        {
-            return [];
-        }
+        catch (DirectoryNotFoundException) { return []; }
     }
 
     /// <summary>models 下可用的模型目录。</summary>

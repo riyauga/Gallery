@@ -1460,7 +1460,7 @@ public sealed partial class ReviewPage : Grid
     private void RefreshDestination()
     {
         if (_state != "pending") return;
-        if (_batchMode)
+        if (_batchMode && AppService.Settings.Settings.archive_auto_by_tags)
         {
             if (_destinationEdited && !string.IsNullOrWhiteSpace(_destination.Text)) return;
             _settingDestination = true;
@@ -1535,9 +1535,9 @@ public sealed partial class ReviewPage : Grid
     {
         if (_busy || _paintGesture || AppService.IsShuttingDown || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
         var destination = _destination.Text.Trim();
-        var auto = _batchMode || AppService.Settings.Settings.archive_auto_by_tags;
-        // 批量留空始终按各图标签推荐目录；有明确目录才统一归档。
-        var fixedDestination = _batchMode ? destination.Length > 0 : !auto || _destinationEdited;
+        var auto = AppService.Settings.Settings.archive_auto_by_tags;
+        // 只有开启自动分目录时才允许留空，明确目录始终优先。
+        var fixedDestination = !auto || (_batchMode ? destination.Length > 0 : _destinationEdited);
         try
         {
             if (fixedDestination && (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0))

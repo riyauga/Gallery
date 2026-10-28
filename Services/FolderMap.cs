@@ -8,11 +8,10 @@ namespace Gallery.Services;
 /// 目录分层规则，读 <c>%APPDATA%\Gallery\folder_map.json</c>（v4）：
 /// <c>managed_dirs</c> = 由标签接管的一级目录；<c>skip_dirs</c> = 受管目录里不再接管的相对路径；
 /// <c>rules</c> = 例外覆盖（把某个标签映射到指定目录名，原样使用、参与多标签择优）。
-/// 文件缺失时使用默认结构；配置损坏时停止自动计算并报告错误，不搬动图片。
+/// 文件缺失时没有目录规则；配置损坏时停止自动计算并报告错误，不搬动图片。
 /// </summary>
 public sealed class FolderMap
 {
-    public const string DefaultManagedDir = "cartoon";
     public const string NoSource = "no_source";      // 没有作品标签时的兜底（original 是真正的「原创作品」标签，走 Sanitize 自然得到 original/）
     public const string NoArtist = "_无作者";        // 没有作者标签时的兜底
 
@@ -34,12 +33,7 @@ public sealed class FolderMap
     {
         try
         {
-            if (!File.Exists(path))
-            {
-                var empty = new FolderMap();
-                empty.ManagedDirs.Add(DefaultManagedDir);
-                return empty;
-            }
+            if (!File.Exists(path)) return new FolderMap();
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             return Parse(doc.RootElement);
         }
@@ -57,7 +51,6 @@ public sealed class FolderMap
         var map = new FolderMap();
         ReadStrings(root, "managed_dirs", map.ManagedDirs);
         ReadStrings(root, "skip_dirs", map.SkipDirs);
-        if (map.ManagedDirs.Count == 0) map.ManagedDirs.Add(DefaultManagedDir);
         if (root.TryGetProperty("rules", out var rules))
             foreach (var rule in rules.EnumerateArray())
             {
@@ -210,7 +203,8 @@ public sealed class FolderMap
     public string TargetDirRel(IReadOnlyList<string> works, IReadOnlyList<string> artists, string? managedDir = null)
     {
         var top = managedDir is { Length: > 0 } ? managedDir
-            : ManagedDirs.Count > 0 ? ManagedDirs[0] : DefaultManagedDir;
+            : ManagedDirs.Count > 0 ? ManagedDirs[0] : "";
+        if (top.Length == 0) return "";
         return string.Join('/', new[] { top, WorkFolder(works), ArtistFolder(artists) }
             .Where(part => part.Length > 0));
     }

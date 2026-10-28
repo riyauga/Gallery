@@ -4,6 +4,13 @@
     <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Gallery</RootNamespace>
+    <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <EnableSourceLink>false</EnableSourceLink>
+    <PublishRepositoryUrl>false</PublishRepositoryUrl>
+    <PathMap>$(MSBuildProjectDirectory)=/_/Gallery,$(NuGetPackageRoot)=/_/Packages/</PathMap>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- 应用图标：tools/make_icon.py 从标题栏字形 E91B 生成 -->
     <ApplicationIcon>assets\Gallery.ico</ApplicationIcon>
@@ -31,7 +38,11 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="assets\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Remove="Assets\**\*;assets\**\*" />
+    <None Remove="assets\**\*" />
+    <Content Include="assets\Gallery.ico;assets\Common\PhotosIcons.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="USER_GUIDE.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="extension\*.js;extension\*.html;extension\*.css;extension\manifest.json;extension\icons\*.png;extension\README.md" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
     <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
     <EmbeddedResource Include="Controls\Review\ReviewCarousel.html" LogicalName="Gallery.Controls.Review.ReviewCarousel.html" />

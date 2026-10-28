@@ -8,27 +8,13 @@ namespace Gallery.Services;
 /// 结构 v3 → v4：身份记录独立存续、标签稳定键、同名允许（仅 character/work）、
 /// 关联状态与显示模式分离。迁移前用 VACUUM INTO 备份，结构迁移与数据修复同事务，失败回滚。
 ///
-/// 迁移只做「有证据」的修复；证据不足的一律保持原关联并留给 <see cref="Report"/> 里的待核实项。
+/// 迁移只调整通用数据结构并保留原关联；具体作品／角色资料由外部资料包维护。
 /// 重复执行由 meta.schema_version 拦截，修复语句本身也带幂等保护。
 /// </summary>
 internal static class LibraryMigrationV4
 {
     public const int TargetVersion = 4;
     private const string ReportKey = "migration_v4";
-
-    // 绝区零露西：fandom 全名条目与 biligame 短名条目是同一个人，复用已有有效身份键。
-    private const string ZzzLucyEntity = "zenless-zone-zero-wiki:zenless-zone-zero:page:2869";
-    private const string ZzzLucyIdentity = "cn-zenless_zone_zero:wiki.biligame.com:page:769";
-    private const string ZzzLucySource = "https://wiki.biligame.com/zzz/%E9%9C%B2%E8%A5%BF";
-
-    // 鸣潮 3.4 与《赛博朋克：边缘行者》官方联动，露西是同一人物的跨作品登场：
-    // 复用鸣潮已有的身份键，再补赛博朋克的作品与角色来源条目。
-    private const string LucyIdentity = "wutheringwaves-wiki:wutheringwaves:page:40855";
-    private const string CyberpunkGame = "cyberpunk_edgerunners";
-    private const string CyberpunkWorkEntity = "cyberpunk-edgerunners:official:work:edgerunners";
-    private const string CyberpunkLucyEntity = "cyberpunk-edgerunners:official:character:lucy";
-    private const string CyberpunkSource = "https://www.cyberpunk.net/zh-cn/edgerunners";
-    private const string WwLucySource = "https://wiki.biligame.com/wutheringwaves/%E5%85%B1%E9%B8%A3%E8%80%85/%E9%9C%B2%E8%A5%BF";
 
     public static string Upgrade(SqliteConnection conn, string dbPath)
     {
@@ -54,7 +40,6 @@ internal static class LibraryMigrationV4
             RebuildTags(conn, tx, notes);
             SeedIdentities(conn, tx);
             MigrateLinkState(conn, tx, notes);
-            ApplyLucyRepairs(conn, tx, notes);
 
             var afterCounts = Counts(conn, tx);
             if (Convert.ToInt64(afterCounts["image_tags"]) != Convert.ToInt64(before["image_tags"]) ||
@@ -63,39 +48,8 @@ internal static class LibraryMigrationV4
                 throw new InvalidDataException("迁移过程中图片/标签数量发生变化，已回滚。");
             report["counts_before"] = before;
             report["counts_after"] = afterCounts;
-            report["repairs"] = new[]
-            {
-                new
-                {
-                    item = "zzz-lucy-identity",
-                    status = "confirmed",
-                    summary = "绝区零露西的 fandom 全名条目并入 biligame 露西身份，标签 luciana_de_montefio 关联到该身份",
-                    identity = ZzzLucyIdentity,
-                    sources = new[] { ZzzLucySource, "https://zenless-zone-zero.fandom.com/wiki/Luciana_de_Montefio" },
-                },
-                new
-                {
-                    item = "lucy-cross-work",
-                    status = "confirmed",
-                    summary = "鸣潮 3.4 联动角色露西与《赛博朋克：边缘行者》露西为同一人物；补作品/角色来源条目，身份复用鸣潮已有键",
-                    identity = LucyIdentity,
-                    sources = new[]
-                    {
-                        CyberpunkSource,
-                        WwLucySource,
-                        "https://wutheringwaves.kurogames.com/zh-tw/main/news/detail/4788",
-                    },
-                },
-            };
-            report["pending_review"] = new[]
-            {
-                new
-                {
-                    item = "lucy-mixed-tag-reviewed",
-                    status = "no-split",
-                    summary = "标签 lucy 同时挂赛博朋克与鸣潮图片，经核实是同一人物跨作品（鸣潮 3.4 官方联动），不按不同人物拆分；作品差异由图片上的 work 标签区分",
-                },
-            };
+            report["repairs"] = Array.Empty<object>();
+            report["pending_review"] = Array.Empty<object>();
             report["verification"] = Verify(conn, tx);
 
             WriteMeta(conn, tx, "schema_version", TargetVersion.ToString(CultureInfo.InvariantCulture));
@@ -309,101 +263,6 @@ internal static class LibraryMigrationV4
         notes.Add($"人工状态迁移：{migrated} 条，其中无身份依据保留保护并进入核查 {guarded} 条");
     }
 
-    private static void ApplyLucyRepairs(SqliteConnection conn, SqliteTransaction tx, List<string> notes)
-    {
-        var now = Now();
-
-        // --- 绝区零：全名条目并入已有露西身份 ---
-        Exec(conn, tx,
-            "UPDATE catalog_entities SET identity_key=$i WHERE entity_key=$e",
-            ("$i", ZzzLucyIdentity), ("$e", ZzzLucyEntity));
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url)
-            VALUES($i,'zenless_zone_zero',$s)
-            """, ("$i", ZzzLucyIdentity), ("$s", ZzzLucySource));
-        Exec(conn, tx,
-            "UPDATE tag_identities SET identity_key=$i,link_status='linked',locked=1,source='migration'," +
-            "note='绝区零露西：短名与全名统一' WHERE tag_id IN " +
-            "(SELECT id FROM tags WHERE name='luciana_de_montefio' AND category='character')",
-            ("$i", ZzzLucyIdentity));
-        // 旧条目键留重定向，历史草稿/侧车即便只带旧键也能落到有效身份。
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO identity_redirects(old_key,identity_key,merged_at,note)
-            VALUES($old,$new,{F(now)},'绝区零露西 fandom 条目并入 biligame 身份')
-            """, ("$old", ZzzLucyEntity), ("$new", ZzzLucyIdentity));
-        Exec(conn, tx,
-            "DELETE FROM identities WHERE identity_key=$k AND identity_key NOT IN " +
-            "(SELECT identity_key FROM tag_identities WHERE identity_key<>'') " +
-            "AND identity_key NOT IN (SELECT identity_key FROM catalog_entities WHERE identity_key<>'')",
-            ("$k", ZzzLucyEntity));
-
-        // --- 赛博朋克：补作品/角色来源条目，身份复用鸣潮已核实键 ---
-        Exec(conn, tx, """
-            INSERT OR IGNORE INTO catalog_games(game_key,zh,en,aliases,source_url)
-            VALUES('cyberpunk_edgerunners','赛博朋克：边缘行者','Cyberpunk: Edgerunners',
-                   '["赛博浪客","Cyberpunk 2077"]','https://www.cyberpunk.net/zh-cn/edgerunners');
-            """);
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO catalog_entities(entity_key,identity_key,game_key,kind,zh,en,aliases,status,source_url,source_kind)
-            VALUES($w,$w,'cyberpunk_edgerunners','work','赛博朋克：边缘行者','Cyberpunk: Edgerunners',
-                   '["赛博浪客"]','released',{Q(CyberpunkSource)},'official');
-            """, ("$w", CyberpunkWorkEntity));
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO catalog_entities(entity_key,identity_key,game_key,kind,zh,en,aliases,status,source_url,source_kind)
-            VALUES($c,$i,'cyberpunk_edgerunners','character','露西','Lucy',
-                   '["Lucyna Kushinada","露西·栉名田"]','released',{Q(CyberpunkSource)},'official');
-            """, ("$c", CyberpunkLucyEntity), ("$i", LucyIdentity));
-
-        foreach (var term in new[] { "lucy", "露西", "lucy kushinada", "lucyna kushinada" })
-            Exec(conn, tx,
-                "INSERT OR IGNORE INTO catalog_names(term,entity_key) VALUES($t,$e)",
-                ("$t", TagCatalogService.Norm(term)), ("$e", CyberpunkLucyEntity));
-        foreach (var term in new[] { "cyberpunk", "赛博朋克", "cyberpunk: edgerunners", "赛博朋克：边缘行者" })
-            Exec(conn, tx,
-                "INSERT OR IGNORE INTO catalog_names(term,entity_key) VALUES($t,$e)",
-                ("$t", TagCatalogService.Norm(term)), ("$e", CyberpunkWorkEntity));
-
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url)
-            VALUES($i,'cyberpunk_edgerunners',$s)
-            """, ("$i", LucyIdentity), ("$s", CyberpunkSource));
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO catalog_memberships(identity_key,game_key,source_url)
-            VALUES($w,'cyberpunk_edgerunners',$s)
-            """, ("$w", CyberpunkWorkEntity), ("$s", CyberpunkSource));
-
-        Exec(conn, tx, $"""
-            INSERT OR IGNORE INTO identities(identity_key,kind,zh,en,primary_entity_key,created_at,updated_at)
-            VALUES($w,'work','赛博朋克：边缘行者','Cyberpunk: Edgerunners',$w,{F(now)},{F(now)})
-            """, ("$w", CyberpunkWorkEntity));
-
-        // 已有标签接上身份；标签 lucy 暂不拆分，等按 tag_key 落库的入口上线后按图拆分。
-        Exec(conn, tx,
-            "UPDATE tag_identities SET identity_key=$i,link_status='linked',source='migration'," +
-            "note='鸣潮 3.4 联动＝同一人物' WHERE tag_id IN " +
-            "(SELECT id FROM tags WHERE name='lucy' AND category='character')",
-            ("$i", LucyIdentity));
-        // 露西标签补齐来源资料：中文名 + 已核实的赛博朋克角色条目（与鸣潮同身份）。
-        Exec(conn, tx,
-            "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
-            "SELECT id,'露西','Lucy',$c FROM tags WHERE name='lucy' AND category='character' " +
-            "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key",
-            ("$c", CyberpunkLucyEntity));
-        Exec(conn, tx,
-            "UPDATE tag_identities SET identity_key=$i,link_status='linked',source='migration'," +
-            "note='赛博朋克：边缘行者的作品标签' WHERE tag_id IN " +
-            "(SELECT id FROM tags WHERE name='cyberpunk' AND category='work')",
-            ("$i", CyberpunkWorkEntity));
-
-        // 来源条目：让标签在候选里能显示中文名与作品。
-        Exec(conn, tx,
-            "INSERT OR IGNORE INTO tag_profiles(tag_id,zh,en,entity_key) " +
-            "SELECT id,'赛博朋克：边缘行者','Cyberpunk: Edgerunners',$w FROM tags " +
-            "WHERE name='cyberpunk' AND category='work'", ("$w", CyberpunkWorkEntity));
-
-        notes.Add("已补：绝区零露西身份统一；赛博朋克作品/角色条目；鸣潮与赛博朋克露西合并为同一身份");
-    }
-
     private static Dictionary<string, object?> Verify(SqliteConnection conn, SqliteTransaction tx)
     {
         var dupKeys = Scalar(conn, tx,
@@ -493,7 +352,6 @@ internal static class LibraryMigrationV4
         cmd.ExecuteNonQuery();
     }
 
-    private static string Q(string value) => "'" + value.Replace("'", "''") + "'";
     private static string F(double value) => value.ToString("R", CultureInfo.InvariantCulture);
     private static double Now() => (DateTime.UtcNow - DateTime.UnixEpoch).TotalSeconds;
 }
