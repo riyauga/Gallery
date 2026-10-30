@@ -475,21 +475,27 @@ public sealed partial class GalleryPage : UserControl
             var point = e.GetCurrentPoint(tile);
             if (point.Properties.IsLeftButtonPressed &&
                 !(point.Position.X <= 44 && point.Position.Y <= 44))
-                dragStart = e.GetCurrentPoint(tile).Position;
+            {
+                // 起拖前也要跟踪移出卡片的移动，否则快速拖向侧栏会漏掉阈值事件。
+                tile.CapturePointer(e.Pointer);
+                dragStart = point.Position;
+            }
         };
         tile.PointerMoved += async (_, e) =>
         {
             if (dragStart is null) return;
-            var pos = e.GetCurrentPoint(tile).Position;
+            var point = e.GetCurrentPoint(tile);
+            var pos = point.Position;
             var dist = Math.Abs(pos.X - dragStart.Value.X) + Math.Abs(pos.Y - dragStart.Value.Y);
             if (dist < 12) return; // galleryold 用系统 startDragDistance，近似 12
             dragStart = null;
-            await StartDragOutAsync(tile, e.GetCurrentPoint(tile));
+            tile.ReleasePointerCapture(e.Pointer);
+            await StartDragOutAsync(tile, point);
         };
-        tile.PointerReleased += (_, _) => dragStart = null;
-        tile.PointerCanceled += (_, _) => dragStart = null;
+        tile.PointerReleased += (_, e) => { dragStart = null; tile.ReleasePointerCapture(e.Pointer); };
+        tile.PointerCanceled += (_, e) => { dragStart = null; tile.ReleasePointerCapture(e.Pointer); };
         tile.PointerCaptureLost += (_, _) => dragStart = null;
-        tile.Unloaded += (_, _) => dragStart = null;
+        tile.Unloaded += (_, _) => { dragStart = null; tile.ReleasePointerCaptures(); };
     }
 
     /// <summary>
