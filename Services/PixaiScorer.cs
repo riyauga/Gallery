@@ -26,7 +26,7 @@ public sealed class PixaiScorer
     private static readonly ConcurrentDictionary<string, PixaiScorer> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object LoadGate = new();
     /// <summary>最后一张推理结束后闲置多久释放会话；下次识别重新加载。</summary>
-    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(1);
     private static Timer? _idleTimer;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly InferenceSession _session;

@@ -54,7 +54,7 @@ public static class ImageLoader
     {
         if (IsHidden(item)) return 0;
         if (BlurStrength(item) > 0) return 256;
-        int edge = new[] { 512, 1024, 2048, 4096 }.FirstOrDefault(n => n >= pixels, 4096);
+        int edge = new[] { 512, 1024, 2048 }.FirstOrDefault(n => n >= pixels, 2048);
         int native = Math.Max(item.PixelWidth, item.PixelHeight);
         return native > 0 ? Math.Min(native, edge) : edge;
     }

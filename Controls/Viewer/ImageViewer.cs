@@ -80,7 +80,7 @@ public sealed class ImageViewer : Grid
         Render();
     }
 
-    /// <summary>先显示已有缩略图，按显示面积解码；几何始终使用原图尺寸。</summary>
+    /// <summary>先显示已有缩略图，点开详情即按原图尺寸解码一次；几何始终使用原图尺寸。</summary>
     public void SetSource(PhotoItem item, ImageSource? thumbnail = null)
     {
         Clear();
@@ -99,14 +99,8 @@ public sealed class ImageViewer : Grid
         _ = LoadAsync(_ready ? DesiredEdge() : 0, _sourceVersion);
     }
 
-    private int DesiredEdge()
-    {
-        int native = (int)Math.Max(_state.PixelWidth, _state.PixelHeight);
-        double wanted = Math.Min(native, native * _state.Scale);
-        foreach (int edge in new[] { 512, 1024, 2048, 4096 })
-            if (edge >= wanted) return Math.Min(native, edge);
-        return native;
-    }
+    /// <summary>详情浮层点开时一次解到原图尺寸；缩放只改绘制矩阵，不再触发更高分辨率的整图解码。</summary>
+    private int DesiredEdge() => (int)Math.Max(_state.PixelWidth, _state.PixelHeight);
 
     private void RequestUpgrade()
     {
