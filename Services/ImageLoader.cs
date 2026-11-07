@@ -80,6 +80,22 @@ public static class ImageLoader
     }
     public static void SetGalleryActive(bool active) { _galleryActive = active; if (!active) SetViewport([], []); SchedulePump(); }
     public static void SetPreviewOpen(bool open) { _previewOpen = open; SchedulePump(); }
+
+    /// <summary>托盘隐藏时释放像素缓存与在途请求；不改数据或布局，唤回后按需重新解码。</summary>
+    public static void ClearCaches()
+    {
+        _visible = new HashSet<string>(StringComparer.Ordinal);
+        _desired = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var request in Requests.Values.ToArray())
+        {
+            request.Cancellation.Cancel();
+            if (request.Running) Requests.Remove(request.Key);
+            else CancelQueued(request);
+        }
+        Cache.Clear(); Thumbnails.Clear(); Previews.Clear(); BaseLoads.Clear();
+        _thumbnailBytes = 0; _previewBytes = 0;
+        SchedulePump();
+    }
     public static void SetResizing(bool resizing) { _resizing = resizing; SchedulePump(); }
 
     public static BitmapSource? FindThumbnail(PhotoItem item, int target, int blur)
@@ -207,7 +223,10 @@ public static class ImageLoader
         catch (Exception ex) { request.Completion.TrySetException(ex); }
         finally
         {
-            Requests.Remove(request.Key); _active--; _scratch -= request.Weight;
+            // 清缓存可能已撤下这个请求；只移除自己，避免误删同键的新请求。
+            if (Requests.TryGetValue(request.Key, out var pending) && ReferenceEquals(pending, request))
+                Requests.Remove(request.Key);
+            _active--; _scratch -= request.Weight;
             if (request.Key.Purpose == Purpose.Preview) _previewActive--;
             request.Cancellation.Dispose(); SchedulePump(); WorkCompleted?.Invoke();
         }

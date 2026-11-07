@@ -179,6 +179,7 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 - 人工核对：纯鼠标点设置/待审核及开关菜单时不强制键盘框；鼠标打开再用 Esc 关闭属于混合输入，允许原生键盘提示，不能以是否有下拉箭头或“鼠标打开过”决定显隐。筛选 Esc 必须回正确入口，宽/窄窗口及收进“更多”后的返回均需人工核对；Tab/Shift+Tab、Enter/Space 打开菜单、方向键导航和 Esc 返回保留原生焦点提示；鼠标与键盘交替、深浅主题及高对比度仍需验证。此规则不替换图库图片已有的独立焦点外框。
 
 - 托盘隐藏／唤回不切换标题栏模式。仅在托盘隐藏后的首次激活，由 `RefreshCaptionAfterTrayHide()` 重算命中区域、读取真实鼠标屏幕坐标，经 `WM_NCHITTEST` 得到当前位置后发送一次 `WM_NCMOUSEMOVE`，同步系统按钮状态；不移动鼠标、不模拟点击。关闭、恢复及各类首个输入的有界 `caption` 日志暂留，红色残留是否消除待人工验证。
+- 收进托盘同时进入低功耗：释放图片像素缓存、预览层与 ONNX 会话，唤回沿用当前画面、按需重新解码；当前页、滚动位置、图库数据和后台服务不变。普通最小化不触发清理。实现细节见 [图片加载](IMAGE_LOADING.md#当前实现)。
 - 统一控件不等于统一宿主行为。含文本编辑的页面须提供可聚焦的中性锚点：点击页面空白/说明文字时，将已有文本编辑焦点转移到锚点；不能只隐藏光标或清空文本。设置页使用 `SettingsRoot`，透明背景保证空白可命中，关闭系统焦点框；该锚点会参与 Tab 导航。
 - 空白点击处理需识别原始事件来源及祖先，跳过输入框、候选输入、按钮、滑块/滚动条及开关，不拦截其点击、文本选区或候选操作。设置页接收已处理的指针事件，避免 ScrollViewer 吞掉空白点击，但不将事件标记为已处理，不改变保存时机。不默认扩展到其他页面或独立 Popup。
 - `TransformToVisual` 与 `ActualWidth/Height` 得到的是 DIP；交给 `InputNonClientPointerSource.SetRegionRects` 前必须乘当前 `XamlRoot.RasterizationScale` 转成物理像素。边界用左上向下、右下向上取整，覆盖完整控件边缘。不得沿用旧源码中“SetRegionRects 使用 DIP”的错误注释，也不得通过强制 IBeam 光标掩盖命中区域错误。[微软标题栏交互区域示例](https://learn.microsoft.com/zh-cn/windows/apps/develop/title-bar#interactive-content)

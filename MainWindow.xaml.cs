@@ -212,6 +212,7 @@ public sealed partial class MainWindow : Window
     private TrayMenuHost? _trayMenu;
     private bool _quitting;
     private bool _refreshCaptionAfterTrayHide;
+    private UIElement? _lowPowerPage;
     private string? _captionInputTracePhase;
     private int _captionInputTraceMask;
 
@@ -222,11 +223,39 @@ public sealed partial class MainWindow : Window
     public void BringToFront()
     {
         AppWindowInstance?.Show();
+        ExitLowPowerMode();
         ActivateWindow();
         _captionInputTracePhase = "restored";
         _captionInputTraceMask = 0;
         AppService.DebugLog($"caption restored custom={ExtendsContentIntoTitleBar}");
         Services.AppService.DebugLog("brought to front");
+    }
+
+    /// <summary>收进托盘时释放可重建的像素与会话；后台服务、页面和滚动位置按约定保留。</summary>
+    private void EnterLowPowerMode()
+    {
+        if (_lowPowerPage is not null) return;
+        _lowPowerPage = ContentHost.Children.FirstOrDefault(child => child.Visibility == Visibility.Visible);
+        Preview.CloseImmediate();
+        ImageLoader.SetPreviewOpen(false);
+        ImageLoader.SetGalleryActive(false);
+        if (ReferenceEquals(_lowPowerPage, _page)) _page.SetActive(false);
+        else if (_reviewPage is not null && ReferenceEquals(_lowPowerPage, _reviewPage)) _reviewPage.SetActive(false);
+        ImageLoader.ClearCaches();
+        PixaiScorer.RefreshCache(null);
+        AppService.DebugLog("low power: pixel caches and scorer released");
+    }
+
+    /// <summary>唤回时恢复页面活动状态：图库沿用当前瓦片画面并按需重新解码，审核页重新预取。</summary>
+    private void ExitLowPowerMode()
+    {
+        var page = _lowPowerPage;
+        _lowPowerPage = null;
+        if (page is null) return;
+        ImageLoader.SetGalleryActive(true);
+        if (ReferenceEquals(page, _page)) _page.SetActive(true);
+        else if (_reviewPage is not null && ReferenceEquals(page, _reviewPage)) _reviewPage.SetActive(true);
+        AppService.DebugLog("low power: resumed");
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -628,6 +657,7 @@ public sealed partial class MainWindow : Window
                 {
                     AppService.DebugLog($"caption hiding custom={ExtendsContentIntoTitleBar} inputMask=0x{_captionInputTraceMask:X}");
                     appWindow.Hide();
+                    EnterLowPowerMode();
                     // 隐藏不会清理系统按钮的悬停状态，唤回后同步真实鼠标位置。
                     _refreshCaptionAfterTrayHide = true;
                     AppService.DebugLog("window hidden to tray");

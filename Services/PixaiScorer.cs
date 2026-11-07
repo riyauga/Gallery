@@ -25,6 +25,9 @@ public sealed class PixaiScorer
     public const double WorkThreshold = 0.24;
     private static readonly ConcurrentDictionary<string, PixaiScorer> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object LoadGate = new();
+    /// <summary>最后一张推理结束后闲置多久释放会话；下次识别重新加载。</summary>
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
+    private static Timer? _idleTimer;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly InferenceSession _session;
     private volatile bool _retired;
@@ -136,8 +139,8 @@ public sealed class PixaiScorer
         lock (LoadGate)
         {
             RetainCache(key);
-            if (Cache.TryGetValue(key, out var cached)) return cached;
-            try { var scorer = new PixaiScorer(dir!, mode); Cache[key] = scorer; return scorer; }
+            if (Cache.TryGetValue(key, out var cached)) { ResetIdleLocked(); return cached; }
+            try { var scorer = new PixaiScorer(dir!, mode); Cache[key] = scorer; ResetIdleLocked(); return scorer; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
                 or InvalidOperationException or KeyNotFoundException or ArgumentException or OnnxRuntimeException)
             { error = "PixAI 模型加载失败：" + ex.Message; return null; }
@@ -148,11 +151,30 @@ public sealed class PixaiScorer
         => Path.GetFullPath(dir) + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "model.onnx")).Ticks
             + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "config.json")).Ticks + "|" + mode;
 
-    /// <summary>配置变更或包移除后释放旧会话；等待当前单张推理结束，不释放正在使用的原生资源。</summary>
+    /// <summary>配置变更、包移除、空闲超时或退出时释放会话；等待当前单张推理结束，不释放正在使用的原生资源。</summary>
     public static void RefreshCache(string? dir)
     {
         lock (LoadGate)
-            RetainCache(LooksConfigured(dir) ? CacheKey(dir!, NormalizeDevice(AppService.Settings.Settings.nsfw_device)) : null);
+        {
+            var configured = LooksConfigured(dir);
+            RetainCache(configured ? CacheKey(dir!, NormalizeDevice(AppService.Settings.Settings.nsfw_device)) : null);
+            if (configured && !Cache.IsEmpty) ResetIdleLocked();
+            else StopIdleLocked();
+        }
+    }
+
+    /// <summary>重置空闲计时；调用方需持有 <see cref="LoadGate"/>。</summary>
+    private static void ResetIdleLocked()
+    {
+        if (Cache.IsEmpty) { StopIdleLocked(); return; }
+        if (_idleTimer is not null) _idleTimer.Change(IdleTimeout, Timeout.InfiniteTimeSpan);
+        else _idleTimer = new Timer(static _ => RefreshCache(null), null, IdleTimeout, Timeout.InfiniteTimeSpan);
+    }
+
+    private static void StopIdleLocked()
+    {
+        _idleTimer?.Dispose();
+        _idleTimer = null;
     }
 
     private static void RetainCache(string? key)
@@ -194,7 +216,11 @@ public sealed class PixaiScorer
                 _kindIndices.Where(i => scores[i] >= 0.17f)
                     .Select(i => new ModelTag(_tags[i], 0, scores[i])).ToArray());
         }
-        finally { _inferenceGate.Release(); }
+        finally
+        {
+            _inferenceGate.Release();
+            lock (LoadGate) ResetIdleLocked();
+        }
     }
 
     private (string Name, double Score) Top(float[] scores, (int Start, int Count) range)
