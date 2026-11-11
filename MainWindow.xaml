@@ -57,6 +57,7 @@
                 VerticalAlignment="Center"
                 CornerRadius="4"
                 PlaceholderText="在图库中搜索"
+                QuerySubmitted="SearchBox_QuerySubmitted"
                 TextChanged="SearchBox_TextChanged" />
 
             <!--  标题栏按钮：设置（E713 齿轮）。

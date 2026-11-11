@@ -180,6 +180,15 @@
                         </Grid>
                     </ctc:SettingsCard>
 
+                    <ctc:SettingsCard
+                        Description="在搜索框下方显示最近搜索的词"
+                        Header="显示搜索历史">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE81C;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <ToggleSwitch x:Name="SearchHistoryToggle" Toggled="SearchHistoryToggle_Toggled" />
+                    </ctc:SettingsCard>
+
                     <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="系统集成" />
 
                     <ctc:SettingsCard

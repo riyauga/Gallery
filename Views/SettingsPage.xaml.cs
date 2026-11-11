@@ -369,6 +369,7 @@ public sealed partial class SettingsPage : UserControl
         ArchiveAutoByTagsToggle.IsOn = settings.archive_auto_by_tags;
         NotifyNewImagesToggle.IsOn = settings.notify_new_images;
         AuthorCommentaryToggle.IsOn = settings.show_author_commentary;
+        SearchHistoryToggle.IsOn = settings.search_history_enabled;
         AutoTagToggle.IsOn = settings.auto_tag_from_folder;
         AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
         AutoModelTagsToggle.IsOn = settings.auto_model_tags;
@@ -927,6 +928,13 @@ public sealed partial class SettingsPage : UserControl
     {
         if (_sysSyncing) return;
         Services.AppService.Settings.Settings.show_author_commentary = AuthorCommentaryToggle.IsOn;
+        Services.AppService.Settings.Save();
+    }
+
+    private void SearchHistoryToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_sysSyncing) return;
+        Services.AppService.Settings.Settings.search_history_enabled = SearchHistoryToggle.IsOn;
         Services.AppService.Settings.Save();
     }
 

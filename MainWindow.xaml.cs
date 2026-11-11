@@ -687,6 +687,36 @@ public sealed partial class MainWindow : Window
 
         _page = new GalleryPage(_library);
         SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
+        _searchHistory.QueryPicked += SearchHistory_QueryPicked;
+        _searchHistory.ClearRequested += SearchHistory_ClearRequested;
+        _searchHistory.DismissRequested += () => DispatcherQueue.TryEnqueue(DismissSearchHistory);
+        _searchHistory.TypingStarted += text => DispatcherQueue.TryEnqueue(() =>
+        {
+            // 先把焦点还给搜索框再追加字符：TextChanged 关浮层时不在焦点切换过程中。
+            SearchBox.FocusSearch();
+            SearchBox.AppendText(text);
+        });
+        // Tab 只在浮层显示时进历史标签，其余情况保持系统默认焦点切换。
+        SearchBox.TabHandler = shift =>
+            _searchHistoryPopup is { IsOpen: true } && _searchHistory.MoveFocus(shift ? -1 : 1);
+        // GettingFocus 里不能移动焦点（Popup.set_IsOpen 会抛 0x802B0020），开浮层排到焦点切换之后。
+        SearchBox.FocusEntered += (_, _) =>
+        {
+            // Esc 收起浮层时焦点要还给搜索框，这一次不要又把浮层弹回来。
+            if (_suppressHistoryOnFocus) { _suppressHistoryOnFocus = false; return; }
+            DispatcherQueue.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ShowSearchHistory);
+        };
+        // 浮层不再依赖 Popup 自带的外部关闭：切到别的程序、或在设置里关掉开关时手动收起。
+        Activated += OnWindowActivatedForSearchHistory;
+        AppService.Settings.Changed += OnSettingsChangedForSearchHistory;
+        Closed += (_, _) =>
+        {
+            Activated -= OnWindowActivatedForSearchHistory;
+            AppService.Settings.Changed -= OnSettingsChangedForSearchHistory;
+        };
+        _page.ToastRequested += ShowToast;
+        _page.ToastRequested += ShowToast;
         _page.ToastRequested += ShowToast;
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
@@ -713,6 +743,7 @@ public sealed partial class MainWindow : Window
         _page.FileOperationStarting += Preview.ReleaseVideo;
         ContentHost.Children.Add(_page);
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnGalleryBlankPointerPressed), true);
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnSearchHistoryPointerPressed), true);
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnNavigationPointerPressed), true);
         RootGrid.PreviewKeyDown += OnGalleryPreviewKeyDown;
         RootGrid.PreviewKeyDown += OnNavHistoryKeyDown;
@@ -867,6 +898,8 @@ public sealed partial class MainWindow : Window
             return;
         }
         SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
+        // 从资料库/待审核/设置切回图库：回到列表初始态，不沿用上次看到的位置。
+        if (_page.Visibility != Visibility.Visible) _page.ResetViewToTop();
         ShowContent(_page);
         switch (tag)
         {
@@ -1096,7 +1129,134 @@ public sealed partial class MainWindow : Window
     }
 
     private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
-        => _page.SetSearch(SearchBox.Text);
+    {
+        _page.SetSearch(SearchBox.Text);
+        if (SearchBox.Text.Trim().Length == 0)
+        {
+            if (SearchBox.HasFocus) ShowSearchHistory();
+        }
+        else HideSearchHistory();
+    }
+
+    /// <summary>回车提交才算一次搜索：记一条历史（新的在前、去重、最多 20 条）。</summary>
+    private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        if (args.QueryText.Trim().Length == 0) return;
+        var settings = AppService.Settings.Settings;
+        if (settings.search_history_enabled)
+        {
+            SearchHistory.Remember(settings, args.QueryText);
+            AppService.Settings.Save();
+        }
+        HideSearchHistory();
+    }
+
+    private readonly Controls.SearchHistoryPanel _searchHistory = new();
+    private Popup? _searchHistoryPopup;
+    /// <summary>Esc 收起浮层后焦点回到搜索框，这一次不重新弹开。</summary>
+    private bool _suppressHistoryOnFocus;
+
+    private void ShowSearchHistory()
+    {
+        var settings = AppService.Settings.Settings;
+        if (!settings.search_history_enabled) return;
+        var history = settings.search_history;
+        if (history.Count == 0 || !SearchBox.HasFocus || SearchBox.Text.Trim().Length > 0) return;
+        if (RootGrid.XamlRoot is not { } root) return;
+
+        _searchHistory.Width = Math.Max(SearchBox.ActualWidth, 160);
+        _searchHistory.SetItems(history.ToArray());
+        ((FrameworkElement)_searchHistory.Root).RequestedTheme = SearchBox.ActualTheme;
+
+        var popup = _searchHistoryPopup ??= new Popup
+        {
+            XamlRoot = root,
+            // 不用 Popup 自带的外部点击关闭：它会吃掉这次点击，导致「点一次只关面板、焦点还在框里」。
+            IsLightDismissEnabled = false,
+            ShouldConstrainToRootBounds = true,
+            Child = _searchHistory.Root,
+        };
+        var anchor = SearchBox
+            .TransformToVisual(RootGrid)
+            .TransformPoint(new Windows.Foundation.Point(0, SearchBox.ActualHeight));
+        popup.HorizontalOffset = anchor.X;
+        popup.VerticalOffset = anchor.Y + 4;
+        popup.IsOpen = true;
+        // 打开 Popup 会把焦点从输入框带走（实测），不回焦就没法接着打字。
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, SearchBox.FocusSearch);
+    }
+
+    private void HideSearchHistory()
+    {
+        if (_searchHistoryPopup is { IsOpen: true } popup) popup.IsOpen = false;
+    }
+
+    /// <summary>Esc 收起浮层并把焦点还给搜索框；这一次焦点回来不重新弹浮层。</summary>
+    private void DismissSearchHistory()
+    {
+        _suppressHistoryOnFocus = true;
+        HideSearchHistory();
+        SearchBox.FocusSearch();
+        DispatcherQueue.TryEnqueue(() => _suppressHistoryOnFocus = false);
+    }
+
+    /// <summary>
+    /// 历史浮层的外部点击由窗口自己判定（浮层关掉了 Popup 自带的外部关闭）：
+    /// 点搜索框内保持打开，点其他位置只收起浮层，这次点击照常选中图片或切换导航。
+    /// </summary>
+    private void OnSearchHistoryPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (IsWithin(e.OriginalSource as DependencyObject, SearchBox))
+        {
+            // 再次点搜索框不该让历史消失；被 Esc 关掉后再点一下要能重新打开。
+            if (SearchBox.Text.Trim().Length == 0)
+                DispatcherQueue.TryEnqueue(
+                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ShowSearchHistory);
+            return;
+        }
+        HideSearchHistory();
+    }
+
+    private static bool IsWithin(DependencyObject? node, DependencyObject root)
+    {
+        for (var current = node; current is not null; current = VisualTreeHelper.GetParent(current))
+            if (ReferenceEquals(current, root)) return true;
+        return false;
+    }
+
+    private void OnWindowActivatedForSearchHistory(object sender, WindowActivatedEventArgs args)
+    {
+        if (_searchHistoryPopup is not { IsOpen: true }) return;
+        if (args.WindowActivationState != WindowActivationState.Deactivated) return;
+        // 浮层是独立 HWND，开它本身也可能触发失活；等激活稳定后按真正的前台窗口判断。
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            if (GetForegroundWindow() != AppService.MainWindowHandle) HideSearchHistory();
+        });
+    }
+
+    private void OnSettingsChangedForSearchHistory()
+    {
+        if (!AppService.Settings.Settings.search_history_enabled) HideSearchHistory();
+    }
+
+    /// <summary>Esc / 选条目 / 清空后回到搜索框，便于接着改词。</summary>
+    private void SearchHistory_QueryPicked(string query) => DispatcherQueue.TryEnqueue(() =>
+    {
+        SearchBox.Text = query;
+        SearchHistory.Remember(AppService.Settings.Settings, query);
+        AppService.Settings.Save();
+        HideSearchHistory();
+        SearchBox.FocusSearch();
+    });
+
+    private void SearchHistory_ClearRequested() => DispatcherQueue.TryEnqueue(() =>
+    {
+        AppService.Settings.Settings.search_history.Clear();
+        AppService.Settings.Save();
+        HideSearchHistory();
+    });
 
     private void OnSearchInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -1348,6 +1508,13 @@ public sealed partial class MainWindow : Window
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        // 搜索历史浮层先关：它自己就是一个 Popup，会被下面的 HasKeyboardPopup 拦掉。
+        if (_searchHistoryPopup is { IsOpen: true })
+        {
+            DismissSearchHistory();
+            args.Handled = true;
+            return;
+        }
         // Esc 优先给查看器（退全屏/关闭），其次返回设置首页或退出图库多选。
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。

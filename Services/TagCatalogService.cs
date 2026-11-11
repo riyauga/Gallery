@@ -1153,7 +1153,7 @@ public sealed class TagCatalogService
             log?.Invoke($"实体不存在，未写标签 #{tagId}: {entityKey}");
     }
 
-    private sealed record NameHit(string Key, string Identity, string Zh, string En, string Game);
+    private sealed record NameHit(string Key, string Identity, string Zh, string En, string Game, string Kind);
 
     private static Dictionary<string, List<NameHit>> LoadNameIndex(SqliteConnection conn)
     {
@@ -1161,7 +1161,7 @@ public sealed class TagCatalogService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT n.term,e.entity_key,COALESCE(NULLIF(e.identity_key,''),e.entity_key)," +
-            "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,'') " +
+            "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,''),COALESCE(e.kind,'') " +
             "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -1174,7 +1174,7 @@ public sealed class TagCatalogService
                 byTerm[term] = list;
             }
             list.Add(new NameHit(r.GetString(1), r.GetString(2), r.GetString(3),
-                r.GetString(4), r.GetString(5)));
+                r.GetString(4), r.GetString(5), r.GetString(6)));
         }
         return byTerm;
     }
@@ -1193,8 +1193,8 @@ public sealed class TagCatalogService
     }
 
     /// <summary>
-    /// 先按当前用户个人规则写入人工状态/身份映射，再把剩余 character 标签按唯一名称接到身份上。
-    /// 已有人工/外部/原创/已解析状态、0 图标签、非 character 标签都不再自动猜。
+    /// 先按当前用户个人规则写入人工状态/身份映射，再把剩余 character / work 标签按唯一名称接到同分类实体上。
+    /// 已有人工/外部/原创/已解析状态、0 图标签、其他分类（kind/artist/rating 等）都不再自动猜。
     /// </summary>
     public AlignReport AlignTags(bool overwrite = false, bool dryRun = false, Action<string>? log = null)
     {
@@ -1350,7 +1350,7 @@ public sealed class TagCatalogService
         {
             foreach (var (id, name, category, images) in tags)
             {
-                if (category != "character") { skipped++; continue; }
+                if (category is not ("character" or "work")) { skipped++; continue; }
                 if (images == 0) { skipped++; continue; }
                 if (protectedTags.Contains(id))
                 {
@@ -1366,7 +1366,11 @@ public sealed class TagCatalogService
                 if (existing.Contains(id) && !overwrite) { kept++; continue; }
 
                 var term = Norm(BaseName(name));
-                if (term.Length == 0 || !byTerm.TryGetValue(term, out var raw) || raw.Count == 0)
+                // 只在同分类实体里找：作品标签不会接到同名角色上，反之亦然。
+                var raw = term.Length > 0 && byTerm.TryGetValue(term, out var found)
+                    ? found.Where(hit => string.Equals(hit.Kind, category, StringComparison.Ordinal)).ToList()
+                    : [];
+                if (raw.Count == 0)
                 {
                     unmatched++;
                     continue;

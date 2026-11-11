@@ -91,6 +91,12 @@ public sealed class AppSettings
 
     /// <summary>清理历史时的默认保留天数；0 = 永久保留（不清理）。</summary>
     public int history_keep_days { get; set; }
+
+    /// <summary>搜索框历史，新的在前，去重后最多 20 条。</summary>
+    public List<string> search_history { get; set; } = [];
+
+    /// <summary>是否记录并显示搜索历史（默认开）。关掉只停用，不清空已有记录。</summary>
+    public bool search_history_enabled { get; set; } = true;
 }
 
 public sealed class AppPaths
@@ -178,6 +184,11 @@ public sealed class SettingsStore
         s.gallery_mode = s.gallery_mode is "square" or "justified" ? s.gallery_mode : "justified";
         s.media_filter = s.media_filter is "photos" or "videos" or "all" ? s.media_filter : "all";
         s.history_keep_days = Math.Clamp(s.history_keep_days, 0, 3650);
+        s.search_history = (s.search_history ?? [])
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(SearchHistory.Limit).ToList();
         s.created_folders = s.created_folders.Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p).Distinct().ToList();
         s.roots = s.roots.Where(p => !string.IsNullOrWhiteSpace(p))

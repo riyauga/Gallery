@@ -90,6 +90,15 @@
 
 Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先、无选区时取焦点图；Delete 复用一次默认取消的回收站确认弹窗，Shift+Delete 不做永久删除。Ctrl+C 统一写入文件列表、Copy 语义，不解码图片；读取任一文件失败则整次取消并报告文件名、保留原剪贴板。Ctrl+Shift+C 复制同一目标集合路径，单图右键“复制图片内容”仍提供像素格式。F5 主动刷新：重扫当前所在目录后重建目录树与网格，停在「图库/全部」时扫全部已添加目录；扫描按根目录进行（缺失判定也是根级），因此在子目录里刷新的是它所在的根，避免把其它目录误标为缺失；后台串行执行、退出时中断，扫描中不阻塞浏览，结果用通知条报告新增/更新/移出数量。新增键盘入口仅由窗口主 UI 线程使用，不增加配置或数据库字段；不增加 Ctrl+X/V、Home/End、反选、撤销。移除文件夹成功后同样强制重建网格（即使当前就停在「图库/全部」，`SetDirectory` 的“目标没变就返回”不生效），被移除目录的图片立即从界面消失。上述交互与跨应用粘贴均待人工验证。
 
+### 列表重建与滚动复位
+
+重建前 `SaveAnchor()` 记住当前首条可见图的稳定 ID，重建后若该图仍在新结果里就还原到它的位置——这是 F5、文件监听、标签改动这类「无筛选变化刷新」要保持位置的原因。
+
+- 条件发生变化时不沿用旧锚点，重建后直接落位顶部（`ChangeView`，无动画）：搜索关键词变化、筛选面板任何改动（含清除条件）、切换侧栏目录/页签、收藏夹与图库互切。否则清空搜索会把视图锚回上一次搜索时的那一张。
+- 清空搜索（含只剩空格）另外回到初始态：取消全部多选、清空选择锚点与键盘高亮。输入了新关键词但不清空时，选择仍按结果集自动剔除，不清空。
+- 从资料库/待审核/设置切回图库调用 `GalleryPage.ResetViewToTop()`：取消选择并直接滚到顶，不需要重建也生效。
+- 已用进程内探针验证：搜索后回顶、清空回顶且清空选择、连续清空、零结果后清空、清空后再搜索、滚动中途切换关键词。动画观感与实际鼠标手感待人工验收。
+
 ### 拖出与侧栏移动
 
 图片按下后捕获指针，移动超过原有 12 DIP 阈值时先释放捕获，再启动系统拖放；快速移出卡片仍继续判定起拖。松手、取消、捕获丢失或卡片卸载时清理手势，松手／取消／卸载同时释放捕获；左上角 44×44 DIP 的收藏按钮区域继续不作为起拖点。桌面沙箱已验证快速移出卡片可进入系统拖拽启动事件，跨应用落点和长按手感仍须单独核对。
@@ -114,8 +123,13 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 
 - 封装默认圆角取原生主题资源 `ControlCornerRadius`，再同步给内部控件；不得用 UserControl 默认的 0 覆盖原生圆角。内容及内部控件双向拉伸，按宿主分配尺寸布局，不通过放大宽度或负边距补偿边缘。本轮仅静态/编译核对，边缘完整性待人工确认。
 - 顶部图库搜索、资料库、筛选、标签编辑与待审核标签输入统一使用 `Controls/SearchInputBox.cs`，基于原生 `AutoSuggestBox`，不另绘模板。默认 `AllowFocusOnInteraction=true`、`PreventAutomaticFocus=false`；文本编辑、选区、键盘、输入法及候选展示交给原生控件。普通资料编辑字段仍用 `TextBox`。
-- `AutoSuggestBox` 是密封类，组件用 `UserControl` 内嵌原生控件，不继承或修改其模板。公共 API 转发 `Text`、`PlaceholderText`、`TextChanged`、`ItemsSource`、`QuerySubmitted`；显式聚焦用 `FocusSearch()`，尺寸、可用状态由宿主设置，圆角同步到内部控件。例如 `new SearchInputBox { PlaceholderText = "搜索标签", Width = 300 }`。转发属性不是依赖属性，当前仅供 XAML 初值和代码读写，不提供完整 AutoSuggestBox API 或绑定契约。事件 sender 为内部原生 AutoSuggestBox。宿主负责查询、防抖、过期结果过滤和提交；普通搜索不提供 `ItemsSource`，不额外弹出候选。标签搜索保留候选选择、键盘提交与输入新标签；`TextChanged` 使用 `AutoSuggestBoxTextChangedEventArgs`，候选查询仅处理 `UserInput`。
+- `AutoSuggestBox` 是密封类，组件用 `UserControl` 内嵌原生控件，不继承或修改其模板。公共 API 转发 `Text`、`PlaceholderText`、`TextChanged`、`ItemsSource`、`QuerySubmitted`；显式聚焦用 `FocusSearch()`，尺寸、可用状态由宿主设置，圆角同步到内部控件。例如 `new SearchInputBox { PlaceholderText = "搜索标签", Width = 300 }`。转发属性不是依赖属性，当前仅供 XAML 初值和代码读写，不提供完整 AutoSuggestBox API 或绑定契约。事件 sender 为内部原生 AutoSuggestBox。宿主负责查询、防抖、过期结果过滤和提交；普通搜索不提供 `ItemsSource`，不额外弹出候选。标签搜索保留候选选择、键盘提交与输入新标签；`TextChanged` 使用 `AutoSuggestBoxTextChangedEventArgs`，候选查询仅处理 `UserInput`。另有 `FocusEntered`（焦点真正进入后触发，被 `PreventAutomaticFocus` 挡回不算）与只读 `HasFocus`，供宿主决定浮层时机。
 - 标题栏设置 `PreventAutomaticFocus=true` 并提供 `DefaultFocusAnchor`，保留原 Photos 主动聚焦判断，允许点击、Tab 和 `FocusSearch()`，拦截启动或内容卸载等非主动聚焦；内部文本编辑器已有焦点时允许其正常转移。其他搜索不启用此保护。旧 `PhotosSearchBox` 已移除，不再维护第二套控件。
+- **搜索历史（仅顶部图库搜索）**：回车提交才记一条，行文规则在 `Services/SearchHistory.cs`，落盘到 `settings.json` 的 `search_history`（去重、新的在前、最多 20 条）。聚焦且输入为空且历史非空时，在搜索框下方弹出 `Controls/SearchHistoryPanel.cs`：标题「搜索历史」+ 右侧「清空」+ 标签流式换行，最多 5 行后内滚，单标签单行省略号（悬停显示全文）。点标签 = 填入并立即过滤 + 提到最前；点「清空」直接清空不弹确认。浮层是自绘颜色，按 `ActualTheme` 取深浅色对，不随 `Application.RequestedTheme`。
+- 设置里有开关「显示搜索历史」（通用页，默认开，`search_history_enabled`）。关掉只停用记录与显示，已存条目保留；关闭瞬间正在显示的浮层立即收起。
+- 外部点击**不用** `Popup.IsLightDismissEnabled`：它会吞掉这次点击，表现为「点空白一次只关浮层、焦点仍停在搜索框」和「再点搜索框浮层消失」。改为窗口层 `RootGrid` 指针事件判定（`OnSearchHistoryPointerPressed`，`handledEventsToo`）——点搜索框内保持浮层，点其他位置只关浮层，点击本身照常选中图片/切导航；窗口失活（`Activated` + `GetForegroundWindow` 复核，避开浮层自己的 HWND 引起的假失活）时收起。
+- **历史标签的 Tab 导航**：仅当浮层正在显示（输入为空 + 有历史）时，搜索框内按 Tab 才被接管（`SearchInputBox.TabHandler` 问宿主，宿主转向 `SearchHistoryPanel.MoveFocus`）；不显示时 Tab、Ctrl+Tab、Alt+Tab 全部保持系统默认。标签之间首尾相接循环，Shift+Tab 反向；Tab 只移动焦点不填词，Enter 用 Button 原生 Click 提交。标签上按 Esc 收起浮层并把焦点还给搜索框，且这一次回焦不重新弹开（`_suppressHistoryOnFocus`）；在标签上直接打字则把字符转交搜索框（`SearchInputBox.AppendText`，先回焦再追加，避免在焦点切换中关浮层）。
+- 搜索历史的时机约束（实测踩过）：`GettingFocus` 里同步设置 `Popup.IsOpen` 会抛 `COMException 0x802B0020「Focus cannot be moved while getting or losing focus」`，未捕获即崩溃，所以开浮层必须 `DispatcherQueue.TryEnqueue` 到焦点切换之后；打开 Popup 又确实会把焦点从输入框带走，开完要再 `FocusSearch()` 回焦，否则无法继续输入。点标签、清空也走一次 `TryEnqueue`，避免在 Popup 子元素持焦时关闭浮层。
 - 含输入框的普通 `Flyout`，触发按钮必须允许交互聚焦。WinUI 会把目标按钮的 `AllowFocusOnInteraction` 传给 `FlyoutPresenter`；仅修改输入框或 Flyout 本身不足以替代宿主配置。当前 `FilterButton` 显式设置为 `True`，其他菜单按钮不变。
 - 不统一查询范围：资料库查实体，筛选查已入库标签及其中英文名、别名；组件不访问数据库，不适用于普通资料编辑字段。
 

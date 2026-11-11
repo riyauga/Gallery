@@ -27,8 +27,32 @@ public sealed class SearchInputBox : UserControl
 
     public event Windows.Foundation.TypedEventHandler<AutoSuggestBox, AutoSuggestBoxQuerySubmittedEventArgs>? QuerySubmitted;
 
+    /// <summary>焦点真正进入输入框后触发（被 PreventAutomaticFocus 挡回的焦点不算）。</summary>
+    public event EventHandler? FocusEntered;
+
+    /// <summary>焦点当前是否在输入框内。</summary>
+    public bool HasFocus => ContainsFocus(FocusManager.GetFocusedElement(XamlRoot) as DependencyObject);
+
     /// <summary>仅标签输入启用：Tab 在已打开的候选中导航，Enter 仍使用原生提交。</summary>
     public bool EnableSuggestionTabNavigation { get; set; }
+
+    /// <summary>
+    /// 搜索框内按 Tab 时先问宿主：参数为是否按住 Shift，返回 true 表示已接管（不再走默认焦点切换）。
+    /// 没接管时保持原行为，Ctrl/Alt 组合键不拦截。
+    /// </summary>
+    public Func<bool, bool>? TabHandler { get; set; }
+
+    /// <summary>把字符追加到搜索框末尾并接管焦点（历史标签上直接打字时用）。</summary>
+    public void AppendText(string text)
+    {
+        _input.Text += text;
+        _input.Focus(FocusState.Keyboard);
+        if (Descendants<TextBox>(_input).FirstOrDefault() is { } box)
+        {
+            box.SelectionStart = box.Text.Length;
+            box.SelectionLength = 0;
+        }
+    }
 
     public static readonly DependencyProperty PreventAutomaticFocusProperty = DependencyProperty.Register(
         nameof(PreventAutomaticFocus), typeof(bool), typeof(SearchInputBox), new PropertyMetadata(false));
@@ -112,6 +136,12 @@ public sealed class SearchInputBox : UserControl
 
     private void Input_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (!e.Handled && e.Key == VirtualKey.Tab && !IsDown(VirtualKey.Control) && !IsDown(VirtualKey.Menu)
+            && TabHandler?.Invoke(IsDown(VirtualKey.Shift)) == true)
+        {
+            e.Handled = true;
+            return;
+        }
         if (!EnableSuggestionTabNavigation || e.Handled || e.Key != VirtualKey.Tab || !_input.IsSuggestionListOpen) return;
         if (IsDown(VirtualKey.Shift) || IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu)) return;
         if (XamlRoot is not { } root) return;
@@ -235,14 +265,15 @@ public sealed class SearchInputBox : UserControl
 
     private void SearchBox_GettingFocus(UIElement sender, GettingFocusEventArgs args)
     {
-        if (!PreventAutomaticFocus) return;
-        if (!IsFocusOnSearchIntentional(args.OldFocusedElement, args.FocusState, args.Direction))
+        if (PreventAutomaticFocus &&
+            !IsFocusOnSearchIntentional(args.OldFocusedElement, args.FocusState, args.Direction))
         {
             if (DefaultFocusAnchor is null || !args.TrySetNewFocusedElement(DefaultFocusAnchor))
                 args.TryCancel();
             args.Handled = true;
         }
         _shouldFocusBeOnSearch = false;
+        if (!args.Handled) FocusEntered?.Invoke(this, EventArgs.Empty);
     }
 
     private bool IsFocusOnSearchIntentional(DependencyObject? oldFocusObject,

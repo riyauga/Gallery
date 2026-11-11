@@ -28,6 +28,18 @@ Gallery 项目根目录（开发运行）\
 
 - **验证边界**：2026-10-28 已通过无窗口沙箱中的资料导入、直接移除、重新接入、损坏文件保留、人工资料保护及模型撤下检查；拖拽反馈、浅／深色层次、二级确认与缩窄布局仍待人工验收。
 
+### 手工补写资料包（2026-11-11 实操）
+
+- **`source.id` 全库唯一，一个 id 只能给一个包用**。导入按来源整批替换：同一 id 的两份文件会互相把对方记录判成 stale 删掉。曾踩过：战神 2018／诸神黄昏、最后生还者 1／2、刺客信条 2／英灵殿共用 id，结果后导入的那份把前一份清空（表现为某作品 0 条）。
+- 每条记录字段：`key`（来源内唯一）、`game`（必须出现在本包 `games[]`）、`zh`、`en`、`aliases[]`（含去中点的写法，标签对齐用 `Norm` 只比字母数字）、`kind`（character／work／enemy／pet／npc／artist）、`status`（released／announced／unknown）、`source_url`（必填，空则该条直接丢弃）、可选 `identity_key`（跨作品同一角色指向主来源实体键，如 2077 与边缘行者的亚当·重锤）。
+- 同一角色在本包内不要重复 `zh`；跨作品共用角色不要各包重复建条，用 `identity_key` 指回主条目。
+- 新增/改动的包在应用**重启**时整批导入（文件监听只覆盖目录级增删，改文件内容靠重启最稳）。导入后自动跑 `AlignTags()`：`character` 标签按归一化名字唯一命中且作品一致才自动 `linked`，都会写 `tag_profiles`。
+- **清残留**：某来源已无对应包、或包换过 `source.id`，旧实体不会被自动删除。可用一份同 id、`records: []` 的空包触发整批 stale 删除（无 `tag_profiles`／非人工保护才会删），随后删掉空包文件。被 `tag_profiles` 保护的残留需另处：先把 `tag_profiles.entity_key`／`tag_identities.identity_key` 指向保留实体，再删旧行（改库前先复制 `library.db`）。
+
+- **作品（work）标签现在也参与自动对齐**（2026-11-11 修改）：`AlignTags` 原先只处理 `category='character'`，导致作品标签永远 pending。现在 character／work 都按归一化名字匹配**同分类**实体，要求唯一命中；有 `tag_profiles` 显示名的标签仍按「已解析」跳过，需要人工或一次性脚本处理。所以包里 `kind:"work"` 记录不能省——没有作品实体，作品标签就无从关联。
+- 历史上的 `cyberpunk` 标签曾被迁移指向「边缘行者」，2026-11-11 已改挂到 2077 作品实体；`PhantomBladeZero`、`wizarding_world` 分别改挂到影之刃零、哈利·波特作品实体（`source=manual`，自动对齐不覆盖）。
+- **标签原名的语言取决于创建路径**：源站导入是英文（`abby`、`2b_(nier:automata)`），手工输入与模型写入是中文。显示名来自 `tag_profiles.zh`（资料库实体同步），提示框在两者不一致时并列显示，仅差间隔号时会看起来重复。
+
 ### 包管理 API 与宿主职责
 
 - `PackLibrary.ImportAsync(items, isModel)` 必须传入分组类型；`RemoveAsync(entry)` 只允许对应 `archive`／`models` 的直接子目录。复制／解压／删除放后台，UI 线程只更新状态；拖放数据读取持有 deferral，异常不得逃出 async void。宿主在加载／卸载时订阅／退订 `AppService.PackChanged` 以刷新列表。示例：资料库框调用 `ImportAsync(items, false)`；不是图库图片文件夹导入入口。

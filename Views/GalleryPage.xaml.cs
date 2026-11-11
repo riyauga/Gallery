@@ -225,10 +225,36 @@ public sealed partial class GalleryPage : UserControl
     /// <summary>galleryold：搜索 160ms 防抖（标签/中文别名/文件名）。</summary>
     public void SetSearch(string query)
     {
-        _query = (query ?? string.Empty).Trim();
+        var next = (query ?? string.Empty).Trim();
+        if (!string.Equals(next, _query, StringComparison.Ordinal))
+        {
+            _query = next;
+            // 换关键词从第一条开始；清空（含只剩空格）还要回到初始态：取消选择与键盘焦点。
+            _resetScrollPending = true;
+            if (next.Length == 0) ClearSelectionAndFocus();
+        }
         _rebuildPending = true;
         _searchTimer.Stop();
         _searchTimer.Start();
+    }
+
+    /// <summary>回到列表初始态：取消多选、选中锚点与键盘高亮。</summary>
+    private void ClearSelectionAndFocus()
+    {
+        _selected.Clear();
+        _selectionAnchorId = null;
+        _keyboardFocusId = null;
+        _showKeyboardFocus = false;
+        SyncSelection();
+        UpdateHeader();
+    }
+
+    /// <summary>从别的页签回到图库时调用：先清初始态，再直接落回顶部（不需要重建也生效）。</summary>
+    public void ResetViewToTop()
+    {
+        ClearSelectionAndFocus();
+        if (!IsLoaded) return;
+        DispatcherQueue.TryEnqueue(() => { Scroller.UpdateLayout(); Scroller.ChangeView(null, 0, null, true); });
     }
 
     public void SetMode(bool favorites)
@@ -236,6 +262,7 @@ public sealed partial class GalleryPage : UserControl
         if (_favoritesMode == favorites) return;
         _favoritesMode = favorites;
         _rebuildPending = true;
+        _resetScrollPending = true;
         _selected.Clear();
         _selectionAnchorId = null;
         _keyboardFocusId = null;
@@ -362,7 +389,11 @@ public sealed partial class GalleryPage : UserControl
         var previous = _items.ToDictionary(ItemKey);
         for (int i = 0; i < items.Count; i++)
             if (previous.TryGetValue(ItemKey(items[i]), out var old) && SameItem(old, items[i])) items[i] = old;
-        SaveAnchor();
+        // 条件变化（搜索/筛选/目录）时不沿用旧锚点，否则清空搜索会被锚回上一次搜索的位置。
+        if (_resetScrollPending) _restoreAnchor = null;
+        else SaveAnchor();
+        _scrollTopOnLayout = _resetScrollPending;
+        _resetScrollPending = false;
         _items.Clear(); _items.AddRange(items);
         _selected.IntersectWith(_items.Select(SelectionId));
         if (_selectionAnchorId is int anchor && !_items.Any(item => SelectionId(item) == anchor))
@@ -429,6 +460,8 @@ public sealed partial class GalleryPage : UserControl
         _dirRootId = rootId;
         _dirRel = dirRel;
         _rebuildPending = true;
+        // 换目录（含页签）从第一条开始，不沿用上一个目录的滚动位置。
+        _resetScrollPending = true;
         // photos 的页头标题就是当前集合名：根目录 = 根文件夹名，子目录 = 最后一段目录名
         _dirTitle = ResolveDirectoryTitle(rootId, dirRel);
         if (IsLoaded) Rebuild();
@@ -617,6 +650,10 @@ public sealed partial class GalleryPage : UserControl
     private bool _viewportQueued;
     private string? _restoreAnchor;
     private double _restoreDelta;
+    /// <summary>下一次重建不沿用旧滚动锚点，落位到顶部。</summary>
+    private bool _resetScrollPending;
+    /// <summary>已排定「这次布局结束后滚到顶部」。</summary>
+    private bool _scrollTopOnLayout;
     private bool _active = true;
 
     private void ScheduleViewport()
@@ -636,6 +673,12 @@ public sealed partial class GalleryPage : UserControl
                 DispatcherQueue.TryEnqueue(() => { Scroller.UpdateLayout(); Scroller.ChangeView(null, offset, null, true); });
             }
             _restoreAnchor = null;
+        }
+        else if (_scrollTopOnLayout)
+        {
+            // 数据集换了：直接落到顶部，不做动画，避免先看到旧位置再飞回去。
+            _scrollTopOnLayout = false;
+            DispatcherQueue.TryEnqueue(() => { Scroller.UpdateLayout(); Scroller.ChangeView(null, 0, null, true); });
         }
         Timeline.Refresh();
         if (_showKeyboardFocus && _keyboardFocusId is int focus)
@@ -848,6 +891,8 @@ public sealed partial class GalleryPage : UserControl
             Controls.FilterPanel.MediaKind.Videos => FilterKind.Videos,
             _ => FilterKind.All,
         };
+        // 改筛选（含清掉条件）等于换了一份结果集，从第一条开始。
+        _resetScrollPending = true;
         if (AppService.Settings.Settings.recursive != _filterPanel.Subfolder)
         {
             AppService.Settings.Settings.recursive = _filterPanel.Subfolder;
