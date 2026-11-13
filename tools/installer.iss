@@ -1,12 +1,12 @@
-; Gallery 安装包脚本（Inno Setup 6.7+）
+﻿; Gallery 安装包脚本（Inno Setup 6.7+）
 ; 用法：
 ;   ISCC.exe /DSourceDir="<自包含发布目录>" /DOutDir="<产物目录>" tools\installer.iss
-;   /DAppVersion="1.0.1" 可覆盖版本号；默认值与 Gallery.csproj 的 Version 保持一致。
+; 由 package-release.ps1 传入统一版本、明确文件清单和输出位置。
 ; 说明：per-user 安装（PrivilegesRequired=lowest），装到 {autopf} = %LOCALAPPDATA%\Programs，不请求管理员权限。
 
 #define AppName "Gallery"
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #error AppVersion must be supplied by tools/package-release.ps1
 #endif
 #ifndef AppPublisher
   #define AppPublisher "riyauga"
@@ -16,6 +16,10 @@
 #endif
 #ifndef OutDir
   #define OutDir "..\dist"
+#endif
+
+#ifndef FileList
+  #error FileList must be supplied by tools/package-release.ps1
 #endif
 
 [Setup]
@@ -54,11 +58,19 @@ RestartApplications=no
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#include FileList
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Gallery.exe"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Gallery.exe"; Check: not WizardNoIcons
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Gallery.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\Gallery.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    if not SaveStringToFile(ExpandConstant('{app}\distribution-kind.txt'), 'installed', False) then
+      RaiseException('Cannot save installation type.');
+end;

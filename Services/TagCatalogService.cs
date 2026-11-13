@@ -728,6 +728,8 @@ public sealed class TagCatalogService
     {
         using var conn = Open();
         var games = GameNames();
+        Dictionary<string, List<NameHit>>? byTerm = null;
+        Dictionary<string, List<NameHit>>? byLastWord = null;
         return tags.Select(tag =>
         {
             if (tag.Category is not ("character" or "work") || tag.DisplayName.Length > 0
@@ -752,7 +754,16 @@ public sealed class TagCatalogService
             using var reader = cmd.ExecuteReader();
             var hits = new List<(string Key, string Zh, string En, string Aliases, string Identity, string Game)>();
             while (reader.Read()) hits.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5)));
-            if (hits.Count == 0) return tag;
+            if (hits.Count == 0)
+            {
+                // danbooru 写法 角色_(作品)：整串换不来命中，拆开按「作品限定 + 名/末词」再试一次。
+                byTerm ??= LoadNameIndex(conn);
+                byLastWord ??= LoadLastWordIndex(conn);
+                hits = MatchWorkQualified(byTerm, byLastWord, games, tag.Category, tag.Name)
+                    .Select(hit => (Key: hit.Key, Zh: hit.Zh, En: hit.En, Aliases: "[]",
+                        Identity: hit.Identity, Game: hit.Game)).ToList();
+                if (hits.Count == 0) return tag;
+            }
             var sameSource = hits.All(hit => hit.Game.Length > 0 && hit.En.Length > 0)
                 && hits.Select(hit => (hit.Game, Name: Norm(hit.En))).Distinct().Count() == 1;
             if (hits.Select(hit => hit.Identity).Distinct(StringComparer.Ordinal).Count() != 1 && !sameSource) return tag;
@@ -1179,6 +1190,106 @@ public sealed class TagCatalogService
         return byTerm;
     }
 
+    /// <summary>danbooru 风格的 <c>角色_(作品)</c>：最后一个括号是作品，前面是角色名。</summary>
+    private static readonly Regex WorkQualifiedSuffix = new(@"_\(([^()]*)\)$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// 英文名末词的索引：<c>Tsukatsuki Rio</c> 记到 <c>rio</c>。
+    /// danbooru 的角色标签只写名（<c>rio_(blue_archive)</c>），全名对不上时靠这张表。
+    /// </summary>
+    private static Dictionary<string, List<NameHit>> LoadLastWordIndex(SqliteConnection conn)
+    {
+        var byWord = new Dictionary<string, List<NameHit>>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT e.entity_key,COALESCE(NULLIF(e.identity_key,''),e.entity_key)," +
+            "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,''),COALESCE(e.kind,'') " +
+            "FROM catalog_entities e WHERE COALESCE(e.en,'')<>''";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var en = r.GetString(3);
+            var at = en.LastIndexOf(' ');
+            var word = Norm(at >= 0 ? en[(at + 1)..] : en);
+            if (word.Length == 0) continue;
+            if (!byWord.TryGetValue(word, out var list)) byWord[word] = list = [];
+            list.Add(new NameHit(r.GetString(0), r.GetString(1), r.GetString(2), en,
+                r.GetString(4), r.GetString(5)));
+        }
+        return byWord;
+    }
+
+    /// <summary>
+    /// 拆 <c>角色_(作品)</c> 并同时校验两边：角色部分命中实体名/别名，或命中英文名的末词；
+    /// 作品部分命中 catalog_games 的键/中/英文名。任一不成立就不匹配，避免跨作品重名误挂。
+    /// </summary>
+    private static List<NameHit> MatchWorkQualified(
+        Dictionary<string, List<NameHit>> byTerm,
+        Dictionary<string, List<NameHit>> byLastWord,
+        IReadOnlyDictionary<string, (string Zh, string En)> games,
+        string category, string tagName)
+    {
+        var match = WorkQualifiedSuffix.Match(tagName ?? "");
+        if (!match.Success) return [];
+        var workTerm = Norm(match.Groups[1].Value);
+        if (workTerm.Length == 0) return [];
+
+        // danbooru 会叠多层括号（aria_(human)_(zenless_zone_zero)），
+        // 最后一层是作品，前面的是形态修饰；逐层剥到能命中名字为止。
+        var baseName = (tagName ?? "")[..match.Index];
+        var pool = LookupPool(baseName);
+        for (var depth = 0; pool.Count == 0 && depth < 3; depth++)
+        {
+            var tail = WorkQualifiedSuffix.Match(baseName);
+            if (!tail.Success || tail.Index == 0) break;
+            baseName = baseName[..tail.Index];
+            pool = LookupPool(baseName);
+        }
+        if (pool.Count == 0) return [];
+
+        // danbooru 常把衍生作统一写成父作品（终末地角色也标成 arknights），
+        // 所以按「作品家族」取候选：自身 + 名字以它开头的子作品，再由上层判唯一。
+        var gameKeys = FamilyGameKeys(games, workTerm);
+        if (gameKeys.Count == 0) return [];
+
+        List<NameHit> LookupPool(string text)
+        {
+            var term = Norm(text);
+            if (term.Length == 0) return [];
+            var hits = new List<NameHit>();
+            if (byTerm.TryGetValue(term, out var byName)) hits.AddRange(byName);
+            if (byLastWord.TryGetValue(term, out var byWord))
+                hits.AddRange(byWord.Where(hit => !hits.Any(old => old.Key == hit.Key)));
+            return hits;
+        }
+
+        return pool.Where(hit => string.Equals(hit.Kind, category, StringComparison.Ordinal)
+            && gameKeys.Contains(hit.Game, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>
+    /// 作品家族：自身，加上键/中/英名以它开头的衍生作。
+    /// danbooru 把终末地角色一律写成 <c>arknights</c>，所以要在家族内找候选，
+    /// 再由「角色名是否唯一」决定归属；重名时上层会判歧义、不自动挂。
+    /// </summary>
+    private static List<string> FamilyGameKeys(
+        IReadOnlyDictionary<string, (string Zh, string En)> games, string workTerm)
+    {
+        var list = new List<string>();
+        foreach (var game in games)
+        {
+            if (Norm(game.Key) == workTerm || Norm(game.Value.Zh) == workTerm || Norm(game.Value.En) == workTerm
+                || StartsWithLonger(Norm(game.Key), workTerm) || StartsWithLonger(Norm(game.Value.Zh), workTerm)
+                || StartsWithLonger(Norm(game.Value.En), workTerm))
+                list.Add(game.Key);
+        }
+        return list;
+    }
+
+    /// <summary>后者必须是前者的前缀且够长（≥4），避免短键把不相干的作品吸进来。</summary>
+    private static bool StartsWithLonger(string text, string prefix)
+        => prefix.Length >= 4 && text.Length > prefix.Length && text.StartsWith(prefix, StringComparison.Ordinal);
+
     /// <summary>把同一身份下的 cn/wiki 两条记录折成一个候选；优先用身份锚点自身。</summary>
     private static List<NameHit> CollapseIdentities(IEnumerable<NameHit> hits)
     {
@@ -1190,6 +1301,182 @@ public sealed class TagCatalogService
                 map[hit.Identity] = hit;
         }
         return map.Values.ToList();
+    }
+
+    /// <summary>
+    /// 手动加角色标签时顺带补作品：角色 → 身份 → 所属作品，返回该作品在库里的作品标签名。
+    /// 候选实体自己的作品键优先；没有候选时先看标签已绑身份，再退回名字唯一命中。
+    /// existingWorkTags 传图片当前已有的作品标签：其中只要有一个属于该身份的作品，就返回 null（已满足）。
+    /// 无法唯一确定（无身份、名字歧义、缺少作品键、跨作品又没有候选）时返回 null，不猜。
+    /// 只读：返回的作品标签可能还不存在，由调用方按原路径创建。
+    /// </summary>
+    public string? SuggestWorkTag(string characterName, string entityKey = "",
+        IReadOnlyCollection<string>? existingWorkTags = null)
+    {
+        var name = (characterName ?? "").Trim();
+        if (name.Length == 0) return null;
+        using var conn = Open();
+
+        var identity = "";
+        var ownGame = "";
+        // 作品键是否明确指定过（候选实体或标签已绑的实体）；按名字猜出来的不算。
+        var gameKnown = false;
+        if (entityKey.Length > 0)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT COALESCE(NULLIF(identity_key,''),entity_key),COALESCE(game_key,'') " +
+                "FROM catalog_entities WHERE entity_key=$k";
+            cmd.Parameters.AddWithValue("$k", entityKey);
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                identity = r.GetString(0);
+                ownGame = r.GetString(1);
+                gameKnown = ownGame.Length > 0;
+            }
+        }
+
+        if (identity.Length == 0)
+        {
+            // 标签已经绑过身份（人工关联或自动对齐）时以它为准，比按名字再猜一次可靠。
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT COALESCE(ti.identity_key,''),COALESCE(e.game_key,'') FROM tags t " +
+                "LEFT JOIN tag_identities ti ON ti.tag_id=t.id " +
+                "LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
+                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+                "WHERE t.name=$n COLLATE NOCASE AND COALESCE(t.category,'custom')='character' " +
+                "ORDER BY COALESCE(ti.identity_key,'')='' LIMIT 1";
+            cmd.Parameters.AddWithValue("$n", name);
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                identity = r.GetString(0);
+                ownGame = r.GetString(1);
+                gameKnown = ownGame.Length > 0;
+            }
+        }
+
+        if (identity.Length == 0)
+        {
+            var byTerm = LoadNameIndex(conn);
+            var byLastWord = LoadLastWordIndex(conn);
+            var games = GameNames();
+            var hits = MatchWorkQualified(byTerm, byLastWord, games, "character", name);
+            if (hits.Count == 0)
+            {
+                var term = Norm(BaseName(name));
+                if (term.Length > 0 && byTerm.TryGetValue(term, out var byName))
+                    hits = byName.Where(hit => string.Equals(hit.Kind, "character", StringComparison.Ordinal)).ToList();
+            }
+            var collapsed = CollapseIdentities(hits);
+            if (collapsed.Count != 1) return null;
+            identity = collapsed[0].Identity;
+            ownGame = collapsed[0].Game;
+        }
+
+        var members = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT DISTINCT game_key FROM catalog_memberships " +
+                "WHERE identity_key=$i AND COALESCE(game_key,'')<>''";
+            cmd.Parameters.AddWithValue("$i", identity);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) members.Add(r.GetString(0));
+        }
+        if (ownGame.Length > 0 && !members.Contains(ownGame, StringComparer.OrdinalIgnoreCase))
+            members.Add(ownGame);
+        if (members.Count == 0) return null;
+
+        // 图片已经有该身份的任一作品标签：不重复贴。
+        if (existingWorkTags is { Count: > 0 })
+        {
+            var already = WorkTagGames(conn, existingWorkTags);
+            if (already.Any(game => members.Contains(game, StringComparer.OrdinalIgnoreCase))) return null;
+        }
+
+        // 跨作品身份只补候选实体自己那一部；没指定作品又跨多作品时不猜。
+        var target = ownGame;
+        if (!gameKnown && members.Count > 1) return null;
+        if (target.Length == 0)
+        {
+            if (members.Count != 1) return null;
+            target = members[0];
+        }
+        return WorkTagNameForGame(conn, target);
+    }
+
+    /// <summary>作品键 → 库里已有的作品标签名（优先绑了同作品实体的，其次使用数多的）；没有就用作品键本身。</summary>
+    private string WorkTagNameForGame(SqliteConnection conn, string game)
+    {
+        var games = GameNames();
+        var candidates = new List<(string Name, int Count)>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT t.name,COALESCE(e.game_key,'')," +
+                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) c " +
+                "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
+                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+                "WHERE COALESCE(t.category,'custom')='work'";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var name = r.GetString(0);
+                var tagGame = r.GetString(1);
+                var hit = tagGame.Length > 0
+                    ? string.Equals(tagGame, game, StringComparison.OrdinalIgnoreCase)
+                    : NamesGame(name, game, games);
+                if (hit) candidates.Add((name, r.GetInt32(2)));
+            }
+        }
+        return candidates.Count == 0
+            ? game
+            : candidates.OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Name.Length)
+                .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .First().Name;
+    }
+
+    /// <summary>没绑实体的作品标签：名字必须与作品键或作品中/英文名完全一致，不做包含匹配。</summary>
+    private static bool NamesGame(string tagName, string game,
+        IReadOnlyDictionary<string, (string Zh, string En)> games)
+    {
+        var norm = Norm(tagName);
+        if (norm.Length == 0) return false;
+        if (norm == Norm(game)) return true;
+        return games.TryGetValue(game, out var pair)
+            && ((pair.Zh.Length > 0 && norm == Norm(pair.Zh))
+                || (pair.En.Length > 0 && norm == Norm(pair.En)));
+    }
+
+    /// <summary>作品标签名 → 所属作品键；没绑实体的按名字对作品键/中英文名。</summary>
+    private List<string> WorkTagGames(SqliteConnection conn, IReadOnlyCollection<string> names)
+    {
+        var wanted = names.Select(n => (n ?? "").Trim()).Where(n => n.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var result = new List<string>();
+        if (wanted.Count == 0) return result;
+        var games = GameNames();
+        var marks = string.Join(",", wanted.Select((_, i) => $"$w{i}"));
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            $"SELECT t.name,COALESCE(e.game_key,'') FROM tags t " +
+            "LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
+            "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+            $"WHERE COALESCE(t.category,'custom')='work' AND t.name COLLATE NOCASE IN ({marks})";
+        for (var i = 0; i < wanted.Count; i++) cmd.Parameters.AddWithValue($"$w{i}", wanted[i]);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var game = r.GetString(1);
+            if (game.Length == 0)
+                game = games.FirstOrDefault(pair => NamesGame(r.GetString(0), pair.Key, games)).Key ?? "";
+            if (game.Length > 0) result.Add(game);
+        }
+        return result;
     }
 
     /// <summary>
@@ -1280,6 +1567,8 @@ public sealed class TagCatalogService
 
         // 3) 对没有被状态挡住的 character 标签，按名称唯一命中身份。
         var byTerm = LoadNameIndex(conn);
+        var byLastWord = LoadLastWordIndex(conn);
+        var catalogGames = GameNames();
         var tags = new List<(int Id, string Name, string Category, int Images)>();
         using (var cmd = conn.CreateCommand())
         {
@@ -1293,11 +1582,17 @@ public sealed class TagCatalogService
         }
 
         var existing = new HashSet<int>();
+        var missingZh = new Dictionary<int, string>();   // 已绑定但中文名还没落库的标签 → 实体键
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT tag_id FROM tag_profiles WHERE entity_key<>''";
+            cmd.CommandText = "SELECT tag_id,entity_key,COALESCE(zh,'') FROM tag_profiles WHERE entity_key<>''";
             using var r = cmd.ExecuteReader();
-            while (r.Read()) existing.Add(r.GetInt32(0));
+            while (r.Read())
+            {
+                var tagId = r.GetInt32(0);
+                existing.Add(tagId);
+                if (r.GetString(2).Length == 0) missingZh[tagId] = r.GetString(1);
+            }
         }
 
         // 新模型里的锁 / 独立状态：自动对齐一律不碰。
@@ -1363,19 +1658,40 @@ public sealed class TagCatalogService
                     else manual++;
                     continue;
                 }
-                if (existing.Contains(id) && !overwrite) { kept++; continue; }
+                if (existing.Contains(id) && !overwrite)
+                {
+                    // 早期绑定过的标签，中文名是后补的：把空的 zh 补一次，界面就不必每次运行时再解析。
+                    if (!dryRun && missingZh.TryGetValue(id, out var boundKey))
+                        WriteProfile(conn, writeTx!, id, boundKey, log);
+                    kept++;
+                    continue;
+                }
 
                 var term = Norm(BaseName(name));
                 // 只在同分类实体里找：作品标签不会接到同名角色上，反之亦然。
                 var raw = term.Length > 0 && byTerm.TryGetValue(term, out var found)
                     ? found.Where(hit => string.Equals(hit.Kind, category, StringComparison.Ordinal)).ToList()
                     : [];
+                // 带 _(作品) 的标签先用作品限定收窄：裸名查出来的同名角色（各作品的 Surtr/Ember）
+                // 会混进候选，光靠后面的作品校验只能判冲突，绑不上。
+                var qualified = MatchWorkQualified(byTerm, byLastWord, catalogGames, category, name);
+                if (qualified.Count > 0) raw = qualified;
                 if (raw.Count == 0)
                 {
                     unmatched++;
                     continue;
                 }
                 var hits = CollapseIdentities(raw);
+                if (hits.Count > 1)
+                {
+                    // 同一作品、同一英文名，只是来自不同 wiki（英文站/国服站）时视为同一个人，
+                    // 取带中文名的那条。显示层一直这么做，对齐层此前直接判歧义，两边口径要一致。
+                    var sameSource = hits.All(hit => hit.Game.Length > 0 && hit.En.Length > 0)
+                        && hits.Select(hit => (hit.Game, Name: Norm(hit.En))).Distinct().Count() == 1;
+                    if (sameSource)
+                        hits = [hits.OrderByDescending(hit => hit.Zh.Length > 0)
+                            .ThenBy(hit => hit.Key, StringComparer.Ordinal).First()];
+                }
                 if (hits.Count != 1)
                 {
                     ambiguous++;
@@ -1383,7 +1699,7 @@ public sealed class TagCatalogService
                 }
                 var hit = hits[0];
                 // 名字唯一还不够：候选身份的作品必须覆盖图片实际的作品标签，否则不自动绑。
-                if (!WorksAgree(worksByTag, gamesByIdentity, id, hit))
+                if (!WorksAgree(worksByTag, gamesByIdentity, catalogGames, id, hit))
                 {
                     conflicting++;
                     log?.Invoke($"身份冲突跳过：{category}/{name} -> {hit.Key} @ {hit.Game}");
@@ -1418,6 +1734,7 @@ public sealed class TagCatalogService
     private static bool WorksAgree(
         IReadOnlyDictionary<int, HashSet<string>> worksByTag,
         IReadOnlyDictionary<string, HashSet<string>> gamesByIdentity,
+        IReadOnlyDictionary<string, (string Zh, string En)> catalogGames,
         int tagId, NameHit hit)
     {
         if (!worksByTag.TryGetValue(tagId, out var works) || works.Count == 0) return true;
@@ -1429,8 +1746,17 @@ public sealed class TagCatalogService
         if (games.Count == 0) return false;
 
         foreach (var work in works)
-            if (!games.Any(game => GameMatchesWork(game, work)))
+        {
+            // 作品家族内互认：danbooru 把终末地角色写成 arknights，
+            // 候选实体属于家族里任一部就算作品一致，否则会被最后一道校验拦死。
+            var family = FamilyGameKeys(catalogGames, Norm(work));
+            if (family.Count > 0)
+            {
+                if (games.Any(game => family.Contains(game, StringComparer.OrdinalIgnoreCase))) continue;
                 return false;
+            }
+            if (!games.Any(game => GameMatchesWork(game, work))) return false;
+        }
         return true;
     }
 

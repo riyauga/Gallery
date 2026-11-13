@@ -1,38 +1,120 @@
 namespace Gallery.Services;
 
 /// <summary>
-/// 可热插拔的资料包目录：开发时在项目根目录，独立分发时在程序根目录。
+/// 可热插拔的资料包目录：位于当前用户独立数据目录。
 ///   <c>archive\&lt;包名&gt;\*.json</c> — 资料库包，可并存多个
 ///   <c>models\&lt;包名&gt;\</c> — 识别模型，需要 model.onnx + config.json，同时只保留一个
 /// 用户在设置页拖入压缩包或文件夹即可导入，不需要重新打包程序。
 /// </summary>
 public static class PackFolders
 {
-    /// <summary>
-    /// 资料包根目录。开发输出向上定位 Gallery.csproj；独立分发用程序目录。
-    /// 带 <c>--dataroot</c> 跑沙箱时改到沙箱里，
-    /// 免得自测把包写进真实安装目录。
-    /// </summary>
-    public static string Root => AppPaths.Sandbox is { Length: > 0 } sandbox
-        ? Path.Combine(sandbox, "packs")
-        : DefaultRoot;
+    public static string Root => Path.Combine(AppPaths.LocalDataDir, "packs");
+    public static string Archive => Path.Combine(Root, "archive");
+    public static string Models => Path.Combine(Root, "models");
+    public static string LegacyCatalog => Path.Combine(Root, "data", "tag_catalog");
+    public static string MigrationWarning { get; private set; } = "";
 
-    private static readonly string DefaultRoot = ResolveRoot();
-
-    private static string ResolveRoot()
+    public static void MigrateLegacy()
     {
+        MigrationWarning = "";
+#if GALLERY_DEVELOPMENT
+        if (AppPaths.Sandbox is not null) return;
+#endif
+        var sources = new List<string> { AppContext.BaseDirectory };
+#if GALLERY_DEVELOPMENT
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "Gallery.csproj"))) return dir.FullName;
-        return AppContext.BaseDirectory;
+            if (File.Exists(Path.Combine(dir.FullName, "Gallery.csproj"))) { sources.Add(dir.FullName); break; }
+#endif
+        var configuredModel = AppService.Settings.Settings.nsfw_model_dir;
+        if (configuredModel.Length > 0 && Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(configuredModel)) is { } modelParent &&
+            string.Equals(Path.GetFileName(modelParent), "models", StringComparison.OrdinalIgnoreCase))
+            sources.Add(Path.GetDirectoryName(modelParent)!);
+        MigrateLegacyFrom(sources);
     }
 
-    public static string Archive => Path.Combine(Root, "archive");
+    internal static void MigrateLegacyFrom(IEnumerable<string> sources)
+    {
+        foreach (var source in sources.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.Equals(Path.GetFullPath(source), Path.GetFullPath(Root), StringComparison.OrdinalIgnoreCase)) continue;
+            var marker = Path.Combine(Root, "migration-" + Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(source))) + ".done");
+            if (File.Exists(marker)) continue;
+            var conflicts = new List<string>();
+            try
+            {
+                foreach (var kind in new[] { "archive", "models", Path.Combine("data", "tag_catalog") })
+                {
+                    var old = Path.Combine(source, kind);
+                    if (!Directory.Exists(old)) continue;
+                    var target = Path.Combine(Root, kind);
+                    // Every package is staged separately. A conflicting package is never partially overwritten.
+                    foreach (var entry in Directory.EnumerateFileSystemEntries(old))
+                    {
+                        var destination = Path.Combine(target, Path.GetFileName(entry));
+                        var files = Directory.Exists(entry) ? Directory.GetFiles(entry, "*", SearchOption.AllDirectories) : [entry];
+                        bool equal(string original, string copy) => File.Exists(copy) &&
+                            new FileInfo(original).Length == new FileInfo(copy).Length &&
+                            Hash(original).SequenceEqual(Hash(copy));
+                        string mapped(string file, string root) => Directory.Exists(entry)
+                            ? Path.Combine(root, Path.GetRelativePath(entry, file)) : root;
+                        if (File.Exists(destination) || Directory.Exists(destination))
+                        {
+                            if (files.Any(f => !equal(f, mapped(f, destination))) ||
+                                (Directory.Exists(destination) && Directory.GetFiles(destination, "*", SearchOption.AllDirectories).Length != files.Length))
+                                conflicts.Add(Path.GetFileName(entry));
+                            continue;
+                        }
+                        Directory.CreateDirectory(target);
+                        var stage = destination + ".migration-" + Guid.NewGuid().ToString("N");
+                        try
+                        {
+                            foreach (var file in files)
+                            {
+                                var copy = mapped(file, stage);
+                                Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+                                File.Copy(file, copy);
+                                if (!equal(file, copy)) throw new IOException("Migration verification failed");
+                            }
+                            if (Directory.Exists(entry))
+                            {
+                                Directory.CreateDirectory(stage);
+                                Directory.Move(stage, destination);
+                            }
+                            else File.Move(stage, destination);
+                        }
+                        finally
+                        {
+                            if (Directory.Exists(stage)) Directory.Delete(stage, true);
+                            else if (File.Exists(stage)) File.Delete(stage);
+                        }
+                    }
+                }
+                Directory.CreateDirectory(Root);
+                if (conflicts.Count > 0) MigrationWarning = "部分旧资料与现有资料同名且内容不同，已保留双方内容。资料包自动加载已暂停，请确认后重新导入并重启。";
+                var model = AppService.Settings.Settings.nsfw_model_dir;
+                if (model.Length > 0 && Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(model)) is { } parent &&
+                    string.Equals(Path.GetFullPath(parent), Path.GetFullPath(Path.Combine(source, "models")), StringComparison.OrdinalIgnoreCase))
+                {
+                    var migrated = Path.Combine(Models, Path.GetFileName(Path.TrimEndingDirectorySeparator(model)));
+                    if (Directory.Exists(migrated) && !conflicts.Contains(Path.GetFileName(migrated)))
+                    { AppService.Settings.Settings.nsfw_model_dir = migrated; AppService.Settings.Save(); }
+                }
+                if (conflicts.Count == 0) File.WriteAllText(marker, "1");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                MigrationWarning = "旧资料迁移未完成，原文件已保留。资料包自动加载已暂停，请检查存储空间和访问权限后重启。";
+                FaultLog.Write("pack-migration", ex);
+            }
+        }
+    }
 
-    public static string Models => Path.Combine(Root, "models");
-
-    /// <summary>旧版外部词库目录；仍参与读取，保证早先解压到这里的包不失效。</summary>
-    public static string LegacyCatalog => Path.Combine(
-        AppPaths.Sandbox is { Length: > 0 } ? Root : AppContext.BaseDirectory, "data", "tag_catalog");
+    private static byte[] Hash(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return System.Security.Cryptography.SHA256.HashData(stream);
+    }
 
     public static void EnsureDirs()
     {

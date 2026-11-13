@@ -42,6 +42,8 @@ public sealed class TagEditorDialog
         string Detail, string ModelName, string ModelHash);
 
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>打开时图片已有的标签名：只有本次新加的角色才顺带补作品。</summary>
+    private readonly HashSet<string> _initialNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _profiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, PendingRating> _pendingRatings = new();
     private readonly List<PhotoItem> _items;
@@ -181,6 +183,7 @@ public sealed class TagEditorDialog
     private void LoadCurrent()
     {
         _entries.Clear();
+        _initialNames.Clear();
         _pendingRatings.Clear();
         _rating = "";
         _ratingMixed = false;
@@ -204,12 +207,15 @@ public sealed class TagEditorDialog
         foreach (var list in details.Values)
             foreach (var tag in list)
                 if (EditableCategories.Contains(tag.Category) && tag.Category != "rating")
+                {
                     _entries.TryAdd(tag.Name, new Entry
                     {
                         Category = tag.Category,
                         Name = tag.Name,
                         Display = tag.Display,
                     });
+                    _initialNames.Add(tag.Name);
+                }
 
         LoadRating(store, ids);
         RebuildChips();
@@ -682,10 +688,12 @@ public sealed class TagEditorDialog
         var item = _items.Count == 1 ? _items[0] : null;
         var pageUrl = item is null ? null : _pageUrl.Text.Trim();
         var sourceUrl = item is null ? null : _sourceUrl.Text.Trim();
+        var autoWork = new Dictionary<int, List<string>>();
         try
         {
             lock (AppService.DbLock)
             {
+                autoWork = SuggestWorksForNewCharacters(store, ids, include, excludeNames);
                 if (excludeNames.Count > 0) store.RemoveTags(ids, excludeNames);
                 // 保留每张图原有的其他标签：只对「添加」的集合做按分类覆盖
                 foreach (var group in includePairs.GroupBy(p => p.Category))
@@ -693,8 +701,18 @@ public sealed class TagEditorDialog
                     var cat = group.Key;
                     var names = group.Select(p => p.Name).ToList();
                     foreach (var id in ids)
-                        store.SetCategorizedTags([id], MergeWithExisting(store, id, cat, names));
+                    {
+                        var add = cat == "work" && autoWork.TryGetValue(id, out var extra)
+                            ? names.Concat(extra.Where(n => !names.Contains(n, StringComparer.OrdinalIgnoreCase)))
+                                .ToList()
+                            : names;
+                        store.SetCategorizedTags([id], MergeWithExisting(store, id, cat, add));
+                    }
                 }
+                // 作品行没有被手动改过时，补上的作品仍要单独写进去
+                if (autoWork.Count > 0 && includePairs.All(p => p.Category != "work"))
+                    foreach (var (id, extra) in autoWork)
+                        store.SetCategorizedTags([id], MergeWithExisting(store, id, "work", extra));
 
                 // 挂起的模型分级写在标签之后：NSFW/SFW 标签以模型结果为准
                 foreach (var (imageId, pending) in _pendingRatings)
@@ -732,12 +750,60 @@ public sealed class TagEditorDialog
                 item.PageUrl = pageUrl;
                 item.SourceUrl = sourceUrl;
             }
+            if (autoWork.Count > 0)
+            {
+                var added = string.Join("、", autoWork.Values.SelectMany(names => names)
+                    .Distinct(StringComparer.OrdinalIgnoreCase));
+                _toast?.Invoke($"已按角色补上作品：{added}", ToastKind.Success, null);
+            }
             return true;
         }
         catch (Exception)
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 本次新加的角色标签 → 顺带补该角色所属作品。逐张图判断：图里已有该身份的任何作品标签就跳过；
+    /// 用户刚点掉的标签不补。返回「图片 id → 要补的作品标签名」。
+    /// </summary>
+    private Dictionary<int, List<string>> SuggestWorksForNewCharacters(
+        StoreService store, List<int> ids, List<Entry> include, List<string> excludeNames)
+    {
+        var added = include
+            .Where(e => e.Category == "character" && !_initialNames.Contains(e.Name))
+            .Select(e => (e.Name, Key: _profiles.GetValueOrDefault(e.Name, "")))
+            .ToList();
+        var result = new Dictionary<int, List<string>>();
+        if (added.Count == 0) return result;
+
+        var catalog = new TagCatalogService(store);
+        var excluded = new HashSet<string>(excludeNames, StringComparer.OrdinalIgnoreCase);
+        foreach (var id in ids)
+        {
+            var current = store.CategorizedTags(id)
+                .Where(pair => pair.Category == "work")
+                .Select(pair => pair.Name)
+                .ToList();
+            var add = new List<string>();
+            foreach (var (name, key) in added)
+            {
+                string? work;
+                try { work = catalog.SuggestWorkTag(name, key, [.. current, .. add]); }
+                catch (Microsoft.Data.Sqlite.SqliteException ex)
+                {
+                    AppService.DebugLog("suggest work: " + ex.Message);
+                    continue;
+                }
+                if (string.IsNullOrEmpty(work) || excluded.Contains(work)) continue;
+                if (current.Contains(work, StringComparer.OrdinalIgnoreCase)) continue;
+                if (add.Contains(work, StringComparer.OrdinalIgnoreCase)) continue;
+                add.Add(work);
+            }
+            if (add.Count > 0) result[id] = add;
+        }
+        return result;
     }
 
     /// <summary>把该分类的「要添加的标签」合并进图片现有标签，再整体写回（避免覆盖其他分类）。</summary>

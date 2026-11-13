@@ -38,8 +38,11 @@ public sealed class NsfwService
 
     public NsfwService(StoreService store) => _store = store;
 
+#if GALLERY_DEVELOPMENT
     /// <summary>给测试用的替身打分器：不给就用真模型。</summary>
     public Func<string, CancellationToken, NsfwProbs>? OverrideScorer { get; init; }
+
+#endif
 
     /// <summary>主动重新识别的标签写入选项；默认按设置页当前勾选。</summary>
     public NsfwTagOptions TagOptions { get; init; } = NsfwTagOptions.FromSettings();
@@ -71,7 +74,9 @@ public sealed class NsfwService
         PixaiScorer? scorer = null;
         if (!options.AnyTags && !options.Rating)
             return new NsfwScanResult(0, 0, 0, 0, "请至少勾选一种识别标签");
+#if GALLERY_DEVELOPMENT
         if (OverrideScorer is null)
+#endif
         {
             var loaded = await LoadScorerAsync(settings.nsfw_model_dir, token).ConfigureAwait(false);
             scorer = loaded.Scorer;
@@ -80,8 +85,13 @@ public sealed class NsfwService
             LastDeviceNote = scorer.DeviceNote;
         }
 
+#if GALLERY_DEVELOPMENT
         var modelHash = scorer?.ModelHash ?? "test";
         var modelName = scorer?.ModelName ?? "test";
+#else
+        var modelHash = scorer!.ModelHash;
+        var modelName = scorer.ModelName;
+#endif
         var files = _store.ImageFilesForScan(modelHash, onlyStale && !options.AnyTags);
         var total = files.Count;
         if (total == 0) return new NsfwScanResult(0, 0, 0, 0, "");
@@ -112,8 +122,13 @@ public sealed class NsfwService
                             return;
                         }
 
+#if GALLERY_DEVELOPMENT
                         var prediction = scorer?.Score(item.Value, token);
                         var probs = prediction?.Probs ?? OverrideScorer!(item.Value, token);
+#else
+                        var prediction = scorer!.Score(item.Value, token);
+                        var probs = prediction.Probs;
+#endif
                         var tags = prediction?.Tags ?? Array.Empty<ModelTag>();
                         var (rating, confidence, margin) = probs.Verdict();
                         var detail = JsonSerializer.Serialize(new
@@ -206,7 +221,9 @@ public sealed class NsfwService
         PixaiScorer? scorer = null;
         if (!options.AnyTags && !options.Rating)
             return ("请至少勾选一种识别标签", new List<NsfwPreviewRow>());
+#if GALLERY_DEVELOPMENT
         if (OverrideScorer is null)
+#endif
         {
             var loaded = await LoadScorerAsync(settings.nsfw_model_dir, token).ConfigureAwait(false);
             scorer = loaded.Scorer;
@@ -215,8 +232,13 @@ public sealed class NsfwService
             LastDeviceNote = scorer.DeviceNote;
         }
 
+#if GALLERY_DEVELOPMENT
         var modelHash = scorer?.ModelHash ?? "test";
         var modelName = scorer?.ModelName ?? "test";
+#else
+        var modelHash = scorer!.ModelHash;
+        var modelName = scorer.ModelName;
+#endif
         var files = _store.ImageFilesForScan(modelHash, onlyStale: false)
             .Take(Math.Max(1, limit))
             .ToList();
@@ -238,8 +260,13 @@ public sealed class NsfwService
                     try
                     {
                         if (!File.Exists(item.Value)) return;
+#if GALLERY_DEVELOPMENT
                         var prediction = scorer?.Score(item.Value, token);
                         var probs = prediction?.Probs ?? OverrideScorer!(item.Value, token);
+#else
+                        var prediction = scorer!.Score(item.Value, token);
+                        var probs = prediction.Probs;
+#endif
                         var tags = prediction?.Tags ?? Array.Empty<ModelTag>();
                         var (rating, confidence, margin) = probs.Verdict();
                         var detail = JsonSerializer.Serialize(new

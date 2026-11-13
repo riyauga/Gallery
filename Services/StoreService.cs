@@ -2317,6 +2317,30 @@ public sealed partial class StoreService : IDisposable
         return ApplyTagDisplayNames(tags).ToDictionary(tag => (tag.Category, tag.Name), tag => tag.Display);
     }
 
+    /// <summary>
+    /// 作品标签的原始名统一用资料里的英文键：手输中文时反查实体，唯一命中才换成英文写法。
+    /// 中文只作为显示名，避免同作品出现「二重螺旋」与「duet_night_abyss」两条标签。
+    /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public string PreferWorkSourceName(string name)
+    {
+        if (name.Length == 0 || !name.Any(ch => ch >= '\u2E80')) return name;
+        var term = TagCatalogService.Norm(name);
+        if (term.Length == 0) return name;
+        var keys = new List<string>();
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT e.game_key FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key " +
+                "WHERE n.term=$t AND e.kind='work' AND COALESCE(e.game_key,'')<>''";
+            cmd.Parameters.AddWithValue("$t", term);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) keys.Add(r.GetString(0));
+        }
+        var distinct = keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return distinct.Count == 1 ? distinct[0] : name;
+    }
+
     private static string? ShortDisplay(TagInfo tag,
         Dictionary<string, string>? entityIdentity, Dictionary<string, string>? shortNames)
     {

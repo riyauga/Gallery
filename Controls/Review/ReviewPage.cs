@@ -149,6 +149,9 @@ public sealed partial class ReviewPage : Grid
         else _workCompleted?.TrySetResult();
     }
 
+    public bool HasUnconfirmedInput => _destinationEdited || _paintGesture ||
+        _tagInputs.Values.Any(input => !string.IsNullOrWhiteSpace(input.Text));
+
     public async Task DrainWorkAsync()
     {
         _batchClassifyCts?.Cancel();
@@ -605,8 +608,7 @@ public sealed partial class ReviewPage : Grid
     {
         if (AppService.IsShuttingDown || AppService.Store is not { } store) return;
         if (_basicsFailed.ContainsKey(id)) return;
-        if (!AppService.FakeNsfwScorer
-            && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir)) return;
+        if (!AppService.ModelAvailable(AppService.Settings.Settings.nsfw_model_dir)) return;
         var row = store.IngestRow(id);
         if (row is null) return;
         if (ArchiveService.NormalizeRating(row.Rating).Length > 0) return;
@@ -997,7 +999,7 @@ public sealed partial class ReviewPage : Grid
                         lock (AppService.DbLock)
                         {
                             return TagSearchService.Search(AppService.Store!, category, query)
-                                .Select(s => new TagSuggestion(s.Name, s.SearchDisplay))
+                                .Select(s => new TagSuggestion(s.Name, s.SearchDisplay, s.EntityKey))
                                 .ToList();
                         }
                     });
@@ -1010,8 +1012,16 @@ public sealed partial class ReviewPage : Grid
             {
                 var name = args.ChosenSuggestion is TagSuggestion hit ? hit.Name : args.QueryText.Trim();
                 if (name.Length == 0 || _busy) return;
+                // 手输的作品中文名换成资料里的英文键，中文只留作显示；候选里选中的已经是英文，不动。
+                if (category == "work" && args.ChosenSuggestion is not TagSuggestion
+                    && AppService.Store is { } workStore)
+                    name = workStore.PreferWorkSourceName(name);
                 if (!_tags[category].Contains(name, StringComparer.OrdinalIgnoreCase)) _tags[category].Add(name);
+                var autoWork = category == "character"
+                    ? SuggestWorkForCharacter(name, args.ChosenSuggestion as TagSuggestion)
+                    : "";
                 SaveTags(category == "rating");
+                if (autoWork.Length > 0) _status.Text = $"已保存，并按角色补上作品：{autoWork}";
                 Rebuild();
                 search.Text = "";
                 search.ItemsSource = null;
@@ -1161,7 +1171,7 @@ public sealed partial class ReviewPage : Grid
     {
         if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store
             || _selected is not { State: "pending" } row) return;
-        if (!AppService.FakeNsfwScorer && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir))
+        if (!AppService.ModelAvailable(AppService.Settings.Settings.nsfw_model_dir))
         {
             _status.Text = "还没有选择识别模型";
             return;
@@ -1301,7 +1311,7 @@ public sealed partial class ReviewPage : Grid
     private async Task AnalyzeBatchWithAiAsync()
     {
         if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store || _batchSelected.Count == 0) return;
-        if (!AppService.FakeNsfwScorer && !PixaiScorer.LooksConfigured(AppService.Settings.Settings.nsfw_model_dir))
+        if (!AppService.ModelAvailable(AppService.Settings.Settings.nsfw_model_dir))
         {
             _status.Text = "还没有选择识别模型";
             return;
@@ -1427,6 +1437,30 @@ public sealed partial class ReviewPage : Grid
         if (_pendingNotificationId is not int id) return;
         _pendingNotificationId = null;
         OpenPending(id);
+    }
+
+    /// <summary>
+    /// 手动加角色标签时顺带补作品：作品行是单选，已有作品就不覆盖，只填空缺。
+    /// 返回补上的作品标签名；没补返回空串。词库对不上或角色跨多作品且没有候选时不补。
+    /// </summary>
+    private string SuggestWorkForCharacter(string character, TagSuggestion? picked)
+    {
+        if (AppService.Store is not { } store || _tags["work"].Count > 0) return "";
+        string? work;
+        try
+        {
+            work = new TagCatalogService(store).SuggestWorkTag(character, picked?.EntityKey ?? "", _tags["work"]);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException ex)
+        {
+            _status.Text = "补作品失败：" + ex.Message;
+            return "";
+        }
+        if (string.IsNullOrEmpty(work)) return "";
+        _tags["work"].Add(work);
+        // 作品标签可能是刚建的，显示名缓存要失效一次才能取到中文名
+        _tagLabelGeneration = -1;
+        return work;
     }
 
     private void SaveTags(bool refreshProtection)
@@ -1959,7 +1993,10 @@ public sealed partial class ReviewPage : Grid
 
     private static Brush ResourceBrush(string key) => (Brush)Application.Current.Resources[key];
     private static TextBlock Caption() => new() { FontSize = 12, Opacity = .75, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
-    private sealed record TagSuggestion(string Name, string Display) { public override string ToString() => Display; }
+    private sealed record TagSuggestion(string Name, string Display, string EntityKey = "")
+    {
+        public override string ToString() => Display;
+    }
 
     /// <summary>按可用宽度换行排列标签，不把长标签或窄窗口撑出右侧信息栏。</summary>
     private sealed class TagWrapPanel : Panel

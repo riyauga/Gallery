@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Gallery.Version.props" />
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <AssemblyName>Gallery.Updater</AssemblyName><RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <PathMap>$(MSBuildProjectDirectory)=/_/Updater</PathMap>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="../Services/UpdateProtocol.cs" Link="UpdateProtocol.cs" /></ItemGroup>
+</Project>

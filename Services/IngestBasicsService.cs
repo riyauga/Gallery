@@ -22,7 +22,7 @@ public sealed class IngestBasicsService
     }
 
     public bool ModelReady =>
-        AppService.FakeNsfwScorer || PixaiScorer.LooksConfigured(_modelDir);
+        AppService.ModelAvailable(_modelDir);
 
     public bool NeedsWork(StoreService.PendingIngestRow row)
     {
@@ -144,6 +144,7 @@ public sealed class IngestBasicsService
     private bool TryScorer(out string error)
     {
         error = "";
+#if GALLERY_DEVELOPMENT
         if (AppService.FakeNsfwScorer)
         {
             _score = (path, _) => new PixaiScore("", "", "", 0, "", 0, "test", "test",
@@ -155,6 +156,7 @@ public sealed class IngestBasicsService
             return true;
         }
 
+#endif
         var scorer = PixaiScorer.TryCreate(_modelDir, out error);
         if (scorer is null)
         {

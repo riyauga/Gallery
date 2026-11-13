@@ -185,6 +185,9 @@ public sealed partial class ReviewPage
                 return;
             }
             if (category == "rating") return;
+            // 手输的作品中文名换成资料里的英文键，中文只留作显示。
+            if (hit is null && category == "work" && AppService.Store is { } workStore)
+                name = workStore.PreferWorkSourceName(name);
             if (!_palette.Any(tag => tag.Category == category && string.Equals(tag.Name, name, StringComparison.OrdinalIgnoreCase)))
             {
                 var display = hit?.Display;

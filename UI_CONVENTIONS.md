@@ -379,3 +379,7 @@ rg -n "ScrollViewer|VerticalScrollBarVisibility|SetVerticalScrollBarVisibility|S
 | 时间线圆点 | `TimelineIndicator`：同年内月份切换点，与年份文字共用距离过滤 | `TimelineLayout.CreateTimelineElementList` |
 
 参数来自当时的本机 Photos 取证；实现与数值漂移时回到当前源码核对，不把参考表当成本项目能力清单。
+
+## 关于与更新
+
+设置首页增加“关于”入口，复用常驻二级页和导航历史，显示程序集版本。检查、下载、取消下载及安装状态由独立更新服务提供；宿主负责主线程展示和安全退出。自动检查仅轻提示，手动检查可查看新版说明。行为、默认值、分发类型、跳过版本和失败处理的唯一合同见 [分发说明](DISTRIBUTION.md#应用内更新合同)。既有用户文案本轮不做全面修改。

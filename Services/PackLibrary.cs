@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Windows.Storage;
 
@@ -77,6 +79,162 @@ public static class PackLibrary
             });
         }
         finally { MutationGate.Release(); }
+    }
+
+    /// <summary>导出报告：打进压缩包的包数、文件数、记录数，以及被跳过的项。</summary>
+    public sealed record ExportReport(int Packs, int Files, int Records, List<string> Warnings);
+
+    /// <summary>压缩包根目录的元信息文件名；不是资料库包，导入时按普通文件忽略。</summary>
+    public const string ExportManifestFile = "gallery-export.json";
+
+    private static readonly JsonSerializerOptions ExportJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    /// <summary>
+    /// 把整个资料库打包成一个 zip：每个已导入包一个同名子目录（放全部资料库 JSON 原件），
+    /// 每包一份合并后的 catalog_relations.json，根目录一份元信息。
+    /// 只含公共资料；个人规则与识别模型不在其中（导入侧也不接收模型）。
+    /// </summary>
+    public static async Task<ExportReport> ExportAsync(string destination)
+    {
+        await MutationGate.WaitAsync();
+        try { return await Task.Run(() => Export(destination)); }
+        finally { MutationGate.Release(); }
+    }
+
+    private static ExportReport Export(string destination)
+    {
+        var packs = PackFolders.ArchivePacks();
+        if (packs.Count == 0) throw new InvalidOperationException("资料库里还没有可导出的内容");
+
+        var warnings = new List<string>();
+        var relations = MergedRelations(packs, warnings);
+
+        // 先收集全部字节再落盘：中途发现没有有效文件时不留半个压缩包。
+        var planned = new List<(string Dir, List<(string File, byte[] Bytes, int Records)> Files)>();
+        foreach (var dir in packs)
+        {
+            var name = Path.GetFileName(dir);
+            if (string.Equals(name, ExportManifestFile, StringComparison.OrdinalIgnoreCase))
+                name += "-pack";
+            var files = new List<(string File, byte[] Bytes, int Records)>();
+            foreach (var json in Directory.GetFiles(dir, "*.json").OrderBy(p => p, StringComparer.Ordinal))
+            {
+                var file = Path.GetFileName(json);
+                if (IsRelationsFile(file)) continue;
+                try
+                {
+                    TagCatalogService.ValidatePackFile(json);
+                    var bytes = File.ReadAllBytes(json);
+                    files.Add((file, bytes, RecordCount(bytes)));
+                }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException
+                                               or KeyNotFoundException or InvalidOperationException)
+                {
+                    warnings.Add($"{name}/{file}：{ex.Message}");
+                }
+            }
+            if (files.Count == 0)
+            {
+                warnings.Add($"{name}：没有可导出的资料文件，已跳过");
+                continue;
+            }
+            planned.Add((name, files));
+        }
+        if (planned.Count == 0) throw new InvalidOperationException("资料库里没有可导出的有效资料文件");
+
+        var records = planned.Sum(p => p.Files.Sum(f => f.Records));
+        var fileCount = planned.Sum(p => p.Files.Count);
+        using (var stream = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+        {
+            foreach (var (name, files) in planned)
+            {
+                foreach (var (file, bytes, _) in files) WriteEntry(zip, $"{name}/{file}", bytes);
+                if (relations is not null)
+                    WriteEntry(zip, $"{name}/{TagCatalogService.PublicRelationsFile}", relations);
+            }
+            WriteEntry(zip, ExportManifestFile, ManifestBytes(planned, warnings.Count));
+        }
+        return new ExportReport(planned.Count, fileCount, records, warnings);
+    }
+
+    private static bool IsRelationsFile(string file) =>
+        string.Equals(file, TagCatalogService.PublicRelationsFile, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(file, "tag_identity.json", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>合并各包的实体关系：按来源实体键去重，先出现的优先（与 LoadIdentityPlan 口径一致）。</summary>
+    private static byte[]? MergedRelations(IEnumerable<string> packDirs, List<string> warnings)
+    {
+        var links = new List<JsonElement>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dir in packDirs)
+        {
+            var path = Path.Combine(dir, TagCatalogService.PublicRelationsFile);
+            if (!File.Exists(path)) path = Path.Combine(dir, "tag_identity.json");
+            if (!File.Exists(path)) continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(TagCatalogService.PublicRelationsBytes(path));
+                foreach (var link in doc.RootElement.GetProperty("identity_links").EnumerateArray())
+                {
+                    var member = link.TryGetProperty("member", out var key) ? key.GetString() ?? "" : "";
+                    if (member.Length == 0 || !seen.Add(member)) continue;
+                    links.Add(link.Clone());
+                }
+            }
+            catch (Exception ex) when (ex is InvalidDataException or JsonException or KeyNotFoundException)
+            {
+                warnings.Add($"{Path.GetFileName(dir)}：实体关系文件无效，已跳过（{ex.Message}）");
+            }
+        }
+        if (links.Count == 0) return null;
+        return JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            format = "gallery-catalog-relations",
+            version = 1,
+            identity_links = links,
+        }, ExportJson);
+    }
+
+    private static int RecordCount(byte[] bytes)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(bytes);
+            return doc.RootElement.TryGetProperty("records", out var records)
+                && records.ValueKind == JsonValueKind.Array ? records.GetArrayLength() : 0;
+        }
+        catch (JsonException) { return 0; }
+    }
+
+    private static byte[] ManifestBytes(
+        List<(string Dir, List<(string File, byte[] Bytes, int Records)> Files)> packs, int skipped)
+    {
+        var payload = new
+        {
+            format = "gallery-library-export",
+            version = 1,
+            exported_at = DateTimeOffset.Now.ToString("O"),
+            packs = packs.Select(p => new
+            {
+                name = p.Dir,
+                files = p.Files.Count,
+                records = p.Files.Sum(f => f.Records),
+            }).ToList(),
+            skipped,
+            note = "只含公共资料库；个人规则走「个人规则备份」，识别模型需单独导入。",
+        };
+        return JsonSerializer.SerializeToUtf8Bytes(payload, ExportJson);
+    }
+
+    private static void WriteEntry(ZipArchive zip, string key, byte[] bytes)
+    {
+        var entry = zip.CreateEntry(key, CompressionLevel.Optimal);
+        using var target = entry.Open();
+        target.Write(bytes);
     }
 
     // isModel 为 null 仅供已有无窗口验证入口自动识别；设置页必须指定目标类型。

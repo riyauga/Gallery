@@ -21,7 +21,9 @@ public static class AutoStart
 
     public static void Apply(bool enabled)
     {
+#if GALLERY_DEVELOPMENT
         if (AppPaths.Sandbox is not null) return;
+#endif
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);
         if (key is null) return;
 

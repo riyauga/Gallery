@@ -6,6 +6,7 @@ namespace Gallery.Services;
 /// </summary>
 public static class AppService
 {
+#if GALLERY_DEVELOPMENT
     /// <summary>
     /// 调试开关：命令行加 <c>--nsfw-fake-scorer</c> 时判定用替身打分器（不加载 ONNX）。
     /// 只给自动化验收用，正常启动永远是 false。
@@ -24,6 +25,18 @@ public static class AppService
                 ? new NsfwProbs(0.05, 0.10, 0.15, 0.70)
                 : new NsfwProbs(0.86, 0.08, 0.04, 0.02),
         };
+    }
+
+#else
+    public static NsfwService CreateNsfwService() => new(Store!);
+#endif
+
+    public static bool ModelAvailable(string directory)
+    {
+#if GALLERY_DEVELOPMENT
+        if (FakeNsfwScorer) return true;
+#endif
+        return PixaiScorer.LooksConfigured(directory);
     }
 
     public static SettingsStore Settings { get; } = new();
@@ -46,10 +59,14 @@ public static class AppService
     /// <summary>
     /// 自动化验收用的一行日志：只写 %TEMP%\ptv\gallery-log.txt（托盘/单实例这类看不清的行为靠它断言）。
     /// </summary>
+#if GALLERY_DEVELOPMENT
     private static readonly object LogGate = new();
+#endif
 
+    [System.Diagnostics.Conditional("GALLERY_DEVELOPMENT")]
     public static void DebugLog(string line)
     {
+#if GALLERY_DEVELOPMENT
         try
         {
             var dir = Path.Combine(Path.GetTempPath(), "ptv");
@@ -64,6 +81,7 @@ public static class AppService
         {
             // 记日志失败不该影响运行
         }
+#endif
     }
 
     /// <summary>「敏感内容显示方式」这类影响缩略图重建的设置变更，通知图库重刷。</summary>
@@ -132,8 +150,12 @@ public static class AppService
             Watcher.Start();
             Settings.Changed += ApplyWriteSettings;
             DbReady = true;
-            StartCatalogImport();
-            StartPackWatch();
+            PackFolders.MigrateLegacy();
+            if (PackFolders.MigrationWarning.Length == 0)
+            {
+                StartCatalogImport();
+                StartPackWatch();
+            }
             StartBridge();
             StartIngestReconciliation();
         }
@@ -175,22 +197,24 @@ public static class AppService
             }
 
             var bridge = new Gallery.Services.Bridge.BridgeServer(store, AppVersion());
-            LogBridge($"启动：port={Settings.Settings.bridge_port} tokenLen={token.Length}");
+            DebugLog($"启动：port={Settings.Settings.bridge_port} tokenLen={token.Length}");
             if (bridge.Start(Settings.Settings.bridge_port, token))
             {
                 Bridge = bridge;
                 BridgeStatus = $"桥接监听 127.0.0.1:{bridge.Port}";
-                LogBridge(BridgeStatus);
+                DebugLog(BridgeStatus);
             }
             else
             {
                 BridgeStatus = "桥接启动失败：" + bridge.LastError;
-                LogBridge(BridgeStatus);
+                FaultLog.Write("bridge-start-failed");
+                DebugLog(BridgeStatus);
             }
         }
         catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or UnauthorizedAccessException)
         {
             BridgeStatus = "桥接启动失败：" + ex.Message;
+            FaultLog.Write("bridge-start", ex);
         }
     }
 
@@ -208,19 +232,6 @@ public static class AppService
     private static readonly List<Task> _retiredBridgeTasks = [];
 
     /// <summary>桥接诊断日志（写 %APPDATA%\Gallery\bridge.log，失败不影响主流程）。</summary>
-    private static void LogBridge(string message)
-    {
-        try
-        {
-            File.AppendAllText(Path.Combine(AppPaths.AppDataDir, "bridge.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // 日志写不了就算了
-        }
-    }
-
     /// <summary>给 /ping 用的应用版本串。</summary>
     private static string AppVersion()
     {

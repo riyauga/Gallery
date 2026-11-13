@@ -11,7 +11,7 @@ using Windows.ApplicationModel.DataTransfer;
 namespace Gallery.Views;
 
 /// <summary>
-/// 设置首页与四个常驻二级面板；导航保留任务、滚动位置及输入来源。
+/// 设置首页与六个常驻二级面板；导航保留任务、滚动位置及输入来源。
 /// 主题沿用 photos 的 SettingsViewModel.SwitchTheme：
 /// 切换后由 ThemeService.SetTheme(ElementTheme) 应用，选中项与下拉文字同步更新。
 /// </summary>
@@ -26,6 +26,7 @@ public sealed partial class SettingsPage : UserControl
         AddHandler(PointerPressedEvent, new PointerEventHandler(OnBackgroundPointerPressed), true);
         _theme = ThemeService.Parse(AppService.Settings.Settings.theme);
         ApplyState();
+        InitializeUpdates();
         foreach (var text in new[] { BridgeStatusText, PendingText, NsfwScanText, ThumbCacheText, SyncErrorText })
             text.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => RefreshSettingsSummaries());
         NsfwCancelButton.RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => RefreshSettingsSummaries());
@@ -61,6 +62,7 @@ public sealed partial class SettingsPage : UserControl
             "Recognition" => RecognitionSettingsPanel,
             "Bridge" => BridgeSettingsPanel,
             "Storage" => StorageSettingsPanel,
+            "About" => AboutSettingsPanel,
             _ => HomeSettingsPanel,
         };
         _settingsReturnEntry = entry;
@@ -86,6 +88,7 @@ public sealed partial class SettingsPage : UserControl
             "Recognition" => RecognitionSettingsPanel,
             "Bridge" => BridgeSettingsPanel,
             "Storage" => StorageSettingsPanel,
+            "About" => AboutSettingsPanel,
             _ => HomeSettingsPanel,
         };
         NavigateSettings(panel, SectionTitle(panel), FocusState.Pointer);
@@ -98,6 +101,7 @@ public sealed partial class SettingsPage : UserControl
         "RecognitionSettingsPanel" => "Recognition",
         "BridgeSettingsPanel" => "Bridge",
         "StorageSettingsPanel" => "Storage",
+        "AboutSettingsPanel" => "About",
         _ => "Home",
     };
 
@@ -108,6 +112,7 @@ public sealed partial class SettingsPage : UserControl
         "Recognition" => "智能识别",
         "Bridge" => "浏览器插件",
         "Storage" => "存储与诊断",
+        "About" => "关于",
         _ => "设置",
     };
 
@@ -499,6 +504,7 @@ public sealed partial class SettingsPage : UserControl
         _packBusy = true;
         NsfwPickButton.IsEnabled = false;
         CatalogPickButton.IsEnabled = false;
+        CatalogExportButton.IsEnabled = false;
         PersonalRulesExportButton.IsEnabled = false;
         PersonalRulesImportButton.IsEnabled = false;
         SetPackStatus(isModel, "正在导入…", isError: false);
@@ -529,6 +535,7 @@ public sealed partial class SettingsPage : UserControl
             _packBusy = false;
             NsfwPickButton.IsEnabled = !PackLibrary.HasModel;
             CatalogPickButton.IsEnabled = true;
+            CatalogExportButton.IsEnabled = true;
             PersonalRulesExportButton.IsEnabled = true;
             PersonalRulesImportButton.IsEnabled = true;
         }
@@ -686,6 +693,48 @@ public sealed partial class SettingsPage : UserControl
         stack.Children.Add(buttons);
         Grid.SetColumnSpan(stack, 2);
         row.Children.Add(stack);
+    }
+
+    private async void CatalogExport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_packBusy) return;
+        _packBusy = true;
+        CatalogExportButton.IsEnabled = false;
+        CatalogPickButton.IsEnabled = false;
+        PersonalRulesExportButton.IsEnabled = false;
+        PersonalRulesImportButton.IsEnabled = false;
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker
+            {
+                SuggestedFileName = $"Gallery-资料库-{DateTime.Now:yyyyMMdd-HHmm}",
+            };
+            picker.FileTypeChoices.Add("资料库压缩包", new List<string> { ".zip" });
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance!));
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            var report = await PackLibrary.ExportAsync(file.Path);
+            foreach (var warning in report.Warnings) AppService.DebugLog("pack export: " + warning);
+            CatalogExportStatus.Text = report.Warnings.Count == 0
+                ? $"已导出 {report.Packs} 个资料库、{report.Files} 个文件（{report.Records} 条记录）。"
+                : $"已导出 {report.Packs} 个资料库、{report.Files} 个文件（{report.Records} 条记录）；" +
+                  $"{report.Warnings.Count} 项被跳过：{string.Join("；", report.Warnings)}";
+            CatalogExportStatus.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            AppService.DebugLog("pack export failed: " + ex);
+            CatalogExportStatus.Text = "导出失败：" + ex.Message;
+            CatalogExportStatus.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _packBusy = false;
+            CatalogExportButton.IsEnabled = true;
+            CatalogPickButton.IsEnabled = true;
+            PersonalRulesExportButton.IsEnabled = true;
+            PersonalRulesImportButton.IsEnabled = true;
+        }
     }
 
     private async void PersonalRulesExport_Click(object sender, RoutedEventArgs e)
@@ -1189,8 +1238,7 @@ public sealed partial class SettingsPage : UserControl
     private async void NsfwPreview_Click(object sender, RoutedEventArgs e)
     {
         if (Services.AppService.Store is null) return;
-        if (!Services.AppService.FakeNsfwScorer &&
-            !Services.PixaiScorer.LooksConfigured(Services.AppService.Settings.Settings.nsfw_model_dir))
+        if (!Services.AppService.ModelAvailable(Services.AppService.Settings.Settings.nsfw_model_dir))
         {
             NsfwScanText.Text = "还没有选择识别模型";
             return;

@@ -275,6 +275,11 @@
                         <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE9CE;" /></ctc:SettingsCard.HeaderIcon>
                         <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
                     </ctc:SettingsCard>
+                    <ctc:SettingsCard Header="关于" Description="版本信息与应用更新" Tag="About" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE946;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
                 </StackPanel>
 
                 <StackPanel x:Name="ImportSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
@@ -697,6 +702,12 @@
                                 Visibility="Collapsed" />
                         </StackPanel>
                     </Border>
+                    <ctc:SettingsCard Margin="0,12,0,0" Header="导出资料库"
+                        Description="把全部资料库包打包成一个压缩包；别人导入后得到相同的条目。不含个人设置和识别模型">
+                        <Button x:Name="CatalogExportButton" Content="导出…" Click="CatalogExport_Click" />
+                    </ctc:SettingsCard>
+                    <TextBlock x:Name="CatalogExportStatus" TextWrapping="Wrap" Visibility="Collapsed"
+                        Style="{StaticResource CaptionTextBlockStyle}" Margin="16,6,16,0" />
                     <ctc:SettingsCard Margin="0,12,0,0" Header="个人规则备份"
                         Description="保存和恢复标签关联、显示设置、目录规则与历史整理决定；不随公共资料包共享">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -795,6 +806,18 @@
                             <Button Click="SyncErrorClear_Click" Content="清空" />
                         </StackPanel>
                     </ctc:SettingsCard>
+                </StackPanel>
+                <StackPanel x:Name="AboutSettingsPanel" MaxWidth="958" Margin="0,24,0,64" Spacing="12" Visibility="Collapsed">
+                    <TextBlock Text="Gallery" Style="{StaticResource TitleTextBlockStyle}" />
+                    <TextBlock x:Name="AppVersionText" />
+                    <ToggleSwitch x:Name="AutoUpdateToggle" Header="启动时检查更新" OnContent="已开启" OffContent="已关闭" Toggled="AutoUpdate_Toggled" />
+                    <TextBlock Text="开启后，每次启动检查一次。下载和安装前都会征求你的同意。" TextWrapping="Wrap" />
+                    <Button x:Name="CheckUpdateButton" Content="检查更新" Click="CheckUpdate_Click" />
+                    <TextBlock x:Name="UpdateStatusText" TextWrapping="Wrap" />
+                    <Button x:Name="UpdateDetailsButton" Content="查看新版变化" Visibility="Collapsed" Click="UpdateDetails_Click" />
+                    <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100" Visibility="Collapsed" />
+                    <Button x:Name="CancelUpdateButton" Content="取消下载" Visibility="Collapsed" Click="CancelUpdate_Click" />
+                    <Button x:Name="InstallUpdateButton" Content="安装并重启" Visibility="Collapsed" Click="InstallUpdate_Click" />
                 </StackPanel>
             </Grid>
         </ScrollViewer>

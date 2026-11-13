@@ -309,9 +309,32 @@ public sealed partial class MainWindow : Window
         Services.AppService.DebugLog("tray start requested");
     }
 
-    private async Task QuitAsync()
+    private async Task<bool> InstallUpdateAsync(PreparedUpdate update)
     {
-        if (_quitting) return;
+        if (_reviewPage?.HasUnconfirmedInput == true)
+        {
+            var choice = await DialogService.ShowAsync(new ContentDialog
+            {
+                XamlRoot = RootGrid.XamlRoot, Title = "还有未确认的输入",
+                Content = "审核页有尚未添加的标签文字、未归档的目标目录或进行中的操作。已保存的标签会保留。你可以返回完成输入，也可以放弃这些未确认的输入并更新。",
+                PrimaryButtonText = "放弃输入并更新", CloseButtonText = "返回完成输入", DefaultButton = ContentDialogButton.Close,
+            });
+            if (choice != ContentDialogResult.Primary) return false;
+        }
+        return await QuitAsync(update);
+    }
+
+    private async Task<bool> QuitAsync(PreparedUpdate? update = null)
+    {
+        if (_quitting) return false;
+        System.Diagnostics.Process? updater = null;
+        if (update is not null)
+        {
+            try { updater = UpdateService.StartHelper(update); }
+            catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception)
+            { FaultLog.Write("update-helper", ex); return false; }
+        }
+        _settingsPage.CancelUpdateDownload();
         _quitting = true;
         AppService.BeginShutdown();
         _ingestCard?.Dismiss();
@@ -325,10 +348,12 @@ public sealed partial class MainWindow : Window
             await Task.WhenAll(_folderOperations.ToArray());
             await _page.DrainFileOperationsAsync();
             await AppService.ShutdownAsync();
+            if (update is not null) File.WriteAllText(Path.Combine(update.Directory, "install"), "1");
             _tray?.Dispose();
             _tray = null;
             Close();
             Application.Current.Exit();
+            return true;
         }
         catch (Exception ex)
         {
@@ -336,8 +361,17 @@ public sealed partial class MainWindow : Window
             AppService.CancelShutdown();
             RootGrid.IsHitTestVisible = true;
             BringToFront();
+            if (update is not null)
+            {
+                var signal = Path.Combine(update.Directory, "install");
+                if (File.Exists(signal)) File.Delete(signal);
+                if (updater is { HasExited: false }) updater.Kill();
+            }
+            FaultLog.Write("shutdown", ex);
             ShowToast("退出失败：" + ex.Message);
+            return false;
         }
+        finally { updater?.Dispose(); }
     }
 
     private void UpdateTrayTip()
@@ -611,6 +645,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _settingsPage.SetUpdateHost(() => RootGrid.XamlRoot, update => InstallUpdateAsync(update), message => ShowToast(message));
         Instance = this;
 
         Nav.MenuItems.Add(_settingsNavigationItem);
@@ -782,6 +817,9 @@ public sealed partial class MainWindow : Window
             HookReviewBadge();
             HookDisplayMode();
             SetupTray();
+            if (AppService.DbReady) UpdateService.ConfirmStartup(Environment.GetCommandLineArgs());
+            if (PackFolders.MigrationWarning.Length > 0) ShowToast(PackFolders.MigrationWarning);
+            _ = _settingsPage.CheckStartupUpdateAsync();
             UpdateTitleBarRegions();
             UpdateTrayTip();
         };

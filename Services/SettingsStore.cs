@@ -16,6 +16,8 @@ namespace Gallery.Services;
 /// </remarks>
 public sealed class AppSettings
 {
+    public bool check_updates_on_start { get; set; } = true;
+    public string skipped_update_version { get; set; } = "";
     public List<string> created_folders { get; set; } = [];
     public List<string> roots { get; set; } = [];
     public string sort_key { get; set; } = "added";
@@ -101,8 +103,11 @@ public sealed class AppSettings
 
 public sealed class AppPaths
 {
+#if GALLERY_DEVELOPMENT
     /// <summary>测试沙箱重定向（--dataroot）；null = 用户真实数据目录。</summary>
     public static string? Sandbox { get; set; }
+
+#endif
 
     public static string AppDataDir { get; private set; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Gallery");
@@ -114,6 +119,7 @@ public sealed class AppPaths
     public static string DbPath => Path.Combine(LocalDataDir, "library.db");
     public static string ThumbCacheDir => Path.Combine(LocalDataDir, "thumbs");
 
+#if GALLERY_DEVELOPMENT
     /// <summary>重定向到沙箱目录（真实数据零接触）。须在任何使用前调用。</summary>
     public static void ApplySandbox(string dir)
     {
@@ -121,6 +127,8 @@ public sealed class AppPaths
         AppDataDir = Path.Combine(dir, "config");
         LocalDataDir = Path.Combine(dir, "local");
     }
+
+#endif
 
     public static void EnsureDirs()
     {
