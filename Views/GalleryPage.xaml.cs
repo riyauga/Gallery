@@ -902,6 +902,20 @@ public sealed partial class GalleryPage : UserControl
     }
     private void SyncFilterMenuChecks()
     {
+        bool active = _filterPanel.Include.Count > 0 || _filterPanel.Exclude.Count > 0
+            || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
+        if (active)
+        {
+            FilterButton.SetBinding(Control.BackgroundProperty, new Microsoft.UI.Xaml.Data.Binding
+                { Source = SelectButton, Path = new PropertyPath(nameof(Control.Background)) });
+            FilterButton.SetBinding(Control.BorderBrushProperty, new Microsoft.UI.Xaml.Data.Binding
+                { Source = SelectButton, Path = new PropertyPath(nameof(Control.BorderBrush)) });
+        }
+        else
+        {
+            FilterButton.ClearValue(Control.BackgroundProperty);
+            FilterButton.ClearValue(Control.BorderBrushProperty);
+        }
     }
 
     private void SyncLayoutMenuChecks()
@@ -935,6 +949,15 @@ public sealed partial class GalleryPage : UserControl
     public async Task HandleGalleryKeyAsync(KeyRoutedEventArgs e, bool contentFocus)
     {
         bool ctrl = IsCtrlDown(), shift = IsShiftDown();
+        if (ctrl && !shift && e.Key is VirtualKey.B or VirtualKey.L)
+        {
+            if (!contentFocus || _selected.Count > 1) return;
+            var single = SelectedItems().FirstOrDefault() ?? _items.FirstOrDefault(item => SelectionId(item) == _keyboardFocusId);
+            if (single is null || single.IsVideo) return;
+            e.Handled = true;
+            await SetWallpaperAsync(single, e.Key == VirtualKey.L ? WallpaperTarget.LockScreen : WallpaperTarget.Desktop);
+            return;
+        }
         bool arrow = e.Key is VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down;
         if ((arrow || e.Key is VirtualKey.Space or VirtualKey.Enter or VirtualKey.Delete or VirtualKey.F2 or VirtualKey.F3)
             && !contentFocus) return;
@@ -1320,7 +1343,14 @@ public sealed partial class GalleryPage : UserControl
             }));
             // 视频不能做桌面壁纸；非图片格式由系统判定，失败会提示。
             if (!item.IsVideo)
-                menu.Items.Add(Item("设置为桌面背景", "\uE91B", () => SetWallpaper(item)));
+            {
+                var setAs = new MenuFlyoutSubItem { Text = "设置为", Icon = new FontIcon { Glyph = "\uE91B" } };
+                var screen = Item("锁屏界面", "\uE72E", () => _ = SetWallpaperAsync(item, WallpaperTarget.LockScreen));
+                screen.KeyboardAcceleratorTextOverride = "Ctrl+L";
+                var desktop = Item("背景", "\uE91B", () => _ = SetWallpaperAsync(item, WallpaperTarget.Desktop));
+                desktop.KeyboardAcceleratorTextOverride = "Ctrl+B";
+                setAs.Items.Add(screen); setAs.Items.Add(desktop); menu.Items.Add(setAs);
+            }
         }
         menu.Items.Add(Item("复制/移动", "\uE8DE", () => _ = CopyMoveAsync(ids)));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -1385,20 +1415,19 @@ public sealed partial class GalleryPage : UserControl
         }
     }
 
-    /// <summary>SystemParametersInfo 设置桌面背景；超过 20 MB 时只提示、不提交。</summary>
-    private void SetWallpaper(PhotoItem item)
+    public async Task SetWallpaperAsync(PhotoItem item, WallpaperTarget target)
     {
-        if (item.FileSize > WallpaperService.MaxBytes)
+        if (item.IsVideo || AppService.IsShuttingDown) return;
+        var label = target == WallpaperTarget.LockScreen ? "锁屏界面" : "桌面背景";
+        var task = WallpaperService.SetAsync(item.FullPath, target);
+        _fileOperations.Add(task);
+        try
         {
-            SendToast("图片超过 20 MB，未设置为桌面背景", Gallery.Controls.ToastKind.Pending);
-            return;
+            var result = await task;
+            SendToast(result.Success ? "已设置为" + label : "设置" + label + "失败：" + result.Error,
+                result.Success ? Gallery.Controls.ToastKind.Success : Gallery.Controls.ToastKind.Pending);
         }
-        if (WallpaperService.TrySet(item.FullPath, out var error))
-        {
-            SendToast("已设置为桌面背景", Gallery.Controls.ToastKind.Success);
-            return;
-        }
-        SendToast("设置桌面背景失败：" + error, Gallery.Controls.ToastKind.Pending);
+        finally { _fileOperations.Remove(task); }
     }
 
     /// <summary>删除选中（回收站 + 二次确认，取消为默认，红 #ff99a4）。</summary>

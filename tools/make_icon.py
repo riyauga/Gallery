@@ -3,7 +3,7 @@
 字形取 Segoe Fluent Icons 的 E91B（就是 MainWindow.xaml 里标题栏那个 FontIcon 用的码位），
 字体用系统自带的 C:\\Windows\\Fonts\\SegoeIcons.ttf（不进仓库、不随项目分发）。
 样式：深灰 #2B2B2B 圆角方底 + 浅描边 + 白字形；尺寸 16/20/24/32/40/48/64/128/256。
-同时从 ICO 导出 extension/icons 下的 16/32/48/128px PNG，保持插件与桌面应用一致。
+扩展单独生成透明底、大主体的16/32/48/128px PNG；桌面图标保持原圆角底板。
 
 用法：
     python tools/make_icon.py                      # 写 assets/Gallery.ico
@@ -53,10 +53,28 @@ def render_master() -> Image.Image:
     return canvas.resize((MASTER, MASTER), Image.LANCZOS)
 
 
+def write_extension_icons(root):
+    font = ImageFont.truetype(FONT_PATH, MASTER * SUPERSAMPLE)
+    glyph = Image.new("RGBA", (MASTER * SUPERSAMPLE * 2, MASTER * SUPERSAMPLE * 2))
+    ImageDraw.Draw(glyph).text((MASTER * SUPERSAMPLE, MASTER * SUPERSAMPLE), GLYPH, font=font, fill="white", stroke_width=round(MASTER * SUPERSAMPLE * .025), stroke_fill=(45, 45, 45, 255), anchor="mm")
+    glyph = glyph.crop(glyph.getbbox())
+    for edge in (16, 32, 48, 128):
+        ink = glyph.copy()
+        ink.thumbnail((round(edge * .94), round(edge * .94)), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (edge, edge))
+        canvas.alpha_composite(ink, ((edge - ink.width) // 2, (edge - ink.height) // 2))
+        canvas.save(os.path.join(root, "extension", "icons", f"icon{edge}.png"))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview", help="额外导出一张 256 预览 PNG 的路径")
+    parser.add_argument("--extension-only", action="store_true", help="只生成透明底扩展图标，不修改桌面图标")
     args = parser.parse_args()
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if args.extension_only:
+        write_extension_icons(root)
+        return
 
     master = render_master()
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,11 +82,7 @@ def main() -> None:
     master.save(target, format="ICO", sizes=[(s, s) for s in SIZES])
     print(f"wrote {target} ({os.path.getsize(target)} bytes, sizes={SIZES})")
 
-    with Image.open(target) as icon:
-        for size in [16, 32, 48, 128]:
-            extension_icon = os.path.join(root, "extension", "icons", f"icon{size}.png")
-            icon.ico.getimage((size, size)).save(extension_icon)
-            print(f"wrote {extension_icon}")
+    write_extension_icons(root)
 
     if args.preview:
         master.save(args.preview)

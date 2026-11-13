@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="Gallery.Version.props" />
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -19,6 +19,7 @@
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
     <Microsoft_AI_DirectML_SkipDebugLayerCopy Condition="'$(Configuration)' == 'Release'">true</Microsoft_AI_DirectML_SkipDebugLayerCopy>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -68,6 +69,7 @@
     <Content Include="extension\*.js;extension\*.html;extension\*.css;extension\manifest.json;extension\icons\*.png;extension\README.md" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
     <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
+    <EmbeddedResource Include="Controls\Review\Spray.cur" LogicalName="Gallery.Controls.Review.Spray.cur" />
     <EmbeddedResource Include="Controls\Review\ReviewCarousel.html" LogicalName="Gallery.Controls.Review.ReviewCarousel.html" />
   </ItemGroup>
 </Project>

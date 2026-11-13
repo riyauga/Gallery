@@ -118,10 +118,20 @@ public sealed partial class ReviewPage
     private Point _dragOriginPage;
     private bool _dragArmed, _dragFinishing;
 
+    private readonly TextBlock _paintHint = new()
+    {
+        Text = "鼠标左键：贴上标签 鼠标右键：移除标签",
+        FontSize = 12, Opacity = .7, TextTrimming = TextTrimming.CharacterEllipsis,
+        VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed,
+    };
+
     private UIElement BuildWorkbench()
     {
         // 撤销/重做留在容器外右上方，无背景纯图标。
-        var header = new Grid();
+        var header = new Grid { ColumnSpacing = 8 };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(_paintHint);
         var history = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right };
         StyleHistoryButton(_undoPaint, "撤销 (Ctrl+Z)");
         StyleHistoryButton(_redoPaint, "重做 (Ctrl+Y)");
@@ -129,6 +139,7 @@ public sealed partial class ReviewPage
         _redoPaint.Click += (_, _) => StartUndoRedo(true);
         history.Children.Add(_undoPaint);
         history.Children.Add(_redoPaint);
+        Grid.SetColumn(history, 1);
         header.Children.Add(history);
         _workbench.Children.Add(header);
 
@@ -1376,6 +1387,8 @@ public sealed partial class ReviewPage
 
     private void UpdateWorkbenchState()
     {
+        _paintHint.Visibility = _batchMode && _paintTag is not null && _paintTag.Category != ClearCategory
+            ? Visibility.Visible : Visibility.Collapsed;
         if (!_batchMode) { _carousel.SetTagTool(ReviewCarousel.TagToolState.None); return; }
         _undoPaint.IsEnabled = !_busy && !_paintGesture && _paintUndo.Count > 0;
         _redoPaint.IsEnabled = !_busy && !_paintGesture && _paintRedo.Count > 0;
@@ -1811,6 +1824,14 @@ public sealed partial class ReviewPage
                 if (tag.Category != ClearCategory && !string.IsNullOrWhiteSpace(tag.Name)
                     && !_palette.Any(item => item.Category == tag.Category && string.Equals(item.Name, tag.Name, StringComparison.OrdinalIgnoreCase)))
                     _palette.Add(tag with { Display = string.IsNullOrWhiteSpace(tag.Display) ? tag.Name : tag.Display });
+            if (AppService.Store is { } store)
+            {
+                var labels = store.ResolveTagLabels(_palette.Where(tag => tag.Category is "work" or "character")
+                    .Select(tag => (Category: tag.Category, Name: tag.Name)));
+                for (var i = 0; i < _palette.Count; i++)
+                    if (labels.TryGetValue((_palette[i].Category, _palette[i].Name), out var label))
+                        _palette[i] = _palette[i] with { Display = label };
+            }
         }
         catch (JsonException ex) { AppService.DebugLog("review palette: " + ex.Message); }
     }

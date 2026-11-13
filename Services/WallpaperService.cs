@@ -1,46 +1,68 @@
 using System.Runtime.InteropServices;
+using Windows.Storage;
+using Windows.System.UserProfile;
 
 namespace Gallery.Services;
 
-/// <summary>
-/// 桌面壁纸：走系统桌面接口 SystemParametersInfo(SPI_SETDESKWALLPAPER)。
-/// 超过 20 MiB 的图片不提交（与界面入口的提示保持一致），文件是否真的可用由系统判定。
-/// </summary>
+public enum WallpaperTarget { Desktop, LockScreen }
+
+/// <summary>System personalization. Never modifies the source image or machine policy.</summary>
 public static class WallpaperService
 {
-    public const long MaxBytes = 20L * 1024 * 1024;
-
-    private const uint SPI_SETDESKWALLPAPER = 0x0014;
-    private const uint SPIF_UPDATEINIFILE = 0x01;
-    private const uint SPIF_SENDCHANGE = 0x02;
-
+    private static readonly SemaphoreSlim Setting = new(1, 1);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SystemParametersInfo(uint action, uint param, string value, uint flags);
 
-    /// <summary>设置失败时返回 false，error 可直接展示给用户。</summary>
-    public static bool TrySet(string path, out string error)
+    public static async Task<(bool Success, string Error)> SetAsync(string path, WallpaperTarget target)
     {
-        error = "";
-        long size;
+        if (!Setting.Wait(0)) return (false, "正在设置图片，请稍候");
+        string? pending = null;
         try
         {
-            var info = new FileInfo(path);
-            if (!info.Exists) { error = "文件已不在原位"; return false; }
-            size = info.Length;
+            if (!File.Exists(path)) return (false, "文件已不在原位");
+            if (target == WallpaperTarget.Desktop)
+            {
+                return await Task.Run(() =>
+                {
+                    if (SystemParametersInfo(0x0014, 0, path, 0x01 | 0x02)) return (true, "");
+                    var code = Marshal.GetLastWin32Error();
+                    return (false, code == 0 ? "系统拒绝了这个文件" : $"系统拒绝了这个文件（错误 {code}）");
+                });
+            }
+            if (!UserProfilePersonalizationSettings.IsSupported()) return (false, "当前系统不支持在应用中设置锁屏图片");
+            var directory = Path.Combine(AppPaths.LocalDataDir, "personalization");
+            Directory.CreateDirectory(directory);
+            var copy = Path.Combine(directory, Guid.NewGuid().ToString("N") + Path.GetExtension(path));
+            pending = copy;
+            await Task.Run(() => File.Copy(path, copy));
+            var file = await StorageFile.GetFileFromPathAsync(copy);
+            var success = await UserProfilePersonalizationSettings.Current.TrySetLockScreenImageAsync(file);
+            // Windows may continue reading the successful file after the asynchronous call returns.
+            if (success)
+            {
+                pending = null;
+                try
+                {
+                    foreach (var old in Directory.GetFiles(directory).Where(p => p != copy)) File.Delete(old);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { FaultLog.Write("personalization-cleanup", ex); }
+            }
+            return success ? (true, "") : (false, "系统未能设置锁屏图片，请检查系统个性化设置或设备策略");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or COMException or ArgumentException)
         {
-            error = ex.Message;
-            return false;
+            FaultLog.Write("personalization", ex);
+            return (false, "无法设置图片，请检查文件格式、访问权限或系统个性化设置");
         }
-        if (size > MaxBytes) { error = "图片超过 20 MB"; return false; }
-
-        if (SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path,
-                SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)) return true;
-
-        int code = Marshal.GetLastWin32Error();
-        error = code == 0 ? "系统拒绝了这个文件" : $"系统拒绝了这个文件（错误 {code}）";
-        return false;
+        finally
+        {
+            if (pending is not null)
+            {
+                try { File.Delete(pending); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { FaultLog.Write("personalization-cleanup", ex); }
+            }
+            Setting.Release();
+        }
     }
 }

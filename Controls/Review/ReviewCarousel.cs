@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices.WindowsRuntime;
+﻿using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Gallery.Models;
@@ -21,7 +21,7 @@ namespace Gallery.Controls.Review;
 /// <summary>以草图原有的本地 CSS 圆环渲染预览，原生页保留选中、保护、右键与归档契约。</summary>
 internal sealed class ReviewCarousel : Grid
 {
-    private readonly WebView2 _browser = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
+    private readonly ReviewWebView _browser = new() { DefaultBackgroundColor = Microsoft.UI.Colors.Transparent };
     private readonly Canvas _scrollOverlay = new();
     private readonly ContinuousScrollBar _settingsScroll = new() { Step = 0, Visibility = Visibility.Collapsed, ThumbThickness = 8, MinimumThumbLength = 18 };
     private bool _settingsSyncing, _settingsInteracting, _settingsVisible;
@@ -35,6 +35,8 @@ internal sealed class ReviewCarousel : Grid
     private CancellationTokenSource? _loading;
     private CancellationTokenSource? _prefetch;
     private IReadOnlyList<StoreService.PendingIngestRow>? _prefetchedRows;
+    private readonly Dictionary<(string Path, long Size, long Modified), Task<PhotoItem>> _metadata = [];
+    private bool _publishQueued;
     private readonly HashSet<string> _placeholderLoading = [];
     private Preview? _clearPreview;
     private int _index, _selectSeq;
@@ -78,6 +80,7 @@ internal sealed class ReviewCarousel : Grid
         _tagTool = state.Tool; _tagLabel = state.Label; _tagBg = state.Bg; _tagBorder = state.Border;
         _tagInk = state.Ink; _tagMarker = state.Marker;
         _tagMatches.Clear(); _tagMatches.UnionWith(state.Matches);
+        if (_tagTool is null) _browser.SetSprayCursor(false);
         PublishState();
     }
 
@@ -214,6 +217,7 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetBatchMode(bool enabled, IReadOnlyCollection<int> selected, int? singleIndex = null)
     {
+        if (!enabled) _browser.SetSprayCursor(false);
         // 退出批量时先恢复圆环索引，避免首个状态仍带着网格索引启动入场。
         if (!enabled && singleIndex is int index && _rows.Count > 0)
             _index = Math.Clamp(index, 0, _rows.Count - 1);
@@ -238,6 +242,7 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetInteractionEnabled(bool enabled)
     {
+        if (!enabled) _browser.SetSprayCursor(false);
         _interactionEnabled = enabled;
         PublishState();
     }
@@ -275,12 +280,8 @@ internal sealed class ReviewCarousel : Grid
         index = Math.Clamp(index, 0, _rows.Count - 1);
         if (index == _index) return;
         _index = index;
-        // 占位图已经整队预取，换窗口只换 9 个 src，不再取消/重启加载。
         PublishState();
-        // 预取还没轮到这一屏时，优先把当前窗口补上；已缓存/在加载的会被去重。
-        var token = _prefetch?.Token ?? CancellationToken.None;
-        if (!token.IsCancellationRequested)
-            foreach (var (row, _) in Nearby()) _ = EnsurePlaceholderAsync(row, token);
+        StartLoads();
     }
 
     /// <summary>滚动轴连续位置；follow=true 时网页直接落位，不走弹簧。</summary>
@@ -382,6 +383,8 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetActive(bool active)
     {
+        ImageLoader.SetReviewActive(active);
+        if (!active) _browser.SetSprayCursor(false);
         if (_active != active)
         {
             ++_viewGeneration;
@@ -403,7 +406,7 @@ internal sealed class ReviewCarousel : Grid
             _loading?.Cancel();
             _prefetch?.Cancel();
             _prefetchedRows = null;
-            _previews.Clear(); _clearPreview = null; _revealed.Clear();
+            _previews.Clear(); _clearPreview = null; _revealed.Clear(); _metadata.Clear();
             _clearAllowed = false;
             UnfreezeWindow();
         }
@@ -505,8 +508,8 @@ internal sealed class ReviewCarousel : Grid
 
     private IEnumerable<(StoreService.PendingIngestRow Row, int Index)> Nearby()
     {
-        var first = _batchMode ? Math.Min(_gridFirst, _rows.Count) : Math.Max(0, _index - 4);
-        var end = _batchMode ? Math.Min(_rows.Count, _gridLast + 1) : Math.Min(_rows.Count, _index + 5);
+        var first = _batchMode ? Math.Min(_gridFirst, _rows.Count) : Math.Max(0, _index - 3);
+        var end = _batchMode ? Math.Min(_rows.Count, _gridLast + 1) : Math.Min(_rows.Count, _index + 4);
         return Enumerable.Range(first, Math.Max(0, end - first)).Select(index => (_rows[index], index));
     }
 
@@ -540,6 +543,16 @@ internal sealed class ReviewCarousel : Grid
         => $"{IngestReview.CurrentPath(row)}|{Protected(row)}|clear";
 
     private void PublishState()
+    {
+        if (_publishQueued || !_ready) return;
+        _publishQueued = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            _publishQueued = false;
+            PublishStateNow();
+        });
+    }
+
+    private void PublishStateNow()
     {
         if (!_ready) return;
         var visibleIds = !_active ? [] : Nearby().Select(entry => entry.Row.Id).ToHashSet();
@@ -606,7 +619,7 @@ internal sealed class ReviewCarousel : Grid
         if (!_active || !_ready) return;
         var token = _loading.Token;
         var entries = Nearby().OrderBy(entry => Math.Abs(entry.Index - _index)).ToArray();
-        foreach (var (row, _) in entries) _ = EnsurePlaceholderAsync(row, token);
+        foreach (var (row, index) in entries) _ = EnsurePlaceholderAsync(row, token, _batchMode || index == _index ? ImagePriority.Visible : ImagePriority.Prefetch);
         // 只有停稳后才为当前中心加载清晰图；滚动过程中全部用低清占位。
         if (!_batchMode && _clearAllowed && _rows.Count > 0 && !Protected(_rows[_index]))
         {
@@ -621,7 +634,7 @@ internal sealed class ReviewCarousel : Grid
         _prefetch?.Cancel();
         _prefetch?.Dispose();
         _prefetch = new CancellationTokenSource();
-        if (!_active || rows.Count == 0) return;
+        if (!_active || rows.Count == 0 || !_batchMode) return;
         _ = PrefetchAsync(rows, _prefetch.Token);
     }
 
@@ -657,7 +670,7 @@ internal sealed class ReviewCarousel : Grid
         _sentSources.Clear();
     }
 
-    private async Task EnsurePlaceholderAsync(StoreService.PendingIngestRow row, CancellationToken token)
+    private async Task EnsurePlaceholderAsync(StoreService.PendingIngestRow row, CancellationToken token, ImagePriority priority = ImagePriority.Visible)
     {
         var key = PlaceholderKey(row);
         if (_previews.TryGetValue(row.Id, out var cached) && cached.Key == key && cached.Source.Length > 0) return;
@@ -676,9 +689,10 @@ internal sealed class ReviewCarousel : Grid
             }
             var item = await ReadItemAsync(row, token);
             // 不做运行时模糊，非中心卡片直接用 256px 低清图；受保护图片仍是预先糊好的 256px 底图。
-            var thumb = (WriteableBitmap)await ImageLoader.LoadThumbnailAsync(item, 256, blocked ? 100 : 0, token);
+            var thumb = (WriteableBitmap)await ImageLoader.LoadThumbnailAsync(item, 256, blocked ? 100 : 0, token, priority);
             token.ThrowIfCancellationRequested();
             var encoded = await EncodeJpegAsync(thumb, 76, token);
+            token.ThrowIfCancellationRequested();
             _previews[row.Id] = new Preview(key, encoded.Source,
                 (double)thumb.PixelWidth / thumb.PixelHeight, blocked, "", item, true, encoded.Average);
             PublishState();
@@ -698,7 +712,7 @@ internal sealed class ReviewCarousel : Grid
             var retry = _batchMode ? _prefetch?.Token : _loading?.Token;
             if (token.IsCancellationRequested && _active && retry is { IsCancellationRequested: false } nextToken
                 && Nearby().FirstOrDefault(entry => entry.Row.Id == row.Id).Row is { } nextRow)
-                _ = EnsurePlaceholderAsync(nextRow, nextToken);
+                _ = EnsurePlaceholderAsync(nextRow, nextToken, !_batchMode && _rows[_index].Id != row.Id ? ImagePriority.Prefetch : ImagePriority.Visible);
         }
     }
 
@@ -716,6 +730,8 @@ internal sealed class ReviewCarousel : Grid
             var bitmap = (WriteableBitmap)await ImageLoader.LoadPreviewAsync(item, 1024, token);
             token.ThrowIfCancellationRequested();
             var encoded = await EncodeJpegAsync(bitmap, 86, token);
+            token.ThrowIfCancellationRequested();
+            if (_batchMode || !_active || !_clearAllowed || _index != index || _rows.Count == 0 || _rows[_index].Id != row.Id || Protected(row)) return;
             _clearPreview = new Preview(key, encoded.Source,
                 (double)bitmap.PixelWidth / bitmap.PixelHeight, false, "", item, false, encoded.Average);
             PublishState();
@@ -732,16 +748,23 @@ internal sealed class ReviewCarousel : Grid
         }
     }
 
-    private static Task<PhotoItem> ReadItemAsync(StoreService.PendingIngestRow row, CancellationToken token)
+    private Task<PhotoItem> ReadItemAsync(StoreService.PendingIngestRow row, CancellationToken token)
     {
         var path = IngestReview.CurrentPath(row);
-        return Task.Run(() =>
+        var file = new FileInfo(path);
+        var key = (path, file.Length, file.LastWriteTimeUtc.Ticks);
+        if (!_metadata.TryGetValue(key, out var task) || task.IsFaulted || task.IsCanceled)
         {
-            var meta = Gallery.Services.ImageInfo.ReadMeta(path);
-            var file = new FileInfo(path);
-            return new PhotoItem { File = file.Name, FullPath = path, PixelWidth = meta.Width ?? 0, PixelHeight = meta.Height ?? 0,
-                Date = file.LastWriteTime, FileSize = file.Length, ModifiedAtUnix = StoreService.ToUnixSeconds(file.LastWriteTimeUtc), Tags = [("rating", "SFW")] };
-        }, token);
+            foreach (var old in _metadata.Where(pair => pair.Value.IsCompleted).Take(Math.Max(0, _metadata.Count - 63)).Select(pair => pair.Key).ToArray())
+                _metadata.Remove(old);
+            _metadata[key] = task = Task.Run(() =>
+            {
+                var meta = Gallery.Services.ImageInfo.ReadMeta(path);
+                return new PhotoItem { File = file.Name, FullPath = path, PixelWidth = meta.Width ?? 0, PixelHeight = meta.Height ?? 0,
+                    Date = file.LastWriteTime, FileSize = file.Length, ModifiedAtUnix = StoreService.ToUnixSeconds(file.LastWriteTimeUtc), Tags = [("rating", "SFW")] };
+            });
+        }
+        return task.WaitAsync(token);
     }
 
     private static Task<(string Source, string Average)> EncodeJpegAsync(WriteableBitmap bitmap, int quality, CancellationToken token)
@@ -797,6 +820,29 @@ internal sealed class ReviewCarousel : Grid
             }
             if (!_active) return;
             if (!message.TryGetProperty("viewGeneration", out var generation) || generation.GetInt32() != _viewGeneration) return;
+            if (type == "paintCursor")
+            {
+                _browser.SetSprayCursor(_batchMode && _interactionEnabled && !_frozen && _tagTool is not null
+                    && message.GetProperty("hovering").GetBoolean());
+                return;
+            }
+            if (type == "hoverTags")
+            {
+                if (!_batchMode || !_interactionEnabled || _tagTool is not null || _tagMarker is not null) return;
+                var hoverId = message.GetProperty("id").GetInt32();
+                var row = _rows.FirstOrDefault(item => item.Id == hoverId);
+                if (row is null) return;
+                var tags = IngestReview.Tags(row.Payload, row.Rating);
+                var names = tags.SelectMany(pair => pair.Value.Select(name => (Category: pair.Key, Name: name)));
+                var labels = AppService.Store?.ResolveTagLabels(names);
+                var groups = IngestReview.Categories.Select((category, index) => new
+                {
+                    title = IngestReview.Titles[index],
+                    tags = tags[category].Select(name => labels?.GetValueOrDefault((category, name), name) ?? name).ToArray(),
+                }).Where(group => group.tags.Length > 0).ToArray();
+                PostToWeb(JsonSerializer.Serialize(new { type = "hoverTags", id = hoverId, viewGeneration = _viewGeneration, groups }, Json));
+                return;
+            }
             if (type == "paint")
             {
                 // 「清除」工具没有 tagTool，只有 marker；两种都算可喷。

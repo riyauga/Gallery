@@ -33,6 +33,7 @@ public sealed partial class PreviewOverlay : Grid
     /// <summary>宿主注入菜单构建器（GalleryPage.BuildContextMenu 不含「打开」变体）。</summary>
     public Func<PhotoItem, MenuFlyout>? ContextMenuBuilder { get; set; }
     public Func<IReadOnlyCollection<int>, Task>? DeleteRequested { get; set; }
+    public Func<PhotoItem, WallpaperTarget, Task>? SetWallpaperRequested { get; set; }
     public Func<PhotoItem, Task>? RenameRequested { get; set; }
     public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
@@ -878,6 +879,24 @@ public sealed partial class PreviewOverlay : Grid
     public bool TryHandleKey(VirtualKey key)
     {
         if (!IsOpen || _closing || HasInputPopup()) return false;
+        bool control = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (control && key is VirtualKey.B or VirtualKey.L)
+        {
+            if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)
+                || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return false;
+            var focus = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
+            bool insideViewer = false;
+            for (var node = focus; node is not null; node = VisualTreeHelper.GetParent(node))
+            {
+                if (node is TextBox or PasswordBox or RichEditBox or AutoSuggestBox or SearchInputBox
+                    or TextBlock { IsTextSelectionEnabled: true }) return false;
+                if (ReferenceEquals(node, this)) { insideViewer = true; break; }
+            }
+            if (!insideViewer || _items.Count == 0 || _items[_index].IsVideo || SetWallpaperRequested is null) return false;
+            _ = SetWallpaperRequested(_items[_index], key == VirtualKey.L ? WallpaperTarget.LockScreen : WallpaperTarget.Desktop);
+            return true;
+        }
         if (key is not (VirtualKey.Escape or VirtualKey.Left or VirtualKey.Right
             or VirtualKey.Space or VirtualKey.Delete or VirtualKey.F2)) return false;
         if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
@@ -54,8 +54,10 @@ img:not([src]),[hidden]{display:none!important}
 .batch .g-tagged{outline:1px solid var(--g-tag-line);outline-offset:-2px}
 .g-fly-tag{position:fixed;z-index:160;pointer-events:none;font-size:11px;line-height:1.5;padding:1px 6px;border:1px solid var(--g-tag-line);border-radius:4px;background:var(--g-tag-bg);color:var(--g-tag-ink);white-space:nowrap;will-change:transform,opacity;opacity:0}
 .g-fly-tag.g-fly-live{opacity:1}
-body.tag-painting #deck *{cursor:inherit!important}
+body.tag-painting #deck .g-photo,body.tag-painting #deck .g-photo *{cursor:default!important}
 body.tag-clearing .g-tagged .g-tag{display:none!important}
+#tag-hover{position:fixed;z-index:10000;box-sizing:border-box;max-width:min(360px,calc(100vw - 16px));max-height:min(280px,calc(100vh - 16px));overflow:auto;padding:10px 12px;border-radius:9px;border:1px solid light-dark(#0003,#fff3);background:light-dark(#fafafa,#303030);color:light-dark(#222,#eee);box-shadow:0 5px 20px #0005;font:12px/1.5 system-ui;user-select:text;overscroll-behavior:contain}
+#tag-hover[hidden]{display:none}#tag-hover .tag-row{display:grid;grid-template-columns:38px minmax(0,1fr);gap:6px;margin:3px 0}#tag-hover .tag-title{opacity:.65}#tag-hover .tag-values{overflow-wrap:anywhere}
 </style></head><body><div id="deck" aria-label="待归档图片圆环"></div>
 <details id="tweak"><summary aria-label="预览布局设置">⚙</summary><div class="controls">
 <label>相邻图片遮挡（近似）<output id="overlap-value"></output><input id="overlap" type="range" min="0" max="95" step="1"></label>
@@ -95,7 +97,7 @@ const EASES={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*
 // 位置用连续值驱动：滚轮/拖拽只改目标，逐帧用临界阻尼弹簧跟随，停手后吸附到最近一张。
 let ringKeyboardTarget=null;
 let pos=0,goal=0,vel=0,mode='spring',wheelAt=0,raf=0,lastT=0,lastSent=-1,lastReported=-1,sentSeq=0;
-let deckDrag=false,dragMoved=false,dragY=0,dragSamples=[],suppressClick=false;
+let deckDrag=false,dragMoved=false,dragScrolling=false,dragY=0,dragSamples=[],suppressClick=false;
 let hostScroll=false,scrollSettle=false,motionActive=false,lastWindow=-1;
 const WHEEL_CLAMP=120,WHEEL_GAIN=.006,WHEEL_IDLE=150,SNAP_STIFFNESS=55,WHEEL_STIFFNESS=80;
 const DRAG_GAIN=.006,DRAG_START=4,FLING_FRICTION=1.7,FLING_STOP=.45,SELECT_HYSTERESIS=.38;
@@ -104,6 +106,35 @@ const BRIGHTNESS=[1,.78,.57,.4,.28];
 const sample=(arr,at)=>{const i=Math.min(arr.length-1,Math.floor(at)),j=Math.min(arr.length-1,i+1);return arr[i]+(arr[j]-arr[i])*Math.min(1,at-i);};
 const clampGoal=()=>{goal=count>0?Math.max(0,Math.min(count-1,goal)):0;};
 const send=value=>window.chrome.webview.postMessage({...value,viewGeneration});
+const hoverBox=document.createElement('div');hoverBox.id='tag-hover';hoverBox.hidden=true;hoverBox.setAttribute('role','tooltip');document.body.append(hoverBox);
+let hoverTimer=0,hoverCloseTimer=0,hoverId=null;
+function closeHover(){clearTimeout(hoverTimer);clearTimeout(hoverCloseTimer);hoverId=null;hoverBox.hidden=true;}
+function delayCloseHover(){clearTimeout(hoverTimer);clearTimeout(hoverCloseTimer);hoverCloseTimer=setTimeout(closeHover,180);}
+function startHover(entry){
+ if(!batch||!active||!interactive||tagTool||markerTool)return;
+ closeHover();hoverId=entry.data.id;
+ hoverTimer=setTimeout(()=>{if(hoverId===entry.data.id&&batch&&!tagTool&&!markerTool)send({type:'hoverTags',id:hoverId});},1000);
+}
+hoverBox.addEventListener('pointerenter',()=>clearTimeout(hoverCloseTimer));
+hoverBox.addEventListener('pointerleave',delayCloseHover);
+hoverBox.addEventListener('wheel',event=>event.stopPropagation(),{passive:true});
+function showHover(state){
+ if(state.viewGeneration!==viewGeneration||state.id!==hoverId||!batch||!active||!interactive||tagTool||markerTool)return;
+ const entry=cards.get(state.id);if(!entry)return;
+ hoverBox.replaceChildren();
+ for(const group of state.groups){const line=document.createElement('div');line.className='tag-row';const title=document.createElement('span');title.className='tag-title';title.textContent=group.title;const values=document.createElement('span');values.className='tag-values';values.textContent=group.tags.join(' · ');line.append(title,values);hoverBox.append(line);}
+ if(!state.groups.length)hoverBox.textContent='暂无标签';
+ hoverBox.hidden=false;hoverBox.scrollTop=0;
+ const box=entry.element.getBoundingClientRect(),width=hoverBox.offsetWidth,height=hoverBox.offsetHeight;
+ let left=box.right+8,top=box.top;
+ if(left+width>innerWidth-8)left=box.left-width-8;
+ if(left<8){left=box.left;top=box.bottom+8;if(top+height>innerHeight-8)top=box.top-height-8;}
+ hoverBox.style.left=Math.max(8,Math.min(left,innerWidth-width-8))+'px';hoverBox.style.top=Math.max(8,Math.min(top,innerHeight-height-8))+'px';
+}
+deck.addEventListener('scroll',closeHover,{passive:true});
+deck.addEventListener('pointerdown',closeHover,true);
+window.addEventListener('blur',closeHover);
+
 function finishRing(notify=false){
  const entry=ringEntry;ringEntry=null;
  if(ringTimer){clearTimeout(ringTimer);ringTimer=0;}
@@ -230,21 +261,20 @@ function startDeal(snapshot){
  }
  dealFrame=requestAnimationFrame(prepare);
 }
-let tagTool=null,markerTool=null,tagLabel='',tagBg='',tagBorder='',tagInk='',paintDrag=null,paintFrame=0,paintPending=null,flyCount=0,cursorKey='';
-function paintCursor(){
- // Chromium 不接受 SVG 光标，用画布生成 PNG 再交给 cursor。
- if(!tagTool&&!markerTool||!batch){if(cursorKey){cursorKey='';deck.style.cursor='';}return;}
- const fill=tagBg||(markerTool?'#e4e4e4':'#eee4fc'),line=tagBorder||(markerTool?'#c42b1c':'#80639c'),key=fill+'|'+line;
- if(key===cursorKey)return;
- cursorKey=key;
- const dpr=2,c=document.createElement('canvas');c.width=c.height=32*dpr;
- const x=c.getContext('2d');x.scale(dpr,dpr);
- const r=6,w=20,h=24;
- x.beginPath();x.moveTo(3+r,3);x.arcTo(3+w,3,3+w,3+h,r);x.arcTo(3+w,3+h,3,3+h,r);x.arcTo(3,3+h,3,3,r);x.arcTo(3,3,3+w,3,r);x.closePath();
- x.fillStyle=fill;x.fill();x.lineWidth=1.6;x.strokeStyle=line;x.stroke();
- x.beginPath();x.arc(19,8,2,0,Math.PI*2);x.fillStyle=line;x.fill();
- deck.style.cursor=`url("${c.toDataURL('image/png')}") 4 4, pointer`;
+let tagTool=null,markerTool=null,tagLabel='',tagBg='',tagBorder='',tagInk='',paintDrag=null,paintFrame=0,paintPending=null,flyCount=0;
+let cursorPoint=null,cursorOn=false;
+function updateNativeCursor(){
+ const eligible=active&&interactive&&batch&&tagTool&&!dealLayer;
+ const target=eligible&&cursorPoint?document.elementFromPoint(cursorPoint.x,cursorPoint.y):null;
+ const hovering=!!(target?.closest('.g-photo')&&!target.closest('[data-reveal]'));
+ if(hovering===cursorOn)return;
+ cursorOn=hovering;send({type:'paintCursor',hovering});
 }
+function paintCursor(){requestAnimationFrame(updateNativeCursor);}
+window.addEventListener('pointermove',event=>{cursorPoint=event.pointerType==='mouse'?{x:event.clientX,y:event.clientY}:null;updateNativeCursor();});
+document.documentElement.addEventListener('pointerleave',()=>{cursorPoint=null;updateNativeCursor();});
+window.addEventListener('blur',()=>{cursorPoint=null;updateNativeCursor();});
+deck.addEventListener('scroll',paintCursor,{passive:true});
 function flyTag(entry,remove,clientX,clientY){
  if(flyCount>=40||!tagLabel)return;
  const box=entry.element.getBoundingClientRect();
@@ -631,7 +661,9 @@ window.chrome.webview.addEventListener('message',event=>{
   }
   return;
  }
+ if(state.type==='hoverTags'){showHover(state);return;}
  if(state.type!=='state')return;
+ if(state.viewGeneration!==viewGeneration||!state.active||!state.interactive||!state.batch||state.tagTool||state.marker)closeHover();
  const resuming=state.active!==false&&!active;
  const nextGeneration=state.viewGeneration??0;
  if(gridPan&&(viewGeneration!==nextGeneration||!state.active||!state.interactive||!state.batch||gridSize!==(state.gridSize||'medium')))finishGridPan();
@@ -658,7 +690,7 @@ window.chrome.webview.addEventListener('message',event=>{
   // 隐藏时停止惯性；恢复时以宿主选中项为准，不能沿用旧滚动回声。
   onDragEnd();
   if(raf){cancelAnimationFrame(raf);raf=0;}
-  motionActive=false;hostScroll=false;scrollSettle=false;suppressClick=false;
+  motionActive=false;hostScroll=false;scrollSettle=false;suppressClick=false;dragScrolling=false;
   deck.classList.remove('g-scrolling','g-dragging');
   pos=goal=state.index;vel=0;mode='idle';lastSent=lastReported=state.index;
  }
@@ -675,7 +707,7 @@ window.chrome.webview.addEventListener('message',event=>{
  if(entering||leaving){
   for(const {element}of cards.values())for(const animation of element.getAnimations())animation.cancel();
   if(raf){cancelAnimationFrame(raf);raf=0;}onDragEnd();if(raf){cancelAnimationFrame(raf);raf=0;}
-  motionActive=false;hostScroll=false;suppressClick=false;deck.classList.remove('g-scrolling','g-dragging');
+  motionActive=false;hostScroll=false;suppressClick=false;dragScrolling=false;deck.classList.remove('g-scrolling','g-dragging');
   tweak.open=false;deck.scrollTop=0;gridRange='';pos=goal=state.index;vel=0;gridSpace.style.height='0px';
 
  }
@@ -688,6 +720,8 @@ window.chrome.webview.addEventListener('message',event=>{
    const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
    const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';const tag=document.createElement('span');tag.className='g-tag';tag.hidden=true;card.append(art,veil,message,spin,check,name,tag);
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
+   card.addEventListener('pointerenter',()=>startHover(entry));
+   card.addEventListener('pointerleave',delayCloseHover);
    card.addEventListener('focus',()=>{
     if(batch||!active||!interactive||!card.matches(':focus-visible')||Math.abs(goal-entry.data.index)<.001)return;
     // Tab 到旁侧卡片时，圆环目标也跟随键盘焦点；确认键始终指向同一张。
@@ -718,7 +752,7 @@ window.chrome.webview.addEventListener('message',event=>{
  settings();queuePanel();
  if(first){pos=goal=state.index;lastReported=lastSent=state.index;}
  // 宿主主动选中（卡片点击/外部选中）直接生效；只有本地滚动的旧回声需要被过滤。
- else if(active&&!batch&&!hostScroll&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
+ else if(active&&!batch&&!hostScroll&&!dragScrolling&&(state.authoritative===true||(state.seq??0)===sentSeq)&&state.index!==lastSent&&Math.abs(state.index-pos)>.51){goal=state.index;mode='spring';lastSent=lastReported=state.index;beginMotion();wake();}
  if(count===0){pos=goal=vel=0;}
  else{goal=Math.max(0,Math.min(count-1,goal));pos=Math.max(0,Math.min(count-1,pos));}
  if(active&&!batch&&motion&&count>0&&(first||resuming||leaving||wasEmpty))startRing();
@@ -742,6 +776,7 @@ function wake(){if(active&&!raf){lastT=performance.now();raf=requestAnimationFra
 function frame(now){
  raf=0;
  if(!active)return;
+ if(deckDrag&&dragMoved){render();syncSelection();return;}
  const dt=Math.min(.05,Math.max(.001,(now-lastT)/1000));lastT=now;
  // 松手后的惯性：速度按指数衰减，滚到足够慢再吸附到最近一张。
  if(mode==='fling'){
@@ -783,6 +818,7 @@ function finishMotion(){
  motionActive=false;deck.classList.remove('g-scrolling');
  const index=Math.max(0,Math.min(count-1,Math.round(pos)));
  hostScroll=false;
+ if(dragScrolling){lastReported=lastSent=index;dragScrolling=false;}
  if(active)send({type:'settled',index});
 }
 function syncWindow(){
@@ -792,7 +828,7 @@ function syncWindow(){
  send({type:'window',index});
 }
 function syncSelection(){
- if(hostScroll){syncWindow();return;}
+ if(hostScroll||dragScrolling){syncWindow();return;}
  const index=Math.round(pos);
  if(index===lastReported)return;
  // 靠近新卡片 62% 以上才提交选择，避免停在半张卡片附近时详情来回切。
@@ -822,12 +858,12 @@ function onDragMove(event){
  const now=performance.now();
  if(!dragMoved&&Math.abs(event.clientY-dragY)<DRAG_START)return;
  const dy=dragY-event.clientY;
- if(!dragMoved){dragMoved=true;deck.classList.add('g-dragging');hostScroll=false;scrollSettle=true;beginMotion();}
+ if(!dragMoved){dragMoved=true;dragScrolling=true;deck.classList.add('g-dragging');hostScroll=false;scrollSettle=true;beginMotion();}
  dragY=event.clientY;
  dragSamples.push({y:event.clientY,t:now});
  while(dragSamples.length>1&&now-dragSamples[0].t>100)dragSamples.shift();
  goal=Math.max(0,Math.min(count-1,goal+dy*DRAG_GAIN*design.drag));
- pos=goal;vel=0;render();syncSelection();
+ pos=goal;vel=0;wake();
 }
 function onDragEnd(){
  if(!deckDrag)return;

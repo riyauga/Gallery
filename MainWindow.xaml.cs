@@ -773,6 +773,7 @@ public sealed partial class MainWindow : Window
         Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
         Preview.DeleteRequested = _page.DeleteAsync;
         Preview.RenameRequested = _page.RenameAsync;
+        Preview.SetWallpaperRequested = _page.SetWallpaperAsync;
         Preview.FavoriteRequested = _page.ToggleFavoriteAsync;
         Preview.ContextMenuBuilder = item => _page.BuildContextMenu(item, includeOpen: false);
         _page.FileOperationStarting += Preview.ReleaseVideo;
