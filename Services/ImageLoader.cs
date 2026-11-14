@@ -1,4 +1,4 @@
-using Gallery.Models;
+﻿using Gallery.Models;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using SixLabors.ImageSharp;
@@ -42,7 +42,8 @@ public static class ImageLoader
     private static readonly Dictionary<Key, Task<Pixels>> BaseLoads = new();
     private static HashSet<string> _visible = new(StringComparer.Ordinal), _desired = new(StringComparer.Ordinal);
     private static DispatcherQueue? _dispatcher;
-    private static bool _pumpQueued, _galleryActive = true, _reviewActive, _previewOpen, _resizing;
+    private static bool _pumpQueued, _galleryActive = true, _reviewActive, _resizing;
+    private static int _openImageViews;
     private static int _active, _previewActive, _peakActive, _peakRequests;
     private static long _thumbnailBytes, _previewBytes, _scratch, _hits, _decodes, _builds, _baseReads, _decodeMs, _uploadMs;
     public static event Action? WorkCompleted;
@@ -80,7 +81,19 @@ public static class ImageLoader
     }
     public static void SetGalleryActive(bool active) { _galleryActive = active; if (!active) SetViewport([], []); SchedulePump(); }
     public static void SetReviewActive(bool active) { _reviewActive = active; SchedulePump(); }
-    public static void SetPreviewOpen(bool open) { _previewOpen = open; SchedulePump(); }
+
+    public static void AddImageView() { _openImageViews++; SchedulePump(); }
+    public static void RemoveImageView() { _openImageViews--; SchedulePump(); }
+    public static async Task WaitForFileIdleAsync(string path)
+    {
+        var key = FileIdentity.PathKey(path);
+        var tasks = Requests.Values.Where(r => r.Running && r.Key.Path == key).Select(r => r.Completion.Task).ToArray();
+        foreach (var task in tasks)
+        {
+            try { await task; }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or System.Runtime.InteropServices.COMException or ArgumentException) { }
+        }
+    }
 
     /// <summary>托盘隐藏时释放像素缓存与在途请求；不改数据或布局，唤回后按需重新解码。</summary>
     public static void ClearCaches()
@@ -172,7 +185,7 @@ public static class ImageLoader
         while (_active < 2)
         {
             var next = Requests.Values.Where(r => !r.Running && (r.Key.Purpose != Purpose.Preview || _previewActive == 0)
-                && (r.Priority != ImagePriority.Prefetch || ((_galleryActive || _reviewActive) && !_previewOpen && _previewActive == 0 && !_resizing)))
+                && (r.Priority != ImagePriority.Prefetch || ((_galleryActive || _reviewActive) && _openImageViews == 0 && _previewActive == 0 && !_resizing)))
                 .OrderBy(r => r.Priority).FirstOrDefault(r => _scratch + Estimate(r) <= ScratchLimit);
             if (next is null) break;
             next.Running = true; next.Weight = Estimate(next); _scratch += next.Weight;

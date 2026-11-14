@@ -1503,6 +1503,18 @@ public sealed partial class StoreService : IDisposable
         }
     }
 
+    public int? PendingLocalFile(string path)
+    {
+        EnsureBridgeSchema();
+        lock (SyncRoot)
+        {
+            using var command = _conn.CreateCommand();
+            command.CommandText = "SELECT id FROM ingest_queue WHERE inbox_path=$p COLLATE NOCASE AND state IN ('pending','missing') ORDER BY id DESC LIMIT 1";
+            command.Parameters.AddWithValue("$p", path);
+            return command.ExecuteScalar() is long id ? checked((int)id) : null;
+        }
+    }
+
     /// <summary>待处理（pending）条数，供 /ping 与侧栏指示使用。</summary>
     public int PendingIngestCount()
     {

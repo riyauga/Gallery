@@ -80,7 +80,7 @@ public sealed class ArchiveService(StoreService store)
         var name = Path.GetFileName(source);
         var destination = UniquePath(Path.Combine(destinationDir, name));
         var jobId = Guid.NewGuid().ToString("n");
-        var keepSource = KeepSource(row.Payload);
+        var keepSource = KeepsOriginal(row.Payload);
 
         // 先复制并校验，再入库，最后才删源——任何一步失败都能回滚到「源文件还在原地」
         try
@@ -143,7 +143,7 @@ public sealed class ArchiveService(StoreService store)
     }
 
     /// <summary>本地导入时选择「归档后保留原文件」；浏览器下载的记录没有这个字段，按移动处理。</summary>
-    private static bool KeepSource(string payload)
+    public static bool KeepsOriginal(string payload)
     {
         try
         {

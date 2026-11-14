@@ -237,7 +237,6 @@ public sealed partial class MainWindow : Window
         if (_lowPowerPage is not null) return;
         _lowPowerPage = ContentHost.Children.FirstOrDefault(child => child.Visibility == Visibility.Visible);
         Preview.CloseImmediate();
-        ImageLoader.SetPreviewOpen(false);
         ImageLoader.SetGalleryActive(false);
         if (ReferenceEquals(_lowPowerPage, _page)) _page.SetActive(false);
         else if (_reviewPage is not null && ReferenceEquals(_lowPowerPage, _reviewPage)) _reviewPage.SetActive(false);
@@ -321,7 +320,17 @@ public sealed partial class MainWindow : Window
             });
             if (choice != ContentDialogResult.Primary) return false;
         }
-        return await QuitAsync(update);
+        using var viewerGate = new EventWaitHandle(true, EventResetMode.ManualReset, UpdateProtocol.UpdateGateName(AppPaths.LocalDataDir));
+        viewerGate.Set();
+        var installing = false;
+        try
+        {
+            if (!await ViewerCoordinator.CloseForUpdateAsync(RootGrid.XamlRoot))
+            { ShowToast("请先完成查看窗口中的操作，再重试更新。"); return false; }
+            installing = await QuitAsync(update);
+            return installing;
+        }
+        finally { if (!installing) viewerGate.Reset(); }
     }
 
     private async Task<bool> QuitAsync(PreparedUpdate? update = null)
@@ -1054,6 +1063,37 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
+    private readonly SemaphoreSlim _desktopImports = new(1, 1);
+    public async Task<DesktopReply> HandleDesktopCommandAsync(DesktopCommand command)
+    {
+        if (command.Action != "import" || command.Paths.Length != 1) return new(false, "无法处理这个请求。");
+        await _desktopImports.WaitAsync();
+        try
+        {
+            BringToFront();
+            if (DialogService.IsShowing || _reviewPage?.IsBusyForExternalImport == true)
+                ShowToast("请先完成 Gallery 当前的输入或操作，随后会继续导入图片。");
+            while (!_quitting && (DialogService.IsShowing || _reviewPage?.IsBusyForExternalImport == true)) await Task.Delay(100);
+            if (_quitting || AppService.Store is not { } store) return new(false, "Gallery 尚未就绪，请稍后重试。");
+            var path = Path.GetFullPath(command.Paths[0]);
+            if (!File.Exists(path) || !ScannerService.ImageExts.Contains(Path.GetExtension(path))) return new(false, "这个文件不是可导入的图片，或已不在原位。");
+            BringToFront();
+            var indexed = store.QueryOne("SELECT * FROM images WHERE abs_path=$p COLLATE NOCASE", ("$p", path));
+            if (indexed is not null)
+            {
+                Nav.SelectedItem = Nav.MenuItems[0];
+                _page.OpenExistingFile(indexed);
+                return new(true, "这张图片已在图库中，已打开详情。");
+            }
+            Preview.CloseImmediate();
+            var review = _reviewPage ??= CreateReviewPage();
+            Nav.SelectedItem = ReviewNavItem;
+            await WaitUntilLoadedAsync(review);
+            return await review.ImportExternalFileAsync(path);
+        }
+        finally { _desktopImports.Release(); }
+    }
+
     /// <summary>审阅页「在图库中查看」：把窗口唤到前台并定位到当前文件。</summary>
     public System.Threading.Tasks.Task ShowInGalleryAsync(string path)
         => HandleUiRequestAsync("gallery", path);
@@ -1390,6 +1430,8 @@ public sealed partial class MainWindow : Window
         }
         finally { _folderOperations.Remove(task); }
     }
+
+    public Task AddLibraryForArchiveAsync() => TrackFolderOperationAsync(AddFolderAsync);
 
     private async Task AddFolderAsync()
     {

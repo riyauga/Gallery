@@ -866,6 +866,11 @@ public sealed partial class PreviewOverlay : Grid
         var current = _items[_index];
         int next = items.ToList().FindIndex(item => current.ImageId > 0
             ? item.ImageId == current.ImageId : item.FullPath == current.FullPath);
+        if (_request?.KeepCurrentOnFilterChanges == true && next < 0)
+        {
+            if (!File.Exists(current.FullPath) || AppService.Store?.GetImage(current.ImageId) is null) Close();
+            return;
+        }
         _items = items.ToArray();
         if (_items.Count == 0) { Close(); return; }
         _index = next >= 0 ? next : Math.Min(_index, _items.Count - 1);

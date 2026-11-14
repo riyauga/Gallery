@@ -34,6 +34,13 @@ public static class SingleInstance
         return true;
     }
 
+    public static bool IsRunning(string scope)
+    {
+        if (!Mutex.TryOpenExisting($@"Local\Gallery.SingleInstance.{ScopeOf(scope)}", out var mutex)) return false;
+        mutex.Dispose();
+        return true;
+    }
+
     /// <summary>已有实例在跑时调用：把它唤到前台。</summary>
     public static void SignalExisting(string scope)
     {

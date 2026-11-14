@@ -17,6 +17,7 @@ internal static class Program
         var newFiles = Array.Empty<string>();
         var replacing = false;
         Process? launched = null;
+        EventWaitHandle? viewerGate = null;
         try
         {
             request = JsonSerializer.Deserialize<UpdateRequest>(File.ReadAllText(Path.Combine(work, "request.json")), UpdateProtocol.Json)
@@ -25,6 +26,8 @@ internal static class Program
                 !string.Equals(Path.GetDirectoryName(work), UpdateProtocol.UpdatesRoot(request.DataRoot), StringComparison.OrdinalIgnoreCase) ||
                 !string.Equals(Path.GetDirectoryName(request.Package), work, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Invalid update workspace");
+            viewerGate = new EventWaitHandle(true, EventResetMode.ManualReset, UpdateProtocol.UpdateGateName(request.DataRoot));
+            viewerGate.Set();
             try
             {
                 using var parent = Process.GetProcessById(request.ParentId);
@@ -150,6 +153,7 @@ internal static class Program
                         File.Copy(copy, target, true);
                     }
                     File.WriteAllText(Path.Combine(work, "failed"), "更新未完成，已恢复旧程序。请重试。新版已启动过时，数据库不会自动回退。");
+                    viewerGate?.Reset();
                     Process.Start(new ProcessStartInfo(Path.Combine(request.Target, "Gallery.exe")) { UseShellExecute = false, WorkingDirectory = request.Target });
                 }
                 catch (Exception recovery)
@@ -170,7 +174,7 @@ internal static class Program
             catch (Exception logError) when (logError is IOException or UnauthorizedAccessException) { }
             return 1;
         }
-        finally { launched?.Dispose(); }
+        finally { viewerGate?.Reset(); viewerGate?.Dispose(); launched?.Dispose(); }
     }
 
     private static void NoLinks(string root, string path)

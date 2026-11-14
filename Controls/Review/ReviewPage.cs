@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Gallery.Controls.Tags;
@@ -1568,6 +1568,16 @@ public sealed partial class ReviewPage : Grid
     private async Task ArchiveAsync()
     {
         if (_busy || _paintGesture || AppService.IsShuttingDown || AppService.Store is not { } store || AppService.Archiver is not { } archiver) return;
+        if (!store.Roots().Any(root => root.Enabled))
+        {
+            if (await DialogService.ShowAsync(new ContentDialog
+            {
+                XamlRoot = XamlRoot, Title = "先添加一个图库",
+                Content = "图片已保留在待审核中。请先选择用来保存归档图片的图库文件夹。",
+                PrimaryButtonText = "添加图库", CloseButtonText = "稍后", DefaultButton = ContentDialogButton.Close,
+            }) == ContentDialogResult.Primary && _owner is MainWindow main) await main.AddLibraryForArchiveAsync();
+            return;
+        }
         var destination = _destination.Text.Trim();
         var auto = AppService.Settings.Settings.archive_auto_by_tags;
         // 只有开启自动分目录时才允许留空，明确目录始终优先。
@@ -1621,7 +1631,18 @@ public sealed partial class ReviewPage : Grid
                 }
                 var target = DestOf(id);
                 if (target.Length == 0) { failures.Add($"#{id}：没有可用的归档目录"); continue; }
-                var result = await Task.Run(() => archiver.Archive(id, target));
+                var sourceRow = store.IngestRow(id);
+                var moving = sourceRow is not null && !ArchiveService.KeepsOriginal(sourceRow.Payload);
+                var sourcePath = sourceRow is null ? "" : IngestReview.LocalPath(sourceRow);
+                if (moving && !await ViewerCoordinator.PrepareMoveAsync(sourcePath))
+                { failures.Add($"#{id}：请先完成查看窗口的文件操作，再重试归档。"); continue; }
+                ArchiveService.ArchiveResult result;
+                try { result = await Task.Run(() => archiver.Archive(id, target)); }
+                finally
+                {
+                    if (moving) await ViewerCoordinator.FinishMoveAsync(sourcePath,
+                        store.IngestRow(id) is { State: "done" } && !File.Exists(sourcePath));
+                }
                 if (result.Ok) { succeeded++; archived.Add(id); }
                 else failures.Add($"#{id}：{result.Message}");
             }
@@ -1865,6 +1886,21 @@ public sealed partial class ReviewPage : Grid
                 if (_tagInputs.TryGetValue(category, out var input)) input.Text = text;
             UpdateButtons();
         }
+    }
+
+    public bool IsBusyForExternalImport => _busy || _paintGesture || HasUnconfirmedInput;
+    public async Task<DesktopReply> ImportExternalFileAsync(string path)
+    {
+        if (AppService.Store is not { } store || _busy) return new(false, "审核页尚未就绪。");
+        if (store.PendingLocalFile(path) is int existing)
+        {
+            if (store.IngestRow(existing) is { State: "missing" }) store.SetIngestState(existing, "pending", "");
+            OpenPending(existing); return new(true, "这张图片已在待审核中，已定位。");
+        }
+        await ImportAsync([path]);
+        if (store.PendingLocalFile(path) is int added)
+        { OpenPending(added); return new(true, "已加入待审核。"); }
+        return new(false, "未加入待审核，原文件保持不变。");
     }
 
     /// <summary>侧栏「导入」与拖拽共用的入口：选完选项后写入待审核队列并刷新。</summary>

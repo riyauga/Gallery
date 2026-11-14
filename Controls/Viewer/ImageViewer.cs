@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -28,7 +28,8 @@ public sealed class ImageViewer : Grid
     private CancellationTokenSource? _loadCancellation;
     private PhotoItem? _item;
     private XamlRoot? _observedRoot;
-    private bool _ready;
+    private bool _ready, _viewRegistered;
+    private Task _metadataRead = Task.CompletedTask;
     private bool _panning;
     private Point _lastPointer;
 
@@ -84,7 +85,8 @@ public sealed class ImageViewer : Grid
     public void SetSource(PhotoItem item, ImageSource? thumbnail = null)
     {
         Clear();
-        ImageLoader.SetPreviewOpen(true);
+        ImageLoader.AddImageView();
+        _viewRegistered = true;
         _item = item;
         _path = item.FullPath;
         int pixelW = item.PixelWidth, pixelH = item.PixelHeight;
@@ -125,7 +127,9 @@ public sealed class ImageViewer : Grid
         {
             if (!_ready)
             {
-                var meta = await Task.Run(() => ImageInfo.ReadMeta(item.FullPath), cancellation.Token);
+                var reading = Task.Run(() => ImageInfo.ReadMeta(item.FullPath), cancellation.Token);
+                _metadataRead = reading;
+                var meta = await reading;
                 if (sourceVersion != _sourceVersion || loadVersion != _loadVersion) return;
                 if (meta.Width is not > 0 || meta.Height is not > 0) throw new InvalidDataException("无法读取图片尺寸");
                 _state.SetPhoto(meta.Width.Value, meta.Height.Value);
@@ -153,7 +157,7 @@ public sealed class ImageViewer : Grid
         {
             // 切图、关闭或更高分辨率请求已接管当前画面。
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
             or System.Runtime.InteropServices.COMException or ArgumentException)
         {
             if (sourceVersion != _sourceVersion || loadVersion != _loadVersion) return;
@@ -165,7 +169,7 @@ public sealed class ImageViewer : Grid
     public void Clear()
     {
         EndDrag();
-        ImageLoader.SetPreviewOpen(false);
+        if (_viewRegistered) { ImageLoader.RemoveImageView(); _viewRegistered = false; }
         _upgradeTimer.Stop();
         _sourceVersion++;
         _loadCancellation?.Cancel();
@@ -177,6 +181,16 @@ public sealed class ImageViewer : Grid
         _ready = false;
         _image.Source = null;
         LoadingChanged?.Invoke(false);
+    }
+
+    public async Task ReleaseFileAsync()
+    {
+        var path = _path;
+        var metadata = _metadataRead;
+        Clear();
+        try { await metadata; }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or UnauthorizedAccessException or ArgumentException) { }
+        if (path is not null) await ImageLoader.WaitForFileIdleAsync(path);
     }
 
     private void Render()

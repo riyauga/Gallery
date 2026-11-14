@@ -11,6 +11,9 @@ public sealed record UpdateRequest(int ParentId, string Target, string Package, 
 public static class UpdateProtocol
 {
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true, WriteIndented = true };
+    public static string UpdateGateName(string dataRoot)
+        => "Local\\Gallery.Update." + Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataRoot)).ToUpperInvariant())))[..20];
     public static string UpdatesRoot(string dataRoot) => Path.Combine(dataRoot, "updates");
     public static string Child(string root, string relative)
     {

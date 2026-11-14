@@ -59,7 +59,7 @@ public sealed partial class GalleryPage : UserControl
         PhotoItem Item, IReadOnlyList<PhotoItem> Items,
         Windows.Foundation.Rect SourceRect, bool FullyVisible,
         Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect,
-        Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null);
+        Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null, bool KeepCurrentOnFilterChanges = false);
     public event Action<PreviewRequest>? PreviewRequested;
     public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
     public event Action? TagsEdited;
@@ -407,6 +407,16 @@ public sealed partial class GalleryPage : UserControl
         UpdateScrollbarType(); Timeline.Attach(Scroller, _items, Panel);
         UpdateDateHeader(); UpdateHeader(); UpdateEmptyState();
         ItemsChanged?.Invoke(_items.ToArray());
+    }
+
+    public void OpenExistingFile(ImageRow row)
+    {
+        if (AppService.Store is not { } store) return;
+        row.Tags = store.TagDetailsForImages([row.Id]).GetValueOrDefault(row.Id, [])
+            .Select(tag => (tag.Category, tag.Name)).ToList();
+        var item = MapRows([row], store.FavoriteIds(), "name")[0];
+        PreviewRequested?.Invoke(new PreviewRequest(item, [item], new Windows.Foundation.Rect(), true, _ => null,
+            KeepCurrentOnFilterChanges: true));
     }
 
     private static List<PhotoItem> MapRows(IEnumerable<ImageRow> rows, HashSet<int> favorites, string sortKey)

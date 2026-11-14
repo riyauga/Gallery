@@ -32,6 +32,12 @@ public sealed class AppSettings
     public string media_filter { get; set; } = "all";   // all | photos | videos（图库筛选器落盘）
     public bool sidebar_collapsed { get; set; }
     public int sidebar_width { get; set; } = 280;
+    // 独立查看窗口的上次位置与尺寸；纯查看进程只读这一份设置，不碰图库数据。
+    public double viewer_width { get; set; }
+    public double viewer_height { get; set; }
+    public int viewer_x { get; set; }
+    public int viewer_y { get; set; }
+    public bool viewer_info_pane { get; set; }
     public bool recursive { get; set; } = true;
     public string open_mode { get; set; } = "photos";
     public string open_custom_exe { get; set; } = "";

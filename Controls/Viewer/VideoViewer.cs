@@ -88,6 +88,25 @@ public sealed class VideoViewer : Grid
         set => _player.Volume = Math.Clamp(value, 0, 1);
     }
 
+    /// <summary>解码后的画面尺寸；未打开时为 0。用于查看器底部的文件信息。</summary>
+    public uint NaturalVideoWidth
+    {
+        get
+        {
+            try { return _player.PlaybackSession.NaturalVideoWidth; }
+            catch (ObjectDisposedException) { return 0; }
+        }
+    }
+
+    public uint NaturalVideoHeight
+    {
+        get
+        {
+            try { return _player.PlaybackSession.NaturalVideoHeight; }
+            catch (ObjectDisposedException) { return 0; }
+        }
+    }
+
     public Stretch Stretch
     {
         get => _element.Stretch;
@@ -95,8 +114,7 @@ public sealed class VideoViewer : Grid
     }
 
     public double PlaybackRate
-    {
-        get
+    {        get
         {
             try { return _player.PlaybackSession.PlaybackRate; }
             catch (ObjectDisposedException) { return 1; }
@@ -165,4 +183,11 @@ public sealed class VideoViewer : Grid
         _source = null;
         LoadingChanged?.Invoke(false);
     }
+    public void DisposePlayer()
+    {
+        Clear();
+        _element.SetMediaPlayer(null);
+        _player.Dispose();
+    }
+
 }
