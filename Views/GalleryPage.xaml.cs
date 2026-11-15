@@ -338,7 +338,6 @@ public sealed partial class GalleryPage : UserControl
             Recursive = AppService.Settings.Settings.recursive,
             FavoritesOnly = _favoritesMode, Search = _query, Sort = _sortKey, Desc = !_ascending,
             TagIds = _filterPanel.Include.Select(x => x.Id).ToList(),
-            ExcludedTagIds = _filterPanel.Exclude.Select(x => x.Id).ToList(),
             TagMode = _filterPanel.Mode, Untagged = _filterPanel.UntaggedOnly,
             HideNsfw = AppService.Settings.Settings.nsfw_display == "hide",
             MediaKind = _filter switch
@@ -912,8 +911,7 @@ public sealed partial class GalleryPage : UserControl
     }
     private void SyncFilterMenuChecks()
     {
-        bool active = _filterPanel.Include.Count > 0 || _filterPanel.Exclude.Count > 0
-            || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
+        bool active = _filterPanel.Include.Count > 0 || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
         if (active)
         {
             FilterButton.SetBinding(Control.BackgroundProperty, new Microsoft.UI.Xaml.Data.Binding

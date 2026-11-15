@@ -865,6 +865,7 @@ public sealed partial class StoreService : IDisposable
     public int EnsureTag(string name, string category = "custom")
     {
         var clean = (name ?? "").Trim();
+        if (category == "artist") clean = IngestReview.NormalizeArtistName(clean);
         int found;
         using (var cmd = _conn.CreateCommand())
         {
@@ -1273,6 +1274,55 @@ public sealed partial class StoreService : IDisposable
     public sealed record IngestResult(int QueueId, bool Duplicate);
 
     private bool _bridgeSchemaReady;
+    private bool _filterSchemaReady;
+
+    /// <summary>筛选器最近用过的标签：只在用筛选时记录，不影响标签本身。</summary>
+    public void EnsureFilterSchema()
+    {
+        lock (SyncRoot)
+        {
+            if (_filterSchemaReady) return;
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "CREATE TABLE IF NOT EXISTS filter_recent(" +
+                "tag_id INTEGER PRIMARY KEY, used_at REAL NOT NULL)";
+            cmd.ExecuteNonQuery();
+            _filterSchemaReady = true;
+        }
+    }
+
+    /// <summary>记一次筛选使用；同一标签只保留最新时间。</summary>
+    public void TouchFilterTag(int tagId)
+    {
+        EnsureFilterSchema();
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "INSERT INTO filter_recent(tag_id,used_at) VALUES($i,$t) " +
+                "ON CONFLICT(tag_id) DO UPDATE SET used_at=$t";
+            cmd.Parameters.AddWithValue("$i", tagId);
+            cmd.Parameters.AddWithValue("$t", Now());
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>按最近使用倒序返回标签 ID。</summary>
+    public List<int> RecentFilterTags(int limit)
+    {
+        EnsureFilterSchema();
+        var list = new List<int>();
+        lock (SyncRoot)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT tag_id FROM filter_recent ORDER BY used_at DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(r.GetInt32(0));
+        }
+        return list;
+    }
+
 
     /// <summary>把下载记录中的网页和原始出处补到图库；只填空值，保留用户已有来源。</summary>
     [MethodImpl(MethodImplOptions.Synchronized)]
@@ -1378,7 +1428,7 @@ public sealed partial class StoreService : IDisposable
         lock (SyncRoot)
         {
             var conn = _conn;
-            payloadJson = NormalizeSkinPayload(payloadJson);
+            payloadJson = NormalizeSkinPayload(IngestReview.NormalizeArtistPayload(payloadJson));
             using var tx = conn.BeginTransaction();
 
             if (ingestId.Length > 0)
@@ -1687,7 +1737,7 @@ public sealed partial class StoreService : IDisposable
             }
 
             // 界面上的 payload 可能停在后台补基础信息之前，只把人工可改的部分叠到最新记录上。
-            try { payload = NormalizeSkinPayload(IngestReview.MergeReview(currentPayload, payload, rating)); }
+            try { payload = NormalizeSkinPayload(IngestReview.NormalizeArtistPayload(IngestReview.MergeReview(currentPayload, payload, rating))); }
             catch (JsonException) { }
 
             using var cmd = _conn.CreateCommand();

@@ -20,6 +20,8 @@ public sealed class CollageFolderPane : Grid
     private readonly ItemsRepeater _repeater = new();
     private readonly ScrollViewer _scroll = new() { HorizontalScrollMode = ScrollMode.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     private readonly List<string> _paths = [];
+    private int? _initialIndex;
+    private bool _initialScrollQueued;
 
     public CollageFolderPane()
     {
@@ -47,11 +49,13 @@ public sealed class CollageFolderPane : Grid
         Children.Add(_empty);
         Grid.SetRow(_scroll, 2);
         Children.Add(_scroll);
+        Loaded += (_, _) => BringInitialIntoView();
+        _scroll.SizeChanged += (_, _) => BringInitialIntoView();
     }
 
     public event Action<string>? AddRequested;
 
-    public void SetFolder(string folder, IEnumerable<string> paths)
+    public void SetFolder(string folder, IEnumerable<string> paths, string initialPath)
     {
         _paths.Clear();
         _paths.AddRange(paths);
@@ -60,7 +64,24 @@ public sealed class CollageFolderPane : Grid
         _empty.Visibility = _paths.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         _scroll.Visibility = _paths.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         _repeater.ItemsSource = null;
+        var index = _paths.FindIndex(path => string.Equals(path, initialPath, StringComparison.OrdinalIgnoreCase));
+        _initialIndex = index >= 0 ? index : null;
         _repeater.ItemsSource = _paths;
+        BringInitialIntoView();
+    }
+
+    private void BringInitialIntoView()
+    {
+        if (_initialScrollQueued || _initialIndex is null || !IsLoaded) return;
+        _initialScrollQueued = DispatcherQueue.TryEnqueue(() =>
+        {
+            _initialScrollQueued = false;
+            if (_initialIndex is not int index || !IsLoaded || _scroll.ViewportHeight <= 0) return;
+            var element = _repeater.GetOrCreateElement(index);
+            _repeater.UpdateLayout();
+            _initialIndex = null;
+            element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0 });
+        });
     }
 
 #if GALLERY_DEVELOPMENT

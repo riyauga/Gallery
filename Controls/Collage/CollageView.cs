@@ -148,7 +148,7 @@ public sealed class CollageView : Grid
         var files = await Task.Run(() => Directory.EnumerateFiles(folder)
             .Where(file => StaticExts.Contains(Path.GetExtension(file)))
             .OrderBy(file => file, StringComparer.OrdinalIgnoreCase).ToArray());
-        _folder.SetFolder(folder, files);
+        _folder.SetFolder(folder, files, path);
         _canvas.RootFolder = folder;
         _canvas.Add(path);
         _baseline = _canvas.Snapshot();

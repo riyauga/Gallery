@@ -69,7 +69,7 @@ test('X 下载带来源与账号，仍强制人工处理且不提取名字哈希
  await waitFor(()=>Object.keys(storage).some(k=>k.startsWith('download:90:')));
  im.state='complete';downloads.set(im.id,im);downloadEvents.onChanged.listeners.at(-1)({id:90,state:{current:'complete'}});
  await waitFor(()=>deliveries.some(p=>p.download_id===90));const payload=deliveries.find(p=>p.download_id===90);
- assert.equal(payload.filename,im.filename);assert.equal(payload.site,'x');assert.deepEqual(payload.tags,{artist:['@SourceUser']});
+ assert.equal(payload.filename,im.filename);assert.equal(payload.site,'x');assert.deepEqual(payload.tags,{artist:['SourceUser']});
  assert.equal(payload.md5,'');assert.equal(payload.metadata_complete,false);assert.equal(payload.manual_review,true);
 });
 test('非 X 页面不能注入 X 图片来源',async()=>{

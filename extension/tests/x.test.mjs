@@ -12,7 +12,7 @@ test('X 与原始 CDN 图片默认接收，不决定下载路径',()=>{
   assert.equal(findRule(DEFAULT_RULES,{referrer:'https://x.com/',url:'https://video.twimg.com/a.mp4',mime:'video/mp4'}),null);
 });
 test('从明确帖子链接取账号，不把保留路由或伪造域名当作者',()=>{
-  assert.equal(xPost('https://twitter.com/User_1/status/123/photo/2').author,'@User_1');
+  assert.equal(xPost('https://twitter.com/User_1/status/123/photo/2').author,'User_1');
   for(const url of ['https://x.com/home','https://x.com/i/status/123','https://x.com.evil.test/user/status/123','https://example.com/user/status/123']) {
     assert.equal(xPost(url),null);
   }
@@ -22,7 +22,7 @@ test('图片变体按媒体身份精确关联，只填发帖账号，缺失或�
   assert.equal(xImageKey(image),xImageKey('https://pbs.twimg.com/media/AbC.jpg:orig'));
   const contexts=[{image_url:image,page_url:'https://x.com/Author/status/123'}];
   const item={url:'https://pbs.twimg.com/media/AbC?format=png&name=orig'};
-  assert.deepEqual(xMetadata(item,contexts).tags,{artist:['@Author']});
+  assert.deepEqual(xMetadata(item,contexts).tags,{artist:['Author']});
   assert.deepEqual(xMetadata({url:'https://pbs.twimg.com/media/Other.jpg'},contexts).tags,{});
   assert.deepEqual(xMetadata(item,[...contexts,{image_url:image,page_url:'https://x.com/Another/status/456'}]).tags,{});
   assert.equal(xMetadata(item).source,'https://x.com/');assert.equal(xMetadata(item).tags_complete,false);
@@ -40,9 +40,9 @@ test('页面脚本只关联用户操作的图片，明确链接可取作者，�
     }};
   }
   const direct=image('https://x.com/ClickedAuthor/status/123?s=20');listeners.contextmenu({target:{closest(){return direct;}}});
-  assert.equal(xPost(messages[0].payload.page_url).author,'@ClickedAuthor');
+  assert.equal(xPost(messages[0].payload.page_url).author,'ClickedAuthor');
   const timeline=image('', ['https://x.com/TimelineUser/status/456']);listeners.click({target:{closest(){return timeline;}}});
-  assert.equal(xPost(messages[1].payload.page_url).author,'@TimelineUser');
+  assert.equal(xPost(messages[1].payload.page_url).author,'TimelineUser');
   const ambiguous=image('', ['https://x.com/A/status/1','https://x.com/B/status/2']);listeners.contextmenu({target:{closest(){return ambiguous;}}});
   assert.equal(messages.length,2);
 });

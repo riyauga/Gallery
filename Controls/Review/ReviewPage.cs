@@ -139,6 +139,15 @@ public sealed partial class ReviewPage : Grid
     /// <summary>待归档队列里见过的最大 ID：比它更大的记录进来就算新图，用来回到最新那张。</summary>
     private int _newestSeen;
     private bool _busy, _active = true;
+    private readonly HashSet<int> _archiving = [];
+    private readonly Queue<ArchiveBatch> _archiveQueue = new();
+    private Task _archiveTask = Task.CompletedTask;
+    private readonly TextBlock _archiveProgress = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+    private int _reloadVersion;
+    private Task _reloadTask = Task.CompletedTask;
+    private string _loadedState = "";
+    private bool _tagDisplayDirty;
+    private readonly Dictionary<int, string> _normalizedPayloads = [];
     private TaskCompletionSource? _workCompleted;
 
     private void SetBusy(bool busy)
@@ -158,6 +167,8 @@ public sealed partial class ReviewPage : Grid
         _basicsCts?.Cancel();
         if (_workCompleted is { } work) await work.Task;
         await _paintTask;
+        await _archiveTask;
+        await _reloadTask;
         if (_basicsTask is { } basics)
         {
             try { await basics; }
@@ -218,6 +229,7 @@ public sealed partial class ReviewPage : Grid
             else Select(index);
         };
         _carousel.ClearSelectionRequested += ClearBatchSelection;
+        _carousel.SelectAllRequested += SelectAllBatch;
         ConnectWorkbenchInput();
         _carousel.BoxSelectionRequested += (indices, additive, phase) =>
         {
@@ -303,7 +315,7 @@ public sealed partial class ReviewPage : Grid
             if (_busy) return;
             var wasMultiple = BatchMultiple;
             if (_batchSelected.Count == _rows.Count) _batchSelected.Clear();
-            else _batchSelected.UnionWith(_rows.Select(row => row.Id));
+            else { SelectAllBatch(); return; }
             _batchAnchorIndex = null;
             RenderBatchSelection(!wasMultiple);
         };
@@ -322,7 +334,7 @@ public sealed partial class ReviewPage : Grid
         _cleanHistory.Click += async (_, _) => await CleanHistoryAsync();
         _pickFolder.Click += async (_, _) => await PickFolderAsync();
         Loaded += (_, _) => { FolderMap.Changed += OnDirectoryRulesChanged; _active = true; _carousel.SetActive(true); Reload(); };
-        Unloaded += (_, _) => { FolderMap.Changed -= OnDirectoryRulesChanged; SetActive(false); };
+        Unloaded += (_, _) => { FolderMap.Changed -= OnDirectoryRulesChanged; SetActive(false, releasePreviews: true); };
         ActualThemeChanged += (_, _) => { ApplyColors(); RebuildPalette(); };
         SizeChanged += (_, _) =>
         {
@@ -389,6 +401,7 @@ public sealed partial class ReviewPage : Grid
         Grid.SetRow(_carouselHost, 1);
         panel.Children.Add(_carouselHost);
         var footer = new StackPanel { Spacing = 10 };
+        footer.Children.Add(_archiveProgress);
         footer.Children.Add(_revealAll);
         footer.Children.Add(_cleanHistory);
         Grid.SetRow(footer, 2);
@@ -510,18 +523,66 @@ public sealed partial class ReviewPage : Grid
 
     public void Reload()
     {
-        if (_busy || AppService.IsShuttingDown || AppService.Store is not { } store) return;
+        ++_reloadVersion;
+        if (_reloadTask.IsCompleted) _reloadTask = ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        while (!_busy && !AppService.IsShuttingDown && AppService.Store is { } store)
+        {
+            var version = _reloadVersion;
+            var state = _state;
+            var keep = _selected?.Id;
+            var history = state == "history";
+            List<StoreService.PendingIngestRow> rows;
+            try
+            {
+                rows = await Task.Run(() =>
+                {
+                    var result = history ? store.IngestHistory(HistoryLimit)
+                        : store.IngestRows(state, int.MaxValue).OrderByDescending(row => row.ReceivedAt).ThenByDescending(row => row.Id).ToList();
+                    if (history)
+                        result = result.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(store, row) }).ToList();
+                    // 一次后台快照预备好所有可选记录；只在 payload 变化后重新归一化。
+                    var valid = result.Select(row => row.Id).ToHashSet();
+                    foreach (var id in _normalizedPayloads.Keys.Where(id => !valid.Contains(id)).ToArray()) _normalizedPayloads.Remove(id);
+                    for (var i = 0; i < result.Count; i++)
+                    {
+                        var current = result[i];
+                        if (current.State != "pending" || _normalizedPayloads.GetValueOrDefault(current.Id) == current.Payload) continue;
+                        store.NormalizeIngestSkins(current.Id);
+                        result[i] = store.IngestRow(current.Id) ?? current;
+                        _normalizedPayloads[current.Id] = result[i].Payload;
+                    }
+                    return result;
+                });
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+            { _status.Text = "刷新审核队列失败：" + ex.Message; return; }
+            if (version != _reloadVersion || state != _state) continue;
+            if (_busy || AppService.IsShuttingDown) return;
+            rows.RemoveAll(row => row.State == "pending" && _archiving.Contains(row.Id));
+            if (_loadedState != state || !_rows.SequenceEqual(rows))
+                ApplyReload(rows, state);
+            if (_pendingNotificationId is int requested && _state == "pending")
+            {
+                _pendingNotificationId = null;
+                var index = _rows.FindIndex(row => row.Id == requested);
+                if (index >= 0) Select(index, false);
+                else _status.Text = "这张图片已处理，不在待归档队列中。";
+            }
+            if (version == _reloadVersion) return;
+        }
+    }
+
+    private void ApplyReload(List<StoreService.PendingIngestRow> rows, string state)
+    {
         if (_paintGesture) ExitPaintMode();
         var keep = _selected?.Id;
-        var history = _state == "history";
-        _rows = history
-            ? store.IngestHistory(HistoryLimit)
-            : store.IngestRows(_state, int.MaxValue).OrderByDescending(row => row.ReceivedAt).ThenByDescending(row => row.Id).ToList();
-        if (history)
-        {
-            lock (AppService.DbLock)
-                _rows = _rows.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(store, row) }).ToList();
-        }
+        var store = AppService.Store!;
+        _loadedState = state;
+        _rows = rows;
         _summary.Text = _state switch
         {
             "pending" => "待归档",
@@ -556,6 +617,11 @@ public sealed partial class ReviewPage : Grid
             // 有新图时不再还原切走前记住的旧中心，回来就停在最新那张。
             _carousel.ForgetResumeCenter();
             Select(0, false);
+        }
+        else if (found >= 0 && _selected == _rows[found])
+        {
+            _index = found;
+            UpdateQueuePosition(false, false);
         }
         else Select(found >= 0 ? found : Math.Min(_index, _rows.Count - 1), false);
         UpdateButtons();
@@ -798,6 +864,15 @@ public sealed partial class ReviewPage : Grid
         UpdateButtons();
     }
 
+    private void SelectAllBatch()
+    {
+        if (!_batchMode || !_active || _busy || _paintGesture || AppService.IsShuttingDown) return;
+        var wasMultiple = BatchMultiple;
+        _batchSelected.UnionWith(_rows.Select(row => row.Id));
+        _batchAnchorIndex = null;
+        RenderBatchSelection(!wasMultiple);
+    }
+
     private void ClearBatchSelection()
     {
         if (!_batchMode || _busy || AppService.IsShuttingDown || _batchSelected.Count == 0) return;
@@ -865,17 +940,8 @@ public sealed partial class ReviewPage : Grid
         var changed = _index != (index = _rows.Count == 0 ? 0 : Math.Clamp(index, 0, _rows.Count - 1));
         _index = index;
         _selected = _rows.Count == 0 ? null : _rows[_index];
-        _syncingScroll = true;
-        _queueScroll.Maximum = Math.Max(0, _rows.Count - 1);
-        _queueScroll.ViewportSize = Math.Min(9, Math.Max(1, _rows.Count));
-        // 拖动中不回写滑块，松手后再吸附到整数。
-        if (!_scrollDragging) _queueScroll.Value = _index;
-        _queueScroll.Visibility = !_batchMode && _rows.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-        if (_rows.Count > 1 && revealScroll && changed) _queueScroll.NotifyActivity();
-        _syncingScroll = false;
+        UpdateQueuePosition(revealScroll, changed);
         ++_selectionGeneration;
-        _carousel.SetItems(_rows, _index);
-        _count.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
         _tagGroups.Children.Clear();
         _tagInputs.Clear();
         _ratingBadge = null;
@@ -897,12 +963,6 @@ public sealed partial class ReviewPage : Grid
             _tags = [];
             UpdateButtons();
             return;
-        }
-        if (row.State == "pending" && AppService.Store is { } skinStore)
-        {
-            skinStore.NormalizeIngestSkins(row.Id);
-            row = skinStore.IngestRow(row.Id) ?? row;
-            _selected = _rows[_index] = row;
         }
         _title.Text = row.InboxName.Length > 0 ? row.InboxName : Path.GetFileName(IngestReview.LocalPath(row));
         _time.Text = DateTimeOffset.FromUnixTimeSeconds((long)row.ReceivedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
@@ -947,6 +1007,20 @@ public sealed partial class ReviewPage : Grid
         RefreshDestination();
     }
 
+    private void UpdateQueuePosition(bool revealScroll, bool changed)
+    {
+        _syncingScroll = true;
+        _queueScroll.Maximum = Math.Max(0, _rows.Count - 1);
+        _queueScroll.ViewportSize = Math.Min(9, Math.Max(1, _rows.Count));
+        // 拖动中不回写滑块，松手后再吸附到整数。
+        if (!_scrollDragging) _queueScroll.Value = _index;
+        _queueScroll.Visibility = !_batchMode && _rows.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (_rows.Count > 1 && revealScroll && changed) _queueScroll.NotifyActivity();
+        _syncingScroll = false;
+        _carousel.SetItems(_rows, _index);
+        _count.Text = _rows.Count == 0 ? "0 / 0" : $"{_index + 1} / {_rows.Count}";
+    }
+
     /// <summary>通知点击后按队列记录定位，避免依赖列表排序或当前选中项。</summary>
     public void OpenPending(int id)
     {
@@ -954,10 +1028,8 @@ public sealed partial class ReviewPage : Grid
         _state = "pending";
         SetBatchMode(false);
         _states.SelectedIndex = 0;
+        _pendingNotificationId = id;
         Reload();
-        var index = _rows.FindIndex(row => row.Id == id);
-        if (index >= 0) Select(index, false);
-        else _status.Text = "这张图片已处理，不在待归档队列中。";
     }
 
     private int? _pendingNotificationId;
@@ -1610,84 +1682,21 @@ public sealed partial class ReviewPage : Grid
             return;
         }
 
-        string DestOf(int id)
-        {
-            if (fixedDestination) return destination;
-            var record = store.IngestRow(id);
-            return record is null ? "" : ArchiveTargetFor(IngestReview.Tags(record.Payload, record.Rating));
-        }
-
-        var ids = _batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).Select(row => row.Id).ToArray()
-            : _selected is { State: "pending" } row ? [row.Id] : Array.Empty<int>();
+        var ids = (_batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).Select(row => row.Id)
+            : _selected is { State: "pending" } row ? new[] { row.Id } : Array.Empty<int>())
+            .Where(id => !_archiving.Contains(id)).ToArray();
         if (ids.Length == 0) return;
-        SetBusy(true);
+        var batch = new ArchiveBatch(ids, fixedDestination, destination, auto, ArchiveRoot(store)?.Path ?? "");
+        _archiving.UnionWith(ids);
+        _archiveQueue.Enqueue(batch);
+        _rows.RemoveAll(row => _archiving.Contains(row.Id));
+        _batchSelected.ExceptWith(ids);
+        if (_batchMode) RenderBatchSelection(false);
+        else Select(Math.Min(_index, Math.Max(0, _rows.Count - 1)), false);
         UpdateButtons();
-        var succeeded = 0;
-        var failures = new List<string>();
-        var archived = new List<int>();
-        try
-        {
-            foreach (var id in ids)
-            {
-                _status.Text = $"正在归档 {succeeded + failures.Count + 1} / {ids.Length}…";
-                // 自动分目录时，没有任何标签的图先跑一次模型，让归档目录跟着识别结果走。
-                if (!fixedDestination && NeedsModelBeforeArchive(store, id))
-                {
-                    _status.Text = $"正在识别标签 {succeeded + failures.Count + 1} / {ids.Length}…";
-                    _carousel.SetAnalyzing([id]);
-                    var model = await Task.Run(() => ApplyModelToRow(store, id));
-                    _carousel.SetAnalyzing([]);
-                    if (model.Error.Length > 0)
-                    {
-                        failures.Add($"#{id}：识别失败（{model.Error}）");
-                        continue;
-                    }
-                }
-                var target = DestOf(id);
-                if (target.Length == 0) { failures.Add($"#{id}：没有可用的归档目录"); continue; }
-                var sourceRow = store.IngestRow(id);
-                var moving = sourceRow is not null && !ArchiveService.KeepsOriginal(sourceRow.Payload);
-                var sourcePath = sourceRow is null ? "" : IngestReview.LocalPath(sourceRow);
-                if (moving && !await ViewerCoordinator.PrepareMoveAsync(sourcePath))
-                { failures.Add($"#{id}：请先完成查看窗口的文件操作，再重试归档。"); continue; }
-                ArchiveService.ArchiveResult result;
-                try { result = await Task.Run(() => archiver.Archive(id, target)); }
-                finally
-                {
-                    if (moving) await ViewerCoordinator.FinishMoveAsync(sourcePath,
-                        store.IngestRow(id) is { State: "done" } && !File.Exists(sourcePath));
-                }
-                if (result.Ok) { succeeded++; archived.Add(id); }
-                else failures.Add($"#{id}：{result.Message}");
-            }
-            if (succeeded > 0 && !auto)
-            {
-                var (rootId, relative) = archiver.ResolveRoot(destination);
-                AppService.Settings.Settings.archive_root = store.Roots().First(r => r.Id == rootId).Path;
-                AppService.Settings.Settings.archive_sub = relative.Replace('/', Path.DirectorySeparatorChar);
-                AppService.Settings.Save();
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
-        {
-            failures.Add(ex.Message);
-        }
-        finally
-        {
-            SetBusy(false);
-            foreach (var id in archived)
-            {
-                try { QueueBasics(id); }
-                catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
-                {
-                    AppService.DebugLog($"ingest basics queue #{id}: {ex.Message}");
-                }
-            }
-            Reload();
-            Changed?.Invoke();
-            OpenDeferredNotification();
-        }
-        _status.Text = failures.Count == 0 ? $"已归档 {succeeded} 张" : $"已归档 {succeeded} 张，失败 {failures.Count} 条。\n" + string.Join("\n", failures.Take(3));
+        _archiveProgress.Visibility = Visibility.Visible;
+        _archiveProgress.Text = $"后台归档：还有 {_archiving.Count} 张…";
+        if (_archiveTask.IsCompleted) _archiveTask = RunArchiveQueueAsync();
     }
 
     /// <summary>
@@ -1875,8 +1884,9 @@ public sealed partial class ReviewPage : Grid
         _cleanHistory.IsEnabled = !_busy && _rows.Count > 0;
     }
 
-    public void SetActive(bool active)
+    public void SetActive(bool active, bool releasePreviews = false)
     {
+        if (_active == active && !releasePreviews) return;
         _active = active;
         ++_selectionGeneration;
         if (!active)
@@ -1888,18 +1898,13 @@ public sealed partial class ReviewPage : Grid
             _scrollDragging = false;
             _carousel.UnfreezeWindow();
         }
-        _carousel.SetActive(active);
-        if (!active) _imageSpecs.Clear();
-        else
+        _carousel.SetActive(active, releasePreviews);
+        if (releasePreviews) _imageSpecs.Clear();
+        if (active)
         {
-            var pending = _tagInputs.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
-            _tagGroups.Children.Clear(); _tagInputs.Clear(); _ratingBadge = null; _ratingRebuild = null;
-            if (!_batchMode && _selected is not null)
-                for (var i = 0; i < IngestReview.Categories.Length; i++)
-                    BuildTagGroup(IngestReview.Categories[i], IngestReview.Titles[i]);
-            foreach (var (category, text) in pending)
-                if (_tagInputs.TryGetValue(category, out var input)) input.Text = text;
             UpdateButtons();
+            if (_tagDisplayDirty && !_batchMode && _selected is not null)
+            { _tagDisplayDirty = false; DispatcherQueue.TryEnqueue(RebuildTagGroups); }
         }
     }
 
@@ -1996,6 +2001,9 @@ public sealed partial class ReviewPage : Grid
     public void RefreshPreview()
     {
         _carousel.RefreshPreview();
+        _tagLabelGeneration = -1;
+        _tagDisplayDirty = !_active;
+        if (_active && !_batchMode && _selected is not null) RebuildTagGroups();
         UpdateButtons();
     }
 

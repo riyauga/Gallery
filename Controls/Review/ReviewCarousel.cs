@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices.WindowsRuntime;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text.Json;
 using Gallery.Models;
 using Gallery.Services;
@@ -43,7 +42,7 @@ internal sealed class ReviewCarousel : Grid
     private int _index, _selectSeq;
     private int? _resumeCenterId;
     private int _viewGeneration;
-    private bool _batchMode;
+    private bool _batchMode, _deferImages;
     private readonly HashSet<int> _batchSelection = [];
     /// <summary>正在跑模型的记录：卡片压深色并在正中转圈。</summary>
     private readonly HashSet<int> _analyzing = [];
@@ -119,6 +118,7 @@ internal sealed class ReviewCarousel : Grid
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public event Action<int, bool, bool>? SelectionRequested;
     public event Action? ClearSelectionRequested;
+    public event Action? SelectAllRequested;
     public event Action<IReadOnlyList<int>, bool, string>? BoxSelectionRequested;
     public event Action<PhotoItem>? SelectedImageLoaded;
     public event Action<StoreService.PendingIngestRow, bool>? OpenRequested;
@@ -200,6 +200,7 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetItems(IReadOnlyList<StoreService.PendingIngestRow> rows, int index)
     {
+        _deferImages = false;
         var order = rows.Select(row => row.Id).ToArray();
         if (!_rowOrder.SequenceEqual(order)) { ++_viewGeneration; _rowOrder = order; }
         _rows = rows;
@@ -224,6 +225,7 @@ internal sealed class ReviewCarousel : Grid
             _index = Math.Clamp(index, 0, _rows.Count - 1);
         if (_batchMode != enabled)
         {
+            _deferImages = false;
             _batchMode = enabled;
             _gridFirst = 0; _gridLast = 35;
             _clearAllowed = false;
@@ -275,11 +277,12 @@ internal sealed class ReviewCarousel : Grid
     }
 
     /// <summary>连续滚动：只更新卡片窗口，不重建详情；详情由网页在停稳后发 settled 提交。</summary>
-    public void ScrollWindow(int index)
+    public void ScrollWindow(int index, bool deferImages)
     {
         if (!_active || !_ready || _rows.Count == 0) return;
         index = Math.Clamp(index, 0, _rows.Count - 1);
-        if (index == _index) return;
+        if (index == _index && _deferImages == deferImages) return;
+        _deferImages = deferImages;
         _index = index;
         PublishState();
         StartLoads();
@@ -387,7 +390,7 @@ internal sealed class ReviewCarousel : Grid
     /// <summary>丢掉「切走时记住的中心卡牌」：来了新图、宿主已改停最新时，返回页面不再还原旧中心。</summary>
     public void ForgetResumeCenter() => _resumeCenterId = null;
 
-    public void SetActive(bool active)
+    public void SetActive(bool active, bool releasePreviews = false)
     {
         ImageLoader.SetReviewActive(active);
         if (!active) _browser.SetSprayCursor(false);
@@ -401,6 +404,7 @@ internal sealed class ReviewCarousel : Grid
                 if (index >= 0) _index = index;
             }
         }
+        _deferImages = false;
         _active = active;
         if (!active)
         {
@@ -412,7 +416,14 @@ internal sealed class ReviewCarousel : Grid
             _loading?.Cancel();
             _prefetch?.Cancel();
             _prefetchedRows = null;
-            _previews.Clear(); _clearPreview = null; _revealed.Clear(); _metadata.Clear();
+            if (releasePreviews)
+            { _previews.Clear(); _clearPreview = null; _metadata.Clear(); }
+            else
+            {
+                var keep = _rows.Skip(Math.Max(0, _index - 3)).Take(7).Select(row => row.Id).ToHashSet();
+                foreach (var id in _previews.Keys.Where(id => !keep.Contains(id)).ToArray()) _previews.Remove(id);
+            }
+            _revealed.Clear();
             _clearAllowed = false;
             UnfreezeWindow();
         }
@@ -622,6 +633,7 @@ internal sealed class ReviewCarousel : Grid
         }
         _loading?.Cancel(); _loading?.Dispose();
         _loading = new CancellationTokenSource();
+        if (_deferImages) return;
         if (!_active || !_ready) return;
         var token = _loading.Token;
         var entries = Nearby().OrderBy(entry => Math.Abs(entry.Index - _index)).ToArray();
@@ -680,6 +692,7 @@ internal sealed class ReviewCarousel : Grid
     {
         var key = PlaceholderKey(row);
         if (_previews.TryGetValue(row.Id, out var cached) && cached.Key == key && cached.Source.Length > 0) return;
+        if (!_batchMode && _deferImages) return;
         if (!_placeholderLoading.Add(key)) return;
         var blocked = Protected(row);
         try
@@ -695,12 +708,12 @@ internal sealed class ReviewCarousel : Grid
             }
             var item = await ReadItemAsync(row, token);
             // 不做运行时模糊，非中心卡片直接用 256px 低清图；受保护图片仍是预先糊好的 256px 底图。
-            var thumb = (WriteableBitmap)await ImageLoader.LoadThumbnailAsync(item, 256, blocked ? 100 : 0, token, priority);
+            var thumb = await ImageLoader.LoadReviewPixelsAsync(item, 256, blocked ? 100 : 0, false, token, priority);
             token.ThrowIfCancellationRequested();
             var encoded = await EncodeJpegAsync(thumb, 76, token);
             token.ThrowIfCancellationRequested();
             _previews[row.Id] = new Preview(key, encoded.Source,
-                (double)thumb.PixelWidth / thumb.PixelHeight, blocked, "", item, true, encoded.Average);
+                (double)thumb.Width / thumb.Height, blocked, "", item, true, encoded.Average);
             PublishState();
             if (_batchMode && _rows.Count > 0 && _rows[_index].Id == row.Id) SelectedImageLoaded?.Invoke(item);
         }
@@ -716,7 +729,7 @@ internal sealed class ReviewCarousel : Grid
         {
             _placeholderLoading.Remove(key);
             var retry = _batchMode ? _prefetch?.Token : _loading?.Token;
-            if (token.IsCancellationRequested && _active && retry is { IsCancellationRequested: false } nextToken
+            if (token.IsCancellationRequested && _active && (_batchMode || !_deferImages) && retry is { IsCancellationRequested: false } nextToken
                 && Nearby().FirstOrDefault(entry => entry.Row.Id == row.Id).Row is { } nextRow)
                 _ = EnsurePlaceholderAsync(nextRow, nextToken, !_batchMode && _rows[_index].Id != row.Id ? ImagePriority.Prefetch : ImagePriority.Visible);
         }
@@ -733,13 +746,13 @@ internal sealed class ReviewCarousel : Grid
             var path = IngestReview.CurrentPath(row);
             if (path.Length == 0 || !File.Exists(path)) return;
             var item = await ReadItemAsync(row, token);
-            var bitmap = (WriteableBitmap)await ImageLoader.LoadPreviewAsync(item, 1024, token);
+            var bitmap = await ImageLoader.LoadReviewPixelsAsync(item, 1024, 0, true, token);
             token.ThrowIfCancellationRequested();
             var encoded = await EncodeJpegAsync(bitmap, 86, token);
             token.ThrowIfCancellationRequested();
             if (_batchMode || !_active || !_clearAllowed || _index != index || _rows.Count == 0 || _rows[_index].Id != row.Id || Protected(row)) return;
             _clearPreview = new Preview(key, encoded.Source,
-                (double)bitmap.PixelWidth / bitmap.PixelHeight, false, "", item, false, encoded.Average);
+                (double)bitmap.Width / bitmap.Height, false, "", item, false, encoded.Average);
             PublishState();
             if (_index == index && _rows.Count > 0 && _rows[_index].Id == row.Id) SelectedImageLoaded?.Invoke(item);
         }
@@ -773,15 +786,17 @@ internal sealed class ReviewCarousel : Grid
         return task.WaitAsync(token);
     }
 
-    private static Task<(string Source, string Average)> EncodeJpegAsync(WriteableBitmap bitmap, int quality, CancellationToken token)
+    private static Task<(string Source, string Average)> EncodeJpegAsync(ImageLoader.Pixels bitmap, int quality, CancellationToken token)
     {
-        var pixels = bitmap.PixelBuffer.ToArray();
-        var width = bitmap.PixelWidth;
-        var height = bitmap.PixelHeight;
+        var pixels = bitmap.Bytes;
+        var width = bitmap.Width;
+        var height = bitmap.Height;
         return Task.Run(() =>
         {
+            token.ThrowIfCancellationRequested();
             var average = AverageColor(pixels, width, height);
-            using var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(pixels, width, height);
+            var configuration = Configuration.Default.Clone(); configuration.MaxDegreeOfParallelism = 1;
+            using var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(configuration, pixels, width, height);
             using var stream = new MemoryStream();
             image.Save(stream, new JpegEncoder { Quality = quality });
             token.ThrowIfCancellationRequested();
@@ -903,6 +918,11 @@ internal sealed class ReviewCarousel : Grid
                 return;
             }
             if (_batchMode && type is "window" or "settled" or "step") return;
+            if (type == "selectAll")
+            {
+                if (_batchMode && _interactionEnabled) SelectAllRequested?.Invoke();
+                return;
+            }
             if (type == "queueMetrics")
             {
                 if (!_batchMode) return;
@@ -927,12 +947,13 @@ internal sealed class ReviewCarousel : Grid
             if (type == "window")
             {
                 _clearAllowed = false;
-                ScrollWindow(message.GetProperty("index").GetInt32());
+                ScrollWindow(message.GetProperty("index").GetInt32(), message.GetProperty("deferImages").GetBoolean());
                 return;
             }
             if (type == "settled")
             {
                 if (_rows.Count == 0) return;
+                _deferImages = false;
                 _clearAllowed = true;
                 _index = Math.Clamp(message.GetProperty("index").GetInt32(), 0, _rows.Count - 1);
                 // 停稳后才提交详情并加载中心清晰图。

@@ -16,9 +16,9 @@ public enum ImagePriority { Preview, Visible, Prefetch }
 /// <summary>UI 线程使用的统一加载入口：两条后台工作槽、可见优先、分池缓存、192MiB 解码准入预算；毛玻璃只使用256像素底图。</summary>
 public static class ImageLoader
 {
-    private enum Purpose { Thumbnail, ProtectedBase, ProtectedThumbnail, Preview }
+    private enum Purpose { Thumbnail, ProtectedBase, ProtectedThumbnail, Preview, ReviewThumbnail, ReviewPreview }
     private readonly record struct Key(string Path, double Mtime, long Size, int Edge, int Blur, Purpose Purpose);
-    private sealed record Pixels(byte[] Bytes, int Width, int Height);
+    public sealed record Pixels(byte[] Bytes, int Width, int Height);
     private sealed record Entry(Key Key, BitmapSource? Bitmap, Pixels? Pixels, long Bytes);
     private sealed class Request(Key key, PhotoItem item, ImagePriority priority)
     {
@@ -26,7 +26,7 @@ public static class ImageLoader
         public readonly PhotoItem Item = item;
         public ImagePriority Priority = priority;
         public readonly CancellationTokenSource Cancellation = new();
-        public readonly TaskCompletionSource<BitmapSource> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource<Entry> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Users;
         public bool Running;
         public long Weight;
@@ -73,7 +73,7 @@ public static class ImageLoader
         _desired.UnionWith(_visible);
         foreach (var request in Requests.Values.ToArray())
         {
-            if (request.Key.Purpose == Purpose.Preview) continue;
+            if (IsPreview(request.Key.Purpose) || request.Key.Purpose == Purpose.ReviewThumbnail) continue;
             if (!request.Running && (!_galleryActive || !_desired.Contains(request.Key.Path))) CancelQueued(request);
             else request.Priority = _visible.Contains(request.Key.Path) ? ImagePriority.Visible : ImagePriority.Prefetch;
         }
@@ -132,29 +132,43 @@ public static class ImageLoader
     public static Task<BitmapSource> LoadPreviewAsync(PhotoItem item, int edge, CancellationToken token)
         => LoadAsync(item, edge > 0 ? edge : 2048, 0, Purpose.Preview, ImagePriority.Preview, token);
 
+    /// <summary>审核网页直接消费后台像素，复用解码队列和预算，不创建或复制 WinUI 位图。</summary>
+    public static async Task<Pixels> LoadReviewPixelsAsync(PhotoItem item, int edge, int blur, bool preview, CancellationToken token, ImagePriority priority = ImagePriority.Visible)
+    {
+        if (!preview && IsHidden(item)) throw new OperationCanceledException();
+        var entry = await LoadEntryAsync(item, blur > 0 ? 256 : edge, blur,
+            preview ? Purpose.ReviewPreview : Purpose.ReviewThumbnail, preview ? ImagePriority.Preview : priority, token);
+        return entry.Pixels!;
+    }
+
+    private static bool IsPreview(Purpose purpose) => purpose is Purpose.Preview or Purpose.ReviewPreview;
+
     private static async Task<BitmapSource> LoadAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority, CancellationToken token)
+        => (await LoadEntryAsync(item, edge, blur, purpose, priority, token)).Bitmap!;
+
+    private static async Task<Entry> LoadEntryAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         _dispatcher ??= DispatcherQueue.GetForCurrentThread() ?? throw new InvalidOperationException("图片请求必须由 UI 线程提交");
         var key = MakeKey(item, edge, blur, purpose);
-        if (Cache.TryGetValue(key, out var cached)) { Touch(cached); _hits++; return cached.Value.Bitmap!; }
-        if (purpose == Purpose.Preview && Requests.TryGetValue(key, out var previous) && previous.Cancellation.IsCancellationRequested)
+        if (Cache.TryGetValue(key, out var cached)) { Touch(cached); _hits++; return cached.Value; }
+        if ((IsPreview(purpose) || purpose == Purpose.ReviewThumbnail) && Requests.TryGetValue(key, out var previous) && previous.Cancellation.IsCancellationRequested)
         {
             // 快速关闭再打开同一张图时，不能加入已经取消的旧解码。
             try { await previous.Completion.Task.WaitAsync(token); }
             catch (OperationCanceledException) { token.ThrowIfCancellationRequested(); }
-            return await LoadAsync(item, edge, blur, purpose, priority, token);
+            return await LoadEntryAsync(item, edge, blur, purpose, priority, token);
         }
         if (!Requests.TryGetValue(key, out var request))
         {
-            if (purpose != Purpose.Preview && Requests.Values.Count(r => r.Key.Purpose != Purpose.Preview) >= 96)
+            if (!IsPreview(purpose) && Requests.Values.Count(r => !IsPreview(r.Key.Purpose)) >= 96)
             {
                 var victim = Requests.Values.LastOrDefault(r => !r.Running && r.Priority == ImagePriority.Prefetch);
                 if (victim is null || priority == ImagePriority.Prefetch) throw new OperationCanceledException("图片队列已满");
                 CancelQueued(victim);
             }
             request = new Request(key, item, priority); Requests.Add(key, request);
-            _peakRequests = Math.Max(_peakRequests, Requests.Values.Count(r => r.Key.Purpose != Purpose.Preview));
+            _peakRequests = Math.Max(_peakRequests, Requests.Values.Count(r => !IsPreview(r.Key.Purpose)));
         }
         if (priority < request.Priority) request.Priority = priority;
         request.Users++; SchedulePump();
@@ -164,7 +178,7 @@ public static class ImageLoader
             if (--request.Users == 0 && !request.Completion.Task.IsCompleted)
             {
                 if (!request.Running) CancelQueued(request);
-                else if (purpose == Purpose.Preview) request.Cancellation.Cancel();
+                else if (IsPreview(purpose) || purpose == Purpose.ReviewThumbnail) request.Cancellation.Cancel();
             }
         }
     }
@@ -184,13 +198,13 @@ public static class ImageLoader
     {
         while (_active < 2)
         {
-            var next = Requests.Values.Where(r => !r.Running && (r.Key.Purpose != Purpose.Preview || _previewActive == 0)
+            var next = Requests.Values.Where(r => !r.Running && (!IsPreview(r.Key.Purpose) || _previewActive == 0)
                 && (r.Priority != ImagePriority.Prefetch || ((_galleryActive || _reviewActive) && _openImageViews == 0 && _previewActive == 0 && !_resizing)))
                 .OrderBy(r => r.Priority).FirstOrDefault(r => _scratch + Estimate(r) <= ScratchLimit);
             if (next is null) break;
             next.Running = true; next.Weight = Estimate(next); _scratch += next.Weight;
             _active++; _peakActive = Math.Max(_peakActive, _active);
-            if (next.Key.Purpose == Purpose.Preview) _previewActive++;
+            if (IsPreview(next.Key.Purpose)) _previewActive++;
             _ = ExecuteAsync(next);
         }
     }
@@ -209,7 +223,7 @@ public static class ImageLoader
         {
             var key = request.Key;
             Pixels pixels;
-            if (key.Purpose == Purpose.ProtectedThumbnail)
+            if (key.Purpose == Purpose.ProtectedThumbnail || key.Purpose == Purpose.ReviewThumbnail && key.Blur > 0)
             {
                 var baseKey = key with { Edge = 256, Blur = 0, Purpose = Purpose.ProtectedBase };
                 if (Cache.TryGetValue(baseKey, out var entry)) { Touch(entry); _hits++; pixels = entry.Value.Pixels!; }
@@ -225,13 +239,20 @@ public static class ImageLoader
                 }
                 var source = pixels; pixels = await Task.Run(() => Blur(source, key.Blur));
             }
-            else pixels = await Task.Run(() => ReadPixelsAsync(request.Item, key.Edge, key.Purpose == Purpose.Thumbnail, request.Cancellation.Token));
+            else pixels = await Task.Run(() => ReadPixelsAsync(request.Item, key.Edge, key.Purpose is Purpose.Thumbnail or Purpose.ReviewThumbnail, request.Cancellation.Token));
             _decodeMs += watch.ElapsedMilliseconds;
             request.Cancellation.Token.ThrowIfCancellationRequested(); watch.Restart();
-            var bitmap = new WriteableBitmap(pixels.Width, pixels.Height);
-            using (var stream = bitmap.PixelBuffer.AsStream()) await stream.WriteAsync(pixels.Bytes);
-            bitmap.Invalidate(); _uploadMs += watch.ElapsedMilliseconds;
-            Store(new Entry(key, bitmap, null, pixels.Bytes.LongLength)); request.Completion.TrySetResult(bitmap);
+            Entry result;
+            if (key.Purpose is Purpose.ReviewThumbnail or Purpose.ReviewPreview)
+                result = new Entry(key, null, pixels, pixels.Bytes.LongLength);
+            else
+            {
+                var bitmap = new WriteableBitmap(pixels.Width, pixels.Height);
+                using (var stream = bitmap.PixelBuffer.AsStream()) await stream.WriteAsync(pixels.Bytes);
+                bitmap.Invalidate(); _uploadMs += watch.ElapsedMilliseconds;
+                result = new Entry(key, bitmap, null, pixels.Bytes.LongLength);
+            }
+            Store(result); request.Completion.TrySetResult(result);
         }
         catch (OperationCanceledException) { request.Completion.TrySetCanceled(); }
         catch (Exception ex) { request.Completion.TrySetException(ex); }
@@ -241,7 +262,7 @@ public static class ImageLoader
             if (Requests.TryGetValue(request.Key, out var pending) && ReferenceEquals(pending, request))
                 Requests.Remove(request.Key);
             _active--; _scratch -= request.Weight;
-            if (request.Key.Purpose == Purpose.Preview) _previewActive--;
+            if (IsPreview(request.Key.Purpose)) _previewActive--;
             request.Cancellation.Dispose(); SchedulePump(); WorkCompleted?.Invoke();
         }
     }
@@ -295,14 +316,14 @@ public static class ImageLoader
     }
     private static void Touch(LinkedListNode<Entry> node)
     {
-        var list = node.Value.Key.Purpose == Purpose.Preview ? Previews : Thumbnails;
+        var list = IsPreview(node.Value.Key.Purpose) ? Previews : Thumbnails;
         list.Remove(node); list.AddLast(node);
     }
     private static void Store(Entry entry)
     {
         if (Cache.TryGetValue(entry.Key, out var existing)) { Touch(existing); return; }
         if (entry.Bytes > PoolBytes) return;
-        bool preview = entry.Key.Purpose == Purpose.Preview;
+        bool preview = IsPreview(entry.Key.Purpose);
         var list = preview ? Previews : Thumbnails;
         Cache.Add(entry.Key, list.AddLast(entry));
         if (preview) _previewBytes += entry.Bytes; else _thumbnailBytes += entry.Bytes;

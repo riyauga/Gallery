@@ -1564,7 +1564,12 @@ public sealed partial class ReviewPage
                 return;
             }
             if (!_batchMode || _paletteDragging || _dragFinishing || args.Handled || HasTagInputFocus()) return;
-            if (args.Key == VirtualKey.Escape)
+            if (args.Key == VirtualKey.A && InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down))
+            {
+                SelectAllBatch();
+                args.Handled = true;
+            }
+            else if (args.Key == VirtualKey.Escape)
             {
                 if (_paintTag is not null) ExitPaintMode();
                 else ClearBatchSelection();

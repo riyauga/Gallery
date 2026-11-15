@@ -239,7 +239,7 @@ public sealed partial class MainWindow : Window
         Preview.CloseImmediate();
         ImageLoader.SetGalleryActive(false);
         if (ReferenceEquals(_lowPowerPage, _page)) _page.SetActive(false);
-        else if (_reviewPage is not null && ReferenceEquals(_lowPowerPage, _reviewPage)) _reviewPage.SetActive(false);
+        else if (_reviewPage is not null && ReferenceEquals(_lowPowerPage, _reviewPage)) _reviewPage.SetActive(false, releasePreviews: true);
         ImageLoader.ClearCaches();
         PixaiScorer.RefreshCache(null);
         AppService.DebugLog("low power: pixel caches and scorer released");
@@ -931,8 +931,8 @@ public sealed partial class MainWindow : Window
         {
             SearchBox.DefaultFocusAnchor = ContentHost;
             _reviewPage ??= CreateReviewPage();
-            _reviewPage.Reload();
             ShowContent(_reviewPage);
+            _reviewPage.Reload();
             RecordLocation("nav:" + tag);
             return;
         }

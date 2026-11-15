@@ -7,7 +7,7 @@ export function xPost(value) {
   if (!isXPage(value)) return null;
   const u=new URL(value),m=/^\/([a-zA-Z0-9_]{1,15})\/status\/(\d+)(?:\/|$)/.exec(u.pathname);
   if(m && ['i','home','search','explore','notifications','messages','settings','compose','login','signup','share','intent'].includes(m[1].toLowerCase()))return null;
-  return m ? {page_url:`https://x.com/${m[1]}/status/${m[2]}`,author:`@${m[1]}`,post_id:m[2]} : null;
+  return m ? {page_url:`https://x.com/${m[1]}/status/${m[2]}`,author:m[1],post_id:m[2]} : null;
 }
 export function xImageKey(value) {
   try {

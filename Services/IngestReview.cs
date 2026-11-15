@@ -9,6 +9,35 @@ public static class IngestReview
     public static readonly string[] Categories = ["work", "character", "artist", "kind", "rating", "custom"];
     public static readonly string[] Titles = ["作品", "角色", "作者", "类型", "分级", "自定义"];
 
+    /// <summary>作者账号的 @ 是站点展示前缀，不参与标签身份；名字中间的 @ 保留。</summary>
+    public static string NormalizeArtistName(string name)
+    {
+        var clean = name.Trim();
+        var account = clean.TrimStart('@');
+        return account.Length > 0 ? account : clean;
+    }
+
+    /// <summary>在入队／人工保存边界统一作者写法，兼容未更新的 X 扩展。</summary>
+    public static string NormalizeArtistPayload(string payload)
+    {
+        if (JsonNode.Parse(payload) is not JsonObject root) return payload;
+        var changed = false;
+        foreach (var field in new[] { "tags", "review_tags" })
+        {
+            if (root[field] is not JsonObject tags || tags["artist"] is not JsonArray artists) continue;
+            var names = new List<string>();
+            foreach (var node in artists)
+            {
+                var before = node?.GetValue<string>() ?? "";
+                var name = NormalizeArtistName(before);
+                if (name != before || names.Contains(name, StringComparer.OrdinalIgnoreCase)) changed = true;
+                if (name.Length > 0 && !names.Contains(name, StringComparer.OrdinalIgnoreCase)) names.Add(name);
+            }
+            tags["artist"] = JsonSerializer.SerializeToNode(names);
+        }
+        return changed ? root.ToJsonString() : payload;
+    }
+
     /// <summary>兼容扩展 filename 与旧协议 inbox_path，不猜测文件的移动位置。</summary>
     public static string LocalPath(StoreService.PendingIngestRow row)
     {
@@ -380,6 +409,7 @@ public static class IngestReview
             }
         }
         catch (JsonException) { }
+        result["artist"] = result["artist"].Select(NormalizeArtistName).ToList();
         result["rating"].Clear();
         var normalized = ArchiveService.NormalizeRating(rating);
         if (normalized.Length > 0) result["rating"].Add(normalized);
