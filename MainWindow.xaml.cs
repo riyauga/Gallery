@@ -1,4 +1,4 @@
-using Microsoft.UI;
+﻿using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -855,6 +855,10 @@ public sealed partial class MainWindow : Window
         Nav.OpenPaneLength = Math.Clamp(AppService.Settings.Settings.sidebar_width, 180, 500);
 
         Activated += OnFirstActivated;
+#if GALLERY_DEVELOPMENT
+        if (Environment.GetCommandLineArgs().Contains("--review", StringComparer.OrdinalIgnoreCase))
+            RootGrid.Loaded += (_, _) => Nav.SelectedItem = ReviewNavItem;
+#endif
     }
 
     /// <summary>照 photos GetFrameMargin：展开时内容让出 Gripper 宽度（16），折叠时不留。</summary>

@@ -90,7 +90,8 @@ function gridWindow(){
  queuePanel();
 }
 function queueGrid(){if(!gridFrame)gridFrame=requestAnimationFrame(()=>{gridFrame=0;gridWindow();});}
-deck.addEventListener('scroll',()=>{if(batch){panelUserInput=true;queueGrid();}},{passive:true});
+deck.addEventListener('scroll',()=>{if(batch)queueGrid();},{passive:true});
+for(const name of ['wheel','pointerdown','keydown'])deck.addEventListener(name,()=>{if(batch){queueUserInput=true;queuePanel();}},{passive:true});
 let current=0,count=0,initialized=false,design={overlap:67,size:95,aspect:16/9,angle:10,scale:1.12,drag:1,ease:'out'};
 // 切入与切出共用同一条距离曲线：|d| 从 1 到 0 是切入，反向滚走时自然就是相反的切出。
 const EASES={linear:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
@@ -522,13 +523,13 @@ window.addEventListener('blur',finishGridPan);
 deck.addEventListener('lostpointercapture',finishGridPan);
 deck.addEventListener('auxclick',event=>{if(batch&&event.button===1)event.preventDefault();});
 const settingsPanel=tweak.querySelector('.controls');
-let panelFrame=0,panelWidth=0,panelCommand=0,panelUserInput=false;
+let panelFrame=0,panelWidth=0,panelCommand=0,panelUserInput=false,queueCommand=0,queueUserInput=false;
 function publishPanel(){
  panelFrame=0;
  if(batch){
-  const box=deck.getBoundingClientRect();
-  send({type:'panelMetrics',visible:deck.scrollHeight>deck.clientHeight,x:box.right-12,y:box.top,width:12,height:deck.clientHeight,viewport:deck.clientHeight,maximum:Math.max(0,deck.scrollHeight-deck.clientHeight),value:deck.scrollTop,viewportWidth:innerWidth,viewportHeight:innerHeight,command:panelCommand,userInput:panelUserInput});
-  panelUserInput=false;return;
+  send({type:'panelMetrics',visible:false});
+  send({type:'queueMetrics',viewport:deck.clientHeight,maximum:Math.max(0,deck.scrollHeight-deck.clientHeight),value:deck.scrollTop,command:queueCommand,userInput:queueUserInput});
+  queueUserInput=false;return;
  }
  if(!tweak.open){send({type:'panelMetrics',visible:false});return;}
  if(settingsPanel.scrollHeight<=settingsPanel.clientHeight){
@@ -641,8 +642,12 @@ window.chrome.webview.addEventListener('message',event=>{
  if(state.type==='flyTagApply'){flyApply(state.rays);return;}
  if(state.type==='flyTagDetach'){flyDetach(state.rays,state.target);return;}
  if(state.type==='flyTagScatter'){flyScatter(state.rays);return;}
+ if(state.type==='queueScroll'){
+  if(!batch)return;
+  queueCommand=state.command;deck.scrollTop=state.value;queuePanel();return;
+ }
  if(state.type==='panelScroll'){
-  panelCommand=state.command;if(dealLayer){queuePanel();return;}if(batch)deck.scrollTop=state.value;else settingsPanel.scrollTop=state.value;queuePanel();return;
+  panelCommand=state.command;if(dealLayer){queuePanel();return;}settingsPanel.scrollTop=state.value;queuePanel();return;
  }
  // 滚动轴：宿主已经算好连续位置，这里直接落位；跟随期间不发 select，停稳后由宿主提交。
  if(state.type==='scroll'){

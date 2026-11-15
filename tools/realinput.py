@@ -20,6 +20,8 @@ def main_window(pid):
 def force_foreground(hwnd):
     """拿到前台：SetForegroundWindow 会被系统拒绝，先用 AttachThreadInput 把输入队列接到目标线程再设。"""
     u.ShowWindow(hwnd, 9)
+    # 系统只在「当前进程最近收到过输入」时允许抢前台，发一次 ALT 抬起骗过这条限制。
+    u.keybd_event(0x12, 0, 0, 0); time.sleep(0.03); u.keybd_event(0x12, 0, 2, 0)
     for _ in range(8):
         u.SetForegroundWindow(hwnd); time.sleep(0.15)
         if u.GetForegroundWindow()==hwnd: return True

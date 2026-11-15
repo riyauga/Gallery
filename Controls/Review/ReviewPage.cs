@@ -256,6 +256,18 @@ public sealed partial class ReviewPage : Grid
             _scrollDragging = false;
             CommitScroll();
         };
+        _carousel.QueueScrollChanged += (maximum, viewport, value, userInput) =>
+        {
+            if (!_batchMode || !_active) return;
+            if (userInput) _queueScroll.CancelInteraction();
+            _syncingScroll = true;
+            _queueScroll.Maximum = maximum;
+            _queueScroll.ViewportSize = viewport;
+            if (!_scrollDragging) _queueScroll.Value = value;
+            _queueScroll.Visibility = maximum > 0 ? Visibility.Visible : Visibility.Collapsed;
+            _syncingScroll = false;
+            _queueScroll.NotifyActivity();
+        };
         AutomationProperties.SetName(_queueScroll, "图片列表滚动条");
         _carousel.SelectedImageLoaded += item =>
         {
@@ -768,7 +780,10 @@ public sealed partial class ReviewPage : Grid
         if (enabled) _singleIndexBeforeBatch = _index;
         ExitPaintMode();
         if (!enabled) CancelPaletteDrag();
+        _queueScroll.CancelInteraction();
+        _queueScroll.Visibility = Visibility.Collapsed;
         _batchMode = enabled;
+        _queueScroll.Step = enabled ? 0 : 1;
         _destinationEdited = false;
         _batchToggle.IsChecked = enabled;
         _batchSelected.Clear();
@@ -837,7 +852,6 @@ public sealed partial class ReviewPage : Grid
     {
         _selected = _batchSelected.Count == 1 ? _rows.FirstOrDefault(row => _batchSelected.Contains(row.Id)) : null;
         _tags = IngestReview.Categories.ToDictionary(category => category, _ => new List<string>());
-        _queueScroll.Visibility = Visibility.Collapsed;
         _count.Text = $"已选 {_batchSelected.Count} / {_rows.Count}";
         _carousel.SetItems(_rows, _index);
         _carousel.SetBatchMode(true, _batchSelected);
@@ -1869,6 +1883,7 @@ public sealed partial class ReviewPage : Grid
         {
             ExitPaintMode();
             CancelPaletteDrag();
+            _queueScroll.CancelInteraction();
             _queueScroll.HideIndicator();
             _scrollDragging = false;
             _carousel.UnfreezeWindow();
@@ -2007,7 +2022,7 @@ public sealed partial class ReviewPage : Grid
 
     private void CommitScroll()
     {
-        if (_rows.Count == 0) return;
+        if (_batchMode || _rows.Count == 0) return;
         // 控件已经吸附到整数；这里发最终位置，网页回 settled 后统一提交详情和清晰图。
         _carousel.CommitScroll((int)Math.Round(_queueScroll.Value));
     }

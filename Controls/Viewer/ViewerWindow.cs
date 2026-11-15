@@ -85,7 +85,7 @@ public sealed partial class ViewerWindow : Window
     private bool _updatingZoom;
 
     public string CurrentPath { get; private set; } = "";
-    public bool IsBusy => _busy || _importing || _enteringEdit || _photoEditor?.Saving == true;
+    public bool IsBusy => _busy || _importing || _enteringEdit || _photoEditor?.Saving == true || _collage?.IsSaving == true;
 
     [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
     private static extern int StrCmpLogicalW(string first, string second);
@@ -155,11 +155,19 @@ public sealed partial class ViewerWindow : Window
             if (_started) return;
             _started = true;
             await RunAsync(() => OpenPathAsync(path));
+#if GALLERY_DEVELOPMENT
+            // 开发自测：--collage 启动后直接进拼图模式，用于沙箱冒烟，不出现在发布构建。
+            if (Environment.GetCommandLineArgs().Contains("--collage", StringComparer.OrdinalIgnoreCase))
+                await EnterCollageAsync();
+            if (Environment.GetCommandLineArgs().Contains("--edit", StringComparer.OrdinalIgnoreCase))
+                await EnterEditAsync();
+#endif
         };
         _root.SizeChanged += (_, _) => UpdateTitleBarRegions();
         AppWindow.Closing += async (_, e) =>
         {
             if (!_allowClose && (IsBusy || _suspended)) { e.Cancel = true; ShowStatus("正在处理文件，请完成后再关闭窗口。"); return; }
+            if (_collaging) { e.Cancel = true; await RequestExitCollageAsync(closeWindow: true); return; }
             if (_editing) { e.Cancel = true; await RequestExitEditAsync(closeWindow: true); }
         };
         Closed += (_, _) =>
@@ -266,6 +274,7 @@ public sealed partial class ViewerWindow : Window
         Item("复制", ViewerChrome.Glyph.Copy, () => CopyAsync(false, false), "Ctrl+C");
         menu.Items.Add(new MenuFlyoutSeparator());
         Item("调整图像大小", ViewerChrome.Glyph.Resize, ResizeImageAsync);
+        Item("创建拼图", ViewerChrome.Glyph.Crop, EnterCollageAsync);
         var setAs = new MenuFlyoutSubItem
         {
             Text = "设置为",
@@ -542,6 +551,7 @@ public sealed partial class ViewerWindow : Window
         _status.Foreground = ViewerChrome.Brush(_palette.Text);
         _statusHost.Background = ViewerChrome.Brush(_palette.Panel);
         _filmstrip.ApplyTheme(theme);
+        _collage?.ApplyTheme(theme);
         _infoPane.ApplyTheme(theme);
         _playback.ApplyTheme(theme);
         RecolorButtons(_root);
@@ -568,6 +578,7 @@ public sealed partial class ViewerWindow : Window
     private async Task OpenPathAsync(string path)
     {
         if (_editing && _photoEditor?.Saving != true && !await RequestExitEditAsync()) return;
+        if (_collaging && !await RequestExitCollageAsync()) return;
         await DisplayAsync(path);
         try { await ReadFolderAsync(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -601,6 +612,7 @@ public sealed partial class ViewerWindow : Window
     private Task DisplayAsync(string path)
     {
         if (_editing) ExitEdit(false);
+        if (_collaging) ExitCollage();
         if (_host.IsPathReleased(path)) { ShowStatus("图片正在处理，请完成后再查看。"); return Task.CompletedTask; }
         CurrentPath = path;
         _image.Clear();
@@ -1214,6 +1226,16 @@ public sealed partial class ViewerWindow : Window
     private async void OnKey(object sender, KeyRoutedEventArgs e)
     {
         if (_busy || _suspended || DialogService.IsShowing) return;
+        if (_collaging)
+        {
+            bool ctrlZ = Microsoft.UI.Input.InputKeyboardSource
+                .GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+            if (e.Key == VirtualKey.Escape) { await RequestExitCollageAsync(); e.Handled = true; }
+            else if (ctrlZ && e.Key == VirtualKey.Z) { _collage?.Undo(); e.Handled = true; }
+            else if (ctrlZ && e.Key == VirtualKey.Y) { _collage?.Redo(); e.Handled = true; }
+            else if (ctrlZ && e.Key == VirtualKey.S) { _ = SaveCollageAsync(false); e.Handled = true; }
+            return;
+        }
         if (_editing)
         {
             if (e.Key == VirtualKey.Escape) { await RequestExitEditAsync(); e.Handled = true; }

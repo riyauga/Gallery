@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Gallery.Services;
 namespace Gallery;
 public partial class App
@@ -375,6 +375,21 @@ public partial class App
             var report = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_kind.txt");
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(report)!);
             System.IO.File.WriteAllLines(report, lines);
+            Exit();
+            return true;
+        }
+
+        // --verify-collage：拼图布局与合成验收（纯逻辑 + 输出像素，不出窗口）
+        if (cli.Contains("--verify-collage"))
+        {
+            try
+            {
+                Task.Run(() => RunVerifyCollageAsync()).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                AppService.DebugLog("verify-collage failed: " + ex);
+            }
             Exit();
             return true;
         }

@@ -25,7 +25,8 @@ internal sealed class ReviewCarousel : Grid
     private readonly Canvas _scrollOverlay = new();
     private readonly ContinuousScrollBar _settingsScroll = new() { Step = 0, Visibility = Visibility.Collapsed, ThumbThickness = 8, MinimumThumbLength = 18 };
     private bool _settingsSyncing, _settingsInteracting, _settingsVisible;
-    private int _settingsCommand;
+    private int _settingsCommand, _queueCommand;
+    public event Action<double, double, double, bool>? QueueScrollChanged;
     private readonly XamlImage _freeze = new() { Stretch = Stretch.Fill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
     private readonly Dictionary<int, Preview> _previews = [];
@@ -288,6 +289,11 @@ internal sealed class ReviewCarousel : Grid
     public void ScrollTo(double position, bool follow)
     {
         if (!_active || !_ready || _rows.Count == 0) return;
+        if (_batchMode)
+        {
+            PostToWeb(JsonSerializer.Serialize(new { type = "queueScroll", value = position, command = ++_queueCommand }, Json));
+            return;
+        }
         position = Math.Clamp(position, 0, _rows.Count - 1);
         PostToWeb(JsonSerializer.Serialize(new { type = "scroll", position, follow }, Json));
     }
@@ -897,6 +903,15 @@ internal sealed class ReviewCarousel : Grid
                 return;
             }
             if (_batchMode && type is "window" or "settled" or "step") return;
+            if (type == "queueMetrics")
+            {
+                if (!_batchMode) return;
+                var userInput = message.GetProperty("userInput").GetBoolean();
+                if (!userInput && message.GetProperty("command").GetInt32() < _queueCommand) return;
+                QueueScrollChanged?.Invoke(message.GetProperty("maximum").GetDouble(),
+                    message.GetProperty("viewport").GetDouble(), message.GetProperty("value").GetDouble(), userInput);
+                return;
+            }
             if (type == "panelMetrics") { UpdateSettingsScroll(message); return; }
             if (type == "configure")
             {

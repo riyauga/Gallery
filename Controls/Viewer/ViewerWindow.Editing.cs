@@ -28,7 +28,12 @@ public sealed partial class ViewerWindow
         _editEntry.Click += async (_, _) => await EnterEditAsync();
         _titleCommands.Children.Insert(0, _editEntry);
         _backButton = ViewerChrome.IconButton(ViewerChrome.Glyph.Back, "返回", _palette, 32, 15);
-        _backButton.Click += async (_, _) => await RequestExitEditAsync();
+        // 返回按钮两个模式共用，必须按当前模式分发；否则拼图里点它什么都不发生。
+        _backButton.Click += async (_, _) =>
+        {
+            if (_collaging) { await RequestExitCollageAsync(); return; }
+            await RequestExitEditAsync();
+        };
         _backButton.Visibility = Visibility.Collapsed;
         _backButton.HorizontalAlignment = HorizontalAlignment.Left;
         _backButton.Margin = new Thickness(6, 0, 0, 0);
@@ -42,7 +47,7 @@ public sealed partial class ViewerWindow
         _editing = true;
         var editor = new PhotoEditorView();
         _photoEditor = editor;
-        editor.SaveRequested = SaveEditedPixelsAsync;
+        editor.SaveRequested = (image, kind) => SaveEditedPixelsAsync(image, kind);
         editor.CloseRequested += () => _ = RequestExitEditAsync();
         editor.EscapeRequested += () => _ = RequestExitEditAsync();
         editor.Failed += ShowStatus;
@@ -118,22 +123,30 @@ public sealed partial class ViewerWindow
         if (refresh && !_closed) _ = RunAsync(() => OpenPathAsync(CurrentPath));
     }
 
-    private async Task SaveEditedPixelsAsync(Image<Rgba32> image, int kind)
+    /// <summary>把像素以 PNG 写进系统剪贴板。编辑与拼图共用，避免两套实现。</summary>
+    private async Task CopyImageToClipboardAsync(Image<Rgba32> image, string message)
+    {
+        using var buffer = new MemoryStream();
+        await image.SaveAsPngAsync(buffer);
+        var stream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(stream))
+        {
+            writer.WriteBytes(buffer.ToArray());
+            await writer.StoreAsync();
+            writer.DetachStream();
+        }
+        stream.Seek(0);
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+        ShowStatus(message);
+    }
+
+    private async Task SaveEditedPixelsAsync(Image<Rgba32> image, int kind, string suffix = "-副本")
     {
         if (kind == 2)
         {
-            using var buffer = new MemoryStream();
-            await image.SaveAsPngAsync(buffer);
-            var stream = new InMemoryRandomAccessStream();
-            using (var writer = new DataWriter(stream))
-            {
-                writer.WriteBytes(buffer.ToArray()); await writer.StoreAsync(); writer.DetachStream();
-            }
-            stream.Seek(0);
-            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-            package.SetBitmap(RandomAccessStreamReference.CreateFromStream(stream));
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-            ShowStatus("已复制编辑后的图片。");
+            await CopyImageToClipboardAsync(image, "已复制编辑后的图片。");
             return;
         }
         var original = CurrentPath;
@@ -142,7 +155,7 @@ public sealed partial class ViewerWindow
         {
             var picker = new Microsoft.Windows.Storage.Pickers.FileSavePicker(AppWindow.Id)
             {
-                SuggestedFileName = Path.GetFileNameWithoutExtension(original) + "-副本",
+                SuggestedFileName = Path.GetFileNameWithoutExtension(original) + suffix,
                 SuggestedFolder = Path.GetDirectoryName(original)!,
             };
             picker.FileTypeChoices.Add("PNG 图像", new List<string> { ".png" });
@@ -161,11 +174,15 @@ public sealed partial class ViewerWindow
                     await image.SaveAsync(temporary, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 90 });
                 else await image.SaveAsync(temporary);
                 if (target.Equals(original, StringComparison.OrdinalIgnoreCase))
+                {
                     await _host.ChangeFileAsync(original, original, () => Task.Run(() => File.Move(temporary, original, true)));
+                    if (_collaging) ExitCollage();
+                }
                 else
                 {
                     File.Move(temporary, target, true);
-                    ExitEdit(false);
+                    if (_collaging) ExitCollage();
+                    else ExitEdit(false);
                     await OpenPathAsync(target);
                 }
             }
