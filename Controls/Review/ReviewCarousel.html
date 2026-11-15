@@ -74,7 +74,7 @@ body.tag-clearing .g-tagged .g-tag{display:none!important}
 <button id="reset">重置</button></div></details>
 <script>
 (()=>{
-const deck=document.getElementById('deck'),tweak=document.getElementById('tweak'),cards=new Map();
+const deck=document.getElementById('deck'),tweak=document.getElementById('tweak'),cards=new Map(),ringFrames=new Map();
 const gridSpace=document.createElement('div');gridSpace.id='grid-space';deck.append(gridSpace);
 let viewGeneration=0,ringEntry=null,ringFrame=0,ringTimer=0;
 let active=false,batch=false,motion=true,interactive=true,gridFrame=0,gridRange='',gridSize='medium',dealLayer=null,dealSerial=0,dealFrame=0,dealAnimations=[],dealCards=new Map();
@@ -562,11 +562,31 @@ tweak.addEventListener('toggle',()=>{
 new ResizeObserver(queuePanel).observe(settingsPanel);
 window.addEventListener('resize',queuePanel);
 function settings(){for(const key of ['overlap','size','angle','scale','drag']){const percent=key==='scale'||key==='drag';document.getElementById(key).value=percent?Math.round(design[key]*100):design[key];document.getElementById(key+'-value').value=percent?Math.round(design[key]*100)+'%':design[key]+(key==='angle'?'°':'%');}for(const radio of document.querySelectorAll('input[name=ease]'))radio.checked=radio.value===design.ease;}
+function createCardFrame(){
+   const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-haspopup','menu');
+   const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';const tag=document.createElement('span');tag.className='g-tag';tag.hidden=true;card.append(art,veil,message,spin,check,name,tag);
+ return card;
+}
+function syncRingFrames(){
+ const first=Math.max(0,Math.floor(pos)-4),last=Math.min(count-1,Math.ceil(pos)+4);
+ const present=new Set([...cards.values()].map(entry=>entry.data.index));
+ for(const [index,entry]of ringFrames){
+  if(!active||batch||index<first||index>last||present.has(index)){entry.element.remove();ringFrames.delete(index);}
+ }
+ if(!active||batch)return;
+ for(let index=first;index<=last;index++){
+  if(present.has(index)||ringFrames.has(index))continue;
+  const element=createCardFrame();element.style.pointerEvents='none';element.tabIndex=-1;element.setAttribute('aria-hidden','true');
+  ringFrames.set(index,{element,data:{index,inboxName:'',ratio:1,placeholder:true,status:''}});deck.append(element);
+ }
+}
 function render(){
+ syncRingFrames();
  if(!active||deck.clientWidth<=0||deck.clientHeight<=0)return;
  if(batch){
   const g=gridGeometry();
   for(const [id,{element:card,data}] of cards){
+   card.style.opacity='';card.style.visibility='';
    card.style.width=g.width+'px';card.style.height=g.height+'px';
    card.style.transform='translate3d('+(g.pad+(data.index%g.cols)*(g.width+g.gap))+'px,'+(g.pad+Math.floor(data.index/g.cols)*(g.height+g.gap))+'px,0)';if(!dealCards.has(id))card.style.zIndex='1';
    card.style.setProperty('--g-shade','0');card.classList.toggle('g-selected',!!data.selected);card.classList.toggle('g-blocked',!!data.blocked);card.classList.toggle('g-wait',data.analyzed===false&&!data.analyzing);card.classList.toggle('g-run',!!data.analyzing);card.setAttribute('aria-pressed',String(!!data.selected));card.setAttribute('aria-label',(data.selected?'取消选择 ':'选择 ')+data.inboxName);
@@ -594,9 +614,9 @@ function render(){
  }
  const span=2*extent,frameHeight=Math.min(deck.clientWidth*.98/design.aspect,(deck.clientHeight-20)*design.size/100/span);
  deck.style.setProperty('--g-frame-height',frameHeight+'px');deck.style.setProperty('--g-frame-width',frameHeight*design.aspect+'px');deck.style.setProperty('--g-perspective',frameHeight*cameraFactor+'px');
- for(const {element:card,data} of cards.values()){
+ for(const {element:card,data} of [...cards.values(),...ringFrames.values()]){
   card.style.width='';card.style.height='';card.setAttribute('aria-label','查看 '+data.inboxName);
-  const d=data.index-pos,a=Math.abs(d);card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);card.classList.toggle('g-wait',data.analyzed===false&&!data.analyzing);card.classList.toggle('g-run',!!data.analyzing);
+  const d=data.index-pos,a=Math.abs(d);card.style.opacity=String(Math.max(0,Math.min(1,4-a)));card.style.visibility=a>=4?'hidden':'';card.setAttribute('aria-pressed',String(a<.5));card.classList.toggle('g-selected',a<.5);card.classList.toggle('g-placeholder',!!data.placeholder);card.classList.toggle('g-blocked',!!data.blocked);card.classList.toggle('g-wait',data.analyzed===false&&!data.analyzing);card.classList.toggle('g-run',!!data.analyzing);
   const theta=d*angleStep,y=frameHeight*radiusFactor*Math.sin(theta),z=frameHeight*radiusFactor*(Math.cos(theta)-1);
   const t=Math.max(0,1-a),scale=1+(design.scale-1)*EASES[design.ease](t);
   card.style.transform='translate(-50%,'+y+'px) translateZ('+z+'px) rotateX('+(-d*design.angle)+'deg) scale('+scale+')';card.style.zIndex=String(8-Math.round(a));
@@ -673,6 +693,7 @@ window.chrome.webview.addEventListener('message',event=>{
  const nextGeneration=state.viewGeneration??0;
  if(gridPan&&(viewGeneration!==nextGeneration||!state.active||!state.interactive||!state.batch||gridSize!==(state.gridSize||'medium')))finishGridPan();
  if(paintDrag&&(viewGeneration!==nextGeneration||state.tagTool!==tagTool||!state.active||!state.interactive||!state.batch))finishPaint(true);
+ if(viewGeneration!==nextGeneration||state.batch||!state.active){for(const {element}of ringFrames.values())element.remove();ringFrames.clear();}
  viewGeneration=nextGeneration;
  tagTool=state.tagTool??null;markerTool=state.marker??null;tagLabel=state.tagLabel||'';
  tagBg=state.tagBg||'';tagBorder=state.tagBorder||'';tagInk=state.tagInk||'';
@@ -722,8 +743,8 @@ window.chrome.webview.addEventListener('message',event=>{
  for(const data of state.cards){
   let entry=cards.get(data.id);
   if(!entry){
-   const card=document.createElement('button');card.type='button';card.className='g-photo';card.setAttribute('aria-label','查看 '+data.inboxName);card.setAttribute('aria-haspopup','menu');
-   const art=document.createElement('img');art.className='g-art';art.alt='';const veil=document.createElement('div');veil.className='g-veil';const message=document.createElement('div');message.className='message';const spin=document.createElement('span');spin.className='g-spin';const check=document.createElement('span');check.className='g-check';const name=document.createElement('span');name.className='g-name';const tag=document.createElement('span');tag.className='g-tag';tag.hidden=true;card.append(art,veil,message,spin,check,name,tag);
+   const card=ringFrames.get(data.index)?.element||createCardFrame();
+   ringFrames.delete(data.index);card.style.pointerEvents='';card.removeAttribute('aria-hidden');card.tabIndex=0;
    entry={element:card,data};cards.set(data.id,entry);deck.append(card);
    card.addEventListener('pointerenter',()=>startHover(entry));
    card.addEventListener('pointerleave',delayCloseHover);

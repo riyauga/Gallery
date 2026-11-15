@@ -81,7 +81,7 @@ public sealed partial class SettingsPage
         var result = await DialogService.ShowAsync(new ContentDialog
         {
             XamlRoot = _updateRoot(), Title = "Gallery " + update.Version,
-            Content = new ScrollViewer { Content = notes, MaxHeight = 440 },
+            Content = new ScrollViewer { Content = notes, MaxHeight = 440, Padding = new Thickness(0, 0, 16, 0) },
             PrimaryButtonText = "下载并更新", SecondaryButtonText = "跳过此版本", CloseButtonText = "稍后",
             DefaultButton = ContentDialogButton.Close,
         });

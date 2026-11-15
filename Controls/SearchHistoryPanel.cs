@@ -111,6 +111,7 @@ public sealed class SearchHistoryPanel
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Visibility = Visibility.Collapsed,
+            Padding = new Thickness(0, 0, 16, 0),
             Content = _chips,
         };
 

@@ -1,3 +1,4 @@
+using Gallery.Controls;
 using Gallery.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -117,7 +118,7 @@ public sealed partial class SettingsPage
         {
             var original = index < 0 ? new FolderMap.RoutingRule(true, "custom", "", "", false, "", "", false)
                 : _directoryMap.RoutingRules[index];
-            var category = new ComboBox { Header = "标签类型", HorizontalAlignment = HorizontalAlignment.Stretch };
+            var category = new SelectionDropDown { HorizontalAlignment = HorizontalAlignment.Stretch };
             foreach (var entry in DirectoryCategories)
             {
                 var item = new ComboBoxItem { Content = entry.Label, Tag = entry.Key };
@@ -134,21 +135,21 @@ public sealed partial class SettingsPage
             var author = new CheckBox { Content = "再按画师细分（有画师标签时）", IsChecked = original.AppendArtist };
             var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
             var content = new StackPanel { Spacing = 12, MinWidth = 340, MaxWidth = 540 };
-            foreach (var control in new UIElement[] { category, name, folder, split, sfw, nsfw, author,
+            foreach (var control in new UIElement[] { new StackPanel { Spacing = 5, Children = { new TextBlock { Text = "标签类型" }, category } }, name, folder, split, sfw, nsfw, author,
                 new TextBlock { Text = "启用分级细分时，未分级图片只进入目标目录。", TextWrapping = TextWrapping.Wrap, Opacity = .6 }, error })
                 content.Children.Add(control);
             FolderMap.RoutingRule? replacement = null;
             var dialog = new ContentDialog
             {
                 XamlRoot = XamlRoot, Title = index < 0 ? "添加目录规则" : "编辑目录规则",
-                Content = new ScrollViewer { Content = content, MaxHeight = 600 },
+                Content = new ScrollViewer { Content = content, MaxHeight = 600, Padding = new Thickness(0, 0, 16, 0) },
                 PrimaryButtonText = "保存", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Primary,
             };
             dialog.PrimaryButtonClick += (_, args) =>
             {
                 try
                 {
-                    replacement = new(original.Enabled, (string)((ComboBoxItem)category.SelectedItem).Tag,
+                    replacement = new(original.Enabled, (string)((ComboBoxItem)category.SelectedItem!).Tag,
                         name.Text.Trim(), folder.Text.Trim(), split.IsChecked == true, sfw.Text.Trim(), nsfw.Text.Trim(), author.IsChecked == true);
                     var candidate = FolderMap.Parse(_directoryMap.ToJson());
                     if (index < 0) candidate.RoutingRules.Add(replacement); else candidate.RoutingRules[index] = replacement;

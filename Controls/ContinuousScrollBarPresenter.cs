@@ -14,6 +14,8 @@ public sealed class ContinuousScrollBarPresenter : Grid
     private ScrollBar? _source;
     private ScrollViewer? _viewer;
     private bool _syncing, _interacting, _hovered;
+    private (Orientation Orientation, double Size)? _geometry;
+    private bool? _expanded;
 
     public ContinuousScrollBarPresenter()
     {
@@ -58,6 +60,8 @@ public sealed class ContinuousScrollBarPresenter : Grid
             _viewer.RemoveHandler(PointerWheelChangedEvent, new PointerEventHandler(OnViewerWheel));
             _viewer.RemoveHandler(KeyDownEvent, new KeyEventHandler(OnViewerKey));
         }
+        _geometry = null;
+        _expanded = null;
         _source = null;
         _viewer = null;
         _interacting = false;
@@ -90,16 +94,22 @@ public sealed class ContinuousScrollBarPresenter : Grid
         try
         {
             var vertical = _source.Orientation == Orientation.Vertical;
-            _bar.Orientation = _source.Orientation;
-            _bar.Width = double.NaN;
-            _bar.Height = double.NaN;
-            _bar.HorizontalAlignment = HorizontalAlignment.Stretch;
-            _bar.VerticalAlignment = VerticalAlignment.Stretch;
-            var buttonSize = ResourceNumber("ScrollBarSize", 12);
-            _bar.Margin = vertical ? new Thickness(0, buttonSize, 0, buttonSize) : new Thickness(buttonSize, 0, buttonSize, 0);
-            _bar.MinimumThumbLength = ResourceNumber(vertical ? "ScrollBarVerticalThumbMinHeight" : "ScrollBarHorizontalThumbMinWidth", 30);
-            Width = vertical ? buttonSize : double.NaN;
-            Height = vertical ? double.NaN : buttonSize;
+            var size = ResourceNumber("ScrollBarSize", 12);
+            var geometry = (_source.Orientation, size);
+            if (_geometry != geometry)
+            {
+                _geometry = geometry;
+                _expanded = null;
+                _bar.Orientation = _source.Orientation;
+                _bar.Width = double.NaN;
+                _bar.Height = double.NaN;
+                _bar.HorizontalAlignment = HorizontalAlignment.Stretch;
+                _bar.VerticalAlignment = VerticalAlignment.Stretch;
+                _bar.Margin = vertical ? new Thickness(0, size, 0, size) : new Thickness(size, 0, size, 0);
+                _bar.MinimumThumbLength = ResourceNumber(vertical ? "ScrollBarVerticalThumbMinHeight" : "ScrollBarHorizontalThumbMinWidth", 30);
+                Width = vertical ? size : double.NaN;
+                Height = vertical ? double.NaN : size;
+            }
             _bar.Minimum = _source.Minimum;
             _bar.Maximum = _source.Maximum;
             _bar.ViewportSize = _source.ViewportSize;
@@ -115,12 +125,14 @@ public sealed class ContinuousScrollBarPresenter : Grid
         var expanded = _hovered || _interacting || _source.IndicatorMode == ScrollingIndicatorMode.MouseIndicator;
         var size = ResourceNumber("ScrollBarSize", 12);
         var vertical = _source.Orientation == Orientation.Vertical;
-        _bar.Margin = expanded ? (vertical ? new Thickness(0, size, 0, size) : new Thickness(size, 0, size, 0)) : new Thickness(0);
-        _bar.MinimumThumbLength = expanded ? ResourceNumber(vertical ? "ScrollBarVerticalThumbMinHeight" : "ScrollBarHorizontalThumbMinWidth", 30) : 32;
-        _bar.ThumbCrossOffset = expanded ? 0 : (size - 2) / 2 - 2;
-        _bar.ThumbThickness = expanded ? ResourceNumber(_source.Orientation == Orientation.Vertical
-            ? "ScrollBarVerticalThumbMinWidth" : "ScrollBarHorizontalThumbMinHeight", 8) : 2;
-        _bar.TrackThickness = expanded ? 2 : 1;
+        if (_expanded != expanded)
+        {
+            _expanded = expanded;
+            _bar.ThumbCrossOffset = expanded ? 0 : (size - 2) / 2 - 2;
+            _bar.ThumbThickness = expanded ? ResourceNumber(_source.Orientation == Orientation.Vertical
+                ? "ScrollBarVerticalThumbMinWidth" : "ScrollBarHorizontalThumbMinHeight", 8) : 2;
+            _bar.TrackThickness = expanded ? 2 : 1;
+        }
         _bar.IsHitTestVisible = _source.IsEnabled && _source.Maximum > _source.Minimum;
     }
 

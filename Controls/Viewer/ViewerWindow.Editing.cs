@@ -211,7 +211,9 @@ public sealed partial class ViewerWindow
         bool sourceIsJpeg = Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".jfif" or ".jpe";
         var qualityLabel = new TextBlock();
         var quality = new Slider { Minimum = 10, Maximum = 100, Value = sourceIsJpeg ? 80 : 100, StepFrequency = 1, MinWidth = 200 };
-        var format = new ComboBox { Header = "文件类型", ItemsSource = new[] { "JPG", "PNG", "BMP", "TIFF" }, SelectedIndex = sourceIsJpeg ? 0 : 1, MinWidth = 110 };
+        var format = new SelectionDropDown { MinWidth = 110 };
+        foreach (var formatName in new[] { "JPG", "PNG", "BMP", "TIFF" }) format.Items.Add(formatName);
+        format.SelectedIndex = sourceIsJpeg ? 0 : 1;
         var currentDimensions = new TextBlock { Text = $"{width} x {height} 像素", HorizontalAlignment = HorizontalAlignment.Right };
         var proposedDimensions = new TextBlock { HorizontalAlignment = HorizontalAlignment.Right };
         var proposedSize = new TextBlock { HorizontalAlignment = HorizontalAlignment.Right };
@@ -277,7 +279,8 @@ public sealed partial class ViewerWindow
         Grid.SetColumn(heightInput, 2); sizes.Children.Add(heightInput);
         var options = new Grid { ColumnSpacing = 30, Margin = new Thickness(0, 25, 0, 0) };
         options.ColumnDefinitions.Add(new ColumnDefinition()); options.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        options.Children.Add(new StackPanel { Spacing = 5, Children = { qualityLabel, quality } }); Grid.SetColumn(format, 1); options.Children.Add(format);
+        options.Children.Add(new StackPanel { Spacing = 5, Children = { qualityLabel, quality } }); var formatInput = new StackPanel { Spacing = 5, Children = { new TextBlock { Text = "文件类型" }, format } };
+        Grid.SetColumn(formatInput, 1); options.Children.Add(formatInput);
         var summary = new Grid { ColumnSpacing = 15, RowSpacing = 7 };
         summary.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         for (int column = 1; column < 4; column++) summary.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

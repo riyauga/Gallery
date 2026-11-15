@@ -43,6 +43,9 @@
 
 ## 审阅宿主的加载边界
 
+- 圆环旋转时，网页按本地连续位置即时维护前后各 4 个位置的画框（分数位置至多 10 个），不等待宿主窗口、元数据或图片加载。新画框与真实卡片共用 DOM 结构，宿主数据到达后原位接管；窗口外的真实卡片不再参与远处环绕绘制，距离 3 到 4 之间淡出。预备画框不接受点击、焦点或揭示操作；切换模式、离页与队列代次变化时清理。宿主的前后各 3 张图片加载窗口、缓存和敏感保护规则不变，图片仍在加载完成后独立淡入。此轮容器连续性需与真实旋转手感一起确认。
+
+
 - `ReviewCarousel.SetBatchMode(enabled, selected)` 默认 false；网页 gridWindow 报视口上下各一行，宿主最多下发 200 张窗口卡片，勾选集合仍覆盖全队 ID。复用 256px 占位／预模糊和整队预取，不为每张网格卡片开启 1024px 清晰图升级。
 - `SetGridSize(small|medium|large)` 默认 medium；列节距 112／152／212px，保留首行附近位置；不改解码预算。`BoxSelectionRequested(indices, additive, phase)` 的 start/update/end/cancel 由宿主映射稳定 ID，结束才提交详情；`ClearSelectionRequested` 只处理批量网格空白。
 - `SetActive(false)` 保存中心 ID、停惯性并取消入场；返回先显示宿主，再按 ID 恢复，布局稳定后入场，不等待全队解码；入场结束才允许中心清晰图升级。视图代次过滤旧回声。
