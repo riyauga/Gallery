@@ -108,7 +108,7 @@ Enter/F2/F3 作用于焦点图。Delete、Ctrl+C、Ctrl+Shift+C 均选区优先�
 
 ## 模态弹窗与退出
 
-- 主 UI 线程的 `ContentDialog` 统一使用 `await Gallery.Services.DialogService.ShowAsync(dialog)`；默认同一时间只显示一个，已有弹窗或正在退出时返回 `ContentDialogResult.None`，不排队重放旧操作。宿主仍设置 `XamlRoot`、内容及按钮，并且只在明确返回 `Primary`／`Secondary` 时执行相应操作。
+- 主 UI 线程的 `ContentDialog` 统一使用 `await Gallery.Services.DialogService.ShowAsync(dialog)`；默认同一时间只显示一个，已有弹窗或正在退出时返回 `ContentDialogResult.None`，不排队重放旧操作。宿主仍设置 `XamlRoot`、内容及按钮，并且只在明确返回 `Primary`／`Secondary` 时执行相应操作。 独立查看器的“重设大小”复用原版自带按钮布局，由明确的保存按钮回调记录确认；普通关闭或取消不会触发保存，细节见 [外部文件查看](FILE_VIEWER.md#独立重设大小)。
 - `DialogService.IsShowing` 可在创建昂贵内容前检查；`Dismiss()` 供主窗口退出时关闭当前弹窗。它只管理主 UI 线程的模态框，不用于 `Flyout`、原生文件选择器或多 UI 线程窗口。编辑器的取消、动画和后台任务清理必须放在 `finally`。
 - 新建、删除文件夹后的全根扫描放在后台；扫描串行锁与数据库锁分开，目录枚举、图片头读取不能包在全根数据库锁中。后台扫描进度和错误投递到 UI，退出后不再刷新控件或启动新的审核／文件夹任务。
 - 主窗口退出先阻止新操作、取消模态框，等待审核整批任务及文件夹操作结束，再由服务层停止监听／桥接并关闭数据库。不能只等待批处理中当前那一个 `Task.Run`，也不能以数据库锁暂时空闲作为全部任务结束的证明。

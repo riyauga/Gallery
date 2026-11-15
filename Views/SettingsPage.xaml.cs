@@ -345,6 +345,7 @@ public sealed partial class SettingsPage : UserControl
         ThemeDefaultItem.IsChecked = _theme == ElementTheme.Default;
         ApplyNsfwState();
         ApplyOpenModeState();
+        ApplyDefaultAppsState();
         ApplyKindWhitelistState();
         ApplySyncErrorState();
         ApplyTagDisplayState();
@@ -1184,6 +1185,31 @@ public sealed partial class SettingsPage : UserControl
         OpenProgramText.Text = custom
             ? (settings.open_custom_exe.Length > 0 ? Path.GetFileName(settings.open_custom_exe) : "未选择")
             : "";
+    }
+
+    private void ApplyDefaultAppsState()
+    {
+        DefaultAppsStatusText.Text = Services.FileAssociationService.IsRegistered()
+            ? "已登记为打开方式候选"
+            : "尚未登记";
+    }
+
+    /// <summary>先确保登记了候选，再把用户送到系统“默认应用”，默认由用户在系统里点确认。</summary>
+    private async void DefaultApps_Click(object sender, RoutedEventArgs e)
+    {
+        DefaultAppsButton.IsEnabled = false;
+        try
+        {
+            if (!Services.FileAssociationService.EnsureRegistered())
+            {
+                DefaultAppsStatusText.Text = "登记失败，请检查权限";
+                return;
+            }
+            ApplyDefaultAppsState();
+            if (!await Services.FileAssociationService.OpenDefaultAppsAsync())
+                DefaultAppsStatusText.Text = "未能打开系统设置，请在“默认应用”里手动选择 Gallery";
+        }
+        finally { DefaultAppsButton.IsEnabled = true; }
     }
 
     private void OpenMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

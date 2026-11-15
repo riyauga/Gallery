@@ -1,4 +1,4 @@
-namespace Gallery.Controls.Viewer;
+﻿namespace Gallery.Controls.Viewer;
 
 /// <summary>
 /// Gallery_Old/app/ui/preview.py:PhotoCanvas 的几何状态。
@@ -18,8 +18,10 @@ internal sealed class PhotoCanvasState
     public bool FitMode { get; private set; } = true;
     private int _doubleStep;
 
+    public bool AllowFitUpscale { get; set; } = true;
+
     public double FitScale => Math.Clamp(Math.Min(Math.Max(1, Width) * Dpi / PixelWidth,
-        Math.Max(1, Height) * Dpi / PixelHeight), .05, 8);
+        Math.Max(1, Height) * Dpi / PixelHeight), .05, AllowFitUpscale ? 8 : 1);
 
     public CanvasRect ImageRect
     {

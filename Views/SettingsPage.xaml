@@ -239,6 +239,25 @@
                                 TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ctc:SettingsCard>
+
+                    <ctc:SettingsCard
+                        Header="设为默认应用"
+                        Description="让图片和视频默认由 Gallery 打开；系统不允许程序直接改默认，需要在打开的设置页里确认">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B9;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock
+                                x:Name="DefaultAppsStatusText"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="" />
+                            <Button
+                                x:Name="DefaultAppsButton"
+                                Click="DefaultApps_Click"
+                                Content="去设置" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
                     <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="功能设置" />
 
                     <ctc:SettingsCard x:Name="ImportSettingsEntry" Header="导入与归档"

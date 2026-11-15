@@ -39,8 +39,8 @@ public sealed class ViewerInfoPane : Grid
     public event Action? CloseRequested;
     public event Action? CopyPathRequested;
     public event Action? OpenLocationRequested;
-    public event Action? SetLockScreenRequested;
     public event Action? SetBackgroundRequested;
+    public event Action? ResizeRequested;
 
     public ViewerInfoPane()
     {
@@ -113,9 +113,9 @@ public sealed class ViewerInfoPane : Grid
 
     private void BuildActions()
     {
+        _actions.Children.Add(Action("调整大小", ViewerChrome.Glyph.Resize, () => ResizeRequested?.Invoke()));
         _actions.Children.Add(Action("复制路径", ViewerChrome.Glyph.Copy, () => CopyPathRequested?.Invoke()));
         _actions.Children.Add(Action("打开位置", ViewerChrome.Glyph.OpenFolder, () => OpenLocationRequested?.Invoke()));
-        _actions.Children.Add(Action("设为锁屏", ViewerChrome.Glyph.Lock, () => SetLockScreenRequested?.Invoke()));
         _actions.Children.Add(Action("设为背景", ViewerChrome.Glyph.Wallpaper, () => SetBackgroundRequested?.Invoke()));
     }
 

@@ -1,13 +1,15 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Gallery.Models;
 using Gallery.Services;
 using Microsoft.UI.Text;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Media.Casting;
@@ -22,15 +24,17 @@ namespace Gallery.Controls.Viewer;
 /// 48 DIP 底部工具条 + 右侧信息面板 + 悬浮视频传输条。
 /// 只读文件与自身状态，不初始化图库数据库、标签详情、监视、桥接或识别。
 /// </summary>
-public sealed class ViewerWindow : Window
+public sealed partial class ViewerWindow : Window
 {
-    private const double EdgeArrowWidth = 94;
+    private const double EdgeArrowSize = 48;
+    private const double EdgeArrowMargin = 12;
 
     private readonly ViewerHost _host;
     private readonly Grid _root = new();
     private readonly Grid _titleBar = new();
     private readonly TextBlock _titleText;
     private readonly StackPanel _titleCommands = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
+    private Gallery.Controls.CustomCommandBar? _commandBar;
     private readonly Grid _contentRow = new();
     private readonly Grid _surface = new();
     private readonly ImageViewer _image = new();
@@ -65,7 +69,8 @@ public sealed class ViewerWindow : Window
     private readonly Button _fullscreenButton;
     private Button _previousButton = null!;
     private Button _nextButton = null!;
-    private readonly ComboBox _zoomCombo;
+    private readonly Button _zoomButton;
+    private readonly TextBlock _zoomLabel = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
     private readonly Slider _zoomSlider;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(4) };
 
@@ -80,7 +85,7 @@ public sealed class ViewerWindow : Window
     private bool _updatingZoom;
 
     public string CurrentPath { get; private set; } = "";
-    public bool IsBusy => _busy || _importing;
+    public bool IsBusy => _busy || _importing || _enteringEdit || _photoEditor?.Saving == true;
 
     [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
     private static extern int StrCmpLogicalW(string first, string second);
@@ -110,17 +115,19 @@ public sealed class ViewerWindow : Window
 
         _infoButton = ViewerChrome.IconButton(ViewerChrome.Glyph.Info, "信息", _palette, 32, 15);
         _infoButton.Click += (_, _) => ToggleInfoPane();
-        _filmstripButton = ViewerChrome.IconButton(ViewerChrome.Glyph.Filmstrip, "显示电影胶片", _palette, 32, 15);
-        _filmstripButton.Content = ViewerChrome.FilmstripIcon(_palette.Text, 15);
+        _filmstripButton = ViewerChrome.IconButton(ViewerChrome.Glyph.Filmstrip, "显示影片", _palette, 32, 15);
+        _filmstripButton.Content = ViewerChrome.Icon(ViewerChrome.Glyph.Filmstrip, 15, _palette.Text);
         _filmstripButton.Click += (_, _) => ToggleFilmstrip();
         _fullscreenButton = ViewerChrome.IconButton(ViewerChrome.Glyph.Fullscreen, "全屏", _palette, 32, 15);
         _fullscreenButton.Click += (_, _) => ToggleFullscreen();
-        _zoomCombo = BuildZoomCombo();
+        _zoomButton = BuildZoomCombo();
         _zoomSlider = BuildZoomSlider();
 
         BuildBottomBar();
         BuildContent();
         BuildRoot();
+        _image.AllowFitUpscale = false;
+        BuildEditChrome();
         _root.RequestedTheme = ThemeService.Parse(AppService.Settings.Settings.theme);
         if (AppService.Settings.Settings.viewer_info_pane) SetInfoPane(true);
         ApplyTheme(_root.ActualTheme);
@@ -140,8 +147,8 @@ public sealed class ViewerWindow : Window
         _infoPane.CloseRequested += () => SetInfoPane(false);
         _infoPane.CopyPathRequested += () => _ = RunAsync(() => CopyAsync(false, true));
         _infoPane.OpenLocationRequested += () => _ = RunAsync(OpenFolderAsync);
-        _infoPane.SetLockScreenRequested += () => _ = RunAsync(() => WallpaperAsync(WallpaperTarget.LockScreen));
         _infoPane.SetBackgroundRequested += () => _ = RunAsync(() => WallpaperAsync(WallpaperTarget.Desktop));
+        _infoPane.ResizeRequested += () => _ = RunAsync(ResizeImageAsync);
 
         _root.Loaded += async (_, _) =>
         {
@@ -150,14 +157,16 @@ public sealed class ViewerWindow : Window
             await RunAsync(() => OpenPathAsync(path));
         };
         _root.SizeChanged += (_, _) => UpdateTitleBarRegions();
-        AppWindow.Closing += (_, e) =>
+        AppWindow.Closing += async (_, e) =>
         {
-            if (!_allowClose && (_busy || _suspended)) { e.Cancel = true; ShowStatus("正在处理文件，请完成后再关闭窗口。"); }
+            if (!_allowClose && (IsBusy || _suspended)) { e.Cancel = true; ShowStatus("正在处理文件，请完成后再关闭窗口。"); return; }
+            if (_editing) { e.Cancel = true; await RequestExitEditAsync(closeWindow: true); }
         };
         Closed += (_, _) =>
         {
             _closed = true;
             SaveBounds();
+            _photoEditor?.Dispose();
             _image.Clear();
             _playback.Detach();
             _video.DisposePlayer();
@@ -173,15 +182,22 @@ public sealed class ViewerWindow : Window
     {
         _root.Background = ViewerChrome.Brush(_palette.Background);
         _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(ViewerChrome.TitleBarHeight) });
+        _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0) });
         _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(ViewerChrome.BarHeight) });
+        _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _root.Children.Add(_titleBar);
-        Grid.SetRow(_contentRow, 1);
+        Grid.SetRow(_contentRow, 2);
         _root.Children.Add(_contentRow);
-        Grid.SetRow(_bottomBar, 2);
+        _bottomBar.Height = ViewerChrome.BarHeight;
+        Grid.SetRow(_bottomBar, 3);
         _root.Children.Add(_bottomBar);
     }
 
+    /// <summary>
+    /// 标题栏：照照片的结构——左边「编辑」胶囊，右边一条命令栏（主命令只有删除，其余走溢出菜单）。
+    /// 命令栏用项目里的 CustomCommandBar（Photos 命令栏的托管移植），样式、溢出菜单位置、
+    /// 菜单项的图标与快捷键都由现成模板给出，不再自绘。
+    /// </summary>
     private void BuildTitleBar()
     {
         _titleBar.Children.Add(_titleCommands);
@@ -190,12 +206,91 @@ public sealed class ViewerWindow : Window
         _titleCommands.Margin = new Thickness(6, 0, 0, 0);
         _titleBar.Children.Add(_titleText);
 
-        var delete = ViewerChrome.IconButton(ViewerChrome.Glyph.Delete, "删除", _palette, ViewerChrome.TitleButtonSize, 16);
-        delete.Click += (_, _) => _ = RunAsync(DeleteAsync);
-        var more = ViewerChrome.IconButton(ViewerChrome.Glyph.More, "更多", _palette, ViewerChrome.TitleButtonSize, 16);
-        more.Click += (_, _) => BuildMoreMenu().ShowAt(more);
-        _titleCommands.Children.Add(delete);
-        _titleCommands.Children.Add(more);
+        _commandBar = new Gallery.Controls.CustomCommandBar
+        {
+            Background = ViewerChrome.Transparent(),
+            VerticalAlignment = VerticalAlignment.Center,
+            DefaultLabelPosition = CommandBarDefaultLabelPosition.Collapsed,
+            IsDynamicOverflowEnabled = false,
+            OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Collapsed,
+            IsOpen = false,
+            Height = ViewerChrome.TitleBarHeight,
+        };
+        _commandBar.PrimaryCommands.Add(BarCommand("删除", ViewerChrome.Glyph.Delete, DeleteAsync, "Del"));
+        var more = new AppBarButton
+        {
+            Label = "更多",
+            Width = ViewerChrome.TitleButtonSize,
+            Icon = new FontIcon { Glyph = ViewerChrome.Glyph.More, FontFamily = ViewerChrome.IconFamily },
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(more, "更多");
+        more.Flyout = BuildViewerMenu();
+        _commandBar.PrimaryCommands.Add(more);
+        _titleCommands.Children.Add(_commandBar);
+    }
+
+    /// <summary>命令栏条目：图标 + 文字 +（可选）快捷键提示，全部复用系统 AppBarButton 模板。</summary>
+    private AppBarButton BarCommand(string label, string glyph, Func<Task> action, string? shortcut = null)
+    {
+        var command = new AppBarButton
+        {
+            Label = label,
+            Icon = new FontIcon { Glyph = glyph, FontFamily = ViewerChrome.IconFamily },
+            KeyboardAcceleratorTextOverride = shortcut,
+            Width = ViewerChrome.TitleButtonSize,
+            IsEnabled = _item is not null && !_busy && !_suspended,
+        };
+        command.Click += async (_, _) => await RunAsync(action);
+        return command;
+    }
+
+    /// <summary>
+    /// 溢出菜单：菜单项用 MenuFlyoutItem（图标 + 文字 + 快捷键提示），二级「设置为」用 MenuFlyoutSubItem，
+    /// 全部走系统模板，位置锚在按钮下方。
+    /// </summary>
+    private MenuFlyout BuildViewerMenu()
+    {
+        var menu = new MenuFlyout();
+        void Item(string text, string glyph, Func<Task> action, string? shortcut = null)
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = text,
+                Icon = new FontIcon { Glyph = glyph, FontFamily = ViewerChrome.IconFamily },
+                KeyboardAcceleratorTextOverride = shortcut,
+            };
+            item.Click += async (_, _) => await RunAsync(action);
+            menu.Items.Add(item);
+        }
+        // 分组与顺序照照片的“更多”菜单：复制 / 调整图像大小、设置为 / 文件操作。
+        Item("复制", ViewerChrome.Glyph.Copy, () => CopyAsync(false, false), "Ctrl+C");
+        menu.Items.Add(new MenuFlyoutSeparator());
+        Item("调整图像大小", ViewerChrome.Glyph.Resize, ResizeImageAsync);
+        var setAs = new MenuFlyoutSubItem
+        {
+            Text = "设置为",
+            Icon = new FontIcon { Glyph = ViewerChrome.Glyph.SetAs, FontFamily = ViewerChrome.IconFamily },
+        };
+        foreach (var target in new[] { WallpaperTarget.LockScreen, WallpaperTarget.Desktop })
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = target == WallpaperTarget.LockScreen ? "锁屏界面" : "背景",
+                Icon = new FontIcon
+                {
+                    Glyph = target == WallpaperTarget.LockScreen ? ViewerChrome.Glyph.Lock : ViewerChrome.Glyph.Wallpaper,
+                    FontFamily = ViewerChrome.IconFamily,
+                },
+            };
+            item.Click += async (_, _) => await RunAsync(() => WallpaperAsync(target));
+            setAs.Items.Add(item);
+        }
+        menu.Items.Add(setAs);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        Item("导入归档", ViewerChrome.Glyph.Import, ImportAsync);
+        Item("打开所在文件夹", ViewerChrome.Glyph.OpenFolder, OpenFolderAsync);
+        Item("文件信息", ViewerChrome.Glyph.FileInfo, ShowInfoAsync);
+        return menu;
     }
 
     private void BuildContent()
@@ -239,26 +334,73 @@ public sealed class ViewerWindow : Window
         return (previous, next);
     }
 
+    /// <summary>
+    /// 左右翻页：照照片实测，可点热区是 94 宽整条，但视觉只是中间一颗 32×32 小按钮。
+    /// 这里外层保持整条热区，内层画小按钮。
+    /// </summary>
+    /// <summary>
+    /// 左右翻页：照 Lightbox/NavigationControl.xbf 的原实现——
+    /// 48×48 圆角底板（静止为亚克力、悬停 ControlStrongFill）、箭头 U+E76B/E76C、字号 20、
+    /// 距内容边缘 12、按下整体缩到 0.88（200ms）。不是「整条热区 + 小图标」。
+    /// </summary>
     private Button EdgeArrow(string glyph, HorizontalAlignment side, int delta)
     {
+        var scale = new ScaleTransform { ScaleX = 1, ScaleY = 1 };
         var button = new Button
         {
-            Width = EdgeArrowWidth,
+            Width = EdgeArrowSize,
+            Height = EdgeArrowSize,
             HorizontalAlignment = side,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Background = ViewerChrome.Transparent(),
-            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(EdgeArrowMargin, 0, EdgeArrowMargin, 0),
             Padding = new Thickness(0),
-            CornerRadius = new CornerRadius(0),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(4),
+            Background = ViewerChrome.Brush(_palette.Acrylic),
+            Content = ViewerChrome.Icon(glyph, 20, _palette.Text),
             Opacity = 0,
             IsTabStop = false,
-            Content = ViewerChrome.Icon(glyph, 20, _palette.Text),
+            RenderTransformOrigin = new Windows.Foundation.Point(.5, .5),
+            RenderTransform = scale,
         };
+        AutomationProperties.SetName(button, delta < 0 ? "上一项" : "下一项");
+        ToolTipService.SetToolTip(button, delta < 0 ? "上一项" : "下一项");
         button.Click += (_, _) => _ = RunAsync(() => NavigateAsync(delta));
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, delta < 0 ? "上一项" : "下一项");
-        button.PointerEntered += (_, _) => button.Background = ViewerChrome.Brush(_palette.Hover);
-        button.PointerExited += (_, _) => button.Background = ViewerChrome.Transparent();
+        button.PointerEntered += (_, _) => button.Background = ViewerChrome.Brush(_palette.StrongFill);
+        button.PointerExited += (_, _) =>
+        {
+            button.Background = ViewerChrome.Brush(_palette.Acrylic);
+            AnimateScale(scale, 1, 200);
+        };
+        button.PointerPressed += (_, _) => AnimateScale(scale, .88, 200);
+        button.PointerReleased += (_, _) => AnimateScale(scale, 1, 200);
         return button;
+    }
+
+    private static void AnimateScale(ScaleTransform scale, double to, int milliseconds)
+    {
+        var storyboard = new Storyboard();
+        var animation = new DoubleAnimation
+        {
+            To = to,
+            Duration = TimeSpan.FromMilliseconds(milliseconds),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(animation, scale);
+        Storyboard.SetTargetProperty(animation, "ScaleX");
+        var animationY = new DoubleAnimation
+        {
+            To = to,
+            Duration = TimeSpan.FromMilliseconds(milliseconds),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(animationY, scale);
+        Storyboard.SetTargetProperty(animationY, "ScaleY");
+        storyboard.Children.Add(animation);
+        storyboard.Children.Add(animationY);
+        storyboard.Begin();
     }
 
     private void BuildBottomBar()
@@ -275,7 +417,9 @@ public sealed class ViewerWindow : Window
         _bottomBar.Children.Add(_leftGroup);
 
         _centerGroup.Children.Add(_infoButton);
-        Grid.SetColumn(_centerGroup, 1);
+        Grid.SetColumn(_centerGroup, 0);
+        Grid.SetColumnSpan(_centerGroup, 3);
+        _centerGroup.HorizontalAlignment = HorizontalAlignment.Center;
         _bottomBar.Children.Add(_centerGroup);
 
         _rightGroup.Margin = new Thickness(0, 0, 8, 0);
@@ -303,31 +447,46 @@ public sealed class ViewerWindow : Window
         return stack;
     }
 
-    private ComboBox BuildZoomCombo()
+    /// <summary>
+    /// 底部缩放：照片是圆角药丸 + 向下弹？不——底部栏贴屏幕下沿，菜单一律向上弹出。
+    /// 这里用按钮 + MenuFlyout(Placement=Top)，避免 ComboBox 在贴边时方向不确定。
+    /// </summary>
+    private Button BuildZoomCombo()
     {
-        var combo = new ComboBox
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        content.Children.Add(_zoomLabel);
+        content.Children.Add(ViewerChrome.Icon(ViewerChrome.Glyph.ChevronDown, 10, _palette.SecondaryText));
+        var button = new Button
         {
-            Width = 88,
+            Content = content,
             Height = 32,
-            IsEditable = true,
+            Width = 88,
+            Padding = new Thickness(12, 0, 10, 0),
+            // 照片里这是矩形（小圆角），不是胶囊
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(0),
+            Background = ViewerChrome.Brush(_palette.Bar),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(2, 0, 2, 0),
         };
-        foreach (var preset in new[] { "适应窗口", "25%", "50%", "75%", "100%", "150%", "200%", "400%" })
-            combo.Items.Add(preset);
-        combo.SelectionChanged += (_, _) =>
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, "缩放选择");
+        var menu = new MenuFlyout { Placement = FlyoutPlacementMode.Top };
+        void Preset(string text)
         {
-            if (_updatingZoom || combo.SelectedItem is not string text) return;
-            if (text == "适应窗口") _image.ZoomFit();
-            else if (int.TryParse(text.TrimEnd('%'), out int percent)) ZoomToDisplay(percent);
-        };
-        combo.LostFocus += (_, _) =>
-        {
-            if (_updatingZoom) return;
-            if (int.TryParse(combo.Text.Trim().TrimEnd('%'), out int percent)) ZoomToDisplay(percent);
-        };
-        ToolTipService.SetToolTip(combo, "缩放选择");
-        return combo;
+            var item = new MenuFlyoutItem { Text = text };
+            item.Click += (_, _) =>
+            {
+                if (text == "适应窗口") _image.ZoomFit();
+                else if (int.TryParse(text.TrimEnd('%'), out int percent)) ZoomToDisplay(percent);
+            };
+            menu.Items.Add(item);
+        }
+        Preset("适应窗口");
+        menu.Items.Add(new MenuFlyoutSeparator());
+        foreach (var preset in new[] { "25%", "50%", "75%", "100%", "150%", "200%", "400%" }) Preset(preset);
+        button.Flyout = menu;
+        ToolTipService.SetToolTip(button, "缩放选择");
+        return button;
     }
 
     private Slider BuildZoomSlider()
@@ -359,7 +518,7 @@ public sealed class ViewerWindow : Window
         var zoomIn = ViewerChrome.IconButton(ViewerChrome.Glyph.ZoomIn, "放大", _palette, 32, 15);
         zoomIn.Click += (_, _) => _image.ZoomBy(1.2);
         _rightGroup.Children.Add(fit);
-        _rightGroup.Children.Add(_zoomCombo);
+        _rightGroup.Children.Add(_zoomButton);
         _rightGroup.Children.Add(zoomOut);
         _rightGroup.Children.Add(_zoomSlider);
         _rightGroup.Children.Add(zoomIn);
@@ -385,7 +544,6 @@ public sealed class ViewerWindow : Window
         _filmstrip.ApplyTheme(theme);
         _infoPane.ApplyTheme(theme);
         _playback.ApplyTheme(theme);
-        if (_filmstripButton.Content is Grid) _filmstripButton.Content = ViewerChrome.FilmstripIcon(_palette.Text, 15);
         RecolorButtons(_root);
         AppWindow.TitleBar.ButtonForegroundColor = _palette.Text;
         AppWindow.TitleBar.ButtonInactiveForegroundColor = _palette.SecondaryText;
@@ -409,6 +567,7 @@ public sealed class ViewerWindow : Window
 
     private async Task OpenPathAsync(string path)
     {
+        if (_editing && _photoEditor?.Saving != true && !await RequestExitEditAsync()) return;
         await DisplayAsync(path);
         try { await ReadFolderAsync(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -424,6 +583,7 @@ public sealed class ViewerWindow : Window
     public void ShowFile(string path)
     {
         if (_closed) return;
+        if (IsBusy) { ShowStatus("正在处理当前图片，请完成后再打开其他文件。"); return; }
         if (AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen) ToggleFullscreen();
         Activate();
         _ = RunAsync(() => OpenPathAsync(path));
@@ -440,6 +600,7 @@ public sealed class ViewerWindow : Window
 
     private Task DisplayAsync(string path)
     {
+        if (_editing) ExitEdit(false);
         if (_host.IsPathReleased(path)) { ShowStatus("图片正在处理，请完成后再查看。"); return Task.CompletedTask; }
         CurrentPath = path;
         _image.Clear();
@@ -494,6 +655,7 @@ public sealed class ViewerWindow : Window
         _video.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
         _playback.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
         if (missing) _filmstrip.Visibility = Visibility.Collapsed;
+        if (_editEntry is not null) _editEntry.Visibility = missing || video ? Visibility.Collapsed : Visibility.Visible;
         RebuildRightGroup(video);
         UpdateFileInfo();
         if (_infoPane.Visibility == Visibility.Visible) UpdateInfoPane();
@@ -579,9 +741,14 @@ public sealed class ViewerWindow : Window
     private void SetArrows(bool visible)
     {
         if (_closed) return;
-        bool enabled = _files.Count > 1;
-        _previousButton.Opacity = visible && enabled ? 1 : 0;
-        _nextButton.Opacity = visible && enabled ? 1 : 0;
+        int index = _files.FindIndex(path => path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase));
+        // 编辑态是「针对这一张」的模式，翻页按钮整体不出现，也不响应。
+        bool hasPrevious = !_editing && index > 0;
+        bool hasNext = !_editing && index >= 0 && index < _files.Count - 1;
+        _previousButton.Opacity = visible && hasPrevious ? 1 : 0;
+        _nextButton.Opacity = visible && hasNext ? 1 : 0;
+        _previousButton.IsHitTestVisible = hasPrevious;
+        _nextButton.IsHitTestVisible = hasNext;
     }
 
     private void ToggleFit()
@@ -602,7 +769,7 @@ public sealed class ViewerWindow : Window
     private void SyncZoomWidget()
     {
         _updatingZoom = true;
-        _zoomCombo.Text = Math.Round(DisplayPercent) + "%";
+        _zoomLabel.Text = Math.Round(DisplayPercent) + "%";
         _zoomSlider.Value = Math.Clamp(DisplayPercent, _zoomSlider.Minimum, _zoomSlider.Maximum);
         _updatingZoom = false;
     }
@@ -631,16 +798,58 @@ public sealed class ViewerWindow : Window
     {
         bool show = _filmstrip.Visibility != Visibility.Visible;
         _filmstrip.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        ToolTipService.SetToolTip(_filmstripButton, show ? "隐藏电影胶片" : "显示电影胶片");
+        _image.Margin = new Thickness(0, 0, 0, show ? 92 : 0);
+        _video.Margin = _image.Margin;
+        ToolTipService.SetToolTip(_filmstripButton, show ? "隐藏影片" : "显示影片");
         if (show) _filmstrip.SetItems(_files, CurrentPath);
     }
 
     private void ToggleInfoPane() => SetInfoPane(_infoPane.Visibility != Visibility.Visible);
 
+    /// <summary>信息面板用项目统一的滑出：从右侧 28px 滑入并淡入，关闭反向；不是直接闪现。</summary>
     private void SetInfoPane(bool open)
     {
-        _infoPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        if (open) UpdateInfoPane();
+        if (open)
+        {
+            UpdateInfoPane();
+            _infoPane.Visibility = Visibility.Visible;
+        }
+        if (_infoPane.RenderTransform is not TranslateTransform slide)
+        {
+            slide = new TranslateTransform { X = open ? 28 : 0 };
+            _infoPane.RenderTransform = slide;
+        }
+        var storyboard = new Storyboard();
+        var move = new DoubleAnimation
+        {
+            To = open ? 0 : 28,
+            Duration = TimeSpan.FromMilliseconds(open ? 200 : 150),
+            EasingFunction = new CubicEase { EasingMode = open ? EasingMode.EaseOut : EasingMode.EaseIn },
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(move, slide);
+        Storyboard.SetTargetProperty(move, "X");
+        var fade = new DoubleAnimation
+        {
+            To = open ? 1 : 0,
+            Duration = TimeSpan.FromMilliseconds(open ? 200 : 150),
+            EasingFunction = new CubicEase { EasingMode = open ? EasingMode.EaseOut : EasingMode.EaseIn },
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(fade, _infoPane);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        storyboard.Children.Add(move);
+        storyboard.Children.Add(fade);
+        if (!open)
+        {
+            storyboard.Completed += (_, _) =>
+            {
+                if (_infoPane.Visibility == Visibility.Visible && _infoPane.Opacity < .05)
+                    _infoPane.Visibility = Visibility.Collapsed;
+            };
+        }
+        else _infoPane.Opacity = 0;
+        storyboard.Begin();
     }
 
     private void UpdateInfoPane()
@@ -668,8 +877,7 @@ public sealed class ViewerWindow : Window
         flyout.SecondaryCommands.Add(Menu("打开所在文件夹", ViewerChrome.Glyph.OpenFolder, OpenFolderAsync, _item is not null));
         flyout.SecondaryCommands.Add(new AppBarSeparator());
         flyout.SecondaryCommands.Add(Menu("文件信息", ViewerChrome.Glyph.FileInfo, ShowInfoAsync, _item is not null));
-        flyout.SecondaryCommands.Add(Menu("设为锁屏界面", ViewerChrome.Glyph.SetAs, () => WallpaperAsync(WallpaperTarget.LockScreen), _item?.IsVideo != true));
-        flyout.SecondaryCommands.Add(Menu("设为背景", ViewerChrome.Glyph.SetAs, () => WallpaperAsync(WallpaperTarget.Desktop), _item?.IsVideo != true));
+        flyout.SecondaryCommands.Add(SetAsButton());
         return flyout;
     }
 
@@ -685,11 +893,41 @@ public sealed class ViewerWindow : Window
         Item("导入归档", ImportAsync, _item?.IsVideo != true && _item is not null);
         menu.Items.Add(new MenuFlyoutSeparator());
         Item("打开所在文件夹", OpenFolderAsync, _item is not null);
+        Item("调整图像大小…", ResizeImageAsync, _item?.IsVideo != true && _item is not null);
         Item("文件信息", ShowInfoAsync, _item is not null);
         menu.Items.Add(new MenuFlyoutSeparator());
-        Item("设为锁屏界面", () => WallpaperAsync(WallpaperTarget.LockScreen), _item?.IsVideo != true);
-        Item("设为背景", () => WallpaperAsync(WallpaperTarget.Desktop), _item?.IsVideo != true);
+        var setAs = new MenuFlyoutSubItem
+        {
+            Text = "设置为",
+            IsEnabled = _item?.IsVideo != true && !_busy && !_suspended,
+        };
+        foreach (var target in new[] { WallpaperTarget.LockScreen, WallpaperTarget.Desktop })
+        {
+            var item = new MenuFlyoutItem { Text = target == WallpaperTarget.LockScreen ? "锁屏界面" : "背景" };
+            item.Click += async (_, _) => await RunAsync(() => WallpaperAsync(target));
+            setAs.Items.Add(item);
+        }
+        menu.Items.Add(setAs);
         return menu;
+    }
+
+    /// <summary>照片把“设为锁屏/背景”放在“设置为”二级菜单里；CommandBarFlyout 用带 Flyout 的按钮实现同等效果。</summary>
+    private AppBarButton SetAsButton()
+    {
+        var menu = new MenuFlyout();
+        foreach (var target in new[] { WallpaperTarget.LockScreen, WallpaperTarget.Desktop })
+        {
+            var item = new MenuFlyoutItem { Text = target == WallpaperTarget.LockScreen ? "锁屏界面" : "背景" };
+            item.Click += async (_, _) => await RunAsync(() => WallpaperAsync(target));
+            menu.Items.Add(item);
+        }
+        return new AppBarButton
+        {
+            Label = "设置为",
+            Icon = new FontIcon { Glyph = ViewerChrome.Glyph.SetAs, FontFamily = ViewerChrome.IconFamily },
+            Flyout = menu,
+            IsEnabled = _item?.IsVideo != true && !_busy && !_suspended,
+        };
     }
 
     private AppBarButton Menu(string text, string glyph, Func<Task> action, bool enabled)
@@ -697,7 +935,7 @@ public sealed class ViewerWindow : Window
         var button = new AppBarButton
         {
             Label = text,
-            Icon = new FontIcon { Glyph = glyph, FontFamily = new FontFamily(ViewerChrome.IconFont) },
+            Icon = new FontIcon { Glyph = glyph, FontFamily = ViewerChrome.IconFamily },
             IsEnabled = enabled && !_busy && !_suspended,
         };
         button.Click += async (_, _) => await RunAsync(action);
@@ -879,6 +1117,7 @@ public sealed class ViewerWindow : Window
     public void Resume()
     {
         _suspended = false;
+        if (_editing) { ClearStatus(); return; }
         if (!_closed && CurrentPath.Length > 0)
         {
             try { _ = DisplayAsync(CurrentPath); }
@@ -975,6 +1214,11 @@ public sealed class ViewerWindow : Window
     private async void OnKey(object sender, KeyRoutedEventArgs e)
     {
         if (_busy || _suspended || DialogService.IsShowing) return;
+        if (_editing)
+        {
+            if (e.Key == VirtualKey.Escape) { await RequestExitEditAsync(); e.Handled = true; }
+            return;
+        }
         if (VisualTreeHelper.GetOpenPopupsForXamlRoot(_root.XamlRoot).Any(popup => popup.IsOpen && popup.Child is not ToolTip)) return;
         var focused = FocusManager.GetFocusedElement(_root.XamlRoot) as DependencyObject;
         for (var node = focused; node is not null; node = VisualTreeHelper.GetParent(node))

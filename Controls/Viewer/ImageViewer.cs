@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -209,6 +209,8 @@ public sealed class ImageViewer : Grid
             _upgradeTimer.Start();
         }
     }
+
+    public bool AllowFitUpscale { get => _state.AllowFitUpscale; set => _state.AllowFitUpscale = value; }
 
     public double Percent => Math.Round(_state.Scale * 100);
     public void ZoomFit() { if (!_ready) return; EndDrag(); _state.Fit(); Render(); }

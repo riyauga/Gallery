@@ -62,6 +62,7 @@
   <ItemGroup>
     <Content Remove="Assets\**\*;assets\**\*" />
     <None Remove="assets\**\*" />
+    <Content Include="assets\PhotoEditor\**\*" Exclude="assets\PhotoEditor\ORIGIN.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="assets\Gallery.ico;assets\Common\PhotosIcons.ttf" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="distribution-kind.txt" CopyToOutputDirectory="PreserveNewest" />

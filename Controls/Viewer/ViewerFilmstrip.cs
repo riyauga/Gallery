@@ -1,5 +1,6 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -8,13 +9,14 @@ using Windows.UI;
 namespace Gallery.Controls.Viewer;
 
 /// <summary>
-/// 底部电影胶片：照搬 Photos Lightbox 的悬浮胶片条。
+/// 底部影片条：全宽横向缩略图与滚动条。
 /// 单项 96x72、间距 4、选中白边；只列当前文件夹，不递归。
 /// </summary>
 public sealed class ViewerFilmstrip : Grid
 {
     private readonly Border _chrome;
     private readonly ScrollViewer _scroll;
+    private readonly ScrollBar _bar;
     private readonly ItemsRepeater _repeater;
     private readonly List<FilmstripTile> _tiles = [];
     private readonly List<string> _paths = [];
@@ -27,14 +29,15 @@ public sealed class ViewerFilmstrip : Grid
     {
         _chrome = new Border
         {
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(5),
+            CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 0, 2),
             VerticalAlignment = VerticalAlignment.Bottom,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            BorderThickness = new Thickness(0),
         };
         VerticalAlignment = VerticalAlignment.Bottom;
-        HorizontalAlignment = HorizontalAlignment.Center;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
         _repeater = new ItemsRepeater
         {
             Layout = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 4 },
@@ -58,7 +61,36 @@ public sealed class ViewerFilmstrip : Grid
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Height = ViewerChrome.FilmstripItemHeight,
         };
-        _chrome.Child = _scroll;
+        _bar = new ScrollBar
+        {
+            Orientation = Orientation.Horizontal, Height = 12, MinHeight = 12,
+            IsTabStop = false, IndicatorMode = ScrollingIndicatorMode.MouseIndicator,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _bar.Resources["ScrollBarSize"] = 12.0;
+        _bar.Resources["ScrollBarHorizontalThumbMinHeight"] = 12.0;
+        _bar.Resources["ScrollBarThumbStrokeThickness"] = 0.0;
+        _bar.Loaded += (_, _) =>
+        {
+            VisualStateManager.GoToState(_bar, "MouseIndicator", false);
+            VisualStateManager.GoToState(_bar, "ExpandedWithoutAnimation", false);
+        };
+        _bar.ValueChanged += (_, args) => _scroll.ChangeView(args.NewValue, null, null, true);
+        void SyncScrollBar()
+        {
+            _bar.Maximum = _scroll.ScrollableWidth;
+            _bar.ViewportSize = _scroll.ViewportWidth;
+            _bar.SmallChange = ViewerChrome.FilmstripItemWidth + 4;
+            _bar.LargeChange = _scroll.ViewportWidth;
+            _bar.Value = _scroll.HorizontalOffset;
+        }
+        _scroll.ViewChanged += (_, _) => SyncScrollBar();
+        _scroll.SizeChanged += (_, _) => SyncScrollBar();
+        var layout = new Grid { Height = 90 };
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(ViewerChrome.FilmstripItemHeight) });
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(18) });
+        layout.Children.Add(_scroll); Grid.SetRow(_bar, 1); layout.Children.Add(_bar);
+        _chrome.Child = layout;
         Children.Add(_chrome);
         ApplyTheme(ActualTheme);
         SizeChanged += (_, _) => ClampWidth();
@@ -74,9 +106,9 @@ public sealed class ViewerFilmstrip : Grid
 
     private void ClampWidth()
     {
-        // Photos 的胶片条约占内容区宽度的六成，条目多时横向滚动。
+        // 影片条覆盖内容区宽度，条目多时横向滚动。
         if (Parent is not FrameworkElement parent || parent.ActualWidth <= 0) return;
-        _chrome.MaxWidth = Math.Max(ViewerChrome.FilmstripItemWidth * 2 + 12, parent.ActualWidth * 0.6);
+        _chrome.MaxWidth = Math.Max(ViewerChrome.FilmstripItemWidth * 2 + 12, parent.ActualWidth);
     }
 
     public void SetItems(IReadOnlyList<string> paths, string currentPath)
@@ -124,7 +156,7 @@ public sealed class ViewerFilmstrip : Grid
                 BorderBrush = ViewerChrome.Transparent(),
                 Background = ViewerChrome.Brush(Color.FromArgb(255, 0, 0, 0)),
             };
-            _image = new Image { Stretch = Stretch.UniformToFill };
+            _image = new Image { Stretch = Stretch.Uniform };
             _frame.Child = _image;
             Children.Add(_frame);
             PointerPressed += (_, _) => _owner.RaiseSelect(Path);

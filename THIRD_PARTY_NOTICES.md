@@ -9,3 +9,9 @@ License terms: https://github.com/SixLabors/ImageSharp/blob/v3.1.5/LICENSE
 
 The Photos Fluent Icons font is distributed with the project owner's previously confirmed permission.
 This notice does not grant additional font distribution rights to other projects.
+
+The image editor web resources originate from Microsoft Windows Photos 2026.11090.22001.0,
+ImageEditorLib/Assets/web/ImageEditor. Microsoft and the respective component authors
+retain their copyrights. The original third-party notices are included at
+assets/PhotoEditor/static/js/main.js.LICENSE.txt. Resource provenance and integration
+changes are recorded in the repository's assets/PhotoEditor/ORIGIN.md.
