@@ -29,6 +29,8 @@ public sealed partial class PreviewOverlay : Grid
     public event Action<string>? ToastRequested;
     public event Action<Gallery.Models.PhotoItem>? TagsEdited;
     public event Action? ReturnFocusRequested;
+    /// <summary>详情面板右键「按此标签进行筛选」：分类 + 标签原名，宿主负责关预览并筛选图库。</summary>
+    public event Action<string, string>? TagFilterRequested;
 
     /// <summary>宿主注入菜单构建器（GalleryPage.BuildContextMenu 不含「打开」变体）。</summary>
     public Func<PhotoItem, MenuFlyout>? ContextMenuBuilder { get; set; }
@@ -49,9 +51,13 @@ public sealed partial class PreviewOverlay : Grid
             if (_items.Count > 0 && !_items[_index].IsVideo) ShowZoomBar();
             if (_fullscreen) { ShowTopBar(); ShowEdgeArrows(_pointerX); }
         };
-        AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) =>
+        AddHandler(PointerPressedEvent, new PointerEventHandler((_, args) =>
         {
             _keyboardChrome = false;
+            if (args.GetCurrentPoint(this).Properties.IsLeftButtonPressed && args.OriginalSource is DependencyObject source
+                && source is not TextBlock { IsTextSelectionEnabled: true }
+                && source is not Control && source is not Image)
+                Detail.ClearTagTextSelection();
             DispatcherQueue.TryEnqueue(() =>
             {
                 TryHideZoomBar();
@@ -68,7 +74,7 @@ public sealed partial class PreviewOverlay : Grid
         // 详情面板的贴纸显示中文名（词库补出来的），点开/编辑仍然用原名
         Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
         Detail.RatingTooltip = BuildRatingTooltip;
-        Detail.TagCopied += text => ToastRequested?.Invoke("已复制标签：" + text);
+        Detail.TagFilterRequested += (category, name) => TagFilterRequested?.Invoke(category, name);
         Detail.FavoriteRequested = async (item, favorite) =>
         {
             var result = FavoriteRequested is null

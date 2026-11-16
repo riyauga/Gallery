@@ -11,7 +11,8 @@ namespace Gallery.Controls.Viewer;
 /// 单图查看器右侧详情面板，照搬 galleryold preview.py（容器与美术按 photos 规范）：
 /// 宽 360、圆角 12；小节「图片信息」（文件名 / 宽×高 / 目录）、七类标签贴纸、
 /// 「来源」（网址占满一行，文字可选中复制）、「作者评论」（标题加粗 + 正文，没有就收起）；
-/// 文件名、目录、来源、评论正文均可鼠标选中复制，不再单独放复制按钮。
+/// 文件名、目录、来源、评论正文、标签文字均可鼠标选中复制，不再单独放复制按钮。
+/// 标签贴纸右键「按此标签进行筛选」，交给宿主关掉预览回图库筛选。
 /// 按钮「编辑分类标签」（批次 3 接入）、「用照片打开」。
 /// </summary>
 public sealed class DetailPanel : Grid
@@ -27,12 +28,17 @@ public sealed class DetailPanel : Grid
     private readonly StackPanel _commentary;
     private readonly FavoriteButton _favorite;
     private readonly Button _openButton;
+    private TextBlock? _clickedText;
+    private long _lastClickAt;
+    private Windows.Foundation.Point _lastClickPosition;
+    private int _clickCount;
+    private TextBlock? _tripleClickedText;
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
 
-    /// <summary>双击标签复制后回调，参数是刚复制走的文字（宿主用它弹提示）。</summary>
-    public event Action<string>? TagCopied;
+    /// <summary>右键标签「按此标签进行筛选」：参数是分类与标签原名（不是显示名）。</summary>
+    public event Action<string, string>? TagFilterRequested;
     public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public DetailPanel()
@@ -123,6 +129,8 @@ public sealed class DetailPanel : Grid
             }
         };
         Children.Add(scroll);
+        AddHandler(PointerPressedEvent, new PointerEventHandler(OnTextPointerPressed), true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTextPointerReleased), true);
         ActualThemeChanged += (_, _) => ApplyTheme();
         Loaded += (_, _) => ApplyTheme();
         ApplyTheme();
@@ -167,6 +175,67 @@ public sealed class DetailPanel : Grid
     public void SetTags(IReadOnlyList<(string Category, string Name)> tags) => RenderTags(tags);
 
     public void SetFavorite(bool favorite) => _favorite.Favorite = favorite;
+
+    public void ClearTagTextSelection()
+    {
+        foreach (var text in _tagLabels)
+            if (text.SelectionStart is { } start) text.Select(start, start);
+    }
+
+    private readonly List<TextBlock> _tagLabels = [];
+
+    private static TextBlock? SelectableText(object source)
+    {
+        for (var node = source as DependencyObject; node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is TextBlock { IsTextSelectionEnabled: true } text) return text;
+        return null;
+    }
+
+    private void OnTextPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _tripleClickedText = null;
+        var point = e.GetCurrentPoint(this);
+        if (point.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse
+            || !point.Properties.IsLeftButtonPressed) return;
+        var text = SelectableText(e.OriginalSource);
+        var now = Environment.TickCount64;
+        var position = point.Position;
+        if (text is not null && text == _clickedText && now - _lastClickAt <= 500
+            && Math.Abs(position.X - _lastClickPosition.X) <= 4
+            && Math.Abs(position.Y - _lastClickPosition.Y) <= 4)
+            _clickCount++;
+        else
+            _clickCount = text is null ? 0 : 1;
+        _clickedText = text;
+        _lastClickAt = now;
+        _lastClickPosition = position;
+        if (_clickCount == 3)
+        {
+            _tripleClickedText = text;
+            _clickCount = 0;
+        }
+    }
+
+    private void OnTextPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_tripleClickedText is not { } text) return;
+        _tripleClickedText = null;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!text.Text.Contains('\n'))
+            {
+                text.SelectAll();
+                return;
+            }
+            var offset = Math.Clamp(text.SelectionStart.Offset - text.ContentStart.Offset, 0, text.Text.Length);
+            var lineStart = offset == 0 ? 0 : text.Text.LastIndexOf('\n', offset - 1) + 1;
+            var lineEnd = text.Text.IndexOf('\n', offset);
+            if (lineEnd < 0) lineEnd = text.Text.Length;
+            var start = text.ContentStart.GetPositionAtOffset(lineStart, Microsoft.UI.Xaml.Documents.LogicalDirection.Forward);
+            var end = text.ContentStart.GetPositionAtOffset(lineEnd, Microsoft.UI.Xaml.Documents.LogicalDirection.Forward);
+            if (start is not null && end is not null) text.Select(start, end);
+        });
+    }
 
     public void SetSource(string? pageUrl, string? sourceUrl)
     {
@@ -222,6 +291,7 @@ public sealed class DetailPanel : Grid
     {
         // 七类分组贴纸（顺序与分类名统一取词库 Taxonomy）
         _tagsHost.Children.Clear();
+        _tagLabels.Clear();
         var cats = Taxonomy.Categories;
         var titles = Taxonomy.CategoryTitles;
         for (var c = 0; c < cats.Length; c++)
@@ -241,12 +311,16 @@ public sealed class DetailPanel : Grid
                     : label == name ? name : $"{label} · {name}";
                 ToolTipService.SetToolTip(chip, tip);
                 chip.HorizontalAlignment = HorizontalAlignment.Left;
-                // 双击复制：复制屏幕上看到的那一段（有中文就复制中文）。
-                chip.DoubleTapped += (_, args) =>
-                {
-                    args.Handled = true;
-                    CopyTagText(label);
-                };
+                // 标签文字本身可拖选复制；双击留给系统选词，不另接手势。
+                chip.Label.IsTextSelectionEnabled = true;
+                _tagLabels.Add(chip.Label);
+                // 右键菜单挂在文字上：可选中文本块自带的「复制／全选」菜单由它顶替，
+                // 否则右键落在文字上只会弹系统菜单，够不到这里的筛选项。
+                var menu = new MenuFlyout();
+                var filterItem = new MenuFlyoutItem { Text = "按此标签进行筛选" };
+                filterItem.Click += (_, _) => TagFilterRequested?.Invoke(category, name);
+                menu.Items.Add(filterItem);
+                chip.Label.ContextFlyout = menu;
                 row.Children.Add(chip);
             }
             group.Children.Add(row);
@@ -254,26 +328,6 @@ public sealed class DetailPanel : Grid
         }
         if (itemTags.Count == 0)
             _tagsHost.Children.Add(new TextBlock { Text = "未打标签", FontSize = 13, Opacity = 0.5 });
-    }
-
-    /// <summary>把标签的可见文字放进剪贴板；失败只记日志，不打断预览。</summary>
-    private void CopyTagText(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return;
-        try
-        {
-            var data = new Windows.ApplicationModel.DataTransfer.DataPackage
-            {
-                RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy,
-            };
-            data.SetText(text);
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(data);
-            TagCopied?.Invoke(text);
-        }
-        catch (Exception ex)
-        {
-            AppService.DebugLog("copy tag failed: " + ex.Message);
-        }
     }
 
     private static TextBlock InfoText() => new()

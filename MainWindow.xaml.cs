@@ -772,6 +772,12 @@ public sealed partial class MainWindow : Window
         };
         Preview.TagsEdited += _ => _page.RefreshFromStore();
         Preview.ToastRequested += ShowToast;
+        // 详情标签右键「按此标签进行筛选」：收起预览，图库按该标签筛出一份结果。
+        Preview.TagFilterRequested += (category, name) =>
+        {
+            _page.FilterByTag(category, name);
+            Preview.CloseFromNavigation();
+        };
         // 资料包热插拔（data\tag_catalog / data\models 新增或替换）后提示一下，并刷新图库标签
         Services.AppService.PackChanged += message => DispatcherQueue.TryEnqueue(() =>
         {

@@ -915,6 +915,20 @@ public sealed partial class StoreService : IDisposable
         return created;
     }
 
+    /// <summary>按名称 + 分类取标签 id；不存在时返回 0（只查不建，区别于 EnsureTag）。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public int FindTagId(string name, string category)
+    {
+        var clean = (name ?? "").Trim();
+        if (clean.Length == 0) return 0;
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id FROM tags WHERE name=$n COLLATE NOCASE AND COALESCE(category,'custom')=$c LIMIT 1";
+        cmd.Parameters.AddWithValue("$n", clean);
+        cmd.Parameters.AddWithValue("$c", category);
+        return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+    }
+
     /// <summary>生成稳定、可序列化的标签键；只在新标签创建时写一次，之后不再变。</summary>
     public static string NewTagKey()
     {

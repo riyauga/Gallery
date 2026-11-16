@@ -271,6 +271,26 @@ public sealed class FilterPanel
 
     private void Raise() => Changed?.Invoke();
 
+    /// <summary>
+    /// 外部把一个标签并进筛选条件（详情面板右键「按此标签进行筛选」），
+    /// 和点候选行同一条路径：已选就跳过，未选就加、记一次使用、立刻生效。
+    /// </summary>
+    public void IncludeTag(int id, string name)
+    {
+        if (_include.Any(x => x.Id == id)) return;
+        _include.Add((id, name));
+        _ = Task.Run(() =>
+        {
+            lock (AppService.DbLock)
+            {
+                try { AppService.Store?.TouchFilterTag(id); } catch { }
+            }
+        });
+        RebuildChips();
+        _ = RefreshResultsAsync();
+        Raise();
+    }
+
     private void RebuildChips()
     {
         _chipHost.Children.Clear();

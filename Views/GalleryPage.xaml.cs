@@ -844,7 +844,7 @@ public sealed partial class GalleryPage : UserControl
     private void UpdateHeader()
     {
         int n = _selected.Count;
-        string pageName = _favoritesMode ? "收藏夹" : _dirTitle ?? "图库";
+        string pageName = HasActiveFilter ? "筛选结果" : _favoritesMode ? "收藏夹" : _dirTitle ?? "图库";
         IconAndTitleHeader.Title = n > 0 ? $"已选择 {n} 个项目" : pageName;
         SubtitleText.Text = n > 0
             ? pageName
@@ -909,9 +909,25 @@ public sealed partial class GalleryPage : UserControl
         }
         Rebuild();
     }
+
+    /// <summary>详情面板右键「按此标签进行筛选」：把该标签并进现有筛选条件，走同一条刷新链路。</summary>
+    public void FilterByTag(string category, string name)
+    {
+        if (AppService.Store is not { } store) return;
+        var id = store.FindTagId(name, category);
+        if (id <= 0) return;
+        _filterPanel.IncludeTag(id, name);
+    }
+
+    private bool HasActiveFilter => _filterPanel.Include.Count > 0 || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
+
     private void SyncFilterMenuChecks()
     {
-        bool active = _filterPanel.Include.Count > 0 || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
+        bool active = HasActiveFilter;
+        FilterIcon.Data = Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
+            typeof(Microsoft.UI.Xaml.Media.Geometry), active
+                ? "M1,2 L15,2 L9.5,8 L9.5,14 L6.5,12 L6.5,8 Z"
+                : "M1,2 L15,2 L9.5,8 L9.5,14 L6.5,12 L6.5,8 Z M3.3,3 L7.5,7.6 L7.5,11.5 L8.5,12.2 L8.5,7.6 L12.7,3 Z") as Microsoft.UI.Xaml.Media.Geometry;
         if (active)
         {
             FilterButton.SetBinding(Control.BackgroundProperty, new Microsoft.UI.Xaml.Data.Binding

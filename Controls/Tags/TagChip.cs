@@ -44,9 +44,14 @@ public static class TagColors
 /// 标签贴纸，照搬 tag_chips.py：高 28、圆角 6、1px 边框、字号 13、文字左右 8；
 /// 显示名优先中文别名（调用方传入）。
 /// 传了 onRemove 时，贴纸左边多一个叉号：平时半透明，鼠标移上去亮起，点它取消这个标签。
+/// <see cref="Label"/> 是贴纸里的文字本身：宿主需要可选中复制或右键菜单时直接改它，
+/// 配色、尺寸与移除叉都不变。
 /// </summary>
 public sealed class TagChip : Grid
 {
+    /// <summary>贴纸内的文字块（配色由贴纸随主题维护，宿主只改交互相关属性）。</summary>
+    public TextBlock Label { get; }
+
     public TagChip(string category, string displayName, Action? onRemove = null)
     {
         var dark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
@@ -61,6 +66,7 @@ public sealed class TagChip : Grid
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = new SolidColorBrush(TagColors.FromHex(fg)),
         };
+        Label = text;
         UIElement content = text;
         var leftPadding = 8.0;
         if (onRemove is not null)
@@ -108,7 +114,8 @@ public sealed class TagChip : Grid
             var colors = TagColors.Get(category, ActualTheme == ElementTheme.Dark);
             frame.Background = new SolidColorBrush(TagColors.FromHex(colors.Bg));
             frame.BorderBrush = new SolidColorBrush(TagColors.FromHex(colors.Border));
-            text.Foreground = new SolidColorBrush(TagColors.FromHex(colors.Fg));
+            var ink = new SolidColorBrush(TagColors.FromHex(colors.Fg));
+            text.Foreground = ink;
         }
         Loaded += (_, _) => ApplyTheme();
         ActualThemeChanged += (_, _) => ApplyTheme();

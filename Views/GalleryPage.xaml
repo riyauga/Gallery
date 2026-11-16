@@ -315,7 +315,7 @@
                         <Visibility x:Key="AppBarButtonHasFlyoutChevronVisibility">Visible</Visibility>
                     </AppBarButton.Resources>
                     <AppBarButton.Icon>
-                        <FontIcon FontSize="16" Glyph="&#xE71C;" />
+                        <PathIcon x:Name="FilterIcon" Width="16" Height="16" Data="M1,2 L15,2 L9.5,8 L9.5,14 L6.5,12 L6.5,8 Z" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <Flyout x:Name="FilterFlyout" Placement="BottomEdgeAlignedRight">
