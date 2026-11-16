@@ -78,7 +78,7 @@ const deck=document.getElementById('deck'),tweak=document.getElementById('tweak'
 const gridSpace=document.createElement('div');gridSpace.id='grid-space';deck.append(gridSpace);
 let viewGeneration=0,ringEntry=null,ringFrame=0,ringTimer=0;
 let active=false,batch=false,motion=true,interactive=true,gridFrame=0,gridRange='',gridSize='medium',dealLayer=null,dealSerial=0,dealFrame=0,dealAnimations=[],dealCards=new Map();
-function gridGeometry(){const gap=12,pad=12,cols=Math.max(1,Math.floor((deck.clientWidth-2*pad+gap)/({small:112,medium:152,large:212}[gridSize]))),width=(deck.clientWidth-2*pad-gap*(cols-1))/cols;return {gap,pad,cols,width,height:Math.max(115,width*.72+28)};}
+function gridGeometry(){const gap=12,pad=12,cols=Math.max(1,Math.floor((deck.clientWidth-2*pad+gap)/({small:152,medium:212,large:296,xlarge:412}[gridSize]))),width=(deck.clientWidth-2*pad-gap*(cols-1))/cols;return {gap,pad,cols,width,height:Math.max(115,width*.72+28)};}
 function gridWindow(){
  if(!active||!batch)return;
  const g=gridGeometry(),step=g.height+g.gap;
@@ -115,7 +115,7 @@ function delayCloseHover(){clearTimeout(hoverTimer);clearTimeout(hoverCloseTimer
 function startHover(entry){
  if(!batch||!active||!interactive||tagTool||markerTool)return;
  closeHover();hoverId=entry.data.id;
- hoverTimer=setTimeout(()=>{if(hoverId===entry.data.id&&batch&&!tagTool&&!markerTool)send({type:'hoverTags',id:hoverId});},1000);
+ send({type:'hoverTags',id:hoverId});
 }
 hoverBox.addEventListener('pointerenter',()=>clearTimeout(hoverCloseTimer));
 hoverBox.addEventListener('pointerleave',delayCloseHover);

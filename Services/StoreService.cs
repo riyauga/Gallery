@@ -733,6 +733,14 @@ public sealed partial class StoreService : IDisposable
             order = "CASE WHEN substr(i.name,1,1) GLOB '[A-Za-z]' THEN 0 ELSE 1 END ASC, " +
                     $"i.name COLLATE GALLERY_NATURAL {direction}";
         }
+        else if (sort is "tag_character" or "tag_kind" or "tag_work" or "tag_artist")
+        {
+            var category = sort[4..];
+            var firstTag = "(SELECT t.name FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
+                $"WHERE it.image_id=i.id AND t.category='{category}' ORDER BY it.tag_id LIMIT 1)";
+            order = $"CASE WHEN {firstTag} IS NULL THEN 1 ELSE 0 END ASC, " +
+                $"{firstTag} COLLATE NOCASE {direction}, i.name COLLATE NOCASE ASC, i.id ASC";
+        }
         else
         {
             var col = sort switch
@@ -1565,6 +1573,56 @@ public sealed partial class StoreService : IDisposable
             tx.Commit();
             return (added, skipped);
         }
+    }
+
+    /// <summary>把图库图片以现有身份送回审核，保留文件和图库记录。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public (int Added, int Skipped) EnqueueGalleryImages(IReadOnlyCollection<int> imageIds)
+    {
+        EnsureBridgeSchema();
+        var added = 0;
+        var skipped = 0;
+        foreach (var id in imageIds.Distinct())
+        {
+            var image = GetImage(id);
+            if (image is null || image.Missing || image.MediaKind != "image"
+                || !File.Exists(image.AbsPath) || PendingLocalFile(image.AbsPath) is not null)
+            {
+                skipped++;
+                continue;
+            }
+            var pairs = CategorizedTags(id);
+            var tags = IngestReview.Categories.ToDictionary(category => category,
+                category => pairs.Where(pair => pair.Category == category).Select(pair => pair.Name).ToArray());
+            var rating = ArchiveService.NormalizeRating(image.Nsfw ?? "");
+            var payload = JsonSerializer.Serialize(new
+            {
+                filename = image.AbsPath,
+                rearchive_image_id = id,
+                review_tags = tags,
+                review_skins = ImageSkins(id).Select(skin => skin.SkinKey).ToArray(),
+                rating,
+                rating_source = NsfwScoreFor(id)?.Source ?? "manual",
+                width = image.Width ?? 0,
+                height = image.Height ?? 0,
+                basic_tags = new { rating_checked = true, model_tags_checked = true },
+            });
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "INSERT INTO ingest_queue(received_at,state,inbox_path,inbox_name,page_url,image_url," +
+                "post_id,md5,rating,source,payload,note) VALUES($t,'pending',$p,$n,$page,$url,$post,'',$rating,'gallery',$payload,'')";
+            cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+            cmd.Parameters.AddWithValue("$p", image.AbsPath);
+            cmd.Parameters.AddWithValue("$n", image.Name);
+            cmd.Parameters.AddWithValue("$page", image.PageUrl ?? "");
+            cmd.Parameters.AddWithValue("$url", image.SourceUrl ?? "");
+            cmd.Parameters.AddWithValue("$post", image.PostId ?? "");
+            cmd.Parameters.AddWithValue("$rating", rating);
+            cmd.Parameters.AddWithValue("$payload", payload);
+            cmd.ExecuteNonQuery();
+            added++;
+        }
+        Commit();
+        return (added, skipped);
     }
 
     public int? PendingLocalFile(string path)

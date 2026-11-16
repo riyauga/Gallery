@@ -49,6 +49,7 @@ public sealed partial class MainWindow : Window
     {
         var page = new Controls.Review.ReviewPage(this);
         page.Changed += UpdateReviewBadge;
+        page.GalleryImagesChanged += () => _page.RefreshFromStore();
         return page;
     }
 
@@ -765,6 +766,7 @@ public sealed partial class MainWindow : Window
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
         _page.ItemsChanged += Preview.RefreshItems;
+        _page.ReviewQueueChanged += () => { UpdateReviewBadge(); _reviewPage?.Reload(); };
         _page.TagsEdited += () =>
         {
             Preview.RefreshItems(_page.CurrentItems);

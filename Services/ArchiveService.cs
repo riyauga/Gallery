@@ -59,6 +59,9 @@ public sealed class ArchiveService(StoreService store)
         if (row.State == "done") return ArchiveResult.Fail("这条记录已经归档过：" + row.Note);
         if (row.State == "ignored") return ArchiveResult.Fail("这条记录已被忽略，不会归档");
 
+        var existingImageId = IngestReview.RearchiveImageId(row.Payload);
+        if (existingImageId > 0) return Rearchive(row, existingImageId, destinationDir);
+
         var source = IngestReview.LocalPath(row);
         if (source.Length == 0) return FailAndLog("记录里没有本地路径");
         if (!File.Exists(source)) return FailAndLog("源文件已不在原位（可能之前已归档或已手动改名）");
@@ -140,6 +143,50 @@ public sealed class ArchiveService(StoreService store)
         // 归档完成前最后一刻才写入的分级：补到刚入库的图片上（已有分级时不会覆盖）。
         ApplyPayloadNsfw(imageId, finalPayload);
         return new ArchiveResult(true, $"已归档到 {Path.GetFileName(destination)}", destination);
+    }
+
+    private ArchiveResult Rearchive(StoreService.PendingIngestRow row, int imageId, string destinationDir)
+    {
+        var image = store.GetImage(imageId);
+        if (image is null || image.Missing || !File.Exists(image.AbsPath))
+            return ArchiveResult.Fail("原图库图片不存在，未重新归档");
+        if (string.IsNullOrWhiteSpace(destinationDir) || ResolveRoot(destinationDir).RootId < 0)
+            return ArchiveResult.Fail("目标文件夹不在已登记的图库目录里");
+        try
+        {
+            Directory.CreateDirectory(destinationDir);
+            if (FileIdentity.PathKey(Path.GetDirectoryName(image.AbsPath) ?? "") != FileIdentity.PathKey(destinationDir))
+            {
+                var (done, errors) = FileActions.MoveImages(store, [imageId], destinationDir);
+                if (!done.Contains(imageId)) return ArchiveResult.Fail(errors.FirstOrDefault() ?? "图片移动失败");
+            }
+            var latest = store.IngestRow(row.Id) ?? row;
+            var reviewed = IngestReview.Tags(latest.Payload, latest.Rating);
+            var editable = IngestReview.Categories.Where(category => category != "rating").ToHashSet();
+            var pairs = store.CategorizedTags(imageId).Where(pair => !editable.Contains(pair.Category)).ToList();
+            var rating = NormalizeRating(latest.Rating);
+            if (rating != NormalizeRating(image.Nsfw ?? "")) pairs.RemoveAll(pair => pair.Category == "rating");
+            pairs.AddRange(reviewed.Where(pair => editable.Contains(pair.Key))
+                .SelectMany(pair => pair.Value.Select(name => (pair.Key, name))));
+            store.SetCategorizedTags([imageId], pairs);
+            store.ApplyImageSkins(imageId, latest.Payload);
+            if (rating != NormalizeRating(image.Nsfw ?? ""))
+            {
+                if (rating.Length == 0) store.ClearNsfwScore(imageId);
+                else store.SetNsfwScore(imageId, IngestRatingOf(latest.Payload).Source, rating, tagIt: true);
+            }
+            store.Commit();
+            store.SyncSidecars([imageId]);
+            var current = store.GetImage(imageId)!;
+            store.SetIngestArchived(row.Id, current.AbsPath, IngestReview.WithArchivedImage(latest.Payload, imageId));
+            AppService.RequestCatalogAlign();
+            return new ArchiveResult(true, "已重新归档", current.AbsPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+            or Microsoft.Data.Sqlite.SqliteException)
+        {
+            return ArchiveResult.Fail("重新归档失败：" + ex.Message);
+        }
     }
 
     /// <summary>本地导入时选择「归档后保留原文件」；浏览器下载的记录没有这个字段，按移动处理。</summary>

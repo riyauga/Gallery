@@ -116,6 +116,12 @@ public sealed class TagEditorDialog
             XamlRoot = root,
             Content = editor.Build(root),
         };
+        dialog.PreviewKeyDown += (_, args) =>
+        {
+            if (args.Key != Windows.System.VirtualKey.Escape) return;
+            args.Handled = true;
+            dialog.Hide();
+        };
         try
         {
             editor.LoadCurrent();

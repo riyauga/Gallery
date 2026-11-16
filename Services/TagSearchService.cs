@@ -19,17 +19,28 @@ public static class TagSearchService
 {
     public static List<TagSearchSuggestion> Search(
         StoreService store, string category, string query, int limit = 12)
+        => SearchCategories(store, [category], query, limit)[category];
+
+    public static Dictionary<string, List<TagSearchSuggestion>> SearchCategories(
+        StoreService store, IEnumerable<string> categories, string query, int limit = 12)
     {
         var displayMode = store.GlobalTagDisplayMode();
         var searchNameMode = HasHan(query) ? "zh_source" : "en_source";
         var catalog = new TagCatalogService(store);
         var games = catalog.GameNames();
-        var tags = store.SearchTags(query, 200)
-            .Where(t => t.Category == category)
-            .ToList();
-        var entities = catalog.SearchEntities(query, 60)
-            .Where(e => e.Kind == category)
-            .ToList();
+        var allTags = store.SearchTags(query, 200);
+        var allEntities = catalog.SearchEntities(query, 60);
+        return categories.ToDictionary(category => category, category => BuildSuggestions(
+            catalog, category, displayMode, searchNameMode, games,
+            allTags.Where(t => t.Category == category).ToList(),
+            allEntities.Where(e => e.Kind == category).ToList(), limit));
+    }
+
+    private static List<TagSearchSuggestion> BuildSuggestions(
+        TagCatalogService catalog, string category, string displayMode, string searchNameMode,
+        Dictionary<string, (string Zh, string En)> games,
+        List<StoreService.TagInfo> tags, List<TagCatalogService.EntityHit> entities, int limit)
+    {
         Dictionary<string, TagCatalogService.IdentityNames>? identities = null;
         if (category == "character")
         {

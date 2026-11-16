@@ -239,7 +239,7 @@ internal sealed class ReviewCarousel : Grid
 
     public void SetGridSize(string size)
     {
-        _gridSize = size is "small" or "large" ? size : "medium";
+        _gridSize = size is "small" or "large" or "xlarge" ? size : "medium";
         PublishState();
     }
 
@@ -322,7 +322,7 @@ internal sealed class ReviewCarousel : Grid
         var width0 = _browser.ActualWidth;
         if (index < 0 || width0 <= 0) return null;
         const double gap = 12, pad = 12;
-        var target = _gridSize switch { "small" => 112, "large" => 212, _ => 152 };
+        var target = _gridSize switch { "small" => 152, "large" => 296, "xlarge" => 412, _ => 212 };
         var cols = Math.Max(1, (int)Math.Floor((width0 - 2 * pad + gap) / target));
         var width = (width0 - 2 * pad - gap * (cols - 1)) / cols;
         var height = Math.Max(115, width * .72 + 28);

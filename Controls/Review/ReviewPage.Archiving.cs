@@ -14,6 +14,7 @@ public sealed partial class ReviewPage
         while (_archiveQueue.TryDequeue(out var batch))
         {
             var succeeded = 0;
+            var galleryChanged = false;
             var failures = new List<string>();
             foreach (var id in batch.Ids)
             {
@@ -24,6 +25,8 @@ public sealed partial class ReviewPage
                     if (result.Ok)
                     {
                         succeeded++;
+                        if (AppService.Store?.IngestRow(id) is { } completed
+                            && IngestReview.RearchiveImageId(completed.Payload) > 0) galleryChanged = true;
                         try { QueueBasics(id); }
                         catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
                         { AppService.DebugLog($"archive basics #{id}: {ex.Message}"); }
@@ -59,6 +62,7 @@ public sealed partial class ReviewPage
                 $"已归档 {succeeded} 张，失败 {failures.Count} 条，失败项已返回待审核。\n" + string.Join("\n", failures.Take(3));
             _archiveProgress.Text += settingsError;
             Reload();
+            if (galleryChanged) GalleryImagesChanged?.Invoke();
             Changed?.Invoke();
         }
     }

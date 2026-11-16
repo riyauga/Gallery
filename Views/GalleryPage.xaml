@@ -281,6 +281,12 @@
                                     <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEB9F;" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
+                            <MenuFlyoutSubItem x:Name="SortTagMenu" Text="按标签排序">
+                                <RadioMenuFlyoutItem x:Name="SortTagCharacter" Click="SortKey_Click" GroupName="TagSort" Tag="tag_character" Text="角色" />
+                                <RadioMenuFlyoutItem x:Name="SortTagKind" Click="SortKey_Click" GroupName="TagSort" Tag="tag_kind" Text="类型" />
+                                <RadioMenuFlyoutItem x:Name="SortTagWork" Click="SortKey_Click" GroupName="TagSort" Tag="tag_work" Text="作品" />
+                                <RadioMenuFlyoutItem x:Name="SortTagArtist" Click="SortKey_Click" GroupName="TagSort" Tag="tag_artist" Text="作者" />
+                            </MenuFlyoutSubItem>
                             <MenuFlyoutSeparator />
                             <RadioMenuFlyoutItem
                                 x:Name="SortAsc"

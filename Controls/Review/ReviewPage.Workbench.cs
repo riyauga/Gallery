@@ -173,9 +173,9 @@ public sealed partial class ReviewPage
                 {
                     lock (AppService.DbLock)
                         return AppService.Store is { } store
-                            ? (category is null ? IngestReview.Categories.Where(item => item != "rating") : [category])
-                                .SelectMany(item => TagSearchService.Search(store, item, query)
-                                    .Select(hit => new PaletteHit(item, hit))).ToList() : [];
+                            ? TagSearchService.SearchCategories(store,
+                                    category is null ? IngestReview.Categories.Where(item => item != "rating") : [category], query)
+                                .SelectMany(group => group.Value.Select(hit => new PaletteHit(group.Key, hit))).ToList() : [];
                 });
                 if (version == _paletteQueryVersion && _active && _batchMode) _paletteSearch.ItemsSource = hits;
             }
@@ -251,10 +251,9 @@ public sealed partial class ReviewPage
     private void BuildCategoryRail()
     {
         // 图标常驻，只表示类型；颜色与标签底色共用一套 TagColors，一眼对上分类。
-        string[] glyphs = ["\uE91B", "\uE77B", "\uE76D", "\uF0E2", "R", "\uE710"];
-        foreach (var ((category, title), glyph) in IngestReview.Categories.Zip(IngestReview.Titles).Zip(glyphs))
+        foreach (var (category, title) in IngestReview.Categories.Zip(IngestReview.Titles))
         {
-            var icon = new FontIcon { Glyph = glyph, FontSize = 16 };
+            var icon = new FontIcon { Glyph = Gallery.Controls.Tags.TagCategoryIcons.Glyph(category), FontSize = 16 };
             if (category == "rating")
             {
                 icon.FontFamily = new FontFamily("Segoe UI Variable");

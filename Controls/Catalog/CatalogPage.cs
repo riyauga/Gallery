@@ -278,8 +278,11 @@ public sealed class CatalogPage : Grid
             return;
         }
 
+        // 同名不同作品（各作品的「铃」）靠作品名区分；不同名时不加，列表保持干净。
+        var duplicated = rows.GroupBy(Display).Where(group => group.Count() > 1)
+            .Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
         var views = rows.Select(r => new RowView(
-            Display(r),
+            Title(r, duplicated),
             Subtitle(r),
             r.Usage > 0 ? $"已用 {r.Usage}" : "未关联",
             r)).ToList();
@@ -303,6 +306,17 @@ public sealed class CatalogPage : Grid
         return r.EntityKey;
     }
 
+    /// <summary>作品显示名：优先词库中文名，没有中文名用英文名，再退回内部键。</summary>
+    private static string Work(TagCatalogService.CatalogRow r)
+        => r.GameName.Length > 0 ? r.GameName : r.GameKey;
+
+    private static string Title(TagCatalogService.CatalogRow r, HashSet<string> duplicated)
+    {
+        var name = Display(r);
+        var work = Work(r);
+        return duplicated.Contains(name) && work.Length > 0 ? name + " · " + work : name;
+    }
+
     private static string Subtitle(TagCatalogService.CatalogRow r)
     {
         var parts = new List<string>();
@@ -310,7 +324,7 @@ public sealed class CatalogPage : Grid
         if (r.Kind.Length > 0) parts.Add(r.Kind);
         if (r.TagName.Length > 0 && !string.Equals(r.TagName, Display(r), StringComparison.OrdinalIgnoreCase))
             parts.Add("标签 " + r.TagName);
-        if (r.GameKey.Length > 0) parts.Add(r.GameKey);
+        if (Work(r).Length > 0) parts.Add(Work(r));
         return string.Join(" · ", parts);
     }
 

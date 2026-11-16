@@ -18,6 +18,7 @@ namespace Gallery.Controls.Review;
 /// <summary>归档审阅页：圆环单图审阅与网格多选；批量标签工作台支持喷涂、回收和整笔撤销。</summary>
 public sealed partial class ReviewPage : Grid
 {
+    public event Action? GalleryImagesChanged;
     private readonly Window _owner;
     private readonly ReviewCarousel _carousel = new();
     private readonly Grid _carouselHost = new();
@@ -319,12 +320,18 @@ public sealed partial class ReviewPage : Grid
             _batchAnchorIndex = null;
             RenderBatchSelection(!wasMultiple);
         };
-        foreach (var (key, label) in new[] { ("small", "小"), ("medium", "中"), ("large", "大") })
+        foreach (var (key, label) in new[] { ("small", "小"), ("medium", "中"), ("large", "大"), ("xlarge", "超大") })
             _cardSize.Items.Add(new ComboBoxItem { Tag = key, Content = label });
-        _cardSize.SelectedIndex = 1;
+        _cardSize.SelectedIndex = AppService.Settings.Settings.review_card_size switch { "small" => 0, "large" => 2, "xlarge" => 3, _ => 1 };
+        _carousel.SetGridSize(AppService.Settings.Settings.review_card_size);
         _cardSize.SelectionChanged += (_, _) =>
         {
-            if (_cardSize.SelectedItem is ComboBoxItem { Tag: string size }) _carousel.SetGridSize(size);
+            if (_cardSize.SelectedItem is ComboBoxItem { Tag: string size })
+            {
+                _carousel.SetGridSize(size);
+                AppService.Settings.Settings.review_card_size = size;
+                AppService.Settings.Save();
+            }
         };
         ToolTipService.SetToolTip(_cardSize, "卡片大小");
         AutomationProperties.SetName(_cardSize, "批量审核卡片大小");
@@ -583,6 +590,7 @@ public sealed partial class ReviewPage : Grid
         var store = AppService.Store!;
         _loadedState = state;
         _rows = rows;
+        if (_batchMode && state == "pending" && _rows.Count == 0) SetBatchMode(false);
         _summary.Text = _state switch
         {
             "pending" => "待归档",
@@ -1691,6 +1699,7 @@ public sealed partial class ReviewPage : Grid
         _archiveQueue.Enqueue(batch);
         _rows.RemoveAll(row => _archiving.Contains(row.Id));
         _batchSelected.ExceptWith(ids);
+        if (_batchMode && _rows.Count == 0) SetBatchMode(false);
         if (_batchMode) RenderBatchSelection(false);
         else Select(Math.Min(_index, Math.Max(0, _rows.Count - 1)), false);
         UpdateButtons();
@@ -1837,7 +1846,7 @@ public sealed partial class ReviewPage : Grid
         _restore.IsEnabled = !_busy && _selected is not null;
         _batchToggle.Visibility = _state == "pending" ? Visibility.Visible : Visibility.Collapsed;
         _batchToggle.Content = _batchMode ? "退出批量审核" : "批量审核";
-        _batchToggle.IsEnabled = !_busy;
+        _batchToggle.IsEnabled = !_busy && (_batchMode || _rows.Count > 0);
         _selectAll.Visibility = _batchMode ? Visibility.Visible : Visibility.Collapsed;
         _selectAll.IsEnabled = !_busy && _rows.Count > 0;
         _selectAll.Content = _rows.Count > 0 && _batchSelected.Count == _rows.Count ? "取消全选" : "全选";

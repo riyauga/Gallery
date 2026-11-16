@@ -22,6 +22,7 @@ public sealed class AppSettings
     public List<string> roots { get; set; } = [];
     public string sort_key { get; set; } = "added";
     public bool sort_desc { get; set; } = true;
+    public string review_card_size { get; set; } = "medium";
     public string tag_filter_mode { get; set; } = "or";
     // galleryold 语义：缩略图目标行高。默认取 280（= 图库“中等”档的河流布局目标行高），
     // 与迁移前的默认尺寸一致；旧配置里的 160 仍按“小”档还原。
@@ -192,6 +193,7 @@ public sealed class SettingsStore
         s.settings_section = s.settings_section is "general" or "library" or "archive" or "tags" or "sensitive" or "connection"
             ? s.settings_section : "general";
         s.sort_key = SortKeys.IsValid(s.sort_key) ? s.sort_key : "name";
+        s.review_card_size = s.review_card_size is "small" or "large" or "xlarge" ? s.review_card_size : "medium";
         s.tag_filter_mode = s.tag_filter_mode is "or" or "and" ? s.tag_filter_mode : "or";
         s.sidebar_width = Math.Clamp(s.sidebar_width, 180, 500);
         s.thumbbar_size = Math.Clamp(s.thumbbar_size, 64, 512);
@@ -222,7 +224,7 @@ public static class SortKeys
 {
     // 星级暂时没有打星入口，先不提供这个排序键；旧配置里的 rating 会回落到 name。
     public static readonly string[] All =
-        ["name", "modified", "taken", "created", "added", "size", "random"];
+        ["name", "modified", "taken", "created", "added", "size", "random", "tag_character", "tag_kind", "tag_work", "tag_artist"];
 
     public static bool IsValid(string key) => Array.IndexOf(All, key) >= 0;
 }

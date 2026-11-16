@@ -62,6 +62,7 @@ public sealed partial class GalleryPage : UserControl
         Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null, bool KeepCurrentOnFilterChanges = false);
     public event Action<PreviewRequest>? PreviewRequested;
     public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
+    public event Action? ReviewQueueChanged;
     public event Action? TagsEdited;
 
     /// <summary>删除/重命名/移动真正开始前触发（查看器用来释放视频文件句柄）。</summary>
@@ -100,6 +101,11 @@ public sealed partial class GalleryPage : UserControl
         ImageLoader.WorkCompleted += ScheduleViewport;
         _filterPanel = new Controls.FilterPanel();
         if (FilterButton.Flyout is Flyout filterFlyout) filterFlyout.Content = _filterPanel.Root;
+        SortTagMenu.Icon = new FontIcon { Glyph = "\uE8EC" };
+        SortTagCharacter.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("character") };
+        SortTagKind.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("kind") };
+        SortTagWork.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("work") };
+        SortTagArtist.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("artist") };
         _filterPanel.Media = _filter switch
         {
             FilterKind.Photos => Controls.FilterPanel.MediaKind.Photos,
@@ -1353,6 +1359,8 @@ public sealed partial class GalleryPage : UserControl
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("编辑标签", "\uE8EC", () => _ = EditTagsAsync(items)));
+        if (includeOpen)
+            menu.Items.Add(Item("重新归档审核", "\uE7A7", () => _ = ReturnToReviewAsync(ids)));
         if (!batching)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
@@ -1417,6 +1425,25 @@ public sealed partial class GalleryPage : UserControl
             Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4)); // #ff99a4（删除红）
         menu.Items.Add(delete);
         return menu;
+    }
+
+    private async Task ReturnToReviewAsync(IReadOnlyList<int> ids)
+    {
+        if (ids.Count == 0 || AppService.Store is not { } store) return;
+        try
+        {
+            var result = await Task.Run(() =>
+            {
+                lock (AppService.DbLock) return store.EnqueueGalleryImages(ids);
+            });
+            ReviewQueueChanged?.Invoke();
+            ToastKindRequested?.Invoke($"已加入待审核 {result.Added} 张" +
+                (result.Skipped > 0 ? $"，跳过 {result.Skipped} 张" : ""), ToastKind.Success, null);
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+        {
+            ToastKindRequested?.Invoke("加入待审核失败", ToastKind.Pending, ex.Message);
+        }
     }
 
     // ---------------------------------------------------------- 批次 2：真实操作
@@ -1808,6 +1835,11 @@ public sealed partial class GalleryPage : UserControl
         if (sender is RadioMenuFlyoutItem item && item.Tag is string key)
         {
             _sortKey = key;
+            if (key.StartsWith("tag_", StringComparison.Ordinal))
+            {
+                _ascending = true;
+                AppService.Settings.Settings.sort_desc = false;
+            }
             // manifest 路径的旧 enum 同步（仅 4 键可映射）
             _sort = key switch
             {
@@ -1842,6 +1874,10 @@ public sealed partial class GalleryPage : UserControl
         SortAdded.IsChecked = _sortKey == "added";
         SortSize.IsChecked = _sortKey == "size";
         SortRandom.IsChecked = _sortKey == "random";
+        SortTagCharacter.IsChecked = _sortKey == "tag_character";
+        SortTagKind.IsChecked = _sortKey == "tag_kind";
+        SortTagWork.IsChecked = _sortKey == "tag_work";
+        SortTagArtist.IsChecked = _sortKey == "tag_artist";
         SortAsc.IsChecked = _ascending;
         SortDesc.IsChecked = !_ascending;
     }

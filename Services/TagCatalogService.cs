@@ -845,7 +845,13 @@ public sealed class TagCatalogService
         cmd.CommandText =
             "SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.kind,'character')," +
             "COALESCE(e.game_key,''),COALESCE(e.aliases,'[]')," +
-            "COALESCE(NULLIF(e.identity_key,''),e.entity_key) FROM catalog_entities e";
+            "COALESCE(NULLIF(e.identity_key,''),e.entity_key) FROM catalog_entities e" +
+            (needle.Length == 0 ? "" :
+                " WHERE COALESCE(NULLIF(e.identity_key,''),e.entity_key) IN (" +
+                "SELECT DISTINCT COALESCE(NULLIF(m.identity_key,''),m.entity_key) " +
+                "FROM catalog_names n JOIN catalog_entities m ON m.entity_key=n.entity_key " +
+                "WHERE instr(n.term,$needle)>0)");
+        if (needle.Length > 0) cmd.Parameters.AddWithValue("$needle", needle);
         using var r = cmd.ExecuteReader();
         var all = new List<EntityHit>();
         while (r.Read())
@@ -859,23 +865,9 @@ public sealed class TagCatalogService
 
         // 同一身份可能来自多个 wiki（中/英）或同一角色的不同形态。
         // 只要命中任意一个成员，就只在候选里保留一个代表；优先精确命中，其次有中文名的成员。
-        var matched = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var hit in all)
-        {
-            if (needle.Length == 0) continue;
-            var haystack = new[] { hit.Zh, hit.En }.Concat(hit.Aliases)
-                .Select(Norm).Where(s => s.Length > 0).ToList();
-            if (haystack.Any(s => s.Contains(needle, StringComparison.Ordinal)))
-                matched.Add(hit.IdentityKey.Length > 0 ? hit.IdentityKey : hit.EntityKey);
-        }
-        if (needle.Length == 0)
-            foreach (var hit in all)
-                matched.Add(hit.IdentityKey.Length > 0 ? hit.IdentityKey : hit.EntityKey);
-
         var hits = new List<EntityHit>();
         foreach (var group in all.GroupBy(h => h.IdentityKey.Length > 0 ? h.IdentityKey : h.EntityKey))
         {
-            if (!matched.Contains(group.Key)) continue;
             hits.Add(group
                 .OrderByDescending(h => new[] { h.Zh, h.En }.Concat(h.Aliases)
                     .Any(s => string.Equals(s.Trim(), exact, StringComparison.OrdinalIgnoreCase)))
@@ -2226,7 +2218,7 @@ public sealed class TagCatalogService
     /// <summary>资料库浏览行：词库实体 + 关联标签的使用统计。</summary>
     public sealed record CatalogRow(
         string EntityKey, string GameKey, string Kind, string Zh, string En,
-        string Aliases, int TagId, string TagName, int Usage);
+        string Aliases, int TagId, string TagName, int Usage, string GameName = "");
 
     /// <summary>按关键词列出词库实体（含未关联标签的条目），并给出类型分布与总数。</summary>
     public List<CatalogRow> Browse(string? query, out List<(string Kind, int Count)> kinds,
@@ -2237,14 +2229,23 @@ public sealed class TagCatalogService
         using var conn = Open();
         using (var cmd = conn.CreateCommand())
         {
+            // 一个实体可能有多条标签档案（别名、带作品限定写法），按实体只取一条：
+            // 带 _(作品) 的写法优先，其次使用数多的，避免同一角色在列表里重复出现。
             cmd.CommandText =
                 "SELECT e.entity_key,COALESCE(e.game_key,''),COALESCE(e.kind,''),COALESCE(e.zh,'')," +
                 "COALESCE(e.en,''),COALESCE(e.aliases,'[]')," +
                 "COALESCE(p.tag_id,0),COALESCE(t.name,'')," +
-                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=p.tag_id) " +
+                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=p.tag_id)," +
+                "COALESCE(g.zh,''),COALESCE(g.en,'') " +
                 "FROM catalog_entities e " +
-                "LEFT JOIN tag_profiles p ON p.entity_key=e.entity_key " +
-                "LEFT JOIN tags t ON t.id=p.tag_id";
+                "LEFT JOIN tag_profiles p ON p.rowid=(" +
+                "SELECT p2.rowid FROM tag_profiles p2 JOIN tags t2 ON t2.id=p2.tag_id " +
+                "WHERE p2.entity_key=e.entity_key " +
+                "ORDER BY (instr(t2.name,'_(')>0) DESC," +
+                "(SELECT COUNT(*) FROM image_tags it2 WHERE it2.tag_id=p2.tag_id) DESC," +
+                "length(t2.name),t2.name LIMIT 1) " +
+                "LEFT JOIN tags t ON t.id=p.tag_id " +
+                "LEFT JOIN catalog_games g ON g.game_key=e.game_key";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2261,7 +2262,8 @@ public sealed class TagCatalogService
                     if (!hay.Any(x => x.Contains(needle, StringComparison.Ordinal))) continue;
                 }
                 all.Add(new CatalogRow(r.GetString(0), r.GetString(1), r.GetString(2), zh, en,
-                    string.Join("、", aliases), r.GetInt32(6), r.GetString(7), r.GetInt32(8)));
+                    string.Join("、", aliases), r.GetInt32(6), r.GetString(7), r.GetInt32(8),
+                    r.GetString(9).Length > 0 ? r.GetString(9) : r.GetString(10)));
             }
         }
 

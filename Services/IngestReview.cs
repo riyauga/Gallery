@@ -136,6 +136,17 @@ public static class IngestReview
         }
     }
 
+    public static int RearchiveImageId(string payload)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            return doc.RootElement.TryGetProperty("rearchive_image_id", out var value)
+                && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var id) ? id : 0;
+        }
+        catch (JsonException) { return 0; }
+    }
+
     /// <summary>队列里是否已经有入队时生成的分辨率/横竖图；没有就需要补一次。</summary>
     public static bool NeedsResolution(string payload)
     {
