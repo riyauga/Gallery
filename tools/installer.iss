@@ -62,6 +62,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 #include FileList
 
 [Registry]
+Root: HKCU; Subkey: "Software\Classes\gallery-open"; ValueType: string; ValueData: "URL:Gallery"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\gallery-open"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\gallery-open"; ValueType: string; ValueName: "InstalledPath"; ValueData: "{app}\Gallery.exe"
+Root: HKCU; Subkey: "Software\Classes\gallery-open\shell\open\command"; ValueType: string; ValueData: """{app}\Gallery.exe"" --open-library-uri ""%1"""; Check: UseDefaultLaunchPath
 ; Register as an available handler only. Never write UserChoice or replace extension defaults.
 Root: HKCU; Subkey: "Software\Classes\Applications\Gallery.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Gallery"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Applications\Gallery.exe\shell\open\command"; ValueType: string; ValueData: """{app}\Gallery.exe"" --view ""%1"""
@@ -131,6 +135,11 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Gallery.exe"; Tasks: desktopi
 Filename: "{app}\Gallery.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function UseDefaultLaunchPath: Boolean;
+begin
+  Result := not RegValueExists(HKCU, 'Software\Classes\gallery-open', 'CustomPath');
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then

@@ -45,9 +45,25 @@
     <Error Text="Development verification cannot be included in a Release build." />
   </Target>
   <ItemGroup>
-    <Compile Remove="Development\**;Updater\**" />
+    <Compile Remove="Development\**;Updater\**;NativeHost\**" />
     <Compile Include="Development\**\*.cs" Condition="'$(EnableDevelopmentVerification)' == 'true'" />
   </ItemGroup>
+  <!-- 宿主单独构建，不经项目引用进入发布清单：否则它的输出会与手工补的那份撞同一相对路径。 -->
+  <Target Name="BuildNativeHost" BeforeTargets="BeforeBuild">
+    <MSBuild Projects="NativeHost\Gallery.NativeHost.csproj" Targets="Build"
+      Properties="Configuration=$(Configuration)" RemoveProperties="OutputPath" />
+  </Target>
+  <!-- 宿主发布：等 publish 结束再补进发布目录，避免和发布清单里的同名项撞相对路径。 -->
+  <Target Name="PublishNativeHost" AfterTargets="Publish">
+    <Copy SourceFiles="$(OutDir)Gallery.NativeHost.exe;$(OutDir)Gallery.NativeHost.dll;$(OutDir)Gallery.NativeHost.deps.json;$(OutDir)Gallery.NativeHost.runtimeconfig.json" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
+    <NativeHostFiles Include="NativeHost\bin\$(Configuration)\net9.0\win-x64\Gallery.NativeHost.exe;NativeHost\bin\$(Configuration)\net9.0\win-x64\Gallery.NativeHost.dll;NativeHost\bin\$(Configuration)\net9.0\win-x64\Gallery.NativeHost.deps.json;NativeHost\bin\$(Configuration)\net9.0\win-x64\Gallery.NativeHost.runtimeconfig.json" />
+  </ItemGroup>
+  <Target Name="CopyNativeHost" AfterTargets="Build">
+    <Copy SourceFiles="@(NativeHostFiles)" DestinationFolder="$(OutDir)" />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\NativeHost\bin\$(Configuration)" />
+  </Target>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.251219" />
@@ -67,7 +83,7 @@
     <Content Include="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="distribution-kind.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="USER_GUIDE.md" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="extension\*.js;extension\*.html;extension\*.css;extension\manifest.json;extension\icons\*.png;extension\README.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="extension\*.js;extension\*.html;extension\*.css;extension\*.txt;extension\manifest.json;extension\icons\*.png;extension\README.md" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
     <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
     <EmbeddedResource Include="Controls\Review\Spray.cur" LogicalName="Gallery.Controls.Review.Spray.cur" />

@@ -4,6 +4,10 @@ Gallery uses .NET, Windows App SDK / WinUI, CommunityToolkit.WinUI, Microsoft.Da
 SQLitePCLRaw / SQLite, ONNX Runtime DirectML, SharpCompress and SixLabors.ImageSharp.
 The applicable component licenses remain with their respective owners.
 
+The browser extension includes Basecoat CSS 1.2.0 (Vega) and its bundled Tailwind CSS 4.3.5.
+Both are MIT licensed. Their license texts are included in extension/BASECOAT-LICENSE.txt
+and extension/TAILWIND-LICENSE.txt.
+
 ImageSharp 3.1.5 uses the Six Labors Split License. The original version is retained at the project owner's request; known security advisories remain unresolved.
 License terms: https://github.com/SixLabors/ImageSharp/blob/v3.1.5/LICENSE
 

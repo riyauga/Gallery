@@ -99,7 +99,9 @@
   let hideTimer = 0;
   let flashTimer = 0;
   // 停靠位置：设置页可选右侧居中／右上／右下／左下。
+  let enabled = true;
   let corner = "right-center";
+  let settingsLoaded = false;
   const CORNERS = {
     "right-center": { right: "26px", top: "50%", left: "", bottom: "", marginTop: "-52px" },
     "right-top": { right: "26px", top: "26px", left: "", bottom: "", marginTop: "0" },
@@ -117,13 +119,28 @@
     zone.style.marginTop = spot.marginTop;
   }
 
+  /** 设置只在第一次有拖拽迹象时读一次：每个页面加载都读会白白唤醒后台 worker。 */
+  function loadSettings() {
+    if (settingsLoaded) return;
+    settingsLoaded = true;
+    try {
+      chrome.storage.local.get("settings")
+        .then(data => {
+          enabled = data.settings?.dragEnabled ?? data.settings?.enabled ?? true;
+          corner = data.settings?.dropZoneCorner || "right-center";
+          applyCorner();
+          if (!enabled) hide();
+        })
+        .catch(() => { settingsLoaded = false; });
+    } catch { settingsLoaded = false; }
+  }
+
   try {
-    chrome.storage.local.get("settings")
-      .then(data => { corner = data?.settings?.dropZoneCorner || "right-center"; applyCorner(); })
-      .catch(() => {});
     // 设置页改完即时生效，不用刷新已打开的页面。
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === "local" && changes.settings) {
+        enabled = changes.settings.newValue?.dragEnabled ?? changes.settings.newValue?.enabled ?? true;
+        if (!enabled) hide();
         corner = changes.settings.newValue?.dropZoneCorner || "right-center";
         applyCorner();
       }
@@ -216,8 +233,15 @@
     return !!image && !!(image.currentSrc || image.src);
   }
 
+  // 按下图片或开始拖拽时才读设置；读到已关闭就立刻收起。
+  document.addEventListener("pointerdown", event => {
+    if (isImageDrag(event)) loadSettings();
+  }, true);
+
   document.addEventListener("dragstart", event => {
     if (!isImageDrag(event)) return;
+    loadSettings();
+    if (!enabled) return;
     show();
   }, true);
 

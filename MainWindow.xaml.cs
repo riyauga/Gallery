@@ -59,7 +59,7 @@ public sealed partial class MainWindow : Window
         var store = Services.AppService.Store;
         if (store is null) return;
 
-        var pending = store.IngestStats().TryGetValue("pending", out var n) ? n : 0;
+        var pending = store.ReviewableIngestCount();
 
         // 待审核数量显示在标题栏和侧栏文字里。侧栏不再用 InfoBadge：
         // 角标会挤占内容列，导致右侧导入按钮和「图库」的添加按钮对不齐。
@@ -143,18 +143,16 @@ public sealed partial class MainWindow : Window
     private void HookReviewBadge()
     {
         UpdateReviewBadge();
-        if (Services.AppService.Bridge is { } bridge)
+        Services.AppService.BrowserIngested += (id, name) => DispatcherQueue.TryEnqueue(() =>
         {
-            bridge.Ingested += (id, name) => DispatcherQueue.TryEnqueue(() =>
-            {
-                if (_quitting) return;
-                UpdateReviewBadge();
-                _reviewPage?.Reload();
-                NotifyIngest(id, name);
-                Services.AppService.ScheduleIngestReconcile();
-            });
-            bridge.UiRequested += (view, path) => DispatcherQueue.TryEnqueue(async () => await HandleUiRequestAsync(view, path));
-        }
+            if (_quitting) return;
+            UpdateReviewBadge();
+            _reviewPage?.Reload();
+            NotifyIngest(id, name);
+            Services.AppService.ScheduleIngestReconcile();
+        });
+        Services.AppService.BrowserUiRequested += (view, path) =>
+            DispatcherQueue.TryEnqueue(async () => await HandleUiRequestAsync(view, path));
         Services.AppService.IngestQueueReconciled += () => DispatcherQueue.TryEnqueue(() =>
         {
             if (_quitting) return;
@@ -295,7 +293,7 @@ public sealed partial class MainWindow : Window
                 if (_quitting) return;
                 _trayMenu?.Dismiss();
                 var menu = new TrayMenuHost(RootGrid.ActualTheme, x, y,
-                    AppService.Store?.PendingIngestCount() ?? 0,
+                    AppService.Store?.ReviewableIngestCount() ?? 0,
                     BringToFront,
                     () => { BringToFront(); Nav.SelectedItem = ReviewNavItem; },
                     () => _ = QuitAsync());
@@ -386,7 +384,7 @@ public sealed partial class MainWindow : Window
 
     private void UpdateTrayTip()
     {
-        var pending = Services.AppService.Store?.PendingIngestCount() ?? 0;
+        var pending = Services.AppService.Store?.ReviewableIngestCount() ?? 0;
         _tray?.UpdateTip(pending > 0 ? $"Gallery · 待审核 {pending} 条" : "Gallery");
     }
     private Controls.Review.ReviewPage? _reviewPage;
@@ -1078,6 +1076,11 @@ public sealed partial class MainWindow : Window
     private readonly SemaphoreSlim _desktopImports = new(1, 1);
     public async Task<DesktopReply> HandleDesktopCommandAsync(DesktopCommand command)
     {
+        if (command.Action == "library" && command.Paths.Length == 0)
+        {
+            await ShowInGalleryAsync("");
+            return new(true);
+        }
         if (command.Action != "import" || command.Paths.Length != 1) return new(false, "无法处理这个请求。");
         await _desktopImports.WaitAsync();
         try

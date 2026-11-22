@@ -6,6 +6,7 @@ if (!globalThis.crypto) Object.defineProperty(globalThis,'crypto',{value:webcryp
 let storage={};
 globalThis.chrome={storage:{local:{
   async get(keys){if(keys==null)return structuredClone(storage);if(typeof keys==="string")return {[keys]:structuredClone(storage[keys])};return Object.fromEntries(keys.map(k=>[k,structuredClone(storage[k])]));},
+  async getKeys(){return Object.keys(storage);},
   async set(entries){Object.assign(storage,structuredClone(entries));},
   async remove(keys){for(const k of Array.isArray(keys)?keys:[keys])delete storage[k];}
 }}};
@@ -62,4 +63,21 @@ test("late complete metadata cannot be removed by an earlier partial acknowledge
 });
 test("legacy queue migration is idempotent and preserves all rows",async()=>{
   storage={bridgeQueue:[{filename:"first"},{filename:"second"}]};await bridge.migrateLegacyQueue();await bridge.migrateLegacyQueue();assert.equal(await bridge.queueSize(),2);assert.equal(storage.bridgeQueue,undefined);
+});
+
+test("a rejected record is retained while later records are delivered",async()=>{
+  storage={};
+  await bridge.queueAdd({ingest_id:"bad",sent_at:1});
+  await bridge.queueAdd({ingest_id:"good",sent_at:2});
+  globalThis.fetch=async(_url,options)=>{
+    const payload=JSON.parse(options.body);
+    if(payload.ingest_id==="bad")
+      return {ok:false,status:400,async json(){return {ok:false,error:"记录无效"};}};
+    return {ok:true,status:200,async json(){return {ok:true,persisted:true,ingest_id:payload.ingest_id};}};
+  };
+  const result=await bridge.queueFlush(47821,"test");
+  assert.equal(result.sent,1);
+  assert.equal(result.rejected,1);
+  assert.equal(result.stopped,"记录无效");
+  assert.deepEqual((await bridge.queueAll()).map(record=>record.ingest_id),["bad"]);
 });

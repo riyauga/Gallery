@@ -200,18 +200,55 @@ public sealed partial class SettingsPage : UserControl
 
         PendingText.Text = AppService.Store is null
             ? "—"
-            : AppService.Store.PendingIngestCount() switch
+            : AppService.Store.ReviewableIngestCount() switch
             {
                 0 => "0 条",
                 var n => $"{n} 条"
             };
+        RefreshBrowserLaunchPath();
+    }
+
+    private void RefreshBrowserLaunchPath()
+    {
+        var path = GalleryLaunchProtocol.ConfiguredPath();
+        BrowserLaunchCard.Description = path is null ? "选择 Gallery.exe 后可从浏览器启动。"
+            : File.Exists(path) ? path : $"找不到程序，请重新选择：{path}";
+    }
+
+    private async void ChooseBrowserLaunchPath_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add(".exe");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance!));
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null) SaveBrowserLaunchPath(file.Path);
+    }
+
+    private void ResetBrowserLaunchPath_Click(object sender, RoutedEventArgs e) => SaveBrowserLaunchPath(null);
+
+    private void SaveBrowserLaunchPath(string? path)
+    {
+        try
+        {
+            GalleryLaunchProtocol.SetTarget(path);
+            BrowserLaunchFeedback.Text = "启动路径已保存";
+            RefreshBrowserLaunchPath();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            BrowserLaunchFeedback.Text = error.Message;
+        }
     }
 
     private void BridgeCopy_Click(object sender, RoutedEventArgs e)
     {
         if (BridgeTokenBox.Text.Length == 0) return;
         var package = new DataPackage();
-        package.SetText(BridgeTokenBox.Text);
+        package.SetText(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            port = AppService.Bridge?.Port ?? AppService.Settings.Settings.bridge_port,
+            token = BridgeTokenBox.Text,
+        }));
         Clipboard.SetContent(package);
     }
 

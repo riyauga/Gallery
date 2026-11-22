@@ -140,7 +140,6 @@ public sealed partial class ReviewPage : Grid
     /// <summary>待归档队列里见过的最大 ID：比它更大的记录进来就算新图，用来回到最新那张。</summary>
     private int _newestSeen;
     private bool _busy, _active = true;
-    private readonly HashSet<int> _archiving = [];
     private readonly Queue<ArchiveBatch> _archiveQueue = new();
     private Task _archiveTask = Task.CompletedTask;
     private readonly TextBlock _archiveProgress = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
@@ -569,7 +568,7 @@ public sealed partial class ReviewPage : Grid
             { _status.Text = "刷新审核队列失败：" + ex.Message; return; }
             if (version != _reloadVersion || state != _state) continue;
             if (_busy || AppService.IsShuttingDown) return;
-            rows.RemoveAll(row => row.State == "pending" && _archiving.Contains(row.Id));
+            rows.RemoveAll(row => row.State == "pending" && store.IsIngestArchiving(row.Id));
             if (_loadedState != state || !_rows.SequenceEqual(rows))
                 ApplyReload(rows, state);
             if (_pendingNotificationId is int requested && _state == "pending")
@@ -1692,19 +1691,20 @@ public sealed partial class ReviewPage : Grid
 
         var ids = (_batchMode ? _rows.Where(row => _batchSelected.Contains(row.Id)).Select(row => row.Id)
             : _selected is { State: "pending" } row ? new[] { row.Id } : Array.Empty<int>())
-            .Where(id => !_archiving.Contains(id)).ToArray();
+            .Where(id => !store.IsIngestArchiving(id)).ToArray();
         if (ids.Length == 0) return;
         var batch = new ArchiveBatch(ids, fixedDestination, destination, auto, ArchiveRoot(store)?.Path ?? "");
-        _archiving.UnionWith(ids);
+        store.BeginIngestArchiving(ids);
         _archiveQueue.Enqueue(batch);
-        _rows.RemoveAll(row => _archiving.Contains(row.Id));
+        _rows.RemoveAll(row => store.IsIngestArchiving(row.Id));
         _batchSelected.ExceptWith(ids);
         if (_batchMode && _rows.Count == 0) SetBatchMode(false);
         if (_batchMode) RenderBatchSelection(false);
         else Select(Math.Min(_index, Math.Max(0, _rows.Count - 1)), false);
         UpdateButtons();
         _archiveProgress.Visibility = Visibility.Visible;
-        _archiveProgress.Text = $"后台归档：还有 {_archiving.Count} 张…";
+        _archiveProgress.Text = $"后台归档：还有 {store.ArchivingIngestCount} 张…";
+        Changed?.Invoke();
         if (_archiveTask.IsCompleted) _archiveTask = RunArchiveQueueAsync();
     }
 

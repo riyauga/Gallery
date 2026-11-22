@@ -75,6 +75,7 @@ public sealed partial class PreviewOverlay : Grid
         Detail.DisplayName = name => _tagDisplay.TryGetValue(name, out var shown) ? shown : name;
         Detail.RatingTooltip = BuildRatingTooltip;
         Detail.TagFilterRequested += (category, name) => TagFilterRequested?.Invoke(category, name);
+        Detail.TagCopied += text => ToastRequested?.Invoke("已复制标签：" + text);
         Detail.FavoriteRequested = async (item, favorite) =>
         {
             var result = FavoriteRequested is null

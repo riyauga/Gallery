@@ -1,19 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {DEFAULT_SETTINGS,DEFAULT_RULES} from "../rules.js";
-let storage={},downloads=new Map(),deliveries=[],online=true;
+import {DEFAULT_SETTINGS,DEFAULT_RULES,BUILTIN_SITES,SEED_VERSION,belongsToSite} from "../rules.js";
+let storage={},downloads=new Map(),deliveries=[],online=true,live=false,badge="",title="",sockets=[];
 const event=()=>({listeners:[],addListener(fn){this.listeners.push(fn);}});
-function events(){return {onCreated:event(),onDeterminingFilename:event(),onChanged:event()};}
+function events(){return {onCreated:event(),onDeterminingFilename:event(),onChanged:event(),onErased:event()};}
 const downloadEvents=events();
-const runtime={onInstalled:event(),onStartup:event(),onMessage:event(),getURL:p=>"chrome-extension://gallery/"+p,async openOptionsPage(){}};
+const runtime={id:"gallery",async sendMessage(){},onInstalled:event(),onStartup:event(),onMessage:event(),getURL:p=>"chrome-extension://gallery/"+p,async openOptionsPage(){}};
 globalThis.chrome={
- storage:{local:{async get(keys){if(keys==null)return structuredClone(storage);if(typeof keys==="string")return {[keys]:structuredClone(storage[keys])};return Object.fromEntries(keys.map(k=>[k,structuredClone(storage[k])]));},async set(value){Object.assign(storage,structuredClone(value));},async remove(keys){for(const k of Array.isArray(keys)?keys:[keys])delete storage[k];}}},
- downloads:{...downloadEvents,async search({id}){return downloads.has(id)?[structuredClone(downloads.get(id))]:[];}},
- runtime,notifications:{async create(){}},action:{async setBadgeText(){},async setBadgeBackgroundColor(){}},alarms:{onAlarm:event(),create(){}}
+ storage:{local:{async get(keys){if(keys==null)return structuredClone(storage);if(typeof keys==="string")return {[keys]:structuredClone(storage[keys])};return Object.fromEntries(keys.map(k=>[k,structuredClone(storage[k])]));},async getKeys(){return Object.keys(storage);},async set(value){Object.assign(storage,structuredClone(value));},async remove(keys){for(const k of Array.isArray(keys)?keys:[keys])delete storage[k];}}},
+ downloads:{...downloadEvents,async download({url,filename}){
+   const item={id:301,byExtensionId:runtime.id,startTime:"drag",url,filename:"D:/"+filename,mime:"image/jpeg",state:"in_progress"};
+   downloads.set(item.id,item);
+   downloadEvents.onCreated.listeners.at(-1)(item);
+   return item.id;
+ },async search({id}){return id === undefined ? structuredClone([...downloads.values()]) : downloads.has(id)?[structuredClone(downloads.get(id))]:[];}},
+ runtime,notifications:{async create(){}},action:{async setBadgeText({text}){badge=text;},async setTitle(value){title=value.title;},async setBadgeBackgroundColor(){}},alarms:{onAlarm:event(),create(){}}
+};
+globalThis.WebSocket=class {
+ constructor(url){this.url=url;sockets.push(this);}
+ send(token){this.token=token;}
+ close(){this.onclose?.();}
+ count(pending){this.onmessage({data:JSON.stringify({pending})});}
 };
 globalThis.fetch=async(url,options)=>{
  if(!online)throw Error("offline");
- if(url.endsWith("/ping"))return {ok:true,async json(){return {ok:true,pending:0,protocol:2};}};
+ if(url.endsWith("/ping"))return {ok:true,async json(){return {ok:true,pending:0,protocol:2,reviewSubscription:live};}};
  const payload=JSON.parse(options.body);if(!payload.probe)deliveries.push(payload);
  return {ok:true,async json(){return {ok:true,persisted:true,ingest_id:payload.ingest_id};}};
 };
@@ -44,7 +55,7 @@ test("canceled download never enters the outgoing queue",async()=>{
  await waitFor(()=>Object.entries(storage).some(([k,v])=>k.startsWith("download:3:") && v.state==="interrupted"));
  assert.equal(deliveries.some(p=>p.download_id===3),false);
 });
-test("offline completion survives worker restart and startup flush",async()=>{
+test("offline completion survives worker restart and waits for the retry alarm",async()=>{
  online=false;const im=item(4,123);downloads.set(4,im);
  downloadEvents.onCreated.listeners[0](im);
  await waitFor(()=>Object.keys(storage).some(k=>k.startsWith("download:4:")));
@@ -52,7 +63,21 @@ test("offline completion survives worker restart and startup flush",async()=>{
  await waitFor(()=>Object.keys(storage).some(k=>k.startsWith("outbox:") && k.includes(":4:")));
  for(const eventObject of Object.values(downloadEvents))eventObject.listeners=[];
  runtime.onMessage.listeners=[];runtime.onStartup.listeners=[];runtime.onInstalled.listeners=[];chrome.alarms.onAlarm.listeners=[];
- online=true;await import("../background.js?restart=1");runtime.onStartup.listeners[0]();
+ online=true;await import("../background.js?restart=1");
+ let startupCalls=0;
+ const {get}=chrome.storage.local,{search}=chrome.downloads,fetch=globalThis.fetch;
+ chrome.storage.local.get=(...args)=>{startupCalls++;return get(...args);};
+ chrome.downloads.search=(...args)=>{startupCalls++;return search(...args);};
+ globalThis.fetch=(...args)=>{startupCalls++;return fetch(...args);};
+ try {
+  await runtime.onStartup.listeners[0]();
+  assert.equal(startupCalls,0);
+ } finally {
+  chrome.storage.local.get=get;
+  chrome.downloads.search=search;
+  globalThis.fetch=fetch;
+ }
+ chrome.alarms.onAlarm.listeners[0]({name:"gallery-retry-v2"});
  await waitFor(()=>deliveries.some(p=>p.download_id===4));assert.equal(deliveries.filter(p=>p.download_id===4).length,1);
  await waitFor(()=>!Object.keys(storage).some(k=>k.startsWith("outbox:") && k.includes(":4:")));
 });
@@ -76,12 +101,14 @@ test('非 X 页面不能注入 X 图片来源',async()=>{
  const reply=await message({type:'xImageContext',payload:{image_url:'https://pbs.twimg.com/media/GalleryX.jpg',page_url:'https://x.com/SourceUser/status/987'}},{url:'https://evil.test/'});
  assert.equal(reply.ok,false);
 });
-test('首次升级启用 X 规则，保留其他规则与连接配置',async()=>{
+test('升级保留网站启停、配对和规则，新补的 CDN 规则继承旧站点启停',async()=>{
  const custom={id:'custom',name:'我的站点',enabled:true,matchOn:'host',matchType:'exact',pattern:'example.com'};
- const settings=structuredClone(storage.settings);storage.rules=[custom,{...DEFAULT_RULES.find(r=>r.id==='builtin-x'),enabled:false}];delete storage.xRulesVersion;
+ const settings=structuredClone(storage.settings);delete settings.dragEnabled;settings.enabled=false;storage.settings=settings;storage.rules=[custom,{...DEFAULT_RULES.find(r=>r.id==='builtin-x'),enabled:false}];delete storage.seedVersion;
  await runtime.onInstalled.listeners.at(-1)();
- assert.deepEqual(storage.rules.find(r=>r.id==='custom'),custom);assert.equal(storage.rules.find(r=>r.id==='builtin-x').enabled,true);
- assert.equal(storage.rules.find(r=>r.id==='builtin-x-media').enabled,true);assert.deepEqual(storage.settings,settings);assert.equal(storage.xRulesVersion,1);
+ assert.deepEqual(storage.rules.find(r=>r.id==='custom'),custom);assert.equal(storage.rules.find(r=>r.id==='builtin-x').enabled,false);
+ assert.equal(storage.rules.find(r=>r.id==='builtin-x-media').enabled,false);
+ assert.deepEqual(storage.settings,{...settings,dragEnabled:false});
+ assert.equal(storage.seedVersion,SEED_VERSION);
 });
 
 test('所有图片接收默认关闭，开启后仅接收已完成图片并保留浏览器路径',async()=>{
@@ -117,3 +144,76 @@ test('所有图片接收默认关闭，开启后仅接收已完成图片并保�
  assert.equal(deliveries.some(p=>p.download_id===205),false);
 });
 
+
+test("fresh install enables every built-in site and both capture methods",async()=>{
+ storage={};downloads.clear();
+ await runtime.onInstalled.listeners.at(-1)();
+ assert.equal(storage.settings.enabled,true);
+ assert.equal(storage.settings.dragEnabled,true);
+ assert.equal(storage.settings.captureAllImages,false);
+ for (const [site] of BUILTIN_SITES) {
+  const rules=storage.rules.filter(rule=>belongsToSite(rule,site));
+  assert.ok(rules.length > 0 && rules.every(rule=>rule.enabled));
+ }
+ const readCapture=async()=>{
+  const {settings}=await message({type:"getSettings"});
+  return [settings.enabled,settings.captureAllImages,settings.dragEnabled];
+ };
+ assert.deepEqual(await readCapture(),[true,false,true]);
+ storage.rules.push({id:"legacy",matchType:"regex",pattern:"["});
+ const oldRules=structuredClone(storage.rules);
+ for (const settings of [{captureAllImages:true},{enabled:false},{dragEnabled:false}]) {
+  assert.equal((await message({type:"saveState",settings})).ok,true);
+ }
+ await runtime.onStartup.listeners.at(-1)();
+ assert.deepEqual(await readCapture(),[false,true,false]);
+ assert.deepEqual(storage.rules,oldRules);
+});
+
+test("drag is independent of ordinary capture, and a bound download finishes after disabling",async()=>{
+ await message({type:"saveState",settings:{enabled:false,dragEnabled:true,bridgeToken:"fixture"}});
+ const url="https://unlisted.test/fixture.jpg";
+ const drag=await message({type:"grabImage",url});
+ assert.equal(drag.ok,true);
+ await waitFor(()=>storage["download:301:drag"]);
+ assert.equal(storage["download:301:drag"].rule_id,"drag");
+ const ordinary={id:302,startTime:"ordinary",url,filename:"D:/ordinary.jpg",mime:"image/jpeg",state:"complete"};
+ downloads.set(302,ordinary);
+ downloadEvents.onChanged.listeners.at(-1)({id:302,state:{current:"complete"}});
+ await message({type:"saveState",settings:{dragEnabled:false}});
+ assert.equal((await message({type:"grabImage",url})).ok,false);
+ downloads.get(301).state="complete";
+ downloadEvents.onChanged.listeners.at(-1)({id:301,state:{current:"complete"}});
+ await waitFor(()=>deliveries.some(p=>p.download_id===301));
+ assert.equal(deliveries.some(p=>p.download_id===302),false);
+});
+
+test("badge shows only offline records awaiting delivery",async()=>{
+ online=false;
+ storage["outbox:fixture:partial"]={ingest_id:"fixture",sent_at:1};
+ await message({type:"getState"});
+ assert.equal(badge,"1");
+ assert.match(title,/1 条待推送/);
+ delete storage["outbox:fixture:partial"];
+ await message({type:"getState"});
+ assert.equal(badge,"");
+});
+
+test("old delivered downloads remain marked until browser history removes them",async()=>{
+ storage={settings:{...DEFAULT_SETTINGS,bridgeToken:"fixture"},rules:DEFAULT_RULES,clientId:"fixture-client"};
+ downloads.clear();
+ const old={...item(401,12),state:"complete"};
+ downloads.set(old.id,old);
+ const key="download:"+old.id+":"+old.startTime;
+ storage[key]={key,download_id:old.id,start_time:old.startTime,state:"delivered",page:page(12)};
+ online=true;
+ const before=deliveries.length;
+ await message({type:"retry"});
+ assert.equal(storage[key].state,"delivered");
+ downloadEvents.onChanged.listeners.at(-1)({id:old.id,state:{current:"complete"}});
+ await new Promise(resolve=>setTimeout(resolve,30));
+ assert.equal(deliveries.length,before);
+ downloads.delete(old.id);
+ downloadEvents.onErased.listeners.at(-1)(old.id);
+ await waitFor(()=>storage[key] === undefined);
+});

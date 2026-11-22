@@ -20,6 +20,7 @@ export const IMAGE_EXT_RE =
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  dragEnabled: true,
   captureAllImages: false,
   galleryRoot: "Gallery", // 相对浏览器“下载”目录
   defaultFolder: "{site}/{yyyy}-{mm}",
@@ -123,7 +124,17 @@ export function matchTypeHint(matchType) {
 // --------------------------------------------------------------------------- //
 
 /** 每次新增内置规则时把这个数字 +1，升级时会自动补齐缺失的内置规则 */
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
+export const BUILTIN_SITES = [
+  ["builtin-x", "X"],
+  ["builtin-pixiv", "Pixiv"],
+  ["builtin-danbooru", "Danbooru"],
+  ["builtin-pinterest", "Pinterest"],
+];
+
+export function belongsToSite(rule, siteId) {
+  return rule.id === siteId || rule.id.startsWith(siteId + "-");
+}
 
 export const DEFAULT_RULES = [
   {
@@ -184,6 +195,8 @@ export const DEFAULT_RULES = [
     folder: "{site}/{yyyy}-{mm}",
     onlyImages: true,
   },
+  {id:"builtin-pixiv-cdn",name:"Pixiv 图片 CDN",enabled:true,matchOn:"url",matchType:"regex",pattern:"^https://[^/]+\\.pximg\\.net/",onlyImages:true},
+  {id:"builtin-pinterest-cdn",name:"Pinterest 图片 CDN",enabled:true,matchOn:"url",matchType:"regex",pattern:"^https://[^/]+\\.pinimg\\.com/",onlyImages:true},
 ];
 
 // --------------------------------------------------------------------------- //

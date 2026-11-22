@@ -25,6 +25,9 @@ public partial class App : Application
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var cli = Environment.GetCommandLineArgs();
+        var uriLaunch = cli.Length > 1 && cli[1] == GalleryLaunchProtocol.Argument;
+        if (uriLaunch && (cli.Length != 3 || !GalleryLaunchProtocol.IsLibraryUri(cli[2])))
+        { Exit(); return; }
 
 #if GALLERY_DEVELOPMENT
         // --dataroot <dir>：沙箱重定向（自动化测试零接触真实数据）
@@ -38,7 +41,7 @@ public partial class App : Application
 #endif
 
         var externalFiles = new List<string>();
-        for (var i = 1; i < cli.Length; i++)
+        for (var i = uriLaunch ? cli.Length : 1; i < cli.Length; i++)
         {
 #if GALLERY_DEVELOPMENT
             if (cli[i] == "--dataroot") { i++; continue; }
@@ -80,7 +83,8 @@ public partial class App : Application
         var instanceScope = AppPaths.LocalDataDir;
         if (!SingleInstance.TryAcquire(instanceScope))
         {
-            SingleInstance.SignalExisting(instanceScope);
+            if (!uriLaunch || (await DesktopPipe.SendAsync(false, new("library", []), 1500))?.Success != true)
+                SingleInstance.SignalExisting(instanceScope);
             Exit();
             return;
         }
@@ -97,6 +101,7 @@ public partial class App : Application
         _window = window;
         window.Activate();
         _desktopPipe = new DesktopPipe(false, window.DispatcherQueue, window.HandleDesktopCommandAsync);
+        if (uriLaunch) await window.ShowInGalleryAsync("");
 
         SingleInstance.ListenForActivation(() =>
             window.DispatcherQueue.TryEnqueue(window.BringToFront));

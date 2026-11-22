@@ -3,15 +3,15 @@
   "name": "Gallery 图片自动归类",
   "version": "2.3.0",
   "description": "Danbooru 图片取得标签后归档；X、Pixiv、Pinterest 图片记录来源与作者，Pixiv 额外按库里已有的作品与角色过滤标签；目录和其他标签手动填写。其他网站支持配置接收规则。",
-  "minimum_chrome_version": "120",
+  "minimum_chrome_version": "130",
 
   "permissions": [
     "downloads",
     "storage",
     "unlimitedStorage",
-    "activeTab",
     "notifications",
-    "alarms"
+    "alarms",
+    "nativeMessaging"
   ],
 
   "host_permissions": [

@@ -1,14 +1,84 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gallery 设置</title><link rel="icon" type="image/png" href="icons/icon32.png"><link rel="stylesheet" href="ui.css"></head><body>
-<div class="options"><aside><h1>Gallery</h1><nav aria-label="设置分类"><button class="active" data-page="general">常规</button><button data-page="sites">接收网站</button><button data-page="connection">桌面连接</button></nav><div class="grow"></div><small>Windows 图片归档与标签图库</small></aside>
-<main><section id="general"><h2>常规</h2><p class="muted">命中接收网站的图片，下载完成后交给桌面端自动归档；归档不了的会在桌面端浮层提醒你处理。下载位置用浏览器原生的「另存为」对话框自己选。</p><label class="check"><input type="checkbox" id="enabled">启用图片接收</label>
-<label class="check"><input type="checkbox" id="captureAllImages">接收浏览器下载的所有图片</label><p class="muted">开启后不受网站规则限制。仍由浏览器选择保存位置，下载完成后加入 Gallery 待归档；没有来源标签或分级时留空。不扫描网页中未下载的图片。</p>
-<label class="field">外观<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
-<label class="field">拖拽下载子目录<input id="dragTargetDir" placeholder="留空 = 直接放进下载目录"></label>
-<label class="field">黑洞停靠位置<select id="dropZoneCorner"><option value="right-center">右侧居中</option><option value="right-top">右上角</option><option value="right-bottom">右下角</option><option value="left-bottom">左下角</option></select></label>
-<p class="muted">在网页图片上按住拖动，右侧会浮出黑洞，丢进去就下载并进入待归档。只能写在浏览器默认下载目录下的子目录里（扩展写不到其他盘符）。</p></section>
-<section id="sites" hidden><h2>接收网站</h2><p class="muted">Danbooru 支持帖子原图链接和下载按钮；Pixiv 与 Pinterest 会自动记录画师、来源，Pixiv 的标签只保留你库里已有的作品与角色。其他网站下载可以接收，标签需要在桌面端确认。</p><div id="rules"></div>
-<button id="add-rule">添加网站规则</button><div class="field"><label for="test-url">测试规则</label><input id="test-url" placeholder="粘贴网站或图片地址"><button id="test-rule">检查匹配</button><span class="muted" id="test-result" role="status"></span></div></section>
-<section id="connection" hidden><h2>桌面连接</h2><p class="muted">从 Gallery 桌面端「设置 → 浏览器连接」复制配对码。</p>
-<label class="field">配对码<input id="bridgeToken" type="password" autocomplete="off" placeholder="粘贴桌面端配对码"></label><div class="row"><button id="test-bridge">测试连接</button><button id="retry-queue">重新推送队列</button></div><p id="bridge-result" class="feedback muted" role="status"></p>
-<details><summary>高级连接设置</summary><label class="field">本地端口<input id="bridgePort" type="number" min="1024" max="65535"></label></details><p class="muted">桌面离线时不会丢弃队列。取消或失败的下载不会归档。</p></section>
-<div class="savebar"><span class="feedback" id="feedback" role="status" aria-live="polite">正在读取设置…</span><button class="primary" id="save">保存设置</button></div></main></div><script type="module" src="options.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gallery 设置</title>
+  <link rel="icon" href="icons/icon32.png">
+  <link rel="stylesheet" href="basecoat-vega.min.css">
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<div class="options">
+  <aside>
+    <div class="settings-brand"><img src="icons/icon32.png" alt="" width="28" height="28"><h1>Gallery</h1></div>
+    <nav aria-label="设置分类">
+      <button class="btn nav-button" data-variant="ghost" data-page="capture" aria-current="page">常规</button>
+      <button class="btn nav-button" data-variant="ghost" data-page="sites">接收网站</button>
+      <button class="btn nav-button" data-variant="ghost" data-page="connection">桌面连接</button>
+    </nav>
+  </aside>
+  <main>
+    <p id="loading" role="status">正在读取设置…</p>
+    <section id="capture" hidden>
+      <h2>常规</h2>
+      <div class="card settings-group">
+        <label class="setting-row"><span>接收普通图片下载</span><input id="enabled" type="checkbox" role="switch" class="input"></label>
+        <label class="setting-row">
+          <span>接收所有网站的图片下载<small class="muted" id="all-sites-help">关闭时，仅接收匹配站点的下载。</small></span>
+          <input id="captureAllImages" type="checkbox" role="switch" class="input" aria-describedby="all-sites-help">
+        </label>
+      </div>
+      <div class="card settings-group">
+        <label class="setting-row"><span>启用网页拖拽收图</span><input id="dragEnabled" type="checkbox" role="switch" class="input"></label>
+        <details>
+          <summary>拖拽选项</summary>
+          <div class="disclosure-panel">
+            <div class="details-content">
+              <label class="field">黑洞停靠位置<select class="select" id="dropZoneCorner"><option value="right-center">右侧居中</option><option value="right-top">右上角</option><option value="right-bottom">右下角</option><option value="left-bottom">左下角</option></select></label>
+              <form id="drag-directory" class="settings-form">
+                <label class="field">下载子目录<input class="input" id="dragTargetDir" placeholder="留空会直接保存到浏览器下载目录"></label>
+                <button class="btn" data-variant="outline" type="submit">保存子目录</button>
+              </form>
+            </div>
+          </div>
+        </details>
+      </div>
+      <label class="card settings-group setting-row">外观<select class="select" id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+      <p class="feedback" id="capture-feedback" role="status"></p>
+    </section>
+    <section id="sites" hidden>
+      <div class="sites-heading"><h2>接收网站</h2><button id="new-site" class="btn" type="button">＋ 添加网站</button></div>
+      <div id="new-site-editor"></div>
+      <div id="site-list" class="sites-list"></div>
+      <p class="feedback" id="sites-feedback" role="status"></p>
+    </section>
+    <section id="connection" hidden>
+      <h2>桌面连接</h2>
+      <div class="card settings-group setting-row">
+        <div><p id="bridge-status" role="status">正在检查连接…</p><p id="bridge-queue" class="muted" hidden></p></div>
+        <button class="btn" data-variant="outline" id="retry-queue" type="button" hidden>重新推送</button>
+      </div>
+      <form id="bridge-form" class="card settings-group settings-form connection-form">
+        <label class="field">连接配置或配对码<input class="input" id="bridgeToken" type="password" autocomplete="off" aria-describedby="bridge-help"></label>
+        <p class="muted" id="bridge-help">从 Gallery 桌面端「设置 → 浏览器插件」复制连接配置。</p>
+        <div class="row">
+          <button class="btn" type="submit">保存连接设置</button>
+          <button class="btn" data-variant="outline" id="test-bridge" type="button">测试连接</button>
+        </div>
+        <details>
+          <summary>高级连接设置</summary>
+          <div class="disclosure-panel">
+            <div class="details-content">
+              <label class="field">本地端口<input class="input" id="bridgePort" type="number" min="1024" max="65535" required></label>
+            </div>
+          </div>
+        </details>
+      </form>
+      <p id="bridge-feedback" class="feedback" role="status"></p>
+    </section>
+  </main>
+</div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

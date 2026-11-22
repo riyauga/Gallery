@@ -1,16 +1,52 @@
 /** Gallery download coordinator: persist post snapshots, bind downloads, deliver durable records. */
-import {DEFAULT_SETTINGS,DEFAULT_RULES,SEED_VERSION,normalizeRules,findRule,isImageDownload,ruleFromUrl} from "./rules.js";
+import {DEFAULT_SETTINGS,DEFAULT_RULES,SEED_VERSION,BUILTIN_SITES,belongsToSite,normalizeRules,findRule,isImageDownload} from "./rules.js";
 import {chooseMetadata,completeMetadata,validPost,MD5_RE} from "./metadata.js";
-import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop,bridgeSourceQueue,bridgeSourceApply} from "./bridge.js";
+import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
 import {isXPage,xPost,xImageKey,isXDownload,xMetadata} from './x-metadata.js';
 import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,matchPixivTags} from './pixiv-metadata.js';
 import {isPinterestPage,pinImageHash,isPinterestDownload} from './pinterest-metadata.js';
+import {matchFilename} from "./filename-rules.js";
 
 const ALARM="gallery-retry-v2";
-/** 已送达的下载记录保留时长；到期后由 reconcile 清理，避免 storage 无限增长。 */
-const DELIVERED_KEEP_MS=7*24*60*60*1000;
 let mutation=Promise.resolve();
 let flushing=null;
+let lastSyncError="";
+let syncRunning=false;
+let nativePort=null;
+function waitForDesktop() {
+  if (nativePort || typeof chrome.runtime.connectNative !== "function") return;
+  const port=chrome.runtime.connectNative("gallery.bridge");
+  nativePort=port;
+  port.onMessage.addListener(async message => {
+    if (port !== nativePort || !Number.isInteger(message.port)) return;
+    nativePort=null;
+    port.disconnect();
+    const current=await state();
+    const ping=await bridgePing(message.port,current.settings.bridgeToken);
+    if (ping.ok && Number.isInteger(ping.data.pending)) {
+      if (message.port !== current.settings.bridgePort) {
+        await serial(async () => {
+          const data=await chrome.storage.local.get("settings");
+          await chrome.storage.local.set({settings:{...data.settings,bridgePort:message.port}});
+        });
+      }
+      await flush();
+    }
+  });
+  port.onDisconnect.addListener(() => {
+    if (nativePort === port) nativePort=null;
+    void chrome.runtime.lastError;
+  });
+}
+async function updateBadge(ping,count=0) {
+  const text=!ping.ok && count ? (count > 999 ? "999+" : String(count)) : "";
+  await chrome.action.setBadgeBackgroundColor({color:"#b45309"});
+  await chrome.action.setBadgeText({text});
+  await chrome.action.setTitle({title:count ? `Gallery · ${count} 条待推送` : "Gallery"});
+}
+function captureSettings(saved) {
+  return {...DEFAULT_SETTINGS, dragEnabled:saved?.enabled ?? true, ...saved};
+}
 function serial(fn) {
   const result=mutation.then(fn,fn);
   mutation=result.catch(() => {});
@@ -25,34 +61,35 @@ async function state() {
         current.clientId=crypto.randomUUID();
         await chrome.storage.local.set({clientId:current.clientId});
       }
-      return {settings:{...DEFAULT_SETTINGS,...current.settings},
+      return {settings:captureSettings(current.settings),
         rules:normalizeRules(current.rules || DEFAULT_RULES),clientId:current.clientId};
     });
   }
-  return {settings:{...DEFAULT_SETTINGS,...data.settings},
+  return {settings:captureSettings(data.settings),
     rules:normalizeRules(data.rules || DEFAULT_RULES),clientId:data.clientId};
 }
 function notify(title,message) {
   chrome.notifications.create({type:"basic",iconUrl:"icons/icon128.png",title,message}).catch(() => {});
 }
 async function captureError(error) {
-  await chrome.action.setBadgeText({text:"!"});
-  await chrome.action.setBadgeBackgroundColor({color:"#b45309"});
   notify("Gallery 需要处理","标签暂存失败，图片仍由 Chrome 保存。请打开扩展设置检查。"+String(error?.message || ""));
 }
+/** 按键名前缀取值：整库 get(null) 会把下载记录和页面快照一起反序列化，容易拖住浏览器进程。 */
+async function readPrefixed(prefix) {
+  const keys=(await chrome.storage.local.getKeys()).filter(key=>key.startsWith(prefix));
+  return keys.length ? Object.entries(await chrome.storage.local.get(keys)) : [];
+}
 async function snapshots() {
-  const data=await chrome.storage.local.get(null);
-  return Object.entries(data).filter(([key]) => key.startsWith("post:")).map(([,value]) => value);
+  return (await readPrefixed("post:")).map(([,value]) => value);
 }
 async function xContexts() {
-  const data=await chrome.storage.local.get(null);
-  return Object.entries(data).filter(([key])=>key.startsWith('x-image:')).map(([,value])=>value);
+  return (await readPrefixed("x-image:")).map(([,value])=>value);
 }
 async function rememberX(payload,sender) {
   if(!isXPage(sender.url || sender.tab?.url) || !xPost(payload?.page_url) || !xImageKey(payload?.image_url))throw new Error('无法确认 X 图片来源');
   const key='x-image:'+xImageKey(payload.image_url);
   await chrome.storage.local.set({[key]:{image_url:payload.image_url,page_url:xPost(payload.page_url).page_url,text:String(payload.text||''),seen:Date.now()}});
-  const data=await chrome.storage.local.get(null),old=Object.entries(data).filter(([k])=>k.startsWith('x-image:')).sort((a,b)=>b[1].seen-a[1].seen).slice(512);
+  const old=(await readPrefixed('x-image:')).sort((a,b)=>b[1].seen-a[1].seen).slice(512);
   if(old.length)await chrome.storage.local.remove(old.map(([k])=>k));
 }
 async function rememberPage(payload,sender) {
@@ -61,12 +98,11 @@ async function rememberPage(payload,sender) {
   const page={...payload,page_url:new URL(pageUrl).origin + new URL(pageUrl).pathname};
   await chrome.storage.local.set({["post:" + page.post_id]:page});
   if (completeMetadata(page)) {
-    const data=await chrome.storage.local.get(null);
-    for (const [key,record] of Object.entries(data)) {
-      if (!key.startsWith('download:') || !['queued','delivered'].includes(record.state) || completeMetadata(record.page)) continue;
+    for (const [key,record] of await readPrefixed('download:')) {
+      if (!['queued','delivered'].includes(record.state) || completeMetadata(record.page)) continue;
       if (chooseMetadata({url:record.url},[page])) {
         await chrome.storage.local.set({[key]:{...record,page,state:'in_progress'}});
-        await finishDownload(record.download_id);
+        await finishDownload(record.download_id,{...record,page});
       }
     }
   }
@@ -141,16 +177,6 @@ async function tagIndex(settings) {
 
 function downloadKey(item) { return "download:" + item.id + ":" + item.startTime; }
 
-// 拖拽落点发起的下载：URL 在 15 秒内视为“用户主动拖进来”，不受接收网站规则限制。
-const dragUrls = new Map();
-function markDrag(url) {
-  if (!url) return;
-  dragUrls.set(url, Date.now());
-  setTimeout(() => dragUrls.delete(url), 15000);
-}
-function isDragDownload(item) {
-  return dragUrls.has(item.url) || (!!item.finalUrl && dragUrls.has(item.finalUrl));
-}
 function targetName(url) {
   try {
     const parsed = new URL(url);
@@ -175,10 +201,9 @@ async function grabImage(message) {
   const url = String(message?.url || "");
   if (!/^https?:/i.test(url)) throw new Error("只支持 http/https 图片地址");
   const s = await state();
-  if (!s.settings.enabled) throw new Error("图片接收已停用");
+  if (!s.settings.dragEnabled) throw new Error("拖拽收图已关闭");
   const dir = safeDir(s.settings.dragTargetDir);
   const name = targetName(url);
-  markDrag(url);
   // 拖拽没有下载来源：用发起页补一条 X 绑定，否则后台认不出作者。
   const pageUrl = String(message?.page_url || "");
   if (isXPage(pageUrl) && xPost(pageUrl) && xImageKey(url)) {
@@ -192,12 +217,14 @@ async function grabImage(message) {
 }
 async function bindDownload(item) {
   const s=await state();
-  if (!s.settings.enabled || !isImageDownload(item)) return null;
+  // 拖拽是扩展发起下载的唯一入口。浏览器保留此标记，后台重启后仍可识别。
+  const dragged=item.byExtensionId === chrome.runtime.id;
+  if ((!dragged && !s.settings.enabled) || !isImageDownload(item)) return null;
   const x=isXDownload(item);
   const page=x ? xMetadata(item,await xContexts()) : chooseMetadata(item,await snapshots());
   const enriched={...item,referrer:page?.page_url || item.referrer || ""};
-  const rule=findRule(s.rules,enriched);
-  const dragged=isDragDownload(item);
+  const rule=findRule(s.settings.captureAllImages
+    ? s.rules.map(rule=>({...rule,enabled:true})) : s.rules,enriched);
   if (!rule && !s.settings.captureAllImages && !dragged) return null;
   const key=downloadKey(item);
   return serial(async () => {
@@ -206,7 +233,9 @@ async function bindDownload(item) {
     const record={
       key,ingest_id:s.clientId + ":" + item.id + ":" + item.startTime,
       client_id:s.clientId,download_id:item.id,start_time:item.startTime,
-      state:"in_progress",rule_id:rule?.rule.id || (dragged && !s.settings.captureAllImages ? "drag" : "all-images"),site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
+      state:"in_progress",rule_id:rule?.rule.id || (dragged ? "drag" : "all-images"),
+      filename_rules:rule?.rule.filenameRules || [],
+      site:x ? 'x' : '',page,url:item.url,referrer:item.referrer || ""
     };
     await chrome.storage.local.set({[key]:record});
     return record;
@@ -218,11 +247,14 @@ chrome.downloads.onCreated.addListener(item => {
 // 2026-10-14 起不再劫持保存路径：下载位置由浏览器原生「另存为」决定，
 // 扩展只负责在下载完成后，按实际落盘的路径把记录交给桌面端接管归档。
 async function findDownload(id) {
-  const data=await chrome.storage.local.get(null);
-  return Object.entries(data).find(([key,value]) => key.startsWith("download:") && value.download_id === id)?.[1] || null;
+  const prefix="download:"+id+":";
+  const keys=(await chrome.storage.local.getKeys()).filter(key => key.startsWith(prefix));
+  if (!keys.length) return null;
+  const found=await chrome.storage.local.get(keys);
+  return keys.map(key => found[key]).find(value => value?.download_id === id) || null;
 }
-async function finishDownload(id) {
-  let record=await findDownload(id);
+async function finishDownload(id, knownRecord) {
+  let record=knownRecord || await findDownload(id);
   const [item]=await chrome.downloads.search({id});
   if (!item) return;
   // 极快的下载可能先完成，再写入 onCreated 的绑定记录；完成事件也可按同一规则绑定。
@@ -266,6 +298,7 @@ async function finishDownload(id) {
     tag_string:pixiv ? (page.tags||[]).join(" ") : page?.tag_string || "",
     commentary_title:String(page?.commentary_title || ""),
     commentary_desc:String(page?.commentary_desc || ""),
+    filename_tags:matchFilename(record.filename_rules,name),
     metadata_complete:x || pixiv || pinterest ? false : completeMetadata(page),
     manual_review:x || !page,
     md5:x || !page ? '' : MD5_RE.exec(name)?.[0]?.toLowerCase() || "",sent_at:Date.now()
@@ -277,150 +310,112 @@ async function finishDownload(id) {
 chrome.downloads.onChanged.addListener(delta => {
   if (delta.state && ["complete","interrupted"].includes(delta.state.current)) finishDownload(delta.id).catch(captureError);
 });
-async function reconcile() {
-  const data=await chrome.storage.local.get(null);
+/** 一次读齐下载记录，逐条结算时不再各自全量重读；卡住的记录 10 分钟内不重复重试。 */
+const RETRY_BACKOFF=10*60*1000;
+async function reconcile({pruneHistory=false}={}) {
+  const records=await readPrefixed("download:");
   const stale=[];
-  for (const [key,record] of Object.entries(data)) {
-    if (!key.startsWith("download:")) continue;
-    if (record.state === "delivered") {
-      // delivered 是「已送达」的记忆，删早了会重新入队，只清长期没再被触发过的。
-      if (Date.now() - (Date.parse(record.start_time || "") || 0) > DELIVERED_KEEP_MS) stale.push(key);
-      continue;
+  const delivered=pruneHistory ? records.filter(([,record]) => record.state === "delivered") : [];
+  if (delivered.length) {
+    const history=await chrome.downloads.search({limit:0});
+    const existing=new Set(history.map(downloadKey));
+    for (const [key] of delivered) {
+      if (!existing.has(key)) stale.push(key);
     }
-    if (['queued','interrupted'].includes(record.state)) continue;
-    await finishDownload(record.download_id);
+  }
+  for (const [key,record] of records) {
+    if (record.state === "delivered") continue;
+    if (["queued","interrupted"].includes(record.state)) continue;
+    if (Date.now() - (record.last_attempt || 0) < RETRY_BACKOFF) continue;
+    await chrome.storage.local.set({[key]:{...record,last_attempt:Date.now()}});
+    await finishDownload(record.download_id,record);
   }
   if (stale.length) await chrome.storage.local.remove(stale);
+  if (pruneHistory) await housekeeping();
 }
+/** 保留策略：只清已送达的旧记录和过期页面快照，每天最多跑一次。 */
+const KEEP_DELIVERED=800,POST_TTL=14*24*60*60*1000;
+async function housekeeping() {
+  const marked=(await chrome.storage.local.get("lastPrune")).lastPrune || 0;
+  if (Date.now() - marked < 24*60*60*1000) return;
+  await chrome.storage.local.set({lastPrune:Date.now()});
+  const deliveries=(await readPrefixed("download:"))
+    .filter(([,record]) => record.state === "delivered")
+    .sort((a,b) => String(b[1].start_time || "").localeCompare(String(a[1].start_time || "")));
+  const excess=deliveries.slice(KEEP_DELIVERED).map(([key]) => key);
+  if (excess.length) await chrome.storage.local.remove(excess);
+  const expired=(await readPrefixed("post:"))
+    .filter(([,page]) => Date.now() - (page?.scraped_at || 0) > POST_TTL).map(([key]) => key);
+  if (expired.length) await chrome.storage.local.remove(expired);
+}
+chrome.downloads.onErased.addListener(id => {
+  (async () => {
+    const keys=(await chrome.storage.local.getKeys()).filter(key=>key.startsWith("download:"+id+":"));
+    if (!keys.length) return;
+    const found=await chrome.storage.local.get(keys);
+    const gone=keys.filter(key => found[key]?.state === "delivered");
+    if (gone.length) await chrome.storage.local.remove(gone);
+  })().catch(captureError);
+});
 async function flush() {
   if (flushing) return flushing;
   flushing=(async () => {
+    if (!await queueSize()) {
+      if (nativePort) {
+        const port=nativePort;
+        nativePort=null;
+        port.disconnect();
+      }
+      await updateBadge({ok:true},0);
+      return;
+    }
     const {settings}=await state();
-    const queued=await queueSize();
-    const result=await queueFlush(settings.bridgePort,settings.bridgeToken);
     const ping=await bridgePing(settings.bridgePort,settings.bridgeToken);
-    if (ping.ok && settings.bridgeToken) await bridgeVerify(settings.bridgePort,settings.bridgeToken);
-    const total=result.left + (ping.ok ? Number(ping.data.pending || 0) : 0);
-    await chrome.action.setBadgeText({text:total ? String(Math.min(total,99)) + (total > 99 ? "+" : "") : ""});
-    await chrome.action.setBadgeBackgroundColor({color:ping.ok ? "#525252" : "#b45309"});
-    if (queued && result.left && (!ping.ok || result.stopped)) {
-      const data=await chrome.storage.local.get("lastOfflineNotice");
-      if (Date.now() - (data.lastOfflineNotice || 0) > 60000) {
-        await chrome.storage.local.set({lastOfflineNotice:Date.now()});
-        notify("请打开 Gallery 桌面端","图片已保存，"+result.left+" 条标签暂存，连接恢复后会自动继续。");
+    syncRunning=true;
+    try {
+      if (ping.ok) {
+        const result=await queueFlush(settings.bridgePort,settings.bridgeToken);
+        lastSyncError=result.stopped;
+      } else lastSyncError=ping.error;
+    } finally {
+      syncRunning=false;
+      const left=await queueSize();
+      await updateBadge(ping,left);
+      if (!ping.ok && left) waitForDesktop();
+      else if (!left && nativePort) {
+        const port=nativePort;
+        nativePort=null;
+        port.disconnect();
       }
     }
   })();
   try { return await flushing; } finally { flushing=null; }
 }
 async function initialize() {
-  const data=await chrome.storage.local.get(["settings","rules","xRulesVersion","seedVersion"]);
-  if (!data.settings) await chrome.storage.local.set({settings:{...DEFAULT_SETTINGS,theme:"system"}});
-  if (!Array.isArray(data.rules)) {
-    const defaults=DEFAULT_RULES.map(rule => ({...rule,enabled:rule.id.startsWith("builtin-danbooru") || rule.id.startsWith('builtin-x')}));
-    await chrome.storage.local.set({rules:defaults});
-  }
-  if(!data.xRulesVersion) {
-    const current=(await chrome.storage.local.get('rules')).rules;
-    const rules=current.map(rule=>rule.id==='builtin-x' ? {...rule,enabled:true,folder:''} : rule);
-    for(const rule of DEFAULT_RULES.filter(rule=>rule.id.startsWith('builtin-x')))if(!rules.some(r=>r.id===rule.id))rules.push({...rule});
-    await chrome.storage.local.set({rules,xRulesVersion:1});
-  }
-  // 补齐缺失的内置规则（不覆盖用户改过的同名规则），让已安装的扩展也能拿到新增站点。
-  if((data.seedVersion||0)<SEED_VERSION) {
-    const current=(await chrome.storage.local.get('rules')).rules || DEFAULT_RULES;
-    const rules=[...current];
-    for(const rule of DEFAULT_RULES) if(!rules.some(r=>r.id===rule.id)) rules.push({...rule});
-    await chrome.storage.local.set({rules,seedVersion:SEED_VERSION});
-  }
-  await state();
-  await migrateLegacyQueue();
-  chrome.alarms.create(ALARM,{periodInMinutes:1});
-  await reconcile();
-  await flush();
-}
-// ---- 按文件名里的 danbooru md5 补全来源 ----
-// 桌面端给出待查清单 → 本页同源查 posts.json → 回写 page_url/source_url。
-// 之所以在浏览器里跑而不是桌面端跑：Danbooru 前面有 Cloudflare 人机校验，只有浏览器能过。
-const SOURCE_KEY="sourceJob";
-const DANBOORU_API="https://danbooru.donmai.us/posts.json";
-let sourceRunning=null;
-
-async function sourceJob() {
-  return (await chrome.storage.local.get(SOURCE_KEY))[SOURCE_KEY] || null;
-}
-async function saveSourceJob(job) {
-  await chrome.storage.local.set({[SOURCE_KEY]:job});
-}
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-
-/** 查一个 md5。返回 null 表示 Danbooru 没有这张图；抛错表示通道被挡。 */
-async function danbooruPost(md5) {
-  const url=DANBOORU_API+"?tags=md5:"+encodeURIComponent(md5)+"&only=id,md5,source";
-  const response=await fetch(url,{credentials:"include",cache:"no-store"});
-  const type=response.headers.get("content-type") || "";
-  if (response.status === 429) throw new Error("Danbooru 限流（429），请过几分钟再试");
-  if (!response.ok || !type.includes("json")) {
-    throw new Error("Danbooru 返回的不是数据（多半是人机校验）。先在浏览器打开 danbooru.donmai.us 通过校验，再点一次补全");
-  }
-  const data=await response.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
-  const post=data[0];
-  const id=String(post.id || "");
-  return {
-    md5,
-    post_id:id,
-    page_url:id ? "https://danbooru.donmai.us/posts/"+id : "",
-    source_url:typeof post.source === "string" ? post.source.trim() : ""
-  };
-}
-
-async function backfillSources(settings) {
-  if (sourceRunning) throw new Error("补全正在进行中");
-  sourceRunning=(async () => {
-    const queue=await bridgeSourceQueue(settings.bridgePort,settings.bridgeToken);
-    if (!queue.ok) throw new Error(queue.error || "读不到待补清单");
-    const items=queue.data.items || [];
-    const job={running:true,total:items.length,done:0,found:0,updated:0,missing:0,error:"",startedAt:Date.now(),finishedAt:0};
-    await saveSourceJob(job);
-    if (items.length === 0) { await saveSourceJob({...job,running:false,finishedAt:Date.now()}); return job; }
-
-    let batch=[];
-    const send=async () => {
-      if (batch.length === 0) return;
-      const result=await bridgeSourceApply(settings.bridgePort,settings.bridgeToken,batch);
-      if (!result.ok) throw new Error(result.error || "回写失败");
-      job.updated+=Number(result.data.updated) || 0;
-      batch=[];
-      await saveSourceJob({...job});
-    };
-    try {
-      for (const item of items) {
-        const hit=await danbooruPost(item.md5);
-        job.done+=1;
-        if (hit) { job.found+=1; batch.push(hit); }
-        else job.missing+=1;
-        if (batch.length >= 40) await send();
-        await saveSourceJob({...job});
-        await sleep(180);
+  await serial(async () => {
+    const data=await chrome.storage.local.get(["settings","rules","seedVersion","sourceJob"]);
+    if (data.settings?.dragEnabled === undefined)
+      await chrome.storage.local.set({settings:captureSettings(data.settings)});
+    if (!Array.isArray(data.rules) || (data.seedVersion || 0) < SEED_VERSION) {
+      const rules=Array.isArray(data.rules) ? [...data.rules] : [];
+      for (const rule of DEFAULT_RULES) {
+        if (rules.some(current=>current.id === rule.id)) continue;
+        const [siteId]=BUILTIN_SITES.find(([id])=>belongsToSite(rule,id));
+        const current=rules.find(candidate=>belongsToSite(candidate,siteId));
+        rules.push({...rule,enabled:current?.enabled ?? (!Array.isArray(data.rules) && rule.enabled)});
       }
-      await send();
-      job.running=false; job.finishedAt=Date.now();
-      await saveSourceJob(job);
-      return job;
-    } catch (error) {
-      await send().catch(() => {});
-      job.running=false; job.finishedAt=Date.now(); job.error=String(error.message || error);
-      await saveSourceJob(job);
-      throw error;
+      await chrome.storage.local.set({rules,seedVersion:SEED_VERSION});
     }
-  })();
-  try { return await sourceRunning; }
-  finally { sourceRunning=null; }
+    if (data.sourceJob) await chrome.storage.local.remove("sourceJob");
+  });
+  await migrateLegacyQueue();
+  await scheduleRetry();
 }
-
+async function scheduleRetry() {
+  await chrome.alarms.create(ALARM,{periodInMinutes:1});
+}
 chrome.runtime.onInstalled.addListener(() => initialize().catch(captureError));
-chrome.runtime.onStartup.addListener(() => initialize().catch(captureError));
+chrome.runtime.onStartup.addListener(() => scheduleRetry().catch(captureError));
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === ALARM) (async () => { await reconcile(); await flush(); })().catch(captureError);
 });
@@ -444,24 +439,65 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
       if (sender.url && !sender.url.startsWith(chrome.runtime.getURL(""))) throw new Error("页面不能修改 Gallery 配置");
       const s=await state();
       switch(message?.type) {
+        case "getSettings":
+          sendResponse({ok:true,...s});
+          break;
         case "getState": {
           const ping=await bridgePing(s.settings.bridgePort,s.settings.bridgeToken);
-          const pair=ping.ok ? await bridgeVerify(s.settings.bridgePort,s.settings.bridgeToken) : {ok:false,error:ping.error};
-          sendResponse({ok:true,...s,bridge:{running:ping.ok,paired:pair.ok,error:pair.error,queued:await queueSize(),pending:ping.data?.pending || 0,protocol:ping.data?.protocol || 0}});
+          const paired=ping.ok && Number.isInteger(ping.data.pending);
+          const queued=await queueSize();
+          await updateBadge(ping,queued);
+          if (ping.ok && paired && queued) void flush();
+          sendResponse({ok:true,...s,bridge:{running:ping.ok,paired,queued,error:lastSyncError,syncing:syncRunning}});
           break;
         }
         case "saveState": {
-          const settings={...s.settings,...message.settings};
-          if (!["system","light","dark"].includes(settings.theme || "system")) throw new Error("主题无效");
-          if (!Number.isInteger(Number(settings.bridgePort)) || settings.bridgePort < 1024 || settings.bridgePort > 65535) throw new Error("端口应为 1024 到 65535");
-          const rules=normalizeRules(message.rules || s.rules);
-          for (const rule of rules) {
-            if (!rule.pattern.trim()) throw new Error("网站匹配内容不能为空");
-            if (rule.matchType === "regex") new RegExp(rule.pattern,rule.caseSensitive ? "" : "i");
-          }
-          await chrome.storage.local.set({settings,rules});
-          sendResponse({ok:true});
-          await flush();
+          const rules=await serial(async () => {
+            const current=await chrome.storage.local.get(["settings","rules"]);
+            const settings={...captureSettings(current.settings),...message.settings};
+            if (message.settings && "theme" in message.settings && !["system","light","dark"].includes(settings.theme)) throw new Error("主题无效");
+            if (message.settings && "bridgePort" in message.settings &&
+              (!Number.isInteger(Number(settings.bridgePort)) || settings.bridgePort < 1024 || settings.bridgePort > 65535)) throw new Error("端口应为 1024 到 65535");
+            if (message.settings && !message.rules && !message.customRules && !message.addRule && !message.ruleToggle && !message.site) {
+              await chrome.storage.local.set({settings});
+              return;
+            }
+            let rules=normalizeRules(message.rules ?? current.rules ?? DEFAULT_RULES);
+            if (message.customRules) {
+              const edited=new Map(normalizeRules(message.customRules).map(rule=>[rule.id,rule]));
+              rules=rules.flatMap(rule => {
+                if (BUILTIN_SITES.some(([id])=>belongsToSite(rule,id))) return [rule];
+                const replacement=edited.get(rule.id);
+                return replacement ? [{...replacement,enabled:rule.enabled}] : [];
+              });
+            }
+            if (message.addRule) {
+              const [rule]=normalizeRules([message.addRule]);
+              if (rules.some(current=>current.matchOn === rule.matchOn && current.pattern === rule.pattern))
+                throw new Error("该网站已添加");
+              rules.push(rule);
+            }
+            if (message.ruleToggle) {
+              const rule=rules.find(rule=>rule.id === message.ruleToggle.id);
+              if (!rule) throw new Error("网站规则已删除");
+              rule.enabled=message.ruleToggle.enabled;
+            }
+            if (message.site) {
+              if (!BUILTIN_SITES.some(([id])=>id === message.site.id)) throw new Error("未知站点");
+              for (const rule of rules) {
+                if (belongsToSite(rule,message.site.id)) rule.enabled=message.site.enabled;
+              }
+            }
+            for (const rule of rules) {
+              if (!rule.pattern.trim()) throw new Error("网站匹配内容不能为空");
+              if (rule.matchType === "regex") new RegExp(rule.pattern,rule.caseSensitive ? "" : "i");
+            }
+            await chrome.storage.local.set({settings,rules});
+            return rules;
+          });
+          sendResponse({ok:true,rules});
+          if (message.settings && ("bridgeToken" in message.settings || "bridgePort" in message.settings))
+            await flush();
           break;
         }
         case "testBridge": {
@@ -472,23 +508,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
           sendResponse(await openDesktop(s.settings.bridgePort,s.settings.bridgeToken,message.view,message.path));
           break;
         case "retry":
-          await reconcile(); await flush(); sendResponse({ok:true});
-          break;
-        case "addSite": {
-          const rule=ruleFromUrl(message.url,message.name);
-          if (!rule) throw new Error("请输入有效的网站地址");
-          await chrome.storage.local.set({rules:[...s.rules,rule]});
-          sendResponse({ok:true});
-          break;
-        }
-        case "openOptions":
-          await chrome.runtime.openOptionsPage(); sendResponse({ok:true}); break;
-        case "backfillSources":
-          backfillSources(s.settings).catch(error=>captureError(error));
-          sendResponse({ok:true});
-          break;
-        case "sourceJobState":
-          sendResponse({ok:true,job:await sourceJob()});
+          await reconcile({pruneHistory:true}); await flush(); sendResponse({ok:true});
           break;
         default: throw new Error("未知操作");
       }

@@ -282,7 +282,7 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard x:Name="BridgeSettingsEntry" Header="浏览器插件"
-                        Description="连接状态、密钥与插件端口" Tag="Bridge" IsClickEnabled="True"
+                        Description="连接、配对码与启动路径" Tag="Bridge" IsClickEnabled="True"
                         IsActionIconVisible="True" Click="SettingsCategory_Click">
                         <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE774;" /></ctc:SettingsCard.HeaderIcon>
                         <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
@@ -755,8 +755,8 @@
                     </ctc:SettingsCard>
 
                     <ctc:SettingsCard
-                        Description="复制到浏览器插件里"
-                        Header="连接密钥">
+                        Description="复制后粘贴到浏览器插件，可同时配置端口和配对码"
+                        Header="连接配置">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8D7;" />
                         </ctc:SettingsCard.HeaderIcon>
@@ -766,7 +766,7 @@
                                 Width="360"
                                 IsReadOnly="True"
                                 FontFamily="Consolas" />
-                            <Button x:Name="BridgeCopyButton" Click="BridgeCopy_Click" Content="复制密钥" />
+                            <Button x:Name="BridgeCopyButton" Click="BridgeCopy_Click" Content="复制连接配置" />
                         </StackPanel>
                     </ctc:SettingsCard>
 
@@ -783,6 +783,14 @@
                     </ctc:SettingsCard>
 
                     <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="连接配置" />
+
+                    <ctc:SettingsCard x:Name="BrowserLaunchCard" Header="从浏览器打开图库">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Click="ChooseBrowserLaunchPath_Click" Content="选择程序…" />
+                            <Button Click="ResetBrowserLaunchPath_Click" Content="恢复默认" />
+                        </StackPanel>
+                    </ctc:SettingsCard>
+                    <TextBlock x:Name="BrowserLaunchFeedback" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
 
                     <ctc:SettingsCard
                         Header="插件端口">

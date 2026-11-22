@@ -1,47 +1,164 @@
-import {MATCH_TYPES,findRule,normalizeRules} from "./rules.js";
-const $=id=>document.getElementById(id);let state=null,dirty=false;
-async function message(payload){const value=await chrome.runtime.sendMessage(payload);if(!value?.ok)throw Error(value?.error || "操作失败");return value;}
-function feedback(text,error=false){$("feedback").textContent=text;$("feedback").classList.toggle("error",error);}
-function input(value){const e=document.createElement("input");e.value=value || "";return e;}
-function select(options,value){const e=document.createElement("select");for(const [v,label] of options){const o=document.createElement("option");o.value=v;o.textContent=label;e.append(o);}e.value=value;return e;}
-function field(label,control,wide=false){const wrapper=document.createElement("label");wrapper.className=wide ? "wide stack" : "stack";wrapper.append(document.createTextNode(label),control);return wrapper;}
-function changed(){dirty=true;feedback("有未保存的修改");}
-function renderRules(){
-  const container=$("rules");container.replaceChildren();
-  state.rules.forEach((rule,index)=>{
-    const details=document.createElement("details");details.className="rule";const summary=document.createElement("summary");
-    const check=input();check.type="checkbox";check.checked=rule.enabled;check.onclick=e=>e.stopPropagation();check.onchange=()=>{rule.enabled=check.checked;changed();};
-    const text=document.createElement("strong");text.textContent=rule.name;summary.append(check,text);details.append(summary);
-    const fields=document.createElement("div");fields.className="rule-fields";
-    const name=input(rule.name),on=select([["referrer","来源页面"],["url","图片地址"],["host","图片域名"],["filename","文件名"]],rule.matchOn),type=select(MATCH_TYPES,rule.matchType),pattern=input(rule.pattern);
-    name.oninput=()=>{rule.name=name.value;text.textContent=name.value;changed();};on.onchange=()=>{rule.matchOn=on.value;changed();};type.onchange=()=>{rule.matchType=type.value;changed();};pattern.oninput=()=>{rule.pattern=pattern.value;changed();};
-    fields.append(field("网站名称",name),field("匹配对象",on),field("匹配方式",type),field("匹配内容",pattern,true));
-    const sensitive=input();sensitive.type="checkbox";sensitive.checked=rule.caseSensitive;sensitive.onchange=()=>{rule.caseSensitive=sensitive.checked;changed();};fields.append(field("区分大小写",sensitive));
-    const remove=document.createElement("button");remove.textContent="删除规则";remove.onclick=()=>{state.rules.splice(index,1);renderRules();changed();};fields.append(remove);details.append(fields);container.append(details);
-  });
-}
-function collect(){
-  return {...state.settings,enabled:$("enabled").checked,captureAllImages:$("captureAllImages").checked,theme:$("theme").value,bridgeToken:$("bridgeToken").value.trim(),bridgePort:Number($("bridgePort").value),dragTargetDir:$("dragTargetDir").value.trim(),dropZoneCorner:$("dropZoneCorner").value};
-}
-async function busy(id,fn){
-  const button=$(id),label=button.textContent;button.disabled=true;button.textContent="正在处理…";
-  try{return await fn();}catch(error){feedback(error.message,true);return null;}
-  finally{button.disabled=false;button.textContent=label;}
-}
-document.querySelectorAll("nav button").forEach(button=>button.onclick=()=>{
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b===button));
-  for(const id of ["general","sites","connection"])$(id).hidden=id!==button.dataset.page;
-});
-$("save").onclick=()=>busy("save",async()=>{const settings=collect();await message({type:"saveState",settings,rules:state.rules});state.settings=settings;dirty=false;feedback("设置已保存");});
-$("add-rule").onclick=()=>{state.rules.push({id:crypto.randomUUID(),name:"新网站",enabled:true,matchOn:"host",matchType:"exact",pattern:"example.com",onlyImages:true,caseSensitive:false,folder:"{site}"});renderRules();$("rules").lastElementChild.open=true;changed();};
-$("test-rule").onclick=()=>{const url=$("test-url").value;try{const rule=findRule(normalizeRules(state.rules),{url,referrer:url,filename:new URL(url).pathname,mime:"image/jpeg"});$("test-result").textContent=rule ? "命中："+rule.rule.name : "未命中接收规则";}catch(error){$("test-result").textContent=error.message;}};
-$("test-bridge").onclick=()=>busy("test-bridge",async()=>{
-  $("bridge-result").textContent="正在验证桌面端与配对码…";const settings=collect();
-  try{const result=await message({type:"testBridge",port:settings.bridgePort,token:settings.bridgeToken});$("bridge-result").textContent="连接成功 · 配对码有效"+(dirty ? "。请保存设置。" : "");}
-  catch(error){$("bridge-result").textContent="连接失败："+error.message;throw error;}
-});
-$("retry-queue").onclick=()=>busy("retry-queue",async()=>{await message({type:"retry"});const current=await message({type:"getState"});$("bridge-result").textContent=current.bridge.queued ? current.bridge.queued+" 条仍在队列，请检查连接和配对码" : "队列已全部送达";});
-for(const id of ["enabled","captureAllImages","theme","bridgeToken","bridgePort","dragTargetDir","dropZoneCorner"])$(id).addEventListener("input",()=>{if(id==="theme")document.documentElement.dataset.theme=$("theme").value;changed();});
-window.addEventListener("beforeunload",event=>{if(dirty){event.preventDefault();event.returnValue="";}});
-(async()=>{try{state=await message({type:"getState"});for(const id of ["theme","bridgeToken","bridgePort","dragTargetDir"])$(id).value=state.settings[id] || "";$("dropZoneCorner").value=state.settings.dropZoneCorner || "right-center";$("enabled").checked=state.settings.enabled;$("captureAllImages").checked=!!state.settings.captureAllImages;document.documentElement.dataset.theme=state.settings.theme || "system";renderRules();feedback("设置已读取");$("bridge-result").textContent=state.bridge.running ? "桌面端已在线" : "桌面端未连接";}catch(error){feedback(error.message,true);$("save").disabled=true;}})();
+import {setTheme} from "./theme.js";
+import {setupSites} from "./sites-editor.js";
+import {animateDisclosure} from "./disclosure.js";
+import {BUILTIN_SITES, MATCH_FIELDS, MATCH_TYPES, belongsToSite, findRule, hostOf, newRuleId, ruleError} from "./rules.js";
 
+const $ = id => document.getElementById(id);
+const pages = Array.from(document.querySelectorAll("nav button"));
+const captureFields = ["enabled", "captureAllImages", "dragEnabled", "theme", "dropZoneCorner"];
+let state;
+let rulesDirty = false;
+
+document.querySelector(".options main").addEventListener("click", event => {
+  const summary = event.target.closest("details > summary");
+  const panel = summary?.nextElementSibling;
+  if (!panel?.classList.contains("disclosure-panel")) return;
+
+  event.preventDefault();
+  const details = summary.parentElement;
+  // Keep the native details open until the closing panel reaches zero height.
+  const opening = !details.open || panel.inert;
+  const from = details.open ? panel.getBoundingClientRect().height : 0;
+  if (!opening && panel.contains(document.activeElement)) summary.focus();
+  details.open = true;
+  panel.inert = !opening;
+  animateDisclosure(panel, opening, {from, onFinish: () => { details.open = opening; }});
+});
+
+async function message(payload) {
+  const reply = await chrome.runtime.sendMessage(payload);
+  if (!reply?.ok) throw Error(reply?.error || "操作失败");
+  return reply;
+}
+
+function feedback(id, text, error = false) {
+  $(id).textContent = text;
+  $(id).classList.toggle("error", error);
+}
+
+async function run(id, operation) {
+  feedback(id, "正在处理…");
+  try {
+    feedback(id, await operation());
+    return true;
+  } catch (error) {
+    feedback(id, error.message, true);
+    return false;
+  }
+}
+
+function showPage(page) {
+  for (const button of pages) {
+    const selected = button.dataset.page === page;
+    if (selected) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+    $(button.dataset.page).hidden = !selected;
+  }
+  if (page === "connection") {
+    void refreshBridge().catch(error => feedback("bridge-feedback", error.message, true));
+  }
+}
+
+function syncCapture() {
+  for (const id of captureFields) {
+    const input = $(id);
+    if (input.type === "checkbox") input.checked = !!state.settings[id];
+    else input.value = state.settings[id] || "system";
+  }
+  $("captureAllImages").disabled = !state.settings.enabled;
+  setTheme(state.settings.theme);
+}
+
+let sites;
+function renderSites() { sites?.render(); }
+for (const button of pages) button.onclick = () => {
+  if (state) showPage(button.dataset.page);
+};
+for (const id of captureFields) {
+  const input = $(id);
+  input.onchange = async () => {
+    const value = input.type === "checkbox" ? input.checked : input.value;
+    input.disabled = true;
+    await run("capture-feedback", async () => {
+      await message({type:"saveState", settings:{[id]:value}});
+      state.settings[id] = value;
+      return "已保存";
+    });
+    input.disabled = false;
+    syncCapture();
+    renderSites();
+  };
+}
+$("drag-directory").onsubmit = event => {
+  event.preventDefault();
+  const value = $("dragTargetDir").value.trim();
+  void run("capture-feedback", async () => {
+    await message({type:"saveState", settings:{dragTargetDir:value}});
+    return "下载子目录已保存";
+  });
+};
+
+async function refreshBridge() {
+  const {bridge} = await message({type:"getState"});
+  $("bridge-status").textContent = bridge.paired ? "Gallery 已连接"
+    : bridge.running ? "Gallery 在线 · 需要配对" : "Gallery 未连接";
+  $("bridge-queue").hidden = !bridge.queued;
+  $("bridge-queue").textContent = bridge.queued ? bridge.queued + " 条待推送" : "";
+  $("retry-queue").hidden = !bridge.queued;
+  return bridge;
+}
+function connectionSettings() {
+  let token = $("bridgeToken").value.trim();
+  let port = Number($("bridgePort").value);
+  if (token.startsWith("{")) {
+    let config;
+    try { config = JSON.parse(token); }
+    catch { throw Error("连接配置格式无效"); }
+    token = String(config.token || "").trim();
+    port = Number(config.port);
+    if (!token) throw Error("连接配置中缺少配对码");
+    $("bridgeToken").value = token;
+    $("bridgePort").value = port;
+  }
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw Error("端口应为 1024 到 65535");
+  return {bridgeToken:token, bridgePort:port};
+}
+$("bridge-form").onsubmit = event => {
+  event.preventDefault();
+  void run("bridge-feedback", async () => {
+    const settings = connectionSettings();
+    await message({type:"saveState", settings});
+    Object.assign(state.settings, settings);
+    await refreshBridge();
+    return "连接设置已保存";
+  });
+};
+$("test-bridge").onclick = () => run("bridge-feedback", async () => {
+  const settings = connectionSettings();
+  await message({type:"testBridge", port:settings.bridgePort, token:settings.bridgeToken});
+  return "连接成功";
+});
+$("retry-queue").onclick = () => run("bridge-feedback", async () => {
+  await message({type:"retry"});
+  const bridge = await refreshBridge();
+  return bridge.queued ? bridge.queued + " 条仍待同步" : "没有待同步记录";
+});
+
+window.addEventListener("beforeunload", event => {
+  if (!rulesDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+try {
+  state = await message({type:"getSettings"});
+  syncCapture();
+  for (const id of ["dragTargetDir", "bridgeToken", "bridgePort"]) $(id).value = state.settings[id] ?? "";
+  sites = setupSites(state, message, (text, error) => feedback("sites-feedback", text, error));
+  renderSites();
+  $("loading").hidden = true;
+  showPage("capture");
+} catch (error) {
+  feedback("loading", error.message, true);
+  $("loading").hidden = false;
+}

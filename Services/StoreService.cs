@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
 
 namespace Gallery.Services;
@@ -872,8 +873,12 @@ public sealed partial class StoreService : IDisposable
     [MethodImpl(MethodImplOptions.Synchronized)]
     public int EnsureTag(string name, string category = "custom")
     {
-        var clean = (name ?? "").Trim();
-        if (category == "artist") clean = IngestReview.NormalizeArtistName(clean);
+        var original = (name ?? "").Trim();
+        if (category == "artist") original = IngestReview.NormalizeArtistName(original);
+        // 已经存在的同名标签原样复用：归一化只作用于新建，避免重写图片标签时把旧标签改名。
+        var clean = FindTagId(original, category) > 0 ? original : CanonicalTagName(category, original);
+        // 抓取端给的是 danbooru 写法「名字_(作品)」，模型端给的是裸名：同一角色会因此裂成两个标签。
+        // 新建时统一到不带后缀的标准名；原写法作为别名留下，任何一端再送来都落回同一个标签。
         int found;
         using (var cmd = _conn.CreateCommand())
         {
@@ -883,7 +888,7 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$c", category);
             found = Convert.ToInt32(cmd.ExecuteScalar() ?? -1);
         }
-        if (found > 0) return found;
+        if (found > 0) return KeepSourceAlias(found);
 
         // 合并过的旧名字：先按「同分类别名」重定向到留下的标签，
         // 否则同一位画师/同一作品的旧写法（重新下载、重导 sidecar）会再分裂出一个新标签。
@@ -896,7 +901,7 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$n", clean);
             cmd.Parameters.AddWithValue("$c", category);
             var redirected = Convert.ToInt32(cmd.ExecuteScalar() ?? -1);
-            if (redirected > 0) return redirected;
+            if (redirected > 0) return KeepSourceAlias(redirected);
         }
 
         var tagKey = NewTagKey();
@@ -920,8 +925,157 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$now", Now());
             cmd.ExecuteNonQuery();
         }
-        return created;
+        return KeepSourceAlias(created);
+
+        int KeepSourceAlias(int tagId)
+        {
+            if (original.Length > 0 && !string.Equals(original, clean, StringComparison.Ordinal))
+            {
+                using var cmd = _conn.CreateCommand();
+                cmd.CommandText = "INSERT OR IGNORE INTO tag_aliases(tag_id,alias) VALUES($t,$a)";
+                cmd.Parameters.AddWithValue("$t", tagId);
+                cmd.Parameters.AddWithValue("$a", original);
+                cmd.ExecuteNonQuery();
+            }
+            return tagId;
+        }
     }
+
+    // ------------------------------------------------------------------ 标签名归一
+
+    /// <summary>danbooru 的最后一层 <c>_(作品)</c> 后缀。</summary>
+    private static readonly Regex TagWorkSuffix = new(@"_\([^()]+\)$", RegexOptions.Compiled);
+
+    /// <summary>不指具体作品的消歧义写法（<c>cyberpunk_(series)</c>），不算跨作品。</summary>
+    private static readonly string[] GenericWorkSuffixes = ["series", "franchise"];
+
+    /// <summary>作品名做前缀比较的最小长度，避免两三个字母的键乱命中。</summary>
+    private const int MinWorkPrefix = 4;
+
+    /// <summary>
+    /// 角色 / 作品标签的标准名：同一实体只保留裸名一种写法。
+    /// 带后缀的新名字：裸名空着就用裸名，裸名已属于别的作品的角色就保留原写法；
+    /// 反过来，库里只有带后缀的写法时也给裸名让路，复用那一条，不再新建同名标签。
+    /// </summary>
+    private string CanonicalTagName(string category, string name)
+    {
+        if (category is not ("character" or "work")) return name;
+        var bare = StripWorkSuffix(name, out var suffix);
+        if (string.Equals(bare, name, StringComparison.Ordinal))
+            return FindSuffixedForBare(category, name) ?? name;
+        if (bare.Length == 0) return name;
+        var bareId = FindTagId(bare, category);
+        if (bareId == 0) return bare;
+        return SameCharacter(bareId, category, name, suffix) ? bare : name;
+    }
+
+    /// <summary>库里唯一一条「裸名_(作品)」标签的名字；没有或不止一条（无法判断是哪个）时返回 null。</summary>
+    private string? FindSuffixedForBare(string category, string bare)
+    {
+        var escaped = bare.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+        var names = new List<string>();
+        using (var cmd = _conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "SELECT name FROM tags WHERE COALESCE(category,'custom')=$c " +
+                "AND name LIKE $p ESCAPE '\\' COLLATE NOCASE";
+            cmd.Parameters.AddWithValue("$c", category);
+            cmd.Parameters.AddWithValue("$p", escaped + "\\_(%");
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) names.Add(r.GetString(0));
+        }
+        var hit = names
+            .Where(candidate => string.Equals(StripWorkSuffix(candidate, out _), bare,
+                StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return hit.Count == 1 ? hit[0] : null;
+    }
+
+    private static string StripWorkSuffix(string name, out string suffix)
+    {
+        suffix = "";
+        var match = TagWorkSuffix.Match(name);
+        if (!match.Success || match.Index == 0) return name;
+        suffix = name[(match.Index + 2)..^1];
+        return name[..match.Index].TrimEnd();
+    }
+
+    /// <summary>裸名标签与带后缀写法是否指同一个人 / 同一部作品。</summary>
+    private bool SameCharacter(int bareId, string category, string qualifiedName, string suffix)
+    {
+        var bareIdentity = TagIdentityKey(bareId);
+        var qualifiedId = FindTagId(qualifiedName, category);
+        var qualifiedIdentity = qualifiedId > 0 ? TagIdentityKey(qualifiedId) : "";
+        if (bareIdentity.Length == 0) return true;
+        if (qualifiedIdentity.Length > 0 && string.Equals(bareIdentity, qualifiedIdentity, StringComparison.Ordinal))
+            return true;
+
+        // 同一部作品的不同来源（国服 wiki / 国际 wiki）各自有身份键，仍算同一个人。
+        var bareGames = TagGames(bareId);
+        var qualifiedGames = qualifiedId > 0 ? TagGames(qualifiedId) : [];
+        if (bareGames.Count > 0 && qualifiedGames.Count > 0) return bareGames.Overlaps(qualifiedGames);
+        return SuffixNamesGame(bareGames, suffix);
+    }
+
+    /// <summary>标签绑定的（身份键、词库实体键）；两者都可能为空。</summary>
+    private (string Identity, string Entity) TagKeys(int tagId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT COALESCE(i.identity_key,''),COALESCE(p.entity_key,'') FROM tags t " +
+            "LEFT JOIN tag_identities i ON i.tag_id=t.id " +
+            "LEFT JOIN tag_profiles p ON p.tag_id=t.id WHERE t.id=$t";
+        cmd.Parameters.AddWithValue("$t", tagId);
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (r.GetString(0), r.GetString(1)) : ("", "");
+    }
+
+    /// <summary>标签绑定的身份键：身份表优先，其次是词库实体键。</summary>
+    private string TagIdentityKey(int tagId)
+    {
+        var (identity, entity) = TagKeys(tagId);
+        return identity.Length > 0 ? identity : entity;
+    }
+
+    /// <summary>标签所属的作品（键 / 中文名 / 英文名都归一成同一套比较串）。</summary>
+    private HashSet<string> TagGames(int tagId)
+    {
+        var (identity, entity) = TagKeys(tagId);
+        var games = new HashSet<string>(StringComparer.Ordinal);
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT m.game_key,COALESCE(g.zh,''),COALESCE(g.en,'') FROM catalog_memberships m " +
+            "LEFT JOIN catalog_games g ON g.game_key=m.game_key " +
+            "WHERE m.identity_key IN ($a,$b) " +
+            "UNION SELECT e.game_key,COALESCE(g2.zh,''),COALESCE(g2.en,'') FROM catalog_entities e " +
+            "LEFT JOIN catalog_games g2 ON g2.game_key=e.game_key WHERE e.entity_key IN ($a,$b)";
+        cmd.Parameters.AddWithValue("$a", identity);
+        cmd.Parameters.AddWithValue("$b", entity);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            for (var i = 0; i < 3; i++)
+            {
+                var value = TagCatalogService.Norm(r.IsDBNull(i) ? "" : r.GetString(i));
+                if (value.Length > 0) games.Add(value);
+            }
+        return games;
+    }
+
+    /// <summary>后缀是否就是这个人所在的作品（danbooru 常把衍生作写成父作品）。</summary>
+    private static bool SuffixNamesGame(HashSet<string> games, string suffix)
+    {
+        var key = TagCatalogService.Norm(suffix);
+        if (key.Length == 0) return true;
+        if (GenericWorkSuffixes.Contains(key)) return true;
+        foreach (var game in games)
+        {
+            if (game == key) return true;
+            if (key.Length >= MinWorkPrefix && game.Length > key.Length
+                && game.StartsWith(key, StringComparison.Ordinal)) return true;
+        }
+        return false;
+    }
+
 
     /// <summary>按名称 + 分类取标签 id；不存在时返回 0（只查不建，区别于 EnsureTag）。</summary>
     [MethodImpl(MethodImplOptions.Synchronized)]
@@ -1450,7 +1604,10 @@ public sealed partial class StoreService : IDisposable
         lock (SyncRoot)
         {
             var conn = _conn;
+            payloadJson = ApplyFilenameTags(payloadJson);
             payloadJson = NormalizeSkinPayload(IngestReview.NormalizeArtistPayload(payloadJson));
+            if (IngestReview.RatingOf(payloadJson) is { Length: > 0 } parsedRating)
+                rating = parsedRating;
             using var tx = conn.BeginTransaction();
 
             if (ingestId.Length > 0)
@@ -1499,6 +1656,7 @@ public sealed partial class StoreService : IDisposable
             }
 
             tx.Commit();
+            ReviewableIngestChanged?.Invoke();
             return new IngestResult(id, false);
         }
     }
@@ -1571,6 +1729,7 @@ public sealed partial class StoreService : IDisposable
             }
 
             tx.Commit();
+            if (added > 0) ReviewableIngestChanged?.Invoke();
             return (added, skipped);
         }
     }
@@ -1622,6 +1781,7 @@ public sealed partial class StoreService : IDisposable
             added++;
         }
         Commit();
+        if (added > 0) ReviewableIngestChanged?.Invoke();
         return (added, skipped);
     }
 
@@ -1764,7 +1924,7 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$s", state);
             cmd.Parameters.AddWithValue("$n", note);
             cmd.Parameters.AddWithValue("$id", id);
-            cmd.ExecuteNonQuery();
+            if (cmd.ExecuteNonQuery() > 0) ReviewableIngestChanged?.Invoke();
         }
     }
 
@@ -1780,7 +1940,9 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$n", note);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$expected", expectedState);
-            return cmd.ExecuteNonQuery() > 0;
+            var changed = cmd.ExecuteNonQuery() > 0;
+            if (changed) ReviewableIngestChanged?.Invoke();
+            return changed;
         }
     }
 
@@ -2085,7 +2247,7 @@ public sealed partial class StoreService : IDisposable
             cmd.Parameters.AddWithValue("$p", finalPayload);
             cmd.Parameters.AddWithValue("$r", finalRating);
             cmd.Parameters.AddWithValue("$id", id);
-            cmd.ExecuteNonQuery();
+            if (cmd.ExecuteNonQuery() > 0) ReviewableIngestChanged?.Invoke();
             return finalPayload;
         }
     }
@@ -2098,7 +2260,7 @@ public sealed partial class StoreService : IDisposable
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = "DELETE FROM ingest_queue WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", id);
-            cmd.ExecuteNonQuery();
+            if (cmd.ExecuteNonQuery() > 0) ReviewableIngestChanged?.Invoke();
         }
     }
 

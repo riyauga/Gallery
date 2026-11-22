@@ -12,7 +12,7 @@ namespace Gallery.Controls.Viewer;
 /// 宽 360、圆角 12；小节「图片信息」（文件名 / 宽×高 / 目录）、七类标签贴纸、
 /// 「来源」（网址占满一行，文字可选中复制）、「作者评论」（标题加粗 + 正文，没有就收起）；
 /// 文件名、目录、来源、评论正文、标签文字均可鼠标选中复制，不再单独放复制按钮。
-/// 标签贴纸右键「按此标签进行筛选」，交给宿主关掉预览回图库筛选。
+/// 标签贴纸右键：复制此标签、按此标签进行筛选（后者交给宿主关掉预览回图库筛选）。
 /// 按钮「编辑分类标签」（批次 3 接入）、「用照片打开」。
 /// </summary>
 public sealed class DetailPanel : Grid
@@ -39,6 +39,9 @@ public sealed class DetailPanel : Grid
 
     /// <summary>右键标签「按此标签进行筛选」：参数是分类与标签原名（不是显示名）。</summary>
     public event Action<string, string>? TagFilterRequested;
+
+    /// <summary>右键「复制此标签」已写入剪贴板，参数是复制到的文字；宿主负责提示。</summary>
+    public event Action<string>? TagCopied;
     public Func<PhotoItem, bool, Task<bool>>? FavoriteRequested { get; set; }
 
     public DetailPanel()
@@ -315,8 +318,12 @@ public sealed class DetailPanel : Grid
                 chip.Label.IsTextSelectionEnabled = true;
                 _tagLabels.Add(chip.Label);
                 // 右键菜单挂在文字上：可选中文本块自带的「复制／全选」菜单由它顶替，
-                // 否则右键落在文字上只会弹系统菜单，够不到这里的筛选项。
+                // 所以「复制」自己补回来，否则右键落在文字上够不到复制和筛选项。
                 var menu = new MenuFlyout();
+                var copyItem = new MenuFlyoutItem { Text = "复制此标签" };
+                copyItem.Click += (_, _) => CopyTag(label);
+                menu.Items.Add(copyItem);
+                menu.Items.Add(new MenuFlyoutSeparator());
                 var filterItem = new MenuFlyoutItem { Text = "按此标签进行筛选" };
                 filterItem.Click += (_, _) => TagFilterRequested?.Invoke(category, name);
                 menu.Items.Add(filterItem);
@@ -328,6 +335,15 @@ public sealed class DetailPanel : Grid
         }
         if (itemTags.Count == 0)
             _tagsHost.Children.Add(new TextBlock { Text = "未打标签", FontSize = 13, Opacity = 0.5 });
+    }
+
+    /// <summary>右键「复制此标签」：复制贴纸上看到的文字（有中文译名就是中文）。</summary>
+    private void CopyTag(string text)
+    {
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetText(text);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+        TagCopied?.Invoke(text);
     }
 
     private static TextBlock InfoText() => new()

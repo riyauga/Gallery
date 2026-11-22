@@ -88,6 +88,9 @@ public static class TagMergeService
 
         var imagesBefore = Scalar(db, "SELECT COUNT(*) FROM image_tags");
         var tagsBefore = Scalar(db, "SELECT COUNT(*) FROM tags");
+        // filter_recent 由筛选功能按需建表，新库可能还没有。
+        var hasFilterRecent = Scalar(db,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='filter_recent'") > 0;
         long deduped = 0, moved = 0;
         var backedUp = false;
 
@@ -106,6 +109,8 @@ public static class TagMergeService
             var winnerEntity = Text(db, "SELECT entity_key FROM tag_profiles WHERE tag_id=$t", ("$t", winnerId));
             var aliases = Rows(db, "SELECT alias FROM tag_aliases WHERE tag_id=$t ORDER BY alias",
                 ("$t", loserId)).Where(a => a.Length > 0).ToList();
+            var loserIdentity = Text(db,
+                "SELECT COALESCE(identity_key,'') FROM tag_identities WHERE tag_id=$t", ("$t", loserId));
 
             report.AppendLine($"[{item.LoserCategory}] {item.LoserName} (#{loserId}) → {item.WinnerName} (#{winnerId})");
             report.AppendLine($"    图片 {images.Count} 张：其中 {images.Count - overlap} 张需要搬到 winner，" +
@@ -155,11 +160,31 @@ public static class TagMergeService
                     store.Exec($"UPDATE tag_profiles SET en='{Esc(loserEn)}' WHERE tag_id={winnerId}");
                 if (loserEntity.Length > 0 && winnerEntity.Length == 0)
                     store.Exec($"UPDATE tag_profiles SET entity_key='{Esc(loserEntity)}' WHERE tag_id={winnerId}");
+
+                // 身份关联与筛选使用记录也归 winner：只在 winner 还没绑定时接过来，已有身份以 winner 为准。
+                if (loserIdentity.Length > 0)
+                {
+                    store.Exec("INSERT OR IGNORE INTO tag_identities" +
+                               "(tag_id,identity_key,link_status,source,locked,note,updated_at) " +
+                               $"SELECT {winnerId},identity_key,link_status,source,locked,note,updated_at " +
+                               $"FROM tag_identities WHERE tag_id={loserId} AND identity_key<>''");
+                    store.Exec("UPDATE tag_identities SET " +
+                               $"identity_key=(SELECT identity_key FROM tag_identities WHERE tag_id={loserId})," +
+                               $"link_status=(SELECT link_status FROM tag_identities WHERE tag_id={loserId})," +
+                               $"locked=(SELECT locked FROM tag_identities WHERE tag_id={loserId})," +
+                               $"source=(SELECT source FROM tag_identities WHERE tag_id={loserId})," +
+                               $"note=(SELECT note FROM tag_identities WHERE tag_id={loserId})," +
+                               $"updated_at=(SELECT updated_at FROM tag_identities WHERE tag_id={loserId}) " +
+                               $"WHERE tag_id={winnerId} AND COALESCE(identity_key,'')=''");
+                }
+                if (hasFilterRecent)
+                    store.Exec($"DELETE FROM filter_recent WHERE tag_id={loserId}");
                 store.Exec($"DELETE FROM tags WHERE id={loserId}");
                 tx.Success = true;
             }
 
             store.SyncSidecars(images.Select(i => (int)i).ToList()); // 事务内不会自动写 sidecar
+            MoveDisplayState(db, loserId, winnerId);
             deduped += overlap;
             moved += images.Count - overlap;
             report.AppendLine("    已合并，sidecar 已重写");
@@ -187,6 +212,20 @@ public static class TagMergeService
     }
 
     // ------------------------------------------------------------------ 只读小工具（独立连接，事务外看已提交数据）
+
+    /// <summary>
+    /// 人工状态（状态 / 身份 / 显示名）按标签 id 存在 meta 里，loser 删掉后挪给 winner；
+    /// winner 已有设置时不覆盖，避免合并把人工选择洗掉。
+    /// </summary>
+    private static void MoveDisplayState(string dbPath, long loserId, long winnerId)
+    {
+        using var conn = Open(dbPath);
+        var states = TagDisplayState.Load(conn);
+        if (!states.TryGetValue((int)loserId, out var loserState)) return;
+        if (!states.ContainsKey((int)winnerId)) states[(int)winnerId] = loserState;
+        states.Remove((int)loserId);
+        TagDisplayState.Save(conn, states);
+    }
 
     private static SqliteConnection Open(string dbPath)
     {

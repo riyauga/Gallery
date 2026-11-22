@@ -1,27 +1,38 @@
 # Gallery 浏览器插件（图片自动归类）
 
-更新时间：2026-10-26 11:42（Asia/Tokyo）；本次文档整理时间，不代表重新运行或验收。
+更新时间：2026-11-22（Asia/Tokyo）。
 
-Chrome / Edge（Manifest V3）扩展。它在浏览器里接住图片下载，把来源页、帖子身份、标签和分辨率
+Chrome / Edge（Manifest V3）扩展，需要 130 或更高版本（读取存储键名用 `storage.local.getKeys`）。
+它在浏览器里接住图片下载，把来源页、帖子身份、标签和分辨率
 整理成一条记录，**通过本地回环端口**推给 Gallery 桌面端，由桌面端做审核与归档。
+
+弹窗和设置页使用本地打包的 Basecoat CSS 1.2.0 Vega 样式。组件许可见同目录
+`BASECOAT-LICENSE.txt` 和 `TAILWIND-LICENSE.txt`。
+
+「桌面连接」在有待推送记录时显示「重新推送」，端口仍在高级连接设置中。「拖拽选项」「高级连接设置」「高级接收条件」和站点行展开时轻微回弹，收起时快速收拢。系统启用减少动态效果时立即切换。站点右侧开关用于启停。新增网站时输入焦点会移到编辑区。
 
 桌面端只监听 `127.0.0.1`，并要求 `X-Gallery-Token`；端口和令牌都在桌面端
 「设置 → 浏览器插件」里显示（可复制令牌）。
 
-桌面端新用户默认关闭桥接，需在设置中主动开启并复制配对码；已有用户的开启状态保留。
+桌面端新用户默认关闭桥接，需在设置中主动开启并复制连接配置；已有用户的开启状态保留。
 
 ## 安装（开发者模式）
 
 1. 打开 `chrome://extensions`（Edge 是 `edge://extensions`），右上角打开「开发者模式」。
 2. 点「加载已解压的扩展程序」，选中分发包中的 `extension/` 目录（开发时也可选仓库同名目录）。
-3. 点扩展图标 →「设置」，把桌面端「设置 → 浏览器插件」里的**端口**和**令牌**粘进去，
-   点「测试连接」，应显示已连接。
+3. 在 Gallery 桌面端开启「设置 → 浏览器插件」里的桥接，点击「复制连接配置」。打开扩展的「设置 → 桌面连接」，粘贴并保存。可点「测试连接」检查。
 
 应用标识统一使用桌面端的黑底白色相框：`icons/icon16/32/48/128.png` 从 `assets/Gallery.ico` 对应图层导出；工具栏、扩展管理页、通知和设置页标签共用这套资源。运行仓库的 `python tools/make_icon.py` 可同步重新生成。更新后重新加载扩展，已打开的设置页也需刷新。
 
+## 弹窗和从浏览器启动
+
+插件弹窗显示待推送记录和连接状态。Gallery 离线时，工具栏徽标显示待推送数量，超过 999 显示 999+，悬停可查看完整条数。Gallery 在线后徽标隐藏，弹窗继续显示尚未送达的记录和最近一次错误。成功配对后会注册浏览器原生消息组件。有积压时，Gallery 启动并完成桥接后会立即触发补推。组件未注册时仍会在后台定时重试。暂存失败会发浏览器通知。
+
+「打开图库」优先唤起已配对的桌面端。未连接时，用户点击后通过 Windows 的 `gallery-open://library` 启动。安装程序注册默认路径，桌面端「设置 → 浏览器插件」可选择程序或恢复默认。免安装版先手动打开一次，再在该处配置。浏览器可能先要求确认。路径无效时可手动启动并重新选择程序。
+
 ## 支持的站点
 
-扩展设置 → 常规新增「接收浏览器下载的所有图片」，默认关闭。开启后所有网站的图片下载均可加入待归档队列；浏览器的保存位置和“另存为”流程保持原样。没有可靠元数据的图片标签、分级留空，交由桌面端审阅；不采集尚未下载的网页图片。修改后请保存设置；已安装的开发者扩展需先在扩展管理页重新加载。
+扩展设置的「常规」首次安装时默认开启「接收普通图片下载」和「启用网页拖拽收图」，关闭「接收所有网站的图片下载」。普通下载只接收下表的四个内置网站和用户配置的网站，开启所有网站后才接收浏览器下载的所有图片。修改开关即时生效并自动保存，重新打开设置或重启浏览器时恢复已保存的值。浏览器原生保存位置和「另存为」流程保持原样。已接收的下载继续完成并交付。没有可靠元数据时，标签和分级留空。
 
 | 站点 | 行为 |
 | --- | --- |
@@ -29,9 +40,9 @@ Chrome / Edge（Manifest V3）扩展。它在浏览器里接住图片下载，�
 | X / Twitter 帖子页与其 `pbs.twimg.com` 图 | 记录来源页、帖子 id、发帖账号（作者名称不带前导 `@`，保留账号原大小写），推文正文进作者评论；分辨率与目录手动填 |
 | Pixiv 作品页 / 其 `i.pximg.net` 图 | 调作品页自己的 `/ajax/illust/{id}`（失败退回页面元素），取标题、画师、原图地址、作品说明（进作者评论）；分级全年龄 `g`、R-18 `q`、R-18G `e`；标签只保留库里已有的作品与角色，其余丢弃 |
 | Pinterest pin 页与列表页 | 登录态读页面内嵌 pin 数据，未登录退回卡片链接；记 pin 页面、原图地址，作者写进画师，标题与描述不进标签 |
-| 其他站点 | 走「接收规则」（设置页可增删、导出/导入） |
+| 其他站点 | 在「接收网站」里通过域名添加，复杂条件在高级规则中编辑和测试 |
 
-规则按 `referrer`（来源页）或 `url`（图片地址）匹配，模板支持 `{site}` `{yyyy}` `{mm}` 等占位符。
+规则可按 `referrer`（来源页）、`url`（图片地址）等条件匹配。内置网站的网页与图片地址规则合并为同一个开关。 自定义站点支持多条文件名正则，按顺序使用第一条命中规则；通过示例捕获组映射到作品、角色、作者、类型、分级和自定义槽位。Gallery 按资料库匹配标签，未找到时保留原词，同名角色优先结合匹配作品消歧。
 不确定某条下载会落到哪，可以用模拟器：
 
 ```powershell
@@ -47,34 +58,19 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/ping` | 未配对仅返回 `{ok, app:"gallery", version, port, tokenRequired, protocol:2}`；携带有效 `X-Gallery-Token` 才附带 `received, pending` |
+| `GET` | `/ping` | 未配对仅返回 `{ok, app:"gallery", version, port, tokenRequired, protocol:2, reviewSubscription:true}`；携带有效 `X-Gallery-Token` 才附带 `received, pending` |
+| WebSocket | `/review/subscribe` | 扩展来源连接后，首条消息发送配对码，通过后推送 `{pending}` 快照、变更和心跳 |
 | `GET` | `/tags` | 需 `X-Gallery-Token`；桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
 | `POST` | `/ingest` | 带 `X-Gallery-Token`；`{probe:true}` 只验证不落库；真实记录需 `download_state:"complete"`；返回 `{ok, persisted, queued, duplicate, ingest_id, name}` |
-| `POST` | `/ui/open` | `{view:"library"\|"review", path}` 唤起桌面端窗口并定位 |
-| `GET` | `/sources` | 需 `X-Gallery-Token`；待补来源清单 `{total, items:[{md5, name}]}`：只列 `source_url` 为空、且文件名带 danbooru md5 的图，按 md5 去重 |
-| `POST` | `/sources` | 带 `X-Gallery-Token`；`{items:[{md5, page_url, source_url, post_id}]}` → `{received, updated}`。**只填空值，已有来源不覆盖** |
+| `POST` | `/ui/open` | `{view:"library"\|"pending", path}` 唤起桌面端窗口并定位 |
 
 升级桌面端后需重新加载分发包里的扩展，配对配置继续保留；旧扩展的无令牌私有 GET 请求会被拒绝。
 
-插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉 —— 桌面端没收到就
-下次启动接着投递（`bridge.js` 里的 `queueFlush`）。
+插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉。浏览器启动时只登记重试闹钟，积压记录在一分钟后开始后台补推，也可从插件弹窗或桌面连接页触发。
 
 送达后对应的 `download:` 记录**不删除**，改标 `state:"delivered"` 作为「已处理」标记。删掉它等于抹掉记忆：
 同一下载再触发一次事件时 `bindDownload` 会重建记录，并用同一个 `ingest_id` 重新入队，桌面端判重后仍要再推一遍。
-`delivered` 记录保留 7 天，由 `reconcile` 顺手清理。
-
-## 补全图片来源
-
-弹窗里的「补全图片来源」按文件名末尾的 32 位 danbooru md5 反查帖子，把 `page_url` / `source_url` /
-`post_id` 回写桌面端。
-
-- 为什么在浏览器里跑：Danbooru 前面有 Cloudflare 人机校验，命令行请求会拿到「Just a moment…」的等待页；
-  只有带浏览器指纹与 cookie 的请求能过。
-- 前提：先在本机浏览器正常打开 `danbooru.donmai.us` 通过校验；插件需要 `danbooru.donmai.us` 的 host 权限。
-- 进度存在 `chrome.storage.local` 的 `sourceJob`：`{running,total,done,found,updated,missing,error}`。
-  弹窗关掉不影响后台继续跑。
-- 单个 md5 至少间隔 180ms，命中批次 40 条回写一次；被限流（429）或校验挡回时整批中止并写 `error`。
-- 覆盖范围有限：只有文件名本身就带 md5 的图能查；时间戳名、纯数字名、Twitter media key 名都查不到。
+`delivered` 记录在收到浏览器下载历史删除事件时清理。手动「重新推送」也会核对浏览器历史，清理扩展停用期间删除的记录。
 
 ## 维护边界
 

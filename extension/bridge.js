@@ -16,7 +16,7 @@ async function request(port,path,options,timeout=5000) {
   try {
     const response=await fetch(base(port)+path,{...options,signal:controller.signal});
     const data=await response.json();
-    if (!response.ok || !data.ok) return {ok:false,error:data.error || "HTTP " + response.status};
+    if (!response.ok || !data.ok) return {ok:false,error:data.error || "HTTP " + response.status,status:response.status};
     return {ok:true,data};
   } catch(error) { return {ok:false,error:error.name === "AbortError" ? "连接超时" : "桌面端未连接"}; }
   finally { clearTimeout(timer); }
@@ -44,17 +44,6 @@ export async function bridgeSend(port,token,payload,timeout=8000) {
 export async function openDesktop(port,token,view="library",path="") {
   return request(port,"/ui/open",{method:"POST",headers:{"Content-Type":"application/json","X-Gallery-Token":String(token || "")},body:JSON.stringify({view,path:String(path || "")})});
 }
-/** 桌面端里缺来源、且文件名带 danbooru md5 的图，按 md5 去重后的清单。 */
-export async function bridgeSourceQueue(port,token,timeout=15000) {
-  return request(port,"/sources",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
-}
-/** 把查到的出处回写桌面端；桌面端只填空值。 */
-export async function bridgeSourceApply(port,token,items,timeout=20000) {
-  return request(port,"/sources",{
-    method:"POST",headers:{"Content-Type":"application/json","X-Gallery-Token":String(token || "")},
-    body:JSON.stringify({items})
-  },timeout);
-}
 export async function queueAdd(record) {
   return locked(async () => {
     if (!record.ingest_id) record={...record,ingest_id:crypto.randomUUID(),version:1,metadata_complete:false};
@@ -62,16 +51,22 @@ export async function queueAdd(record) {
     return queueSize();
   });
 }
+/** 只读 outbox 前缀：先取键名再按需取值，避免把整库（下载记录、页面快照）一起反序列化。 */
+async function outboxKeys() {
+  return (await chrome.storage.local.getKeys()).filter(key => key.startsWith(PREFIX));
+}
 export async function queueAll() {
-  const data=await chrome.storage.local.get(null);
+  const keys=await outboxKeys();
+  if (!keys.length) return [];
+  const data=await chrome.storage.local.get(keys);
   return Object.entries(data).filter(([key]) => key.startsWith(PREFIX)).map(([key,record]) => ({...record,_outbox_key:key}))
     .sort((a,b) => (a.sent_at || 0) - (b.sent_at || 0));
 }
-export async function queueSize() { return (await queueAll()).length; }
+export async function queueSize() { return (await outboxKeys()).length; }
 export async function queueClear() {
   return locked(async () => {
-    const data=await chrome.storage.local.get(null);
-    await chrome.storage.local.remove(Object.keys(data).filter(key => key.startsWith(PREFIX)));
+    const keys=await outboxKeys();
+    if (keys.length) await chrome.storage.local.remove(keys);
   });
 }
 export async function migrateLegacyQueue() {
@@ -89,10 +84,14 @@ export async function queueFlush(port,token) {
   if (flushing) return flushing;
   flushing=(async () => {
     const records=await queueAll();
-    let sent=0,stopped="";
+    let sent=0,stopped="",rejected=0;
     for (const record of records) {
       const result=await bridgeSend(port,token,record);
-      if (!result.ok) { stopped=result.error; break; }
+      if (!result.ok) {
+        if (!stopped) stopped=result.error;
+        if (result.status === 400 || result.status === 413) { rejected++; continue; }
+        break;
+      }
       await locked(() => chrome.storage.local.remove(record._outbox_key));
       if (record.download_key) {
         // 送达后只标记 delivered，不删记录。删掉等于抹掉「已处理」的记忆：
@@ -104,7 +103,7 @@ export async function queueFlush(port,token) {
       }
       sent++;
     }
-    return {sent,left:await queueSize(),stopped};
+    return {sent,left:await queueSize(),stopped,rejected};
   })();
   try { return await flushing; } finally { flushing=null; }
 }

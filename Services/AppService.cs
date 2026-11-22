@@ -197,6 +197,8 @@ public static class AppService
             }
 
             var bridge = new Gallery.Services.Bridge.BridgeServer(store, AppVersion());
+            bridge.Ingested += (id, name) => BrowserIngested?.Invoke(id, name);
+            bridge.UiRequested += (view, path) => BrowserUiRequested?.Invoke(view, path);
             DebugLog($"启动：port={Settings.Settings.bridge_port} tokenLen={token.Length}");
             if (bridge.Start(Settings.Settings.bridge_port, token))
             {
@@ -217,6 +219,9 @@ public static class AppService
             FaultLog.Write("bridge-start", ex);
         }
     }
+
+    public static event Action<int, string>? BrowserIngested;
+    public static event Action<string, string>? BrowserUiRequested;
 
     /// <summary>设置页切换插件开关或端口后重启监听。</summary>
     public static void RestartBridge()

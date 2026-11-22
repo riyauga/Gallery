@@ -11,6 +11,7 @@ public sealed partial class ReviewPage
     {
         // 先让提交操作返回，队列任务由页面持有；正常退出由 DrainWorkAsync 等待。
         await Task.Yield();
+        var store = AppService.Store!;
         while (_archiveQueue.TryDequeue(out var batch))
         {
             var succeeded = 0;
@@ -18,7 +19,8 @@ public sealed partial class ReviewPage
             var failures = new List<string>();
             foreach (var id in batch.Ids)
             {
-                _archiveProgress.Text = $"后台归档：本批 {succeeded + failures.Count + 1} / {batch.Ids.Length}，队列剩余 {_archiving.Count} 张…";
+                var failedBefore = failures.Count;
+                _archiveProgress.Text = $"后台归档：本批 {succeeded + failures.Count + 1} / {batch.Ids.Length}，队列剩余 {store.ArchivingIngestCount} 张…";
                 try
                 {
                     var result = await ArchiveOneAsync(id, batch);
@@ -39,12 +41,20 @@ public sealed partial class ReviewPage
                     failures.Add($"#{id}：{ex.Message}");
                     AppService.DebugLog($"background archive #{id}: {ex.Message}");
                 }
-                finally { _archiving.Remove(id); }
+                finally
+                {
+                    store.EndIngestArchiving(id);
+                    if (failures.Count != failedBefore)
+                    {
+                        Reload();
+                        Changed?.Invoke();
+                    }
+                }
             }
             var settingsError = "";
             try
             {
-                if (succeeded > 0 && !batch.Auto && AppService.Archiver is { } archiver && AppService.Store is { } store)
+                if (succeeded > 0 && !batch.Auto && AppService.Archiver is { } archiver)
                 {
                     var root = await Task.Run(() =>
                     {
