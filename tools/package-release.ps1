@@ -21,6 +21,22 @@ try {
         '-p:CopyRetryCount=0', '-p:DebugType=None', '-p:DebugSymbols=false', '-p:TreatWarningsAsErrors=true', '-p:EnableDevelopmentVerification=false',
         ('-p:OutputPath=' + (Join-Path $work 'build')))
     Run-Dotnet $buildArgs
+    # 分离 OutputPath 后，dotnet publish 不会把 XAML 编译产物与资源索引带进 publish 目录。
+    # 缺这些文件会让安装版启动即崩（XamlParseException 0x802B000A），必须显式补齐。
+    $buildDir = Join-Path $work 'build'
+    $xamlFiles = @(Get-ChildItem -LiteralPath $buildDir -Recurse -File -Filter '*.xbf' |
+        ForEach-Object { [IO.Path]::GetRelativePath($buildDir, $_.FullName) })
+    $xamlFiles += 'Gallery.pri'
+    if (-not (@($xamlFiles | Where-Object { $_ -eq 'App.xbf' }).Count)) {
+        throw 'Release build missing App.xbf; refusing to package a non-starting app.'
+    }
+    foreach ($file in $xamlFiles) {
+        $source = Join-Path $buildDir $file
+        $destination = Join-Path $publish $file
+        New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+        Copy-Item -LiteralPath $source -Destination $destination -Force
+    }
+    Write-Output ('XAML artifacts added to package: ' + $xamlFiles.Count)
     Run-Dotnet @('publish', 'Updater/Gallery.Updater.csproj', '-c', 'Release', '-o', $helper, ('-p:Version=' + $version),
         '-p:TreatWarningsAsErrors=true', ('-p:OutputPath=' + (Join-Path $work 'helper-build')))
     Copy-Item -LiteralPath (Join-Path $helper 'Gallery.Updater.exe') -Destination $publish
