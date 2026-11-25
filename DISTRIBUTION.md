@@ -18,6 +18,8 @@ ImageSharp 仍有 8 条已知公告，涉及 GIF、TIFF、ICC 和直方图处理
 
 中间产物只放仓库 `obj`，完成或失败后清理。交付程序只写 `bin/Debug/net9.0-windows10.0.19041.0/win-x64`；该目录下 `dist` 保存 `Gallery-1.4.0-setup.exe`、`Gallery-1.4.0-win-x64.zip`、`update-manifest.json` 和更新说明。不再使用旧文档中向 C: 临时目录发布的流程。
 
+资料库与识别模型不在程序包内，作为可选资产单独发布：`Gallery-<版本>-catalog.zip`（`tag_catalog/` 目录，拖入设置页或解压到 `packs\archive\`）与 `Gallery-<版本>-pixai-tagger-v1.0.zip`（含 `model.onnx`，解压到 `packs\models\`，程序同时只用一个模型）。二者不进入安装包与免安装 ZIP，也不写入 `application-files.json`。
+
 使用干净临时发布目录生成 `application-files.json`，安装器逐项接收同一清单，ZIP 只打包该目录。禁止开发工具、测试、PDB、许可证、个人配置、数据库、日志、样例、用户资料库和模型。正式交付应以生成包的内容为准，不能直接压缩旧增量构建目录。
 
 安装版为当前用户安装到 `%LOCALAPPDATA%/Programs/Gallery`；ZIP 为单层 `Gallery-1.4.0/`。`distribution-kind.txt` 明确记录 installed 或 portable，不以安装路径猜测。运行依赖、图标、已获项目所有者分发许可的 Photos Fluent Icons 字体、用户指南、第三方说明及浏览器扩展属于程序内容。
@@ -41,6 +43,16 @@ ImageSharp 仍有 8 条已知公告，涉及 GIF、TIFF、ICC 和直方图处理
 正式版无验收命令和替身识别器。必要故障记录写 `fault.log`，单文件达到 2 MiB 后轮转，仅保留一份旧日志；不记录异常消息、密钥、完整路径、配置或图片内容。旧 `crash.log` 和开发诊断文件不再由正式版生成。开发验证仅通过显式 `EnableDevelopmentVerification=true` 构建，源码入口在 `Development/`，不进入分发包。
 
 ## 验证边界
+
+### 1.4.0 交付验证（2026-11-25）
+
+Debug 与 Release 构建均 0 警告 0 错误。安装包 91,692,948 字节，免安装 ZIP 128,710,579 字节，`update-manifest.json` 中的大小与 SHA-256 与实际文件逐项一致（installer `07beb0a7…`、portable `1081731311…`）。ZIP 共 728 个条目、单层根目录 `Gallery-1.4.0/`，含 `App.xbf`、`MainWindow.xbf`、`Gallery.pri`、`Gallery.exe`、`Gallery.Updater.exe`、`application-files.json`，未包含 PDB、tools、models、packs 或 archive。
+
+解压 ZIP 后启动 Gallery，进程存活 20 秒且 `fault.log` 无新增。安装包静默安装到临时目录（`/DIR` 通过进程参数传入，不经 shell），628 个文件、含 XAML 产物与资源索引、`distribution-kind.txt` 为 `installed`，启动后存活 18 秒；静默卸载后残留 0 个文件。
+
+Release `v1.4.0` 指向提交 `cbaf804`，五个资产（安装包、免安装 ZIP、更新清单、资料库包、识别模型包）的大小与本地一致。资料库包 214 个 JSON、解压 9.8 MB，已在沙箱中作为 `packs/archive/tag_catalog` 验证可被读取（作品 188、角色 8225）。
+
+**未验证**：应用内更新链路的 UI 部分（检查更新→下载→安装并重启）未端到端跑通；可选数据包未在「全新环境拖入设置页」的完整路径上验证，只验证了压缩包结构与资料目录可被读取；识别模型包仅做了压缩与条目校验，未在无模型环境实际导入并跑一次识别；UI 观感与跨机器安装仍需人工确认。
 
 ### 1.3.3 交付验证（2026-11-23）
 
