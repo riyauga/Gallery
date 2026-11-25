@@ -3,6 +3,9 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Media;
+using System.Numerics;
 
 namespace Gallery.Controls;
 
@@ -74,10 +77,34 @@ public sealed class CustomCommandBar : CommandBar
 
     private static void Flyout_Opened(object? sender, object args)
     {
+        if (sender is FlyoutBase { Target: AppBarButton { IsInOverflow: false } button } &&
+            new Windows.UI.ViewManagement.UISettings().AnimationsEnabled &&
+            FindChevron(button) is { Visibility: Visibility.Visible } chevron)
+        {
+            ElementCompositionPreview.SetIsTranslationEnabled(chevron, true);
+            var visual = ElementCompositionPreview.GetElementVisual(chevron);
+            var nudge = visual.Compositor.CreateVector3KeyFrameAnimation();
+            nudge.InsertKeyFrame(0, Vector3.Zero);
+            nudge.InsertKeyFrame(.4f, new Vector3(0, 2, 0));
+            nudge.InsertKeyFrame(1, Vector3.Zero);
+            nudge.Duration = TimeSpan.FromMilliseconds(160);
+            visual.StartAnimation("Translation", nudge);
+        }
         if (sender is not MenuFlyout menu || menu.Items.Count == 0) return;
         SetFlyoutItemGroup(menu);
         menu.Items.FirstOrDefault(item => item.IsEnabled && item.IsTabStop &&
             item is not MenuFlyoutSeparator)?.Focus(FocusState.Programmatic);
+    }
+
+    private static FrameworkElement? FindChevron(DependencyObject parent)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is FrameworkElement { Name: "SubItemChevron" } chevron) return chevron;
+            if (FindChevron(child) is { } nested) return nested;
+        }
+        return null;
     }
 
     private static void SetFlyoutItemGroup(MenuFlyout menu)

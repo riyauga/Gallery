@@ -29,11 +29,13 @@ public sealed class PhotoGalleryPanel : Grid
     public long LayoutBuildCount { get; private set; }
     public long LayoutMilliseconds { get; private set; }
     public bool IsBuilding => _building;
+    internal double RealizationBufferRatio { get; init; } = 1;
     public event Action<PhotoTile>? TilePrepared;
     public event Action? LayoutReady;
     public event Action? ViewportInvalidated;
     public DataTemplate TileTemplate { set => _repeater.ItemTemplate = value; }
     public new ICollection<PhotoTile> Children => _realized;
+    internal IReadOnlyList<PhotoItem> Items => _source;
     public IReadOnlyList<Rect> Rects => _index.Rects;
     public bool IsVirtual => true;
     public GalleryLayoutMode Mode { get => _mode; set { if (_mode == value) return; _mode = value; Changed(); } }
@@ -85,7 +87,9 @@ public sealed class PhotoGalleryPanel : Grid
         if (geometryChanged) Changed();
         else if (!_building) LayoutReady?.Invoke();
     }
+    internal void NotifyViewportChanged() => ViewportInvalidated?.Invoke();
     public int IndexOfTile(PhotoTile tile) => _repeater.GetElementIndex(tile);
+    internal PhotoTile? TryGetTile(int index) => _repeater.TryGetElement(index) as PhotoTile;
     public int FirstVisibleIndex(double offset) => _index.FirstVisibleIndex(offset);
     public double TopOfIndex(int index) => _index.TopOfIndex(index);
     public (int First, int Last) VisibleRange(double offset, double height, double buffer) => _index.VisibleRange(offset, height, buffer);
@@ -119,7 +123,7 @@ public sealed class PhotoGalleryPanel : Grid
         finally { _building = false; ImageLoader.SetResizing(false); ViewportInvalidated?.Invoke(); }
     }
 
-    /// <summary>只实现视口及上下各一屏的控件，滚动测量不运行整表布局算法。</summary>
+    /// <summary>只实现视口与附近的控件，滚动测量不运行整表布局算法。</summary>
     private sealed class GalleryVirtualLayout(PhotoGalleryPanel owner) : VirtualizingLayout
     {
         private int _first, _last = -1;
@@ -129,7 +133,7 @@ public sealed class PhotoGalleryPanel : Grid
             owner.EnsureLayout(availableSize.Width);
             var viewport = context.RealizationRect;
             double height = double.IsFinite(viewport.Height) ? viewport.Height : 700;
-            (_first, _last) = owner._index.VisibleRange(viewport.Y, height, height);
+            (_first, _last) = owner._index.VisibleRange(viewport.Y, height, height * owner.RealizationBufferRatio);
             _last = Math.Min(_last, context.ItemCount - 1);
             for (int i = _first; i <= _last; i++)
             {

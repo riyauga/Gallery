@@ -22,13 +22,27 @@ public sealed partial class GalleryPage : UserControl
     private readonly Library _library;
     private readonly List<PhotoItem> _items = new();
     private readonly HashSet<int> _selected = new();
+    // 选区可跨搜索保留：被过滤掉的项目不在 _items 里，用快照兜住引用，批量操作才能作用于全部选中项。
+    private readonly Dictionary<int, PhotoItem> _selectedCache = new();
     private int? _selectionAnchorId;
     private int? _keyboardFocusId;
     private bool _showKeyboardFocus;
 
     // 示例素材没有数据库 ID，使用其在固定 manifest 中的负数索引。
     private int SelectionId(PhotoItem item) => item.ImageId > 0 ? item.ImageId : -_library.All.IndexOf(item) - 1;
-    private IEnumerable<PhotoItem> SelectedItems() => _items.Where(item => _selected.Contains(SelectionId(item)));
+    private IEnumerable<PhotoItem> SelectedItems()
+    {
+        if (_selected.Count == 0) yield break;
+        // 当前列表里的实例优先（属性可能已刷新），被过滤掉的回落到快照。
+        var live = new Dictionary<int, PhotoItem>(_items.Count);
+        foreach (var item in _items) live[SelectionId(item)] = item;
+        foreach (int id in _selected)
+        {
+            PhotoItem? item = null;
+            if (!live.TryGetValue(id, out item) && !_selectedCache.TryGetValue(id, out item)) continue;
+            yield return item;
+        }
+    }
 
     private bool _favoritesMode;
     private bool _selectMode; // photos 选择模式（工具栏「选择」切换）
@@ -59,7 +73,8 @@ public sealed partial class GalleryPage : UserControl
         PhotoItem Item, IReadOnlyList<PhotoItem> Items,
         Windows.Foundation.Rect SourceRect, bool FullyVisible,
         Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect,
-        Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null, bool KeepCurrentOnFilterChanges = false);
+        Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null, bool KeepCurrentOnFilterChanges = false,
+        bool FollowGalleryResults = true);
     public event Action<PreviewRequest>? PreviewRequested;
     public event Action<IReadOnlyList<PhotoItem>>? ItemsChanged;
     public event Action? ReviewQueueChanged;
@@ -94,7 +109,7 @@ public sealed partial class GalleryPage : UserControl
             _ => SortKey.DateTaken,
         };
         InitializeComponent();
-        Panel.TileTemplate = (DataTemplate)Resources["PhotoTileTemplate"];
+        Panel.TileTemplate = (DataTemplate)Application.Current.Resources["PhotoTileTemplate"];
         Panel.TilePrepared += tile => WireTile(tile, tile.Item);
         Panel.ViewportInvalidated += ScheduleViewport;
         Panel.LayoutReady += OnLayoutReady;
@@ -228,16 +243,16 @@ public sealed partial class GalleryPage : UserControl
 
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
 
-    /// <summary>galleryold：搜索 160ms 防抖（标签/中文别名/文件名）。</summary>
+    /// <summary>galleryold：搜索 160ms 防抖（标签/中文别名/文件名）。搜索只过滤视图，不清选区。</summary>
     public void SetSearch(string query)
     {
         var next = (query ?? string.Empty).Trim();
         if (!string.Equals(next, _query, StringComparison.Ordinal))
         {
             _query = next;
-            // 换关键词从第一条开始；清空（含只剩空格）还要回到初始态：取消选择与键盘焦点。
+            // 换关键词从第一条开始；清空（含只剩空格）回到初始态：只重置键盘焦点与区间锚点。
             _resetScrollPending = true;
-            if (next.Length == 0) ClearSelectionAndFocus();
+            if (next.Length == 0) ClearFocus();
         }
         _rebuildPending = true;
         _searchTimer.Stop();
@@ -248,6 +263,13 @@ public sealed partial class GalleryPage : UserControl
     private void ClearSelectionAndFocus()
     {
         _selected.Clear();
+        _selectedCache.Clear();
+        ClearFocus();
+    }
+
+    /// <summary>只清键盘焦点与区间锚点，保留选区——搜索/清空搜索不该抹掉已选项目。</summary>
+    private void ClearFocus()
+    {
         _selectionAnchorId = null;
         _keyboardFocusId = null;
         _showKeyboardFocus = false;
@@ -270,6 +292,7 @@ public sealed partial class GalleryPage : UserControl
         _rebuildPending = true;
         _resetScrollPending = true;
         _selected.Clear();
+        _selectedCache.Clear();
         _selectionAnchorId = null;
         _keyboardFocusId = null;
         if (!IsLoaded) return;
@@ -327,6 +350,36 @@ public sealed partial class GalleryPage : UserControl
     private readonly SemaphoreSlim _queryGate = new(1, 1);
     public long QueryCount { get; private set; }
     public Task QueryCompletion { get; private set; } = Task.CompletedTask;
+
+#if GALLERY_DEVELOPMENT
+    /// <summary>无窗口自测：搜索／清空搜索不得清空选区，且被隐藏的选中项仍能参与批量操作。</summary>
+    public async Task<string> VerifySearchKeepsSelectionAsync()
+    {
+        if (_items.Count < 2) return $"SKIP items={_items.Count}";
+        var lines = new List<string>();
+        SetSelectMode(true);
+        _selected.Clear();
+        _selectedCache.Clear();
+        foreach (var item in _items.Take(2)) _selected.Add(SelectionId(item));
+        SyncSelection();
+        UpdateHeader();
+        int kept = _selected.Count;
+        lines.Add($"GALLERY select={kept}");
+
+        SetSearch("zzz-no-match");
+        Rebuild();
+        await QueryCompletion;
+        lines.Add($"GALLERY search items={_items.Count} keeps={_selected.Count}/{kept} ops={SelectedItems().Count()}/{kept}");
+
+        SetSearch("");
+        Rebuild();
+        await QueryCompletion;
+        lines.Add($"GALLERY clear items={_items.Count} keeps={_selected.Count}/{kept} ops={SelectedItems().Count()}/{kept}");
+
+        SetSelectMode(false);
+        return string.Join("\n", lines);
+    }
+#endif
 
     private void Rebuild()
     {
@@ -399,8 +452,15 @@ public sealed partial class GalleryPage : UserControl
         else SaveAnchor();
         _scrollTopOnLayout = _resetScrollPending;
         _resetScrollPending = false;
+        // 换结果集前把已选中的旧实例放进快照，之后被搜索隐藏也能参与批量操作。
+        if (_selected.Count > 0)
+            foreach (var old in _items)
+            {
+                int id = SelectionId(old);
+                if (_selected.Contains(id)) _selectedCache[id] = old;
+            }
         _items.Clear(); _items.AddRange(items);
-        _selected.IntersectWith(_items.Select(SelectionId));
+        PruneSelectionToVisible();
         if (_selectionAnchorId is int anchor && !_items.Any(item => SelectionId(item) == anchor))
             _selectionAnchorId = null;
         if (_keyboardFocusId is int focus && !_items.Any(item => SelectionId(item) == focus))
@@ -414,6 +474,16 @@ public sealed partial class GalleryPage : UserControl
         ItemsChanged?.Invoke(_items.ToArray());
     }
 
+    /// <summary>
+    /// 搜索是视图过滤（与 File Explorer／Gmail 一致），选区跨筛选保留；
+    /// 只有结果集等于全量（未搜索）时才清掉已从库里消失的选中项，避免后续操作指向不存在的图片。
+    /// </summary>
+    private void PruneSelectionToVisible()
+    {
+        if (_query.Length > 0) return;
+        _selected.IntersectWith(_items.Select(SelectionId));
+    }
+
     public void OpenExistingFile(ImageRow row)
     {
         if (AppService.Store is not { } store) return;
@@ -424,7 +494,7 @@ public sealed partial class GalleryPage : UserControl
             KeepCurrentOnFilterChanges: true));
     }
 
-    private static List<PhotoItem> MapRows(IEnumerable<ImageRow> rows, HashSet<int> favorites, string sortKey)
+    internal static List<PhotoItem> MapRows(IEnumerable<ImageRow> rows, HashSet<int> favorites, string sortKey)
     {
         var result = new List<PhotoItem>();
         foreach (var row in rows)
@@ -821,7 +891,7 @@ public sealed partial class GalleryPage : UserControl
         var selection = _selected.ToArray();
         RebuildKeepScroll();
         _selected.UnionWith(selection);
-        _selected.IntersectWith(_items.Select(SelectionId));
+        PruneSelectionToVisible();
         SyncSelection();
     }
 
@@ -921,9 +991,10 @@ public sealed partial class GalleryPage : UserControl
     {
         if (AppService.Store is not { } store) return;
         var id = store.FindTagId(name, category);
-        if (id <= 0) return;
-        _filterPanel.IncludeTag(id, name);
+        if (id > 0) FilterByTag(id, name);
     }
+
+    public void FilterByTag(int id, string name) => _filterPanel.IncludeTag(id, name);
 
     private bool HasActiveFilter => _filterPanel.Include.Count > 0 || _filterPanel.UntaggedOnly || _filter != FilterKind.All;
 
@@ -1227,14 +1298,14 @@ public sealed partial class GalleryPage : UserControl
     }
 
     /// <summary>算缩略图窗口 rect 与可见性（galleryold：完整可见→飞入，被遮挡→渐入）。</summary>
-    private (Windows.Foundation.Rect Rect, bool FullyVisible)? TileFlightRect(PhotoTile tile)
+    internal static (Windows.Foundation.Rect Rect, bool FullyVisible) TileFlightRect(PhotoTile tile, ScrollViewer viewport)
     {
         var transform = tile.TransformToVisual(null);
         var rect = transform.TransformBounds(
             new Windows.Foundation.Rect(0, 0, tile.ActualWidth, tile.ActualHeight));
         // 完整可见 = tile 完全落在滚动视口内
-        var svRect = Scroller.TransformToVisual(null).TransformBounds(
-            new Windows.Foundation.Rect(0, 0, Scroller.ActualWidth, Scroller.ActualHeight));
+        var svRect = viewport.TransformToVisual(null).TransformBounds(
+            new Windows.Foundation.Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight));
         bool fully = rect.Top >= svRect.Top && rect.Bottom <= svRect.Bottom;
         return (rect, fully);
     }
@@ -1266,7 +1337,7 @@ public sealed partial class GalleryPage : UserControl
 
     private void OpenPreview(PhotoTile tile)
     {
-        var (rect, fully) = TileFlightRect(tile) ?? (default, false);
+        var (rect, fully) = TileFlightRect(tile, Scroller);
         PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, ResolveSourceRect, tile.PreviewThumbnail));
     }
 
@@ -1486,10 +1557,14 @@ public sealed partial class GalleryPage : UserControl
     {
         var ids = targets.Where(id => id > 0).Distinct().ToArray();
         if (ids.Length == 0) { ToastRequested?.Invoke("没有选中的项目"); return; }
+        // 选区可跨搜索保留：把「看不到但会被删」的数量写清楚。
+        int hidden = _selectMode && targets.Count == _selected.Count ? HiddenSelectedCount() : 0;
         var confirm = new ContentDialog
         {
             Title = "删除",
-            Content = $"将选中的 {ids.Length} 个项目移到回收站？",
+            Content = hidden > 0
+                ? $"将选中的 {ids.Length} 个项目移到回收站？其中 {hidden} 项不在当前搜索结果中。"
+                : $"将选中的 {ids.Length} 个项目移到回收站？",
             PrimaryButtonText = "删除",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
@@ -1708,6 +1783,7 @@ public sealed partial class GalleryPage : UserControl
         if (!on)
         {
             _selected.Clear();
+            _selectedCache.Clear();
             _selectionAnchorId = null;
             SyncSelection();
         }
@@ -1739,8 +1815,17 @@ public sealed partial class GalleryPage : UserControl
     private void SelectNone_Click(object sender, RoutedEventArgs e)
     {
         _selected.Clear();
+        _selectedCache.Clear();
         _selectionAnchorId = null;
         SyncSelection();
+    }
+
+    /// <summary>当前被搜索/筛选隐藏的选中项数量。</summary>
+    private int HiddenSelectedCount()
+    {
+        if (_selected.Count == 0) return 0;
+        int visible = _items.Count(item => _selected.Contains(SelectionId(item)));
+        return Math.Max(0, _selected.Count - visible);
     }
 
     /// <summary>命令栏「删除」（photos DeleteButton / DeleteCommand）。</summary>

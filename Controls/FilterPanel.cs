@@ -20,7 +20,8 @@ public sealed class FilterPanel
 
     // Flyout 自带 16 的四周留白，内容宽度由媒体类型那一行决定。
     private const double ControlHeight = 32;
-    private const double ListHeight = 176;
+    // 结果行 32 + 间距 1 = 33；高度取 5 行 + 半行，底部露半条提示还有更多（UI_CONVENTIONS.md）。
+    private const double ListHeight = 5 * 33 + 16.5;
     private const double GearSize = 28;
     // 图标字形的墨水比中文偏上，垂直补偿；标题另作视觉位置调整。
     private const double GlyphNudge = 1;

@@ -1,9 +1,8 @@
-# Gallery 1.3.3 分发说明
+# Gallery 1.4.0 分发说明
 
 ## 当前状态
 
-1.3.3 修复安装版启动缺陷：此前 1.3.2 及更早的安装包和免安装 ZIP 缺少 XAML 编译产物（`*.xbf`、`Gallery.pri`、`Controls\`、`Views\`），安装后启动即崩（`XamlParseException 0x802B000A` / `0xc000027b`）。本版打包脚本显式补齐这些文件，新装程序可正常启动。仓库已由私有改为公开，使应用内更新检查与资产下载可以匿名访问；此前私有仓库下匿名 `/releases/latest` 返回 404，被当作「没有更新」。1.3.2 的浏览器插件改版、批量归档计数与标签菜单等行为继续保留；智能擦除、AI 背景处理和扫描文本未接入。详细行为与验证边界见 [外部文件查看](FILE_VIEWER.md)。本版不包含个人图库、模型、逆向工具或临时验收入口。ImageSharp 仍按既定授权保持 3.1.5，已知问题未在本版修复。
-
+1.4.0 把资料库从「只读浏览」扩成可维护：作品／角色／登场关系可新建与修改，可为条目设置背景图，可关联与解除图库标签，整理结果能连同背景图导出成 ZIP；设置页新增「标签管理」（搜索、改显示名、批量删除、同名合并）。资料库列表、详情关系区、标签管理列表与图库共用同一套选择模式（多选、Shift 连选、Ctrl+A、右键、Esc 与空白退出，搜索不清选区）。同时修复删除资料偶发误报「资料的关联已变化」，并用复合索引把派生角色查询从约 2 秒降到约 0.1 秒。1.3.3 的启动修复、浏览器插件改版、批量归档计数与标签菜单等行为继续保留；智能擦除、AI 背景处理和扫描文本未接入。详细行为与验证边界见 [外部文件查看](FILE_VIEWER.md)。本版不包含个人图库、模型、逆向工具或临时验收入口。ImageSharp 仍按既定授权保持 3.1.5，已知问题未在本版修复。
 
 ## 已知依赖风险
 
@@ -17,11 +16,11 @@ ImageSharp 仍有 8 条已知公告，涉及 GIF、TIFF、ICC 和直方图处理
 
 执行 `tools/package-release.ps1`。不采用要求新构建许可证的 ImageSharp 3.2.0；保留旧版的许可条款和风险说明。上述 8 条告警按用户授权通过 `NuGetAuditSuppress` 定向屏蔽，其他告警仍视为失败；构建无警告不代表旧版安全问题已修复。开发验证构建禁止用于 Release。
 
-中间产物只放仓库 `obj`，完成或失败后清理。交付程序只写 `bin/Debug/net9.0-windows10.0.19041.0/win-x64`；该目录下 `dist` 保存 `Gallery-1.3.3-setup.exe`、`Gallery-1.3.3-win-x64.zip`、`update-manifest.json` 和更新说明。不再使用旧文档中向 C: 临时目录发布的流程。
+中间产物只放仓库 `obj`，完成或失败后清理。交付程序只写 `bin/Debug/net9.0-windows10.0.19041.0/win-x64`；该目录下 `dist` 保存 `Gallery-1.4.0-setup.exe`、`Gallery-1.4.0-win-x64.zip`、`update-manifest.json` 和更新说明。不再使用旧文档中向 C: 临时目录发布的流程。
 
 使用干净临时发布目录生成 `application-files.json`，安装器逐项接收同一清单，ZIP 只打包该目录。禁止开发工具、测试、PDB、许可证、个人配置、数据库、日志、样例、用户资料库和模型。正式交付应以生成包的内容为准，不能直接压缩旧增量构建目录。
 
-安装版为当前用户安装到 `%LOCALAPPDATA%/Programs/Gallery`；ZIP 为单层 `Gallery-1.3.3/`。`distribution-kind.txt` 明确记录 installed 或 portable，不以安装路径猜测。运行依赖、图标、已获项目所有者分发许可的 Photos Fluent Icons 字体、用户指南、第三方说明及浏览器扩展属于程序内容。
+安装版为当前用户安装到 `%LOCALAPPDATA%/Programs/Gallery`；ZIP 为单层 `Gallery-1.4.0/`。`distribution-kind.txt` 明确记录 installed 或 portable，不以安装路径猜测。运行依赖、图标、已获项目所有者分发许可的 Photos Fluent Icons 字体、用户指南、第三方说明及浏览器扩展属于程序内容。
 
 ## 应用内更新合同
 

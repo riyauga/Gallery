@@ -52,6 +52,30 @@ public sealed class TagChip : Grid
     /// <summary>贴纸内的文字块（配色由贴纸随主题维护，宿主只改交互相关属性）。</summary>
     public TextBlock Label { get; }
 
+    public static TagChip CreateInteractive(string category, string label, string rawName,
+        Action filter, Action<string> copied, string? tooltip = null)
+    {
+        var chip = new TagChip(category, label) { HorizontalAlignment = HorizontalAlignment.Left };
+        ToolTipService.SetToolTip(chip, tooltip ?? (label == rawName ? rawName : $"{label} · {rawName}"));
+        chip.Label.IsTextSelectionEnabled = true;
+        var menu = new MenuFlyout();
+        var copy = new MenuFlyoutItem { Text = "复制此标签" };
+        copy.Click += (_, _) =>
+        {
+            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            package.SetText(label);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+            copied(label);
+        };
+        var filterItem = new MenuFlyoutItem { Text = "按此标签进行筛选" };
+        filterItem.Click += (_, _) => filter();
+        menu.Items.Add(copy);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(filterItem);
+        chip.Label.ContextFlyout = menu;
+        return chip;
+    }
+
     public TagChip(string category, string displayName, Action? onRemove = null)
     {
         var dark = Application.Current.RequestedTheme == ApplicationTheme.Dark;

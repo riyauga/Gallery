@@ -35,12 +35,13 @@ public static class TagDisplayState
         WriteIndented = false,
     };
 
-    public static Dictionary<int, State> Load(SqliteConnection conn)
+    public static Dictionary<int, State> Load(SqliteConnection conn, SqliteTransaction? tx = null)
     {
         var result = new Dictionary<int, State>();
         try
         {
             using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
             cmd.CommandText = "SELECT value FROM meta WHERE key=$k";
             cmd.Parameters.AddWithValue("$k", StateKey);
             var json = cmd.ExecuteScalar() as string;

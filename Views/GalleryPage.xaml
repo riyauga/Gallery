@@ -7,7 +7,6 @@
     Background="Transparent">
 
     <UserControl.Resources>
-        <DataTemplate x:Key="PhotoTileTemplate"><controls:PhotoTile /></DataTemplate>
     </UserControl.Resources>
     <Grid x:Name="Root" IsTabStop="True" UseSystemFocusVisuals="False">
         <Grid.RowDefinitions>
@@ -200,7 +199,7 @@
                         <Visibility x:Key="AppBarButtonHasFlyoutChevronVisibility">Visible</Visibility>
                     </AppBarButton.Resources>
                     <AppBarButton.Icon>
-                        <FontIcon FontSize="16" Glyph="&#xE174;" />
+                        <FontIcon FontSize="16" Glyph="{StaticResource SortGlyph}" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="SortMenu" Placement="Bottom">
@@ -248,7 +247,7 @@
                                 Tag="name"
                                 Text="名字">
                                 <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xF1B2;" />
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="{StaticResource NameSortGlyph}" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                             <RadioMenuFlyoutItem
@@ -295,7 +294,7 @@
                                 Tag="asc"
                                 Text="升序">
                                 <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE68;" />
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="{StaticResource AscendingSortGlyph}" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                             <RadioMenuFlyoutItem
@@ -305,7 +304,7 @@
                                 Tag="desc"
                                 Text="降序">
                                 <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xEE69;" />
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="{StaticResource DescendingSortGlyph}" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                         </MenuFlyout>
@@ -342,7 +341,7 @@
                             x:Name="LayoutIcon"
                             FontSize="16"
                             FontFamily="{StaticResource PhotosUWPFontFamily}"
-                            Glyph="&#xECA5;" />
+                            Glyph="{StaticResource RiverLayoutGlyph}" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="LayoutMenu" Placement="Bottom">
@@ -353,7 +352,7 @@
                                 GroupName="CommandBar_GalleryLayoutButton_TypeGroup"
                                 Text="等高">
                                 <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xECA5;" />
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="{StaticResource RiverLayoutGlyph}" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                             <RadioMenuFlyoutItem
@@ -362,7 +361,7 @@
                                 GroupName="CommandBar_GalleryLayoutButton_TypeGroup"
                                 Text="方形">
                                 <RadioMenuFlyoutItem.Icon>
-                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="&#xE8A9;" />
+                                    <FontIcon FontFamily="{StaticResource PhotosUWPFontFamily}" Glyph="{StaticResource GridLayoutGlyph}" />
                                 </RadioMenuFlyoutItem.Icon>
                             </RadioMenuFlyoutItem>
                             <MenuFlyoutSeparator />

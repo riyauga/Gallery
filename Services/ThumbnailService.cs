@@ -9,11 +9,13 @@ namespace Gallery.Services;
 
 /// <summary>
 /// 缩略图磁盘缓存，移植 galleryold <c>app/thumbs.py</c>。
-/// 红线：key = sha1("{normcase路径}|{mtime:.9f}|{size}|{edge}")，两级散列目录，WebP q=82。
+/// 普通缩略图沿用路径、时间、大小与尺寸组成的缓存键；轻量档增加质量标识。
 /// </summary>
 public sealed class ThumbnailService
 {
     public const int CacheEdge = 512;
+    public const int CompactEdge = 144;
+    private const int CompactQuality = 42;
 
     /// <summary>StorageFile.GetThumbnailAsync 的 requestedSize 上限；超过会抛 ArgumentException。</summary>
     public const int MaxVideoCoverEdge = 1600;
@@ -36,16 +38,17 @@ public sealed class ThumbnailService
         Directory.CreateDirectory(_dir);
     }
 
-    public string Key(string src, double mtime, long size, int edge = CacheEdge)
+    public string Key(string src, double mtime, long size, int edge = CacheEdge, bool compact = false)
     {
         // Python: f"{os.path.normcase(str(src))}|{mtime:.9f}|{size}|{edge}"
         var raw = $"{FileIdentity.PathKey(src)}|{StoreService.Fmt(mtime)}|{size}|{edge}";
+        if (compact) raw += $"|compact-{CompactQuality}";
         return Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 
-    public string CachePath(string src, double mtime, long size, int edge = CacheEdge)
+    public string CachePath(string src, double mtime, long size, int edge = CacheEdge, bool compact = false)
     {
-        var key = Key(src, mtime, size, edge);
+        var key = Key(src, mtime, size, edge, compact);
         return Path.Combine(_dir, key[..2], $"{key}.webp");
     }
 
@@ -56,12 +59,15 @@ public sealed class ThumbnailService
     }
 
     /// <summary>取缓存；缺失则生成。失败返回 null。</summary>
-    public string? GetOrBuild(string src, double mtime, long size, int edge = CacheEdge)
+    public string? GetOrBuild(string src, double mtime, long size, int edge = CacheEdge, bool compact = false)
     {
-        var dest = CachePath(src, mtime, size, edge);
+        var dest = CachePath(src, mtime, size, edge, compact);
         if (File.Exists(dest)) return dest;
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-        var data = BuildThumbBytes(src, edge, _quality);
+        byte[]? data = null;
+        if (compact && Get(src, mtime, size) is { } standard)
+            data = BuildThumbBytes(standard, edge, CompactQuality);
+        data ??= BuildThumbBytes(src, edge, compact ? CompactQuality : _quality);
         if (data is null) return null;
         var tmp = dest + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -81,13 +87,13 @@ public sealed class ThumbnailService
     /// 视频封面：取系统缩略图（VideosView）首帧，转 WebP 落同一套缓存。
     /// 失败返回 null，卡片显示占位图标；不会解 mp4 本体。
     /// </summary>
-    public string? GetOrBuildVideo(string src, double mtime, long size, int edge = CacheEdge)
+    public string? GetOrBuildVideo(string src, double mtime, long size, int edge = CacheEdge, bool compact = false)
     {
         // 卡片很大时上游会请求 2048/4096，但系统缩略图接口只接受 <=1600。
         edge = Math.Clamp(edge, 1, MaxVideoCoverEdge);
-        var dest = CachePath(src, mtime, size, edge);
+        var dest = CachePath(src, mtime, size, edge, compact);
         if (File.Exists(dest)) return dest;
-        var data = BuildVideoCoverBytes(src, edge, _quality);
+        var data = BuildVideoCoverBytes(src, edge, compact ? CompactQuality : _quality);
         if (data is null) return null;
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         var tmp = dest + "." + Guid.NewGuid().ToString("N") + ".tmp";

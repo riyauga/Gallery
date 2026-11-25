@@ -308,26 +308,11 @@ public sealed class DetailPanel : Grid
             foreach (var (category, name) in tags)
             {
                 var label = DisplayName?.Invoke(name) ?? name;
-                var chip = new Tags.TagChip(category, label);
                 var tip = category == "rating" && RatingTooltip?.Invoke(name) is { Length: > 0 } ratingTip
-                    ? ratingTip
-                    : label == name ? name : $"{label} · {name}";
-                ToolTipService.SetToolTip(chip, tip);
-                chip.HorizontalAlignment = HorizontalAlignment.Left;
-                // 标签文字本身可拖选复制；双击留给系统选词，不另接手势。
-                chip.Label.IsTextSelectionEnabled = true;
+                    ? ratingTip : null;
+                var chip = Tags.TagChip.CreateInteractive(category, label, name,
+                    () => TagFilterRequested?.Invoke(category, name), text => TagCopied?.Invoke(text), tip);
                 _tagLabels.Add(chip.Label);
-                // 右键菜单挂在文字上：可选中文本块自带的「复制／全选」菜单由它顶替，
-                // 所以「复制」自己补回来，否则右键落在文字上够不到复制和筛选项。
-                var menu = new MenuFlyout();
-                var copyItem = new MenuFlyoutItem { Text = "复制此标签" };
-                copyItem.Click += (_, _) => CopyTag(label);
-                menu.Items.Add(copyItem);
-                menu.Items.Add(new MenuFlyoutSeparator());
-                var filterItem = new MenuFlyoutItem { Text = "按此标签进行筛选" };
-                filterItem.Click += (_, _) => TagFilterRequested?.Invoke(category, name);
-                menu.Items.Add(filterItem);
-                chip.Label.ContextFlyout = menu;
                 row.Children.Add(chip);
             }
             group.Children.Add(row);
@@ -335,15 +320,6 @@ public sealed class DetailPanel : Grid
         }
         if (itemTags.Count == 0)
             _tagsHost.Children.Add(new TextBlock { Text = "未打标签", FontSize = 13, Opacity = 0.5 });
-    }
-
-    /// <summary>右键「复制此标签」：复制贴纸上看到的文字（有中文译名就是中文）。</summary>
-    private void CopyTag(string text)
-    {
-        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-        package.SetText(text);
-        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-        TagCopied?.Invoke(text);
     }
 
     private static TextBlock InfoText() => new()

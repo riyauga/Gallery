@@ -477,9 +477,9 @@ public sealed partial class PreviewOverlay : Grid
         FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
         _request = request;
         _lastSourceRect = request.SourceRect;
-        _items = request.Items;
-        _index = Math.Max(0, request.Items.ToList().IndexOf(request.Item));
-        if (_items.Count == 0) return;
+        _index = FindItemIndex(request.Items, request.Item);
+        _items = _index >= 0 ? request.Items : [request.Item];
+        if (_index < 0) _index = 0;
         _shownPath = null;
 
         Visibility = Visibility.Visible;
@@ -867,12 +867,19 @@ public sealed partial class PreviewOverlay : Grid
         RefreshTagDisplay();
         Detail.SetTags(LoadTagPairs(_items[_index].ImageId));
     }
+    internal static int FindItemIndex(IReadOnlyList<PhotoItem> items, PhotoItem target)
+    {
+        for (var i = 0; i < items.Count; i++)
+            if (target.ImageId > 0 ? items[i].ImageId == target.ImageId :
+                string.Equals(items[i].FullPath, target.FullPath, StringComparison.OrdinalIgnoreCase)) return i;
+        return -1;
+    }
+
     public void RefreshItems(IReadOnlyList<PhotoItem> items)
     {
-        if (!IsOpen || _items.Count == 0) return;
+        if (!IsOpen || _items.Count == 0 || _request?.FollowGalleryResults == false) return;
         var current = _items[_index];
-        int next = items.ToList().FindIndex(item => current.ImageId > 0
-            ? item.ImageId == current.ImageId : item.FullPath == current.FullPath);
+        int next = FindItemIndex(items, current);
         if (_request?.KeepCurrentOnFilterChanges == true && next < 0)
         {
             if (!File.Exists(current.FullPath) || AppService.Store?.GetImage(current.ImageId) is null) Close();

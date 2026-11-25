@@ -10,7 +10,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Gallery.Services;
 
-public sealed class TagCatalogService
+public sealed partial class TagCatalogService
 {
     private static readonly string[] ValidStatus = ["released", "announced", "unknown"];
     private static readonly Regex WorkSuffix = new(@"_\([^()]*\)$", RegexOptions.Compiled);
@@ -592,7 +592,7 @@ public sealed class TagCatalogService
         var result = new Dictionary<string, (string Zh, string En)>(StringComparer.Ordinal);
         using var conn = Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT game_key,COALESCE(zh,''),COALESCE(en,'') FROM catalog_games";
+        cmd.CommandText = "SELECT game_key,COALESCE(zh,''),COALESCE(en,'') FROM catalog_effective_games";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             result[r.GetString(0)] = (r.GetString(1), r.GetString(2));
@@ -648,7 +648,7 @@ public sealed class TagCatalogService
         {
             cmd.CommandText =
                 "SELECT COALESCE(NULLIF(identity_key,''),entity_key)," +
-                "COALESCE(zh,''),COALESCE(en,''),COALESCE(game_key,'') FROM catalog_entities" +
+                "COALESCE(zh,''),COALESCE(en,''),COALESCE(game_key,'') FROM catalog_effective_entities" +
                 (useFilter ? $" WHERE identity_key IN ({filter})" : "");
             BindKeys(cmd);
             using var r = cmd.ExecuteReader();
@@ -663,7 +663,7 @@ public sealed class TagCatalogService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText =
-                "SELECT identity_key,COALESCE(game_key,'') FROM catalog_memberships" +
+                "SELECT identity_key,COALESCE(game_key,'') FROM catalog_effective_memberships" +
                 (useFilter ? $" WHERE identity_key IN ({filter})" : "");
             BindKeys(cmd);
             using var r = cmd.ExecuteReader();
@@ -688,7 +688,10 @@ public sealed class TagCatalogService
         zh = CanonicalName(zh);
         en = CanonicalName(en);
         using var conn = Open();
+        using var tx = conn.BeginTransaction();
+        if (CatalogManagesTag(conn, tx, tagId)) return;
         using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) VALUES($t,$z,$e,$k) " +
             "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
@@ -697,6 +700,7 @@ public sealed class TagCatalogService
         cmd.Parameters.AddWithValue("$e", en);
         cmd.Parameters.AddWithValue("$k", entityKey);
         cmd.ExecuteNonQuery();
+        tx.Commit();
     }
 
     /// <summary>
@@ -713,8 +717,8 @@ public sealed class TagCatalogService
             if (norm.Length == 0) continue;
             using var cmd = conn.CreateCommand();
             cmd.CommandText =
-                "SELECT COALESCE(e.zh,''),COALESCE(e.en,''),e.entity_key FROM catalog_names n " +
-                "JOIN catalog_entities e ON e.entity_key=n.entity_key WHERE n.term=$t LIMIT 1";
+                "SELECT COALESCE(e.zh,''),COALESCE(e.en,''),e.entity_key FROM catalog_effective_names n " +
+                "JOIN catalog_effective_entities e ON e.entity_key=n.entity_key WHERE n.term=$t LIMIT 1";
             cmd.Parameters.AddWithValue("$t", norm);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) continue;
@@ -728,29 +732,42 @@ public sealed class TagCatalogService
     {
         using var conn = Open();
         var games = GameNames();
+        Dictionary<string, HashSet<string>>? gameAliases = null;
         Dictionary<string, List<NameHit>>? byTerm = null;
         Dictionary<string, List<NameHit>>? byLastWord = null;
         return tags.Select(tag =>
         {
-            if (tag.Category is not ("character" or "work") || tag.DisplayName.Length > 0
+            if (tag.Category is not ("character" or "work") || tag.LinkStatus == "independent" || tag.DisplayName.Length > 0
                 || tag.DisplayMode == "canonical") return tag;
             if (tag.Category == "work" && tag.EntityKey.Length == 0)
             {
-                var name = Norm(tag.Name);
-                var works = games.Where(game => Norm(game.Key) == name || Norm(game.Value.Zh) == name || Norm(game.Value.En) == name).ToArray();
+                gameAliases ??= LoadGameAliases(conn);
+                var works = games.Where(game => NamesGame(tag.Name, game.Key, games, gameAliases)).ToArray();
                 if (works.Length == 1)
                     return tag with { ZhName = tag.ZhName.Length > 0 ? tag.ZhName : works[0].Value.Zh,
                         EnName = tag.EnName.Length > 0 ? tag.EnName : works[0].Value.En };
             }
             using var cmd = conn.CreateCommand();
-            cmd.CommandText =
-                "SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.aliases,'[]')," +
-                "COALESCE(NULLIF(e.identity_key,''),e.entity_key),COALESCE(e.game_key,'') FROM catalog_entities e " +
-                "WHERE e.kind=$category AND (( $key<>'' AND e.entity_key=$key) OR ($key='' AND EXISTS " +
-                "(SELECT 1 FROM catalog_names n WHERE n.entity_key=e.entity_key AND n.term=$name)))";
+            const string fields = """
+                SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.aliases,'[]'),
+                       COALESCE(NULLIF(e.identity_key,''),e.entity_key),COALESCE(e.game_key,'')
+                FROM catalog_effective_entities e
+                """;
+            if (tag.EntityKey.Length > 0)
+            {
+                cmd.CommandText = fields + " WHERE e.kind=$category AND e.entity_key=$key";
+                cmd.Parameters.AddWithValue("$key", tag.EntityKey);
+            }
+            else
+            {
+                cmd.CommandText = """
+                    WITH matching AS MATERIALIZED (
+                        SELECT DISTINCT entity_key FROM catalog_effective_names WHERE term=$name
+                    )
+                    """ + " " + fields + " JOIN matching m ON m.entity_key=e.entity_key WHERE e.kind=$category";
+                cmd.Parameters.AddWithValue("$name", Norm(tag.Name));
+            }
             cmd.Parameters.AddWithValue("$category", tag.Category);
-            cmd.Parameters.AddWithValue("$key", tag.EntityKey);
-            cmd.Parameters.AddWithValue("$name", Norm(tag.Name));
             using var reader = cmd.ExecuteReader();
             var hits = new List<(string Key, string Zh, string En, string Aliases, string Identity, string Game)>();
             while (reader.Read()) hits.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5)));
@@ -759,7 +776,7 @@ public sealed class TagCatalogService
                 // danbooru 写法 角色_(作品)：整串换不来命中，拆开按「作品限定 + 名/末词」再试一次。
                 byTerm ??= LoadNameIndex(conn);
                 byLastWord ??= LoadLastWordIndex(conn);
-                hits = MatchWorkQualified(byTerm, byLastWord, games, tag.Category, tag.Name)
+                hits = MatchWorkQualified(conn, byTerm, byLastWord, games, tag.Category, tag.Name, aliases: gameAliases ??= LoadGameAliases(conn))
                     .Select(hit => (Key: hit.Key, Zh: hit.Zh, En: hit.En, Aliases: "[]",
                         Identity: hit.Identity, Game: hit.Game)).ToList();
                 if (hits.Count == 0) return tag;
@@ -786,7 +803,7 @@ public sealed class TagCatalogService
     public List<StoreService.TagInfo> Enrich(IEnumerable<StoreService.TagInfo> tags)
     {
         var list = tags.ToList();
-        var pending = list.Where(t => t.ZhName.Length == 0).ToList();
+        var pending = list.Where(t => t.ZhName.Length == 0 && t.LinkStatus != "independent").ToList();
         if (pending.Count == 0) return list;
 
         var terms = new Dictionary<string, (string Zh, string En, string Key)>(StringComparer.Ordinal);
@@ -795,7 +812,7 @@ public sealed class TagCatalogService
         {
             cmd.CommandText =
                 "SELECT n.term,COALESCE(e.zh,''),COALESCE(e.en,''),e.entity_key " +
-                "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
+                "FROM catalog_effective_names n JOIN catalog_effective_entities e ON e.entity_key=n.entity_key";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -809,7 +826,7 @@ public sealed class TagCatalogService
         var enriched = new List<StoreService.TagInfo>(list.Count);
         foreach (var tag in list)
         {
-            if (tag.ZhName.Length > 0)
+            if (tag.ZhName.Length > 0 || tag.LinkStatus == "independent")
             {
                 enriched.Add(tag);
                 continue;
@@ -845,11 +862,11 @@ public sealed class TagCatalogService
         cmd.CommandText =
             "SELECT e.entity_key,COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.kind,'character')," +
             "COALESCE(e.game_key,''),COALESCE(e.aliases,'[]')," +
-            "COALESCE(NULLIF(e.identity_key,''),e.entity_key) FROM catalog_entities e" +
+            "COALESCE(NULLIF(e.identity_key,''),e.entity_key) FROM catalog_effective_entities e" +
             (needle.Length == 0 ? "" :
                 " WHERE COALESCE(NULLIF(e.identity_key,''),e.entity_key) IN (" +
                 "SELECT DISTINCT COALESCE(NULLIF(m.identity_key,''),m.entity_key) " +
-                "FROM catalog_names n JOIN catalog_entities m ON m.entity_key=n.entity_key " +
+                "FROM catalog_effective_names n JOIN catalog_effective_entities m ON m.entity_key=n.entity_key " +
                 "WHERE instr(n.term,$needle)>0)");
         if (needle.Length > 0) cmd.Parameters.AddWithValue("$needle", needle);
         using var r = cmd.ExecuteReader();
@@ -1013,13 +1030,19 @@ public sealed class TagCatalogService
         var current = TagDisplayState.Load(conn);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT t.id,t.name,t.category,COALESCE(i.identity_key,''),COALESCE(i.link_status,'')," +
-            "COALESCE(i.note,''),COALESCE(i.locked,0) FROM tags t LEFT JOIN tag_identities i ON i.tag_id=t.id";
+            "COALESCE(i.note,''),COALESCE(i.locked,0),p.tag_key FROM tags t LEFT JOIN tag_identities i ON i.tag_id=t.id " +
+            "LEFT JOIN catalog_personal_tags p ON p.tag_key=t.tag_key";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
             var id = reader.GetInt32(0);
             var tag = reader.GetString(1);
             var category = reader.GetString(2);
+            if (!reader.IsDBNull(7))
+            {
+                states.Remove((category, tag));
+                continue;
+            }
             if (current.TryGetValue(id, out var state))
                 states[(category, tag)] = new(tag, category, state.Status, state.IdentityKey, state.OriginGame,
                     state.DisplayMode, state.DisplayName, state.Note);
@@ -1030,10 +1053,11 @@ public sealed class TagCatalogService
         return new(saved.Links, states.Values.ToList(), saved.Merges);
     }
 
-    private static byte[] PersonalPlanBytes(TagPlan plan, string mode, JsonElement directoryRules)
+    private static byte[] PersonalPlanBytes(TagPlan plan, string mode, JsonElement directoryRules, PersonalCatalog? catalog = null)
         => JsonSerializer.SerializeToUtf8Bytes(new
         {
             format = "gallery-personal-rules", version = 1, global_display_mode = mode, directory_rules = directoryRules,
+            catalog = catalog is null ? (JsonElement?)null : JsonSerializer.SerializeToElement(catalog, CatalogJson),
             identity_links = plan.Links.Select(l => new { member = l.Member, identity = l.Identity, origin = l.Origin, note = l.Note }),
             tag_states = plan.States.Select(s => new { tag = s.Tag, category = s.Category, status = s.Status, identity = s.Identity,
                 origin = s.Origin, display_mode = s.DisplayMode, display_name = s.DisplayName, note = s.Note }),
@@ -1044,16 +1068,23 @@ public sealed class TagCatalogService
     public void ExportPersonalRules(string destination)
     {
         using var conn = Open();
-        File.WriteAllBytes(destination, PersonalPlanBytes(CurrentPersonalPlan(conn), TagDisplayState.GlobalMode(conn), FolderMap.Load(AppPaths.FolderMapPath).ToJson()));
+        var plan = CurrentPersonalPlan(conn);
+        var mode = TagDisplayState.GlobalMode(conn);
+        using var tx = conn.BeginTransaction(deferred: true);
+        var catalog = ReadPersonalCatalog(conn, tx);
+        tx.Commit();
+        File.WriteAllBytes(destination, PersonalPlanBytes(plan, mode, FolderMap.Load(AppPaths.FolderMapPath).ToJson(), catalog));
     }
 
     /// <summary>恢复时由用户现场选择保留当前设置或采用备份；标签按分类和名字匹配，不使用跨库数字 ID。</summary>
-    public void ImportPersonalRules(string source, bool overwrite)
+    public int ImportPersonalRules(string source, bool overwrite)
     {
         lock (PackGate)
         {
             var incoming = ReadPersonalPlan(source);
             using var doc = JsonDocument.Parse(File.ReadAllBytes(source));
+            var catalog = doc.RootElement.TryGetProperty("catalog", out var catalogElement) && catalogElement.ValueKind != JsonValueKind.Null
+                ? ParsePersonalCatalog(catalogElement) : null;
             var incomingMode = Str(doc.RootElement, "global_display_mode", TagDisplayState.DefaultGlobalMode);
             if (incomingMode is not ("zh_full" or "zh_short" or "alias" or "original" or "canonical"))
                 throw new InvalidDataException("备份中的显示方式无效");
@@ -1086,15 +1117,17 @@ public sealed class TagCatalogService
             File.WriteAllBytes(pending, PersonalPlanBytes(merged, mode, directoryJson));
             if (restoreDirectories) File.WriteAllBytes(directoryPending, JsonSerializer.SerializeToUtf8Bytes(directoryJson, new JsonSerializerOptions { WriteIndented = true }));
             Backup(conn);
-            var states = TagDisplayState.Load(conn);
+            var awaitingCatalog = 0;
             using var tx = conn.BeginTransaction();
             try
             {
+                if (catalog is not null) awaitingCatalog = RestorePersonalCatalog(conn, tx, catalog, overwrite);
+                var states = TagDisplayState.Load(conn, tx);
                 foreach (var rule in incoming.States)
                 {
                     if (!overwrite && existingKeys.Contains((rule.Category, rule.Tag))) continue;
                     var id = TagId(conn, rule.Category, rule.Tag, tx);
-                    if (id == 0) continue; // 规则仍保存在个人文件中，待对应标签出现后补齐。
+                    if (id == 0 || CatalogManagesTag(conn, tx, id)) continue; // 资料库关联使用标签键，优先于旧版按名称规则。
                     states[id] = new(rule.Status, rule.Identity, rule.Origin, rule.DisplayMode, rule.DisplayName, rule.Note);
                     if (rule.Identity.Length > 0) WriteProfile(conn, tx, id, rule.Identity, null);
                     WriteTagIdentity(conn, id, rule.Identity, rule.Status == "original" ? "independent" :
@@ -1125,6 +1158,7 @@ public sealed class TagCatalogService
             }
             if (restoreDirectories) FolderMap.NotifyChanged();
             AlignTags();
+            return awaitingCatalog;
         }
     }
 
@@ -1133,8 +1167,8 @@ public sealed class TagCatalogService
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT id FROM tags WHERE name=$n COLLATE NOCASE " +
-            "AND COALESCE(category,'custom')=$c LIMIT 1";
+            "SELECT MIN(id) FROM tags WHERE name=$n COLLATE NOCASE " +
+            "AND COALESCE(category,'custom')=$c GROUP BY COALESCE(category,'custom'),name COLLATE NOCASE HAVING COUNT(*)=1";
         cmd.Parameters.AddWithValue("$n", name);
         cmd.Parameters.AddWithValue("$c", category);
         return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
@@ -1147,7 +1181,7 @@ public sealed class TagCatalogService
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
-            "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_entities " +
+            "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_effective_entities " +
             "WHERE entity_key=$k " +
             "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
         cmd.Parameters.AddWithValue("$t", tagId);
@@ -1165,7 +1199,7 @@ public sealed class TagCatalogService
         cmd.CommandText =
             "SELECT n.term,e.entity_key,COALESCE(NULLIF(e.identity_key,''),e.entity_key)," +
             "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,''),COALESCE(e.kind,'') " +
-            "FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key";
+            "FROM catalog_effective_names n JOIN catalog_effective_entities e ON e.entity_key=n.entity_key";
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -1196,7 +1230,7 @@ public sealed class TagCatalogService
         cmd.CommandText =
             "SELECT e.entity_key,COALESCE(NULLIF(e.identity_key,''),e.entity_key)," +
             "COALESCE(e.zh,''),COALESCE(e.en,''),COALESCE(e.game_key,''),COALESCE(e.kind,'') " +
-            "FROM catalog_entities e WHERE COALESCE(e.en,'')<>''";
+            "FROM catalog_effective_entities e WHERE COALESCE(e.en,'')<>''";
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -1213,13 +1247,15 @@ public sealed class TagCatalogService
 
     /// <summary>
     /// 拆 <c>角色_(作品)</c> 并同时校验两边：角色部分命中实体名/别名，或命中英文名的末词；
-    /// 作品部分命中 catalog_games 的键/中/英文名。任一不成立就不匹配，避免跨作品重名误挂。
+    /// 作品部分命中 catalog_effective_games 的键/中/英文名。任一不成立就不匹配，避免跨作品重名误挂。
     /// </summary>
     private static List<NameHit> MatchWorkQualified(
+        SqliteConnection conn,
         Dictionary<string, List<NameHit>> byTerm,
         Dictionary<string, List<NameHit>> byLastWord,
         IReadOnlyDictionary<string, (string Zh, string En)> games,
-        string category, string tagName)
+        string category, string tagName, IReadOnlyDictionary<string, HashSet<string>>? memberships = null,
+        SqliteTransaction? tx = null, IReadOnlyDictionary<string, HashSet<string>>? aliases = null)
     {
         var match = WorkQualifiedSuffix.Match(tagName ?? "");
         if (!match.Success) return [];
@@ -1241,7 +1277,9 @@ public sealed class TagCatalogService
 
         // danbooru 常把衍生作统一写成父作品（终末地角色也标成 arknights），
         // 所以按「作品家族」取候选：自身 + 名字以它开头的子作品，再由上层判唯一。
-        var gameKeys = FamilyGameKeys(games, workTerm);
+        aliases ??= LoadGameAliases(conn, tx);
+        aliases ??= LoadGameAliases(conn, tx);
+        var gameKeys = FamilyGameKeys(games, workTerm, aliases);
         if (gameKeys.Count == 0) return [];
 
         List<NameHit> LookupPool(string text)
@@ -1255,8 +1293,29 @@ public sealed class TagCatalogService
             return hits;
         }
 
-        return pool.Where(hit => string.Equals(hit.Kind, category, StringComparison.Ordinal)
-            && gameKeys.Contains(hit.Game, StringComparer.OrdinalIgnoreCase)).ToList();
+        var candidates = new List<NameHit>();
+        var exact = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var game in gameKeys)
+            if (NamesGame(workTerm, game, games, aliases))
+                exact.Add(game);
+        var membersByIdentity = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal);
+        foreach (var hit in pool.Where(h => h.Kind == category))
+        {
+            if (!membersByIdentity.TryGetValue(hit.Identity, out var memberGames))
+            {
+                memberGames = memberships is null && category == "character"
+                    ? EffectiveWorks(conn, hit.Identity, tx)
+                    : memberships?.GetValueOrDefault(hit.Identity) as IReadOnlyCollection<string> ?? [];
+                membersByIdentity[hit.Identity] = memberGames;
+            }
+            var available = memberGames.Append(hit.Game).Where(game => gameKeys.Contains(game, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            // Use the title named by the qualifier when possible, and keep existing family matching otherwise.
+            var specific = available.FirstOrDefault(exact.Contains);
+            var target = specific ?? available.FirstOrDefault(game => game == hit.Game) ?? available.FirstOrDefault();
+            if (target is not null) candidates.Add(hit with { Game = target });
+        }
+        return candidates;
     }
 
     /// <summary>
@@ -1265,12 +1324,13 @@ public sealed class TagCatalogService
     /// 再由「角色名是否唯一」决定归属；重名时上层会判歧义、不自动挂。
     /// </summary>
     private static List<string> FamilyGameKeys(
-        IReadOnlyDictionary<string, (string Zh, string En)> games, string workTerm)
+        IReadOnlyDictionary<string, (string Zh, string En)> games, string workTerm,
+        IReadOnlyDictionary<string, HashSet<string>> aliases)
     {
         var list = new List<string>();
         foreach (var game in games)
         {
-            if (Norm(game.Key) == workTerm || Norm(game.Value.Zh) == workTerm || Norm(game.Value.En) == workTerm
+            if (NamesGame(workTerm, game.Key, games, aliases)
                 || StartsWithLonger(Norm(game.Key), workTerm) || StartsWithLonger(Norm(game.Value.Zh), workTerm)
                 || StartsWithLonger(Norm(game.Value.En), workTerm))
                 list.Add(game.Key);
@@ -1318,7 +1378,7 @@ public sealed class TagCatalogService
             using var cmd = conn.CreateCommand();
             cmd.CommandText =
                 "SELECT COALESCE(NULLIF(identity_key,''),entity_key),COALESCE(game_key,'') " +
-                "FROM catalog_entities WHERE entity_key=$k";
+                "FROM catalog_effective_entities WHERE entity_key=$k";
             cmd.Parameters.AddWithValue("$k", entityKey);
             using var r = cmd.ExecuteReader();
             if (r.Read())
@@ -1334,16 +1394,17 @@ public sealed class TagCatalogService
             // 标签已经绑过身份（人工关联或自动对齐）时以它为准，比按名字再猜一次可靠。
             using var cmd = conn.CreateCommand();
             cmd.CommandText =
-                "SELECT COALESCE(ti.identity_key,''),COALESCE(e.game_key,'') FROM tags t " +
+                "SELECT COALESCE(ti.identity_key,''),COALESCE(e.game_key,''),COALESCE(ti.link_status,'') FROM tags t " +
                 "LEFT JOIN tag_identities ti ON ti.tag_id=t.id " +
                 "LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
-                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+                "LEFT JOIN catalog_effective_entities e ON e.entity_key=p.entity_key " +
                 "WHERE t.name=$n COLLATE NOCASE AND COALESCE(t.category,'custom')='character' " +
                 "ORDER BY COALESCE(ti.identity_key,'')='' LIMIT 1";
             cmd.Parameters.AddWithValue("$n", name);
             using var r = cmd.ExecuteReader();
             if (r.Read())
             {
+                if (r.GetString(2) == "independent") return null;
                 identity = r.GetString(0);
                 ownGame = r.GetString(1);
                 gameKnown = ownGame.Length > 0;
@@ -1355,7 +1416,8 @@ public sealed class TagCatalogService
             var byTerm = LoadNameIndex(conn);
             var byLastWord = LoadLastWordIndex(conn);
             var games = GameNames();
-            var hits = MatchWorkQualified(byTerm, byLastWord, games, "character", name);
+            var hits = MatchWorkQualified(conn, byTerm, byLastWord, games, "character", name);
+            gameKnown = hits.Count > 0 && hits.Select(h => h.Game).Distinct().Count() == 1;
             if (hits.Count == 0)
             {
                 var term = Norm(BaseName(name));
@@ -1368,18 +1430,12 @@ public sealed class TagCatalogService
             ownGame = collapsed[0].Game;
         }
 
-        var members = new List<string>();
-        using (var cmd = conn.CreateCommand())
+        var members = EffectiveWorks(conn, identity);
+        if (!members.Contains(ownGame, StringComparer.OrdinalIgnoreCase))
         {
-            cmd.CommandText =
-                "SELECT DISTINCT game_key FROM catalog_memberships " +
-                "WHERE identity_key=$i AND COALESCE(game_key,'')<>''";
-            cmd.Parameters.AddWithValue("$i", identity);
-            using var r = cmd.ExecuteReader();
-            while (r.Read()) members.Add(r.GetString(0));
+            ownGame = "";
+            gameKnown = false;
         }
-        if (ownGame.Length > 0 && !members.Contains(ownGame, StringComparer.OrdinalIgnoreCase))
-            members.Add(ownGame);
         if (members.Count == 0) return null;
 
         // 图片已经有该身份的任一作品标签：不重复贴。
@@ -1404,15 +1460,17 @@ public sealed class TagCatalogService
     private string WorkTagNameForGame(SqliteConnection conn, string game)
     {
         var games = GameNames();
-        var candidates = new List<(string Name, int Count)>();
+        var aliases = LoadGameAliases(conn);
+        var candidates = new List<(string Name, int Count, bool Linked)>();
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText =
                 "SELECT t.name,COALESCE(e.game_key,'')," +
                 "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) c " +
                 "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
-                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
-                "WHERE COALESCE(t.category,'custom')='work'";
+                "LEFT JOIN catalog_effective_entities e ON e.entity_key=p.entity_key " +
+                "LEFT JOIN tag_identities i ON i.tag_id=t.id " +
+                "WHERE t.category='work' AND COALESCE(i.link_status,'')<>'independent'";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1420,13 +1478,14 @@ public sealed class TagCatalogService
                 var tagGame = r.GetString(1);
                 var hit = tagGame.Length > 0
                     ? string.Equals(tagGame, game, StringComparison.OrdinalIgnoreCase)
-                    : NamesGame(name, game, games);
-                if (hit) candidates.Add((name, r.GetInt32(2)));
+                    : NamesGame(name, game, games, aliases) &&
+                      games.Keys.Count(key => NamesGame(name, key, games, aliases)) == 1;
+                if (hit) candidates.Add((name, r.GetInt32(2), tagGame.Length > 0));
             }
         }
         return candidates.Count == 0
             ? game
-            : candidates.OrderByDescending(c => c.Count)
+            : candidates.OrderByDescending(c => c.Linked).ThenByDescending(c => c.Count)
                 .ThenBy(c => c.Name.Length)
                 .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .First().Name;
@@ -1434,39 +1493,62 @@ public sealed class TagCatalogService
 
     /// <summary>没绑实体的作品标签：名字必须与作品键或作品中/英文名完全一致，不做包含匹配。</summary>
     private static bool NamesGame(string tagName, string game,
-        IReadOnlyDictionary<string, (string Zh, string En)> games)
+        IReadOnlyDictionary<string, (string Zh, string En)> games,
+        IReadOnlyDictionary<string, HashSet<string>> aliases)
     {
         var norm = Norm(tagName);
         if (norm.Length == 0) return false;
-        if (norm == Norm(game)) return true;
+        if (norm == Norm(game) || aliases.TryGetValue(game, out var names) && names.Contains(norm)) return true;
         return games.TryGetValue(game, out var pair)
             && ((pair.Zh.Length > 0 && norm == Norm(pair.Zh))
                 || (pair.En.Length > 0 && norm == Norm(pair.En)));
     }
 
+    private static Dictionary<string, HashSet<string>> LoadGameAliases(SqliteConnection conn, SqliteTransaction? tx = null)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT game_key,aliases FROM catalog_effective_games WHERE aliases<>'[]'";
+        using var reader = cmd.ExecuteReader();
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        while (reader.Read()) result[reader.GetString(0)] = DecodeAliases(reader.GetString(1)).Select(Norm).ToHashSet();
+        return result;
+    }
+
     /// <summary>作品标签名 → 所属作品键；没绑实体的按名字对作品键/中英文名。</summary>
     private List<string> WorkTagGames(SqliteConnection conn, IReadOnlyCollection<string> names)
     {
-        var wanted = names.Select(n => (n ?? "").Trim()).Where(n => n.Length > 0)
+        var wanted = names.Select(n => n.Trim()).Where(n => n.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var result = new List<string>();
-        if (wanted.Count == 0) return result;
+        if (wanted.Count == 0) return [];
         var games = GameNames();
+        var aliases = LoadGameAliases(conn);
+        var bound = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var marks = string.Join(",", wanted.Select((_, i) => $"$w{i}"));
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            $"SELECT t.name,COALESCE(e.game_key,'') FROM tags t " +
+            $"SELECT t.name,COALESCE(e.game_key,''),COALESCE(i.link_status,'') FROM tags t " +
+            "LEFT JOIN tag_identities i ON i.tag_id=t.id " +
             "LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
-            "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
-            $"WHERE COALESCE(t.category,'custom')='work' AND t.name COLLATE NOCASE IN ({marks})";
+            "LEFT JOIN catalog_effective_entities e ON e.entity_key=p.entity_key " +
+            $"WHERE t.category='work' AND t.name COLLATE NOCASE IN ({marks})";
         for (var i = 0; i < wanted.Count; i++) cmd.Parameters.AddWithValue($"$w{i}", wanted[i]);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
+            var name = r.GetString(0);
             var game = r.GetString(1);
-            if (game.Length == 0)
-                game = games.FirstOrDefault(pair => NamesGame(r.GetString(0), pair.Key, games)).Key ?? "";
-            if (game.Length > 0) result.Add(game);
+            if (game.Length == 0 && r.GetString(2) != "independent") continue;
+            if (!bound.TryGetValue(name, out var keys)) bound[name] = keys = [];
+            keys.Add(r.GetString(2) == "independent" ? "" : game);
+        }
+        var result = new List<string>();
+        foreach (var name in wanted)
+        {
+            var keys = bound.TryGetValue(name, out var known) ? known.AsEnumerable()
+                : games.Keys.Where(key => NamesGame(name, key, games, aliases));
+            var candidates = keys.Take(2).ToArray();
+            if (candidates.Length == 1 && candidates[0].Length > 0) result.Add(candidates[0]);
         }
         return result;
     }
@@ -1492,6 +1574,7 @@ public sealed class TagCatalogService
                 log?.Invoke($"计划标签不存在：{ps.Category}/{ps.Tag}");
                 continue;
             }
+            if (CatalogManagesTag(conn, null, id)) continue;
             if (!states.TryGetValue(id, out var existingState))
             {
                 changes[id] = new TagDisplayState.State(
@@ -1557,10 +1640,19 @@ public sealed class TagCatalogService
             log?.Invoke($"预演标签状态身份归一：{normalizedStates} 条");
         }
 
+        if (!dryRun)
+        {
+            using var tx = conn.BeginTransaction();
+            ApplyPersonalCatalogTags(conn, tx);
+            tx.Commit();
+            states = TagDisplayState.Load(conn);
+        }
+
         // 3) 对没有被状态挡住的 character 标签，按名称唯一命中身份。
         var byTerm = LoadNameIndex(conn);
         var byLastWord = LoadLastWordIndex(conn);
         var catalogGames = GameNames();
+        var catalogAliases = LoadGameAliases(conn);
         var tags = new List<(int Id, string Name, string Category, int Images)>();
         using (var cmd = conn.CreateCommand())
         {
@@ -1592,7 +1684,8 @@ public sealed class TagCatalogService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText =
-                "SELECT tag_id FROM tag_identities WHERE locked<>0 OR link_status='independent'";
+                "SELECT tag_id FROM tag_identities WHERE locked<>0 OR link_status='independent' " +
+                "UNION SELECT t.id FROM tags t JOIN catalog_personal_tags p ON p.tag_key=t.tag_key";
             using var r = cmd.ExecuteReader();
             while (r.Read()) protectedTags.Add(r.GetInt32(0));
         }
@@ -1619,7 +1712,7 @@ public sealed class TagCatalogService
         var gamesByIdentity = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT identity_key,game_key FROM catalog_memberships WHERE game_key<>''";
+            cmd.CommandText = "SELECT identity_key,game_key FROM catalog_effective_memberships WHERE game_key<>''";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1666,7 +1759,7 @@ public sealed class TagCatalogService
                     : [];
                 // 带 _(作品) 的标签先用作品限定收窄：裸名查出来的同名角色（各作品的 Surtr/Ember）
                 // 会混进候选，光靠后面的作品校验只能判冲突，绑不上。
-                var qualified = MatchWorkQualified(byTerm, byLastWord, catalogGames, category, name);
+                var qualified = MatchWorkQualified(conn, byTerm, byLastWord, catalogGames, category, name, gamesByIdentity, writeTx, catalogAliases);
                 if (qualified.Count > 0) raw = qualified;
                 if (raw.Count == 0)
                 {
@@ -1691,7 +1784,7 @@ public sealed class TagCatalogService
                 }
                 var hit = hits[0];
                 // 名字唯一还不够：候选身份的作品必须覆盖图片实际的作品标签，否则不自动绑。
-                if (!WorksAgree(worksByTag, gamesByIdentity, catalogGames, id, hit))
+                if (!WorksAgree(worksByTag, gamesByIdentity, catalogGames, catalogAliases, id, hit))
                 {
                     conflicting++;
                     log?.Invoke($"身份冲突跳过：{category}/{name} -> {hit.Key} @ {hit.Game}");
@@ -1703,6 +1796,7 @@ public sealed class TagCatalogService
                     matched++;
                     continue;
                 }
+                if (CatalogManagesTag(conn, writeTx, id)) { manual++; continue; }
                 WriteProfile(conn, writeTx!, id, hit.Key, log);
                 WriteTagIdentity(conn, id, hit.Identity, "linked", locked: false,
                     source: "auto-align", note: $"作品一致：{hit.Game}", tx: writeTx);
@@ -1727,6 +1821,7 @@ public sealed class TagCatalogService
         IReadOnlyDictionary<int, HashSet<string>> worksByTag,
         IReadOnlyDictionary<string, HashSet<string>> gamesByIdentity,
         IReadOnlyDictionary<string, (string Zh, string En)> catalogGames,
+        IReadOnlyDictionary<string, HashSet<string>> catalogAliases,
         int tagId, NameHit hit)
     {
         if (!worksByTag.TryGetValue(tagId, out var works) || works.Count == 0) return true;
@@ -1741,7 +1836,7 @@ public sealed class TagCatalogService
         {
             // 作品家族内互认：danbooru 把终末地角色写成 arknights，
             // 候选实体属于家族里任一部就算作品一致，否则会被最后一道校验拦死。
-            var family = FamilyGameKeys(catalogGames, Norm(work));
+            var family = FamilyGameKeys(catalogGames, Norm(work), catalogAliases);
             if (family.Count > 0)
             {
                 if (games.Any(game => family.Contains(game, StringComparer.OrdinalIgnoreCase))) continue;
@@ -2113,46 +2208,23 @@ public sealed class TagCatalogService
     /// <summary>人工消歧：把某个标签直接接到指定身份上，并记为 manual（以后自动对齐不再覆盖）。</summary>
     public void LinkTagToEntity(int tagId, string entityKey)
     {
-        if (string.IsNullOrWhiteSpace(entityKey)) return;
         using var conn = Open();
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText =
-                "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
-                "SELECT $t,COALESCE(zh,''),COALESCE(en,''),entity_key FROM catalog_entities " +
-                "WHERE entity_key=$k " +
-                "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
-            cmd.Parameters.AddWithValue("$t", tagId);
-            cmd.Parameters.AddWithValue("$k", entityKey);
-            cmd.ExecuteNonQuery();
-        }
-
-        var identity = entityKey;
-        var origin = "";
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText =
-                "SELECT COALESCE(NULLIF(identity_key,''),entity_key),COALESCE(game_key,'') " +
-                "FROM catalog_entities WHERE entity_key=$k";
-            cmd.Parameters.AddWithValue("$k", entityKey);
-            using var r = cmd.ExecuteReader();
-            if (r.Read())
-            {
-                identity = r.GetString(0);
-                origin = r.GetString(1);
-            }
-        }
-
-        var states = TagDisplayState.Load(conn);
-        var st = states.GetValueOrDefault(tagId) ?? new TagDisplayState.State();
-        states[tagId] = st with
-        {
-            Status = "manual",
-            IdentityKey = identity,
-            OriginGame = origin,
-        };
-        TagDisplayState.Save(conn, states);
-        WriteTagIdentity(conn, tagId, identity, "linked", locked: true, source: "manual");
+        using var tx = conn.BeginTransaction();
+        using var cmd = Query(conn, tx, """
+            SELECT e.kind,e.identity_key,e.game_key,t.tag_key,t.name
+            FROM catalog_effective_entities e JOIN tags t ON t.id=$id AND t.category=e.kind
+            WHERE e.entity_key=$key
+            """, ("$id", tagId), ("$key", entityKey));
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new InvalidOperationException("标签或资料已不可用");
+        var kind = r.GetString(0);
+        var key = r.GetString(kind == "work" ? 2 : 1);
+        var tag = new PersonalTag(r.GetString(3), kind, r.GetString(4), key);
+        r.Close();
+        var entry = RequireEntry(conn, tx, kind, key);
+        SavePersonalTag(conn, tx, tag);
+        WriteLibraryTag(conn, tx, tagId, entry);
+        tx.Commit();
     }
 
     /// <summary>身份关联的唯一落点；旧状态字段只留作显示与兼容读取。</summary>
@@ -2215,157 +2287,4 @@ public sealed class TagCatalogService
         TagDisplayState.SetGlobalMode(conn, mode);
     }
 
-    /// <summary>资料库浏览行：词库实体 + 关联标签的使用统计。</summary>
-    public sealed record CatalogRow(
-        string EntityKey, string GameKey, string Kind, string Zh, string En,
-        string Aliases, int TagId, string TagName, int Usage, string GameName = "");
-
-    /// <summary>按关键词列出词库实体（含未关联标签的条目），并给出类型分布与总数。</summary>
-    public List<CatalogRow> Browse(string? query, out List<(string Kind, int Count)> kinds,
-        out int total, int limit = 2000)
-    {
-        var needle = Norm(query ?? "");
-        var all = new List<CatalogRow>();
-        using var conn = Open();
-        using (var cmd = conn.CreateCommand())
-        {
-            // 一个实体可能有多条标签档案（别名、带作品限定写法），按实体只取一条：
-            // 带 _(作品) 的写法优先，其次使用数多的，避免同一角色在列表里重复出现。
-            cmd.CommandText =
-                "SELECT e.entity_key,COALESCE(e.game_key,''),COALESCE(e.kind,''),COALESCE(e.zh,'')," +
-                "COALESCE(e.en,''),COALESCE(e.aliases,'[]')," +
-                "COALESCE(p.tag_id,0),COALESCE(t.name,'')," +
-                "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=p.tag_id)," +
-                "COALESCE(g.zh,''),COALESCE(g.en,'') " +
-                "FROM catalog_entities e " +
-                "LEFT JOIN tag_profiles p ON p.rowid=(" +
-                "SELECT p2.rowid FROM tag_profiles p2 JOIN tags t2 ON t2.id=p2.tag_id " +
-                "WHERE p2.entity_key=e.entity_key " +
-                "ORDER BY (instr(t2.name,'_(')>0) DESC," +
-                "(SELECT COUNT(*) FROM image_tags it2 WHERE it2.tag_id=p2.tag_id) DESC," +
-                "length(t2.name),t2.name LIMIT 1) " +
-                "LEFT JOIN tags t ON t.id=p.tag_id " +
-                "LEFT JOIN catalog_games g ON g.game_key=e.game_key";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                var aliasesRaw = r.GetString(5);
-                List<string> aliases;
-                try { aliases = JsonSerializer.Deserialize<List<string>>(aliasesRaw) ?? []; }
-                catch { aliases = []; }
-                var zh = r.GetString(3);
-                var en = r.GetString(4);
-                if (needle.Length > 0)
-                {
-                    var hay = new[] { zh, en, r.GetString(1), r.GetString(0) }.Concat(aliases)
-                        .Select(Norm).Where(x => x.Length > 0);
-                    if (!hay.Any(x => x.Contains(needle, StringComparison.Ordinal))) continue;
-                }
-                all.Add(new CatalogRow(r.GetString(0), r.GetString(1), r.GetString(2), zh, en,
-                    string.Join("、", aliases), r.GetInt32(6), r.GetString(7), r.GetInt32(8),
-                    r.GetString(9).Length > 0 ? r.GetString(9) : r.GetString(10)));
-            }
-        }
-
-        total = all.Count;
-        kinds = all.GroupBy(x => x.Kind.Length == 0 ? "未分类" : x.Kind)
-            .Select(g => (g.Key, g.Count()))
-            .OrderByDescending(g => g.Item2)
-            .ToList();
-        return all
-            .OrderBy(x => x.TagId > 0 ? 0 : 1)
-            .ThenByDescending(x => x.Usage)
-            .ThenBy(x => x.Zh.Length == 0 ? 1 : 0)
-            .ThenBy(x => x.Zh, StringComparer.Ordinal)
-            .ThenBy(x => x.EntityKey, StringComparer.Ordinal)
-            .Take(limit)
-            .ToList();
-    }
-
-    /// <summary>
-    /// 保存人工资料：写 catalog_entities 的中/英名与别名，并把同名的标签补上 tag_profiles
-    /// （人工资料优先于词库，词库更新不会覆盖）。返回被同步的标签数。
-    /// </summary>
-    public int UpdateEntity(string entityKey, string zh, string en, IEnumerable<string> aliases)
-    {
-        if (string.IsNullOrWhiteSpace(entityKey)) return 0;
-        zh = CanonicalName(zh);
-        en = CanonicalName(en);
-        if (zh.Length == 0 && en.Length == 0) throw new ArgumentException("词库名称不能为空");
-        var aliasList = CanonicalAliases(aliases, zh, en);
-        var aliasJson = JsonSerializer.Serialize(aliasList);
-
-        using var conn = Open();
-        using var tx = conn.BeginTransaction();
-
-        var oldNames = new List<string>();
-        using (var read = conn.CreateCommand())
-        {
-            read.Transaction = tx;
-            read.CommandText = "SELECT COALESCE(zh,''),COALESCE(en,''),COALESCE(aliases,'[]') " +
-                               "FROM catalog_entities WHERE entity_key=$k";
-            read.Parameters.AddWithValue("$k", entityKey);
-            using var r = read.ExecuteReader();
-            if (r.Read())
-            {
-                oldNames.Add(r.GetString(0));
-                oldNames.Add(r.GetString(1));
-                try { oldNames.AddRange(JsonSerializer.Deserialize<List<string>>(r.GetString(2)) ?? []); }
-                catch { /* 坏别名忽略 */ }
-            }
-        }
-
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.Transaction = tx;
-            cmd.CommandText =
-                "UPDATE catalog_entities SET zh=$z,en=$e,aliases=$a,source_kind='manual' WHERE entity_key=$k";
-            cmd.Parameters.AddWithValue("$z", zh.Trim());
-            cmd.Parameters.AddWithValue("$e", en.Trim());
-            cmd.Parameters.AddWithValue("$a", aliasJson);
-            cmd.Parameters.AddWithValue("$k", entityKey);
-            cmd.ExecuteNonQuery();
-        }
-
-        // 名称表：删旧加新（同时保留 entity_key 自身可检索）
-        var names = new List<string> { zh, en };
-        names.AddRange(aliasList);
-        using (var del = conn.CreateCommand())
-        {
-            del.Transaction = tx;
-            del.CommandText = "DELETE FROM catalog_names WHERE entity_key=$k";
-            del.Parameters.AddWithValue("$k", entityKey);
-            del.ExecuteNonQuery();
-        }
-        foreach (var name in names.Select(Norm).Where(n => n.Length > 0).Distinct())
-        {
-            using var ins = conn.CreateCommand();
-            ins.Transaction = tx;
-            ins.CommandText = "INSERT OR IGNORE INTO catalog_names(term,entity_key) VALUES($t,$k)";
-            ins.Parameters.AddWithValue("$t", name);
-            ins.Parameters.AddWithValue("$k", entityKey);
-            ins.ExecuteNonQuery();
-        }
-
-        // 把同名（含旧名）的标签接到这个实体上
-        var terms = names.Concat(oldNames).Select(Norm).Where(n => n.Length > 0).Distinct().ToList();
-        var synced = 0;
-        foreach (var term in terms)
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText =
-                "INSERT INTO tag_profiles(tag_id,zh,en,entity_key) " +
-                "SELECT id,$z,$e,$k FROM tags WHERE lower(name)=$t " +
-                "ON CONFLICT(tag_id) DO UPDATE SET zh=excluded.zh,en=excluded.en,entity_key=excluded.entity_key";
-            cmd.Parameters.AddWithValue("$z", zh.Trim());
-            cmd.Parameters.AddWithValue("$e", en.Trim());
-            cmd.Parameters.AddWithValue("$k", entityKey);
-            cmd.Parameters.AddWithValue("$t", term);
-            synced += cmd.ExecuteNonQuery();
-        }
-
-        tx.Commit();
-        return synced;
-    }
 }

@@ -16,7 +16,7 @@ namespace Gallery.Controls;
 /// 图库格子。视觉结构与状态机对齐 Photos 的 GalleryTileContainer：
 /// 圆角 4、悬停零时长硬切、选中 167ms cubic-bezier(0,0,0,1)、按压 0.98 / 100ms 线性。
 /// </summary>
-public sealed class PhotoTile : Grid
+public class PhotoTile : Grid
 {
     private const double CornerRadiusValue = 4;
     internal const double KeyboardFocusOutset = 6;
@@ -26,15 +26,15 @@ public sealed class PhotoTile : Grid
     private readonly Border _frame;
     private readonly Image _image;
     private readonly Rectangle _hover;
-    private readonly Rectangle _selectionBorder;
-    private readonly Border _keyboardFocusBorder;
-    private readonly CheckBox _check;
+    private readonly Rectangle? _selectionBorder;
+    private readonly Border? _keyboardFocusBorder;
+    private readonly CheckBox? _check;
     private readonly FavoriteButton _favorite;
     private readonly FontIcon _videoPlaceholder;
     private readonly Border _durationBadge;
     private readonly TextBlock _durationText;
-    private readonly Storyboard _selectIn;
-    private readonly Storyboard _selectOut;
+    private readonly Storyboard? _selectIn;
+    private readonly Storyboard? _selectOut;
 
     private SolidColorBrush _hoverBrush = new(Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF));
     private SolidColorBrush _pressedBrush = new(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
@@ -55,7 +55,7 @@ public sealed class PhotoTile : Grid
     private XamlRoot? _thumbnailRoot;
     private bool _pointerOver;
 
-    private async Task LoadThumbnailAsync(int edge, int token, ImagePriority priority)
+    private async Task LoadThumbnailAsync(int edge, int token, ImagePriority priority, bool galleryViewport, bool compact)
     {
         _thumbnailCancellation?.Cancel();
         _thumbnailCancellation?.Dispose();
@@ -64,7 +64,7 @@ public sealed class PhotoTile : Grid
         try
         {
             var item = Item;
-            var bitmap = await ImageLoader.LoadThumbnailAsync(item, edge, ImageLoader.BlurStrength(item), cancellation.Token, priority);
+            var bitmap = await ImageLoader.LoadThumbnailAsync(item, edge, ImageLoader.BlurStrength(item), cancellation.Token, priority, galleryViewport, compact);
             if (Detached || token != _thumbnailToken) return;
             _image.Source = bitmap;
             _loadedEdge = edge;
@@ -86,16 +86,29 @@ public sealed class PhotoTile : Grid
     }
 
     /// <summary>由图库统一按可见性提交，瓦片自身不启动后台生成任务。</summary>
-    public void RequestThumbnail(double pixels, ImagePriority priority)
+    public void RequestThumbnail(double pixels, ImagePriority priority, bool galleryViewport = true, bool compact = false)
     {
         if (Detached || Item is null) return;
-        int edge = ImageLoader.ThumbnailEdge(Item, pixels);
+        int edge = ImageLoader.ThumbnailEdge(Item, pixels, compact);
         if (edge == 0) { _image.Source = null; _videoPlaceholder.Visibility = Visibility.Collapsed; return; }
         if (edge <= _requestedEdge) return;
-        _image.Source ??= ImageLoader.FindThumbnail(Item, edge, ImageLoader.BlurStrength(Item));
-        UpdateVideoOverlay();
+        if (!compact)
+        {
+            _image.Source ??= ImageLoader.FindThumbnail(Item, edge, ImageLoader.BlurStrength(Item));
+            UpdateVideoOverlay();
+        }
         _requestedEdge = edge;
-        _ = LoadThumbnailAsync(edge, ++_thumbnailToken, priority);
+        _ = LoadThumbnailAsync(edge, ++_thumbnailToken, priority, galleryViewport, compact);
+    }
+
+    internal void SuspendThumbnail()
+    {
+        if (_thumbnailCancellation is null) return;
+        ++_thumbnailToken;
+        _thumbnailCancellation.Cancel();
+        _thumbnailCancellation.Dispose();
+        _thumbnailCancellation = null;
+        _requestedEdge = _loadedEdge;
     }
 
     public void Bind(PhotoItem item)
@@ -109,9 +122,10 @@ public sealed class PhotoTile : Grid
             Recycle();
             _image.Source = retained;
             _binding = binding;
-            _selectIn.Stop(); _selectOut.Stop();
-            _selected = false; _selectMode = false; _check.IsChecked = false;
-            _selectionBorder.Opacity = 0; _check.Opacity = 0;
+            _selectIn?.Stop(); _selectOut?.Stop();
+            _selected = false; _selectMode = false;
+            if (_check is not null) { _check.IsChecked = false; _check.Opacity = 0; }
+            if (_selectionBorder is not null) _selectionBorder.Opacity = 0;
         }
         Item = item; Detached = false;
         _favorite.Favorite = item.Favorite;
@@ -165,7 +179,7 @@ public sealed class PhotoTile : Grid
         {
             if (_selectMode == value) return;
             _selectMode = value;
-            (_selectMode || _selected ? _selectIn : _selectOut).Begin();
+            (_selectMode || _selected ? _selectIn : _selectOut)?.Begin();
         }
     }
 
@@ -173,8 +187,8 @@ public sealed class PhotoTile : Grid
     /// <summary>图库逻辑键盘焦点，与勾选独立；不参与虚拟化布局测量。</summary>
     public bool KeyboardFocused
     {
-        get => _keyboardFocusBorder.Visibility == Visibility.Visible;
-        set => _keyboardFocusBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        get => _keyboardFocusBorder?.Visibility == Visibility.Visible;
+        set { if (_keyboardFocusBorder is not null) _keyboardFocusBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
     }
 
     public bool Selected
@@ -184,14 +198,16 @@ public sealed class PhotoTile : Grid
         {
             if (_selected == value) return;
             _selected = value;
-            _check.IsChecked = value;
-            (_selected ? _selectIn : _selectOut).Begin();
+            if (_check is not null) _check.IsChecked = value;
+            (_selected ? _selectIn : _selectOut)?.Begin();
         }
     }
 
     public PhotoTile(PhotoItem item) : this() => Bind(item);
 
-    public PhotoTile()
+    public PhotoTile() : this(false) { }
+
+    protected PhotoTile(bool compact)
     {
         Background = new SolidColorBrush(Colors.Transparent);
         IsTabStop = false;
@@ -237,7 +253,7 @@ public sealed class PhotoTile : Grid
             RadiusY = CornerRadiusValue
         };
 
-        _selectionBorder = new Rectangle
+        if (!compact) _selectionBorder = new Rectangle
         {
             Stroke = Brush("AccentFillColorDefaultBrush", Color.FromArgb(0xFF, 0x00, 0x67, 0xC0)),
             StrokeThickness = 2,
@@ -248,7 +264,7 @@ public sealed class PhotoTile : Grid
             Margin = new Thickness(0)
         };
 
-        _check = new CheckBox
+        if (!compact) _check = new CheckBox
         {
             IsChecked = false,
             IsHitTestVisible = false,
@@ -303,8 +319,8 @@ public sealed class PhotoTile : Grid
         Children.Add(_frame);
         Children.Add(_videoPlaceholder);
         Children.Add(_hover);
-        Children.Add(_selectionBorder);
-        _keyboardFocusBorder = new Border
+        if (_selectionBorder is not null) Children.Add(_selectionBorder);
+        if (!compact) _keyboardFocusBorder = new Border
         {
             BorderThickness = new Thickness(4),
             CornerRadius = new CornerRadius(CornerRadiusValue + KeyboardFocusOutset),
@@ -312,13 +328,19 @@ public sealed class PhotoTile : Grid
             IsHitTestVisible = false,
             Visibility = Visibility.Collapsed,
         };
-        Children.Add(_keyboardFocusBorder);
-        Children.Add(_check);
+        if (_keyboardFocusBorder is not null && _check is not null)
+        {
+            Children.Add(_keyboardFocusBorder);
+            Children.Add(_check);
+        }
         Children.Add(_favorite);
         Children.Add(_durationBadge);
 
-        _selectIn = BuildOpacityStoryboard(1);
-        _selectOut = BuildOpacityStoryboard(0);
+        if (!compact)
+        {
+            _selectIn = BuildOpacityStoryboard(1);
+            _selectOut = BuildOpacityStoryboard(0);
+        }
 
         PointerEntered += OnPointerEntered;
         PointerExited += OnPointerExited;
@@ -334,7 +356,7 @@ public sealed class PhotoTile : Grid
     private Storyboard BuildOpacityStoryboard(double to)
     {
         var sb = new Storyboard();
-        foreach (FrameworkElement target in new FrameworkElement[] { _selectionBorder, _check })
+        foreach (FrameworkElement target in new FrameworkElement[] { _selectionBorder!, _check! })
         {
             var anim = new DoubleAnimationUsingKeyFrames();
             var kf = new SplineDoubleKeyFrame
@@ -370,8 +392,9 @@ public sealed class PhotoTile : Grid
         _hoverBrush = new SolidColorBrush(dark ? Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x19, 0x00, 0x00, 0x00));
         _pressedBrush = new SolidColorBrush(dark ? Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x33, 0x00, 0x00, 0x00));
         _hover.Fill = _hoverBrush;
-        _keyboardFocusBorder.BorderBrush = Brush("AccentTextFillColorPrimaryBrush",
-            dark ? Color.FromArgb(255, 153, 217, 255) : Color.FromArgb(255, 0, 95, 184));
+        if (_keyboardFocusBorder is not null)
+            _keyboardFocusBorder.BorderBrush = Brush("AccentTextFillColorPrimaryBrush",
+                dark ? Color.FromArgb(255, 153, 217, 255) : Color.FromArgb(255, 0, 95, 184));
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -437,4 +460,10 @@ public sealed class PhotoTile : Grid
         anim.Duration = TimeSpan.FromMilliseconds(durationMs);
         visual.StartAnimation("Scale", anim);
     }
+}
+
+/// <summary>关联媒体只浏览和收藏，不需要图库的选择与键盘焦点视觉层。</summary>
+public sealed class CatalogPhotoTile : PhotoTile
+{
+    public CatalogPhotoTile() : base(true) { }
 }

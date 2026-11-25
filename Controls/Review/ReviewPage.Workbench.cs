@@ -327,6 +327,7 @@ public sealed partial class ReviewPage
 
     private void RebuildPalette()
     {
+        _paletteLabelsNeedRebuild = false;
         _stopGlow?.Invoke();
         _stopGlow = null;
         // 重建会换掉全部按钮：键盘焦点原本在调色板上时，重建后放回同一颗。
@@ -1389,6 +1390,8 @@ public sealed partial class ReviewPage
         _paintHint.Visibility = _batchMode && _paintTag is not null && _paintTag.Category != ClearCategory
             ? Visibility.Visible : Visibility.Collapsed;
         if (!_batchMode) { _carousel.SetTagTool(ReviewCarousel.TagToolState.None); return; }
+        if (_paletteLabelsNeedRebuild && !_paintGesture && !_paletteDragging && !_dragFinishing && !_busy)
+            RebuildPalette();
         _undoPaint.IsEnabled = !_busy && !_paintGesture && _paintUndo.Count > 0;
         _redoPaint.IsEnabled = !_busy && !_paintGesture && _paintRedo.Count > 0;
         _paletteContainer.IsHitTestVisible = !_busy && !_paintGesture;
@@ -1828,16 +1831,43 @@ public sealed partial class ReviewPage
                 if (tag.Category != ClearCategory && !string.IsNullOrWhiteSpace(tag.Name)
                     && !_palette.Any(item => item.Category == tag.Category && string.Equals(item.Name, tag.Name, StringComparison.OrdinalIgnoreCase)))
                     _palette.Add(tag with { Display = string.IsNullOrWhiteSpace(tag.Display) ? tag.Name : tag.Display });
-            if (AppService.Store is { } store)
-            {
-                var labels = store.ResolveTagLabels(_palette.Where(tag => tag.Category is "work" or "character")
-                    .Select(tag => (Category: tag.Category, Name: tag.Name)));
-                for (var i = 0; i < _palette.Count; i++)
-                    if (labels.TryGetValue((_palette[i].Category, _palette[i].Name), out var label))
-                        _palette[i] = _palette[i] with { Display = label };
-            }
         }
         catch (JsonException ex) { AppService.DebugLog("review palette: " + ex.Message); }
+    }
+
+    private bool _paletteLabelsRequested;
+    private bool _paletteLabelsNeedRebuild;
+
+    private async Task ResolveSavedPaletteLabelsAsync()
+    {
+        if (_paletteLabelsRequested || AppService.Store is not { } store) return;
+        var savedTags = _palette.Where(tag => tag.Category is "work" or "character").ToArray();
+        if (savedTags.Length == 0) return;
+        _paletteLabelsRequested = true;
+        try
+        {
+            var labels = await Task.Run(() =>
+            {
+                using var reader = new StoreService(store.DbPath, readOnly: true);
+                return reader.ResolveTagLabels(savedTags.Select(tag => (tag.Category, tag.Name)));
+            });
+            if (AppService.IsShuttingDown) return;
+            var savedKeys = savedTags.ToHashSet();
+            for (var i = 0; i < _palette.Count; i++)
+            {
+                var tag = _palette[i];
+                if (!savedKeys.Contains(tag) || !labels.TryGetValue((tag.Category, tag.Name), out var label) ||
+                    label == tag.Display) continue;
+                _palette[i] = tag with { Display = label };
+                _paletteLabelsNeedRebuild = true;
+            }
+            if (_active && _batchMode) UpdateWorkbenchState();
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            _paletteLabelsRequested = false;
+            AppService.DebugLog("review palette labels: " + ex.Message);
+        }
     }
 
     private void PersistPalette()

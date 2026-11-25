@@ -139,7 +139,7 @@ public sealed partial class ReviewPage : Grid
     private int _index, _selectionGeneration;
     /// <summary>待归档队列里见过的最大 ID：比它更大的记录进来就算新图，用来回到最新那张。</summary>
     private int _newestSeen;
-    private bool _busy, _active = true;
+    private bool _busy, _active;
     private readonly Queue<ArchiveBatch> _archiveQueue = new();
     private Task _archiveTask = Task.CompletedTask;
     private readonly TextBlock _archiveProgress = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
@@ -339,7 +339,7 @@ public sealed partial class ReviewPage : Grid
         _showInExplorer.Click += (_, _) => RevealInExplorer();
         _cleanHistory.Click += async (_, _) => await CleanHistoryAsync();
         _pickFolder.Click += async (_, _) => await PickFolderAsync();
-        Loaded += (_, _) => { FolderMap.Changed += OnDirectoryRulesChanged; _active = true; _carousel.SetActive(true); Reload(); };
+        Loaded += (_, _) => FolderMap.Changed += OnDirectoryRulesChanged;
         Unloaded += (_, _) => { FolderMap.Changed -= OnDirectoryRulesChanged; SetActive(false, releasePreviews: true); };
         ActualThemeChanged += (_, _) => { ApplyColors(); RebuildPalette(); };
         SizeChanged += (_, _) =>
@@ -530,26 +530,27 @@ public sealed partial class ReviewPage : Grid
     public void Reload()
     {
         ++_reloadVersion;
-        if (_reloadTask.IsCompleted) _reloadTask = ReloadAsync();
+        if (_active && _reloadTask.IsCompleted) _reloadTask = ReloadAsync();
     }
 
     private async Task ReloadAsync()
     {
-        while (!_busy && !AppService.IsShuttingDown && AppService.Store is { } store)
+        while (_active && !_busy && !AppService.IsShuttingDown && AppService.Store is { } store)
         {
             var version = _reloadVersion;
             var state = _state;
-            var keep = _selected?.Id;
             var history = state == "history";
             List<StoreService.PendingIngestRow> rows;
+            string fallbackRoot;
             try
             {
-                rows = await Task.Run(() =>
+                (rows, fallbackRoot) = await Task.Run(() =>
                 {
-                    var result = history ? store.IngestHistory(HistoryLimit)
-                        : store.IngestRows(state, int.MaxValue).OrderByDescending(row => row.ReceivedAt).ThenByDescending(row => row.Id).ToList();
+                    using var reader = new StoreService(store.DbPath, readOnly: true);
+                    var result = history ? reader.IngestHistory(HistoryLimit)
+                        : reader.IngestRows(state, int.MaxValue).OrderByDescending(row => row.ReceivedAt).ThenByDescending(row => row.Id).ToList();
                     if (history)
-                        result = result.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(store, row) }).ToList();
+                        result = result.Select(row => row with { ResolvedPath = IngestReview.ResolveCurrentPath(reader, row) }).ToList();
                     // 一次后台快照预备好所有可选记录；只在 payload 变化后重新归一化。
                     var valid = result.Select(row => row.Id).ToHashSet();
                     foreach (var id in _normalizedPayloads.Keys.Where(id => !valid.Contains(id)).ToArray()) _normalizedPayloads.Remove(id);
@@ -558,19 +559,19 @@ public sealed partial class ReviewPage : Grid
                         var current = result[i];
                         if (current.State != "pending" || _normalizedPayloads.GetValueOrDefault(current.Id) == current.Payload) continue;
                         store.NormalizeIngestSkins(current.Id);
-                        result[i] = store.IngestRow(current.Id) ?? current;
+                        result[i] = reader.IngestRow(current.Id) ?? current;
                         _normalizedPayloads[current.Id] = result[i].Payload;
                     }
-                    return result;
+                    result.RemoveAll(row => row.State == "pending" && store.IsIngestArchiving(row.Id));
+                    return (result, reader.Roots().FirstOrDefault(root => root.Enabled)?.Path ?? "");
                 });
             }
             catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
             { _status.Text = "刷新审核队列失败：" + ex.Message; return; }
             if (version != _reloadVersion || state != _state) continue;
-            if (_busy || AppService.IsShuttingDown) return;
-            rows.RemoveAll(row => row.State == "pending" && store.IsIngestArchiving(row.Id));
+            if (!_active || _busy || AppService.IsShuttingDown) return;
             if (_loadedState != state || !_rows.SequenceEqual(rows))
-                ApplyReload(rows, state);
+                ApplyReload(rows, state, fallbackRoot);
             if (_pendingNotificationId is int requested && _state == "pending")
             {
                 _pendingNotificationId = null;
@@ -582,11 +583,10 @@ public sealed partial class ReviewPage : Grid
         }
     }
 
-    private void ApplyReload(List<StoreService.PendingIngestRow> rows, string state)
+    private void ApplyReload(List<StoreService.PendingIngestRow> rows, string state, string fallbackRoot)
     {
         if (_paintGesture) ExitPaintMode();
         var keep = _selected?.Id;
-        var store = AppService.Store!;
         _loadedState = state;
         _rows = rows;
         if (_batchMode && state == "pending" && _rows.Count == 0) SetBatchMode(false);
@@ -601,7 +601,7 @@ public sealed partial class ReviewPage : Grid
             var settings = AppService.Settings.Settings;
             var fallback = settings.archive_root.Length > 0
                 ? Path.Combine(settings.archive_root, settings.archive_sub)
-                : store.Roots().FirstOrDefault(r => r.Enabled)?.Path ?? "";
+                : fallbackRoot;
             _settingDestination = true;
             _autoDestination = fallback;
             _destination.Text = fallback;
@@ -650,31 +650,8 @@ public sealed partial class ReviewPage : Grid
         }
 
         var service = new IngestBasicsService(store, AppService.Settings.Settings.nsfw_model_dir);
-        var ids = _rows
-            .Where(row => row.State == "pending"
-                && !_basicsFailed.ContainsKey(row.Id)
-                && service.NeedsWork(row))
-            .OrderByDescending(row => row.ReceivedAt)
-            .ThenByDescending(row => row.Id)
-            .Select(row => row.Id)
-            .ToList();
-        while (_basicsExtras.TryDequeue(out var extraId))
-        {
-            if (_basicsFailed.ContainsKey(extraId)) continue;
-            var extra = store.IngestRow(extraId);
-            if (extra is null) continue;
-            if (ArchiveService.NormalizeRating(extra.Rating).Length > 0) continue;
-            if (IngestReview.RatingChecked(extra.Payload)) continue;
-            ids.Add(extraId);
-        }
-        ids = ids.Distinct().ToList();
+        var rows = _rows.ToArray();
         _basicsDirty = false;
-        if (ids.Count == 0) return;
-
-        _analyzing.Clear();
-        _analyzing.UnionWith(ids);
-        _carousel.SetAnalyzing(_analyzing);
-
         if (_basicsCts is null || _basicsCts.IsCancellationRequested)
         {
             _basicsCts?.Dispose();
@@ -682,7 +659,7 @@ public sealed partial class ReviewPage : Grid
         }
         var token = _basicsCts.Token;
         var generation = ++_basicsGeneration;
-        _basicsTask = Task.Run(() => RunBasics(service, ids, token, generation));
+        _basicsTask = Task.Run(() => RunBasics(store, service, rows, token, generation));
     }
 
     /// <summary>
@@ -708,11 +685,39 @@ public sealed partial class ReviewPage : Grid
         StartBasicsEnrichment();
     }
 
-    private void RunBasics(IngestBasicsService service, List<int> ids,
+    private void RunBasics(StoreService store, IngestBasicsService service, IReadOnlyList<StoreService.PendingIngestRow> rows,
         CancellationToken token, int generation)
     {
         try
         {
+            token.ThrowIfCancellationRequested();
+            var ids = rows
+                .Where(row => row.State == "pending"
+                    && !_basicsFailed.ContainsKey(row.Id)
+                    && service.NeedsWork(row))
+                .OrderByDescending(row => row.ReceivedAt)
+                .ThenByDescending(row => row.Id)
+                .Select(row => row.Id)
+                .ToList();
+            while (_basicsExtras.TryDequeue(out var extraId))
+            {
+                if (_basicsFailed.ContainsKey(extraId)) continue;
+                var extra = store.IngestRow(extraId);
+                if (extra is null) continue;
+                if (ArchiveService.NormalizeRating(extra.Rating).Length > 0) continue;
+                if (IngestReview.RatingChecked(extra.Payload)) continue;
+                ids.Add(extraId);
+            }
+            ids = ids.Distinct().ToList();
+            if (ids.Count == 0) return;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (generation != _basicsGeneration) return;
+                _analyzing.Clear();
+                _analyzing.UnionWith(ids);
+                _carousel.SetAnalyzing(_analyzing);
+            });
             foreach (var id in ids)
             {
                 token.ThrowIfCancellationRequested();
@@ -756,6 +761,10 @@ public sealed partial class ReviewPage : Grid
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            AppService.DebugLog("review basics preparation: " + ex.Message);
         }
         finally
         {
@@ -866,7 +875,11 @@ public sealed partial class ReviewPage : Grid
         _tagGroups.Children.Clear(); _tagInputs.Clear();
         ++_selectionGeneration;
         _carousel.SetBatchMode(enabled, _batchSelected, enabled ? null : _singleIndexBeforeBatch);
-        if (enabled) RenderBatchSelection(true);
+        if (enabled)
+        {
+            _ = ResolveSavedPaletteLabelsAsync();
+            RenderBatchSelection(true);
+        }
         else Select(Math.Clamp(_singleIndexBeforeBatch, 0, Math.Max(0, _rows.Count - 1)), false);
         UpdateButtons();
     }
@@ -1041,20 +1054,52 @@ public sealed partial class ReviewPage : Grid
 
     private int? _pendingNotificationId;
 
-    private int _tagLabelGeneration = -1;
-    private readonly Dictionary<(string Category, string Name), string> _tagLabels = [];
-
-    private string TagLabel(string category, string name)
+    private async Task LoadTagChipLabels(string category, string payload, TagWrapPanel panel,
+        IReadOnlyList<(string Name, Tags.TagChip Chip)> chips, Action rebuild)
     {
-        if (category is not ("character" or "work") || AppService.Store is not { } store) return name;
-        if (_tagLabelGeneration != _selectionGeneration) { _tagLabels.Clear(); _tagLabelGeneration = _selectionGeneration; }
-        if (!_tagLabels.ContainsKey((category, name)))
+        if (chips.Count == 0 || AppService.Store is not { } store) return;
+        var generation = _selectionGeneration;
+        try
         {
-            var names = _tags.Where(pair => pair.Key is "character" or "work")
-                .SelectMany(pair => pair.Value.Select(value => (Category: pair.Key, Name: value)));
-            foreach (var (key, label) in store.ResolveTagLabels(names)) _tagLabels[key] = label;
+            var (labels, skins) = await Task.Run(() =>
+            {
+                using var reader = new StoreService(store.DbPath, readOnly: true);
+                var names = chips.Select(chip => chip.Name).Distinct().ToArray();
+                var resolved = reader.ResolveTagLabels(names.Select(name => (category, name)));
+                var variants = category == "character"
+                    ? names.ToDictionary(name => name, name => reader.SkinsForCharacter(payload, name))
+                    : [];
+                return (resolved, variants);
+            });
+            if (generation != _selectionGeneration || !_active) return;
+            foreach (var (name, chip) in chips)
+            {
+                if (!panel.Children.Contains(chip)) continue;
+                var label = labels.GetValueOrDefault((category, name), name);
+                var variants = skins.GetValueOrDefault(name);
+                if (variants is { Count: > 0 }) label += " · " + string.Join(" / ", variants.Select(skin => skin.Display));
+                chip.Label.Text = label;
+                ToolTipService.SetToolTip(chip, label == name ? name : $"{label} · {name}");
+                if (variants is not { Count: > 0 }) continue;
+                var menu = new MenuFlyout();
+                foreach (var skin in variants)
+                {
+                    var edit = new MenuFlyoutItem { Text = $"编辑皮肤中文名：{skin.Display}" };
+                    edit.Click += async (_, _) =>
+                    {
+                        await EditSkinChineseNameAsync(skin);
+                        if (generation == _selectionGeneration) rebuild();
+                    };
+                    menu.Items.Add(edit);
+                }
+                chip.ContextFlyout = menu;
+                ToolTipService.SetToolTip(chip, $"{label}\n原始标签：{string.Join(", ", variants.Select(skin => skin.SourceTag))}\n右键可编辑皮肤中文名");
+            }
         }
-        return _tagLabels.GetValueOrDefault((category, name), name);
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            AppService.DebugLog("review tag labels: " + ex.Message);
+        }
     }
 
     private void BuildTagGroup(string category, string title)
@@ -1126,6 +1171,7 @@ public sealed partial class ReviewPage : Grid
         void Rebuild()
         {
             chips.Children.Clear();
+            var namedChips = new List<(string Name, Tags.TagChip Chip)>();
             if (category == "rating")
             {
                 var rating = _tags[category].FirstOrDefault();
@@ -1171,33 +1217,14 @@ public sealed partial class ReviewPage : Grid
                         SaveTags(false);
                         Rebuild();
                     };
-                    var label = TagLabel(category, name);
-                    var skins = category == "character" && _selected is { } skinRow && AppService.Store is { } skinStore
-                        ? skinStore.SkinsForCharacter(skinRow.Payload, name)
-                        : new List<CharacterSkin>();
-                    if (skins.Count > 0) label += " · " + string.Join(" / ", skins.Select(s => s.Display));
-                    var chip = new Tags.TagChip(category, label, remove);
-                    ToolTipService.SetToolTip(chip, label == name ? name : $"{label} · {name}");
-                    if (skins.Count > 0)
-                    {
-                        var menu = new MenuFlyout();
-                        foreach (var skin in skins)
-                        {
-                            var edit = new MenuFlyoutItem { Text = $"编辑皮肤中文名：{skin.Display}" };
-                            edit.Click += async (_, _) =>
-                            {
-                                var skinGeneration = _selectionGeneration;
-                                await EditSkinChineseNameAsync(skin);
-                                if (skinGeneration == _selectionGeneration) Rebuild();
-                            };
-                            menu.Items.Add(edit);
-                        }
-                        chip.ContextFlyout = menu;
-                        ToolTipService.SetToolTip(chip, $"{label}\n原始标签：{string.Join(", ", skins.Select(s => s.SourceTag))}\n右键可编辑皮肤中文名");
-                    }
+                    var chip = new Tags.TagChip(category, name, remove);
+                    ToolTipService.SetToolTip(chip, name);
+                    if (category is "character" or "work") namedChips.Add((name, chip));
                     chips.Children.Add(chip);
                 }
             }
+            if (namedChips.Count > 0 && _selected is { } row)
+                _ = LoadTagChipLabels(category, row.Payload, chips, namedChips, Rebuild);
             if (category == "rating")
             {
                 var classify = new Button { Content = new FontIcon { Glyph = "\uE895", FontSize = 14 }, Padding = new Thickness(9, 5, 9, 5), IsEnabled = _state == "pending" };
@@ -1551,8 +1578,7 @@ public sealed partial class ReviewPage : Grid
         }
         if (string.IsNullOrEmpty(work)) return "";
         _tags["work"].Add(work);
-        // 作品标签可能是刚建的，显示名缓存要失效一次才能取到中文名
-        _tagLabelGeneration = -1;
+
         return work;
     }
 
@@ -1584,7 +1610,9 @@ public sealed partial class ReviewPage : Grid
     private void OnDirectoryRulesChanged() => DispatcherQueue.TryEnqueue(RefreshDestination);
 
     /// <summary>开启「按标签自动分目录」时，当前这张的目录随标签走；用户手改过就不覆盖。</summary>
-    private void RefreshDestination()
+    private int _destinationRevision;
+
+    private async void RefreshDestination()
     {
         if (_state != "pending") return;
         if (_batchMode && AppService.Settings.Settings.archive_auto_by_tags)
@@ -1600,8 +1628,26 @@ public sealed partial class ReviewPage : Grid
         _destination.PlaceholderText = "选择图库内的归档目录";
         if (_selected is null || _destinationEdited) return;
         if (!AppService.Settings.Settings.archive_auto_by_tags) return;
-        var target = ArchiveTargetFor(_tags);
-        if (target.Length == 0) return;
+        if (AppService.Store is not { } store) return;
+        var row = _selected;
+        var revision = ++_destinationRevision;
+        var tags = _tags.ToDictionary(pair => pair.Key, pair => new List<string>(pair.Value));
+        string target;
+        try
+        {
+            target = await Task.Run(() =>
+            {
+                using var reader = new StoreService(store.DbPath, readOnly: true);
+                return ArchiveTargetFor(reader, tags);
+            });
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            AppService.DebugLog("review destination: " + ex.Message);
+            return;
+        }
+        if (revision != _destinationRevision || _selected?.Id != row.Id || _state != "pending" ||
+            _batchMode || _destinationEdited || !AppService.Settings.Settings.archive_auto_by_tags || target.Length == 0) return;
         _settingDestination = true;
         _autoDestination = target;
         _destination.Text = target;
@@ -1611,9 +1657,8 @@ public sealed partial class ReviewPage : Grid
     /// <summary>
     /// 按个人目录路由计算归档目录（绝对路径）；未命中时使用作品/画师两级。
     /// </summary>
-    private string ArchiveTargetFor(IReadOnlyDictionary<string, List<string>> tags)
+    private static string ArchiveTargetFor(StoreService store, IReadOnlyDictionary<string, List<string>> tags)
     {
-        if (AppService.Store is not { } store) return "";
         var root = ArchiveRoot(store);
         if (root is null) return "";
         var map = FolderMap.Load(AppPaths.FolderMapPath);
@@ -1900,6 +1945,7 @@ public sealed partial class ReviewPage : Grid
         ++_selectionGeneration;
         if (!active)
         {
+            if (_selected is not null) _tagDisplayDirty = true;
             ExitPaintMode();
             CancelPaletteDrag();
             _queueScroll.CancelInteraction();
@@ -1911,7 +1957,13 @@ public sealed partial class ReviewPage : Grid
         if (releasePreviews) _imageSpecs.Clear();
         if (active)
         {
+            Reload();
             UpdateButtons();
+            if (_batchMode)
+            {
+                _ = ResolveSavedPaletteLabelsAsync();
+                UpdateWorkbenchState();
+            }
             if (_tagDisplayDirty && !_batchMode && _selected is not null)
             { _tagDisplayDirty = false; DispatcherQueue.TryEnqueue(RebuildTagGroups); }
         }
@@ -2010,7 +2062,6 @@ public sealed partial class ReviewPage : Grid
     public void RefreshPreview()
     {
         _carousel.RefreshPreview();
-        _tagLabelGeneration = -1;
         _tagDisplayDirty = !_active;
         if (_active && !_batchMode && _selected is not null) RebuildTagGroups();
         UpdateButtons();

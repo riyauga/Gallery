@@ -46,8 +46,8 @@ public sealed partial class StoreService
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = "SELECT DISTINCT ti.identity_key FROM tags t JOIN tag_identities ti ON ti.tag_id=t.id " +
             "JOIN identities i ON i.identity_key=ti.identity_key WHERE t.category='character' AND t.name=$n COLLATE NOCASE AND ti.link_status='linked' " +
-            "AND (EXISTS(SELECT 1 FROM catalog_entities e WHERE e.identity_key=i.identity_key AND e.game_key=$g) " +
-            "OR NOT EXISTS(SELECT 1 FROM catalog_entities e WHERE e.identity_key=i.identity_key))";
+            "AND (EXISTS(SELECT 1 FROM catalog_effective_memberships e WHERE e.identity_key=i.identity_key AND e.game_key=$g) " +
+            "OR NOT EXISTS(SELECT 1 FROM catalog_effective_entities e WHERE e.identity_key=i.identity_key))";
         cmd.Parameters.AddWithValue("$n", character);
         cmd.Parameters.AddWithValue("$g", game);
         var identities = new HashSet<string>(StringComparer.Ordinal);
@@ -57,7 +57,7 @@ public sealed partial class StoreService
             "AND t.name=$n COLLATE NOCASE AND (ti.link_status='independent' OR ti.locked=1)";
         cmd.Parameters.RemoveAt("$g");
         if (cmd.ExecuteScalar() is not null) return "";
-        cmd.CommandText = "SELECT DISTINCT e.identity_key FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key " +
+        cmd.CommandText = "SELECT DISTINCT e.identity_key FROM catalog_effective_names n JOIN catalog_effective_entities e ON e.entity_key=n.entity_key " +
             "JOIN identities i ON i.identity_key=e.identity_key WHERE n.term=$term AND e.kind='character' AND e.game_key=$game";
         cmd.Parameters.Clear();
         cmd.Parameters.AddWithValue("$term", TagCatalogService.Norm(TagCatalogService.BaseName(character)));

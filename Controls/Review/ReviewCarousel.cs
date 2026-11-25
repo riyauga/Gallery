@@ -111,7 +111,9 @@ internal sealed class ReviewCarousel : Grid
         if (refreshProtection) StartLoads();
     }
     private bool _interactionEnabled = true;
-    private bool _active = true, _initializing, _ready, _clearAllowed;
+    private bool _active, _initializing, _ready, _clearAllowed, _initializationQueued;
+    private bool _navigationStarted;
+    private CoreWebView2Environment? _environment;
     private bool _frozen, _freezing, _freezeRequested;
     private double _angle = 10, _overlap = 67, _size = 95, _scale = 1.12, _drag = 1;
     private string _ease = "out";
@@ -156,18 +158,32 @@ internal sealed class ReviewCarousel : Grid
             _drag = ReadNumber(saved, "drag", 1, .4, 2);
             _ease = ReadEase(saved, "ease", "out");
         }
-        Loaded += async (_, _) => await InitializeAsync();
+        Loaded += (_, _) => QueueInitialization();
         Unloaded += (_, _) => SetActive(false);
         ActualThemeChanged += (_, _) => PublishState();
     }
 
+    private void QueueInitialization()
+    {
+        if (!IsLoaded || !_active || _initializing || _initializationQueued || _navigationStarted) return;
+        _initializationQueued = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+        {
+            _initializationQueued = false;
+            if (IsLoaded && _active && !AppService.IsShuttingDown) await InitializeAsync();
+        });
+    }
+
     private async Task InitializeAsync()
     {
-        if (_initializing || _ready) return;
+        if (_initializing || _navigationStarted) return;
         _initializing = true;
         try
         {
-            var environment = await CoreWebView2Environment.CreateWithOptionsAsync("", Path.Combine(AppPaths.LocalDataDir, "review-webview"), null);
+            _error.Text = "正在加载审核预览…";
+            _error.Visibility = Visibility.Visible;
+            var environment = _environment ??= await CoreWebView2Environment.CreateWithOptionsAsync(
+                "", Path.Combine(AppPaths.LocalDataDir, "review-webview"), null);
+            if (!IsLoaded || !_active || AppService.IsShuttingDown) return;
             // 加入可视树后 WebView2 会自动初始化；在同一 UI 回合内先绑定指定环境，避免默认环境抢先创建。
             if (_browser.Parent is null) Children.Insert(0, _browser);
             await _browser.EnsureCoreWebView2Async(environment);
@@ -188,6 +204,7 @@ internal sealed class ReviewCarousel : Grid
             using var resource = typeof(ReviewCarousel).Assembly.GetManifestResourceStream("Gallery.Controls.Review.ReviewCarousel.html")!;
             using var reader = new StreamReader(resource);
             core.NavigateToString(await reader.ReadToEndAsync());
+            _navigationStarted = true;
         }
         catch (Exception ex)
         {
@@ -430,6 +447,7 @@ internal sealed class ReviewCarousel : Grid
         PublishState();
         if (active)
         {
+            QueueInitialization();
             StartLoads();
             if (_rows.Count > 0)
             {
@@ -825,7 +843,7 @@ internal sealed class ReviewCarousel : Grid
             using var document = JsonDocument.Parse(args.WebMessageAsJson);
             var message = document.RootElement;
             var type = message.GetProperty("type").GetString();
-            if (type == "ready") { _ready = true; PublishState(); StartLoads(); return; }
+            if (type == "ready") { _ready = true; _error.Visibility = Visibility.Collapsed; PublishState(); StartLoads(); return; }
             if (type == "files")
             {
                 var paths = new List<string>();

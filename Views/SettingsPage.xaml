@@ -274,6 +274,13 @@
                         <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
                     </ctc:SettingsCard>
 
+                    <ctc:SettingsCard x:Name="TagManageSettingsEntry" Header="标签管理"
+                        Description="查看、改名、合并和删除图库标签" Tag="TagManage" IsClickEnabled="True"
+                        IsActionIconVisible="True" Click="SettingsCategory_Click">
+                        <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE8EC;" /></ctc:SettingsCard.HeaderIcon>
+                        <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
+                    </ctc:SettingsCard>
+
                     <ctc:SettingsCard x:Name="RecognitionSettingsEntry" Header="智能识别"
                         Description="模型、导入自动识别与全库重新识别" Tag="Recognition" IsClickEnabled="True"
                         IsActionIconVisible="True" Click="SettingsCategory_Click">
@@ -384,6 +391,23 @@
                             </controls:SelectionDropDown>
                         </StackPanel>
                     </ctc:SettingsCard>
+                </StackPanel>
+
+                <StackPanel x:Name="TagManageSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
+                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="标签管理" />
+                    <Border Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}">
+                        <Grid x:Name="TagManageHost" RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <!-- 标签列表：9 行（平台 ListViewItem 44）+ 半行，底部露半条提示还有更多 -->
+                                <RowDefinition Height="418"/>
+                            </Grid.RowDefinitions>
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel x:Name="RecognitionSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">

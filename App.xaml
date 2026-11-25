@@ -19,6 +19,8 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <DataTemplate x:Key="PhotoTileTemplate"><controls:PhotoTile /></DataTemplate>
+            <DataTemplate x:Key="CatalogPhotoTileTemplate"><controls:CatalogPhotoTile /></DataTemplate>
             <!-- Photos Styles/CommandBarStyles.xaml：实际被图库引用的默认样式和覆盖；未引用的旧 Win10 OpenDownCommandBar 不加载。 -->
     <!--  CommandBar & AppBarButon  -->
     <SolidColorBrush x:Key="CommandBarBackgroundOpen" Color="Transparent" />

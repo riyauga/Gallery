@@ -102,6 +102,61 @@ public partial class App : Application
         window.Activate();
         _desktopPipe = new DesktopPipe(false, window.DispatcherQueue, window.HandleDesktopCommandAsync);
         if (uriLaunch) await window.ShowInGalleryAsync("");
+#if GALLERY_DEVELOPMENT
+        if (Environment.GetCommandLineArgs().Contains("--verify-catalog-detail"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_catalog_detail.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            System.IO.File.WriteAllText(rep, "APP_HOOK");
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(5000);
+                try
+                {
+                    await window.VerifyCatalogDetail();
+                    System.IO.File.AppendAllText(rep, "\nVERIFY_DONE");
+                }
+                catch (Exception ex) { System.IO.File.AppendAllText(rep, "\nVERIFY_ERR " + ex); }
+            });
+        }
+        if (Environment.GetCommandLineArgs().Contains("--verify-esc-dialog"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_esc.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(6000);
+                try { System.IO.File.WriteAllText(rep, await window.VerifyEscapeClosesDialogAsync()); }
+                catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
+                App.Current.Exit();
+            });
+        }
+        if (Environment.GetCommandLineArgs().Contains("--verify-rel-check"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_rel_check.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(6000);
+                try { System.IO.File.WriteAllText(rep, await window.VerifyRelationCheckAsync()); }
+                catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
+                App.Current.Exit();
+            });
+        }
+        if (Environment.GetCommandLineArgs().Contains("--verify-gallery-selection"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_gallery_selection.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            System.IO.File.WriteAllText(rep, "APP_HOOK");
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(6000);
+                try { System.IO.File.WriteAllText(rep, await window.VerifyGallerySelectionAsync()); }
+                catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
+                App.Current.Exit();
+            });
+        }
+#endif
 
         SingleInstance.ListenForActivation(() =>
             window.DispatcherQueue.TryEnqueue(window.BringToFront));

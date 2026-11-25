@@ -16,7 +16,7 @@ public enum ImagePriority { Preview, Visible, Prefetch }
 /// <summary>UI 线程使用的统一加载入口：两条后台工作槽、可见优先、分池缓存、192MiB 解码准入预算；毛玻璃只使用256像素底图。</summary>
 public static class ImageLoader
 {
-    private enum Purpose { Thumbnail, ProtectedBase, ProtectedThumbnail, Preview, ReviewThumbnail, ReviewPreview }
+    private enum Purpose { Thumbnail, CompactThumbnail, ProtectedBase, ProtectedThumbnail, Preview, ReviewThumbnail, ReviewPreview }
     private readonly record struct Key(string Path, double Mtime, long Size, int Edge, int Blur, Purpose Purpose);
     public sealed record Pixels(byte[] Bytes, int Width, int Height);
     private sealed record Entry(Key Key, BitmapSource? Bitmap, Pixels? Pixels, long Bytes);
@@ -28,6 +28,7 @@ public static class ImageLoader
         public readonly CancellationTokenSource Cancellation = new();
         public readonly TaskCompletionSource<Entry> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Users;
+        public int IndependentThumbnailUsers;
         public bool Running;
         public long Weight;
     }
@@ -42,6 +43,8 @@ public static class ImageLoader
     private static readonly Dictionary<Key, Task<Pixels>> BaseLoads = new();
     private static HashSet<string> _visible = new(StringComparer.Ordinal), _desired = new(StringComparer.Ordinal);
     private static DispatcherQueue? _dispatcher;
+    private static TaskCompletionSource? _thumbnailSpace;
+    private static int _cacheGeneration;
     private static bool _pumpQueued, _galleryActive = true, _reviewActive, _resizing;
     private static int _openImageViews;
     private static int _active, _previewActive, _peakActive, _peakRequests;
@@ -51,9 +54,10 @@ public static class ImageLoader
         Requests.Values.Count(r => !r.Running), _active, _peakActive, _peakRequests, _scratch,
         _thumbnailBytes, _previewBytes, _decodeMs, _uploadMs);
 
-    public static int ThumbnailEdge(PhotoItem item, double pixels)
+    public static int ThumbnailEdge(PhotoItem item, double pixels, bool compact = false)
     {
         if (IsHidden(item)) return 0;
+        if (compact) return ThumbnailService.CompactEdge;
         if (BlurStrength(item) > 0) return 256;
         int edge = new[] { 512, 1024, 2048 }.FirstOrDefault(n => n >= pixels, 2048);
         int native = Math.Max(item.PixelWidth, item.PixelHeight);
@@ -73,7 +77,7 @@ public static class ImageLoader
         _desired.UnionWith(_visible);
         foreach (var request in Requests.Values.ToArray())
         {
-            if (IsPreview(request.Key.Purpose) || request.Key.Purpose == Purpose.ReviewThumbnail) continue;
+            if (IsPreview(request.Key.Purpose) || request.Key.Purpose == Purpose.ReviewThumbnail || request.IndependentThumbnailUsers > 0) continue;
             if (!request.Running && (!_galleryActive || !_desired.Contains(request.Key.Path))) CancelQueued(request);
             else request.Priority = _visible.Contains(request.Key.Path) ? ImagePriority.Visible : ImagePriority.Prefetch;
         }
@@ -98,6 +102,8 @@ public static class ImageLoader
     /// <summary>托盘隐藏时释放像素缓存与在途请求；不改数据或布局，唤回后按需重新解码。</summary>
     public static void ClearCaches()
     {
+        _cacheGeneration++;
+        SignalThumbnailSpace();
         _visible = new HashSet<string>(StringComparer.Ordinal);
         _desired = new HashSet<string>(StringComparer.Ordinal);
         foreach (var request in Requests.Values.ToArray())
@@ -123,11 +129,14 @@ public static class ImageLoader
         Touch(found); _hits++;
         return found.Value.Bitmap;
     }
-    public static Task<BitmapSource> LoadThumbnailAsync(PhotoItem item, int edge, int blur, CancellationToken token, ImagePriority priority = ImagePriority.Visible)
+    public static Task<BitmapSource> LoadThumbnailAsync(PhotoItem item, int edge, int blur, CancellationToken token, ImagePriority priority = ImagePriority.Visible,
+        bool galleryViewport = true, bool compact = false)
     {
         if (IsHidden(item)) return Task.FromCanceled<BitmapSource>(new CancellationToken(true));
-        if (blur > 0) edge = 256;
-        return LoadAsync(item, edge, blur, blur > 0 ? Purpose.ProtectedThumbnail : Purpose.Thumbnail, priority, token);
+        if (compact) edge = ThumbnailService.CompactEdge;
+        else if (blur > 0) edge = 256;
+        var purpose = compact ? Purpose.CompactThumbnail : blur > 0 ? Purpose.ProtectedThumbnail : Purpose.Thumbnail;
+        return LoadAsync(item, edge, blur, purpose, priority, token, !galleryViewport);
     }
     public static Task<BitmapSource> LoadPreviewAsync(PhotoItem item, int edge, CancellationToken token)
         => LoadAsync(item, edge > 0 ? edge : 2048, 0, Purpose.Preview, ImagePriority.Preview, token);
@@ -143,42 +152,64 @@ public static class ImageLoader
 
     private static bool IsPreview(Purpose purpose) => purpose is Purpose.Preview or Purpose.ReviewPreview;
 
-    private static async Task<BitmapSource> LoadAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority, CancellationToken token)
-        => (await LoadEntryAsync(item, edge, blur, purpose, priority, token)).Bitmap!;
+    private static async Task<BitmapSource> LoadAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority, CancellationToken token, bool independentThumbnail = false)
+        => (await LoadEntryAsync(item, edge, blur, purpose, priority, token, independentThumbnail)).Bitmap!;
 
-    private static async Task<Entry> LoadEntryAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority, CancellationToken token)
+    private static async Task<Entry> LoadEntryAsync(PhotoItem item, int edge, int blur, Purpose purpose, ImagePriority priority,
+        CancellationToken token, bool independentThumbnail = false)
     {
         token.ThrowIfCancellationRequested();
         _dispatcher ??= DispatcherQueue.GetForCurrentThread() ?? throw new InvalidOperationException("图片请求必须由 UI 线程提交");
         var key = MakeKey(item, edge, blur, purpose);
-        if (Cache.TryGetValue(key, out var cached)) { Touch(cached); _hits++; return cached.Value; }
-        if ((IsPreview(purpose) || purpose == Purpose.ReviewThumbnail) && Requests.TryGetValue(key, out var previous) && previous.Cancellation.IsCancellationRequested)
+        var generation = _cacheGeneration;
+        Request request;
+        while (true)
         {
-            // 快速关闭再打开同一张图时，不能加入已经取消的旧解码。
-            try { await previous.Completion.Task.WaitAsync(token); }
-            catch (OperationCanceledException) { token.ThrowIfCancellationRequested(); }
-            return await LoadEntryAsync(item, edge, blur, purpose, priority, token);
-        }
-        if (!Requests.TryGetValue(key, out var request))
-        {
+            token.ThrowIfCancellationRequested();
+            if (generation != _cacheGeneration) throw new OperationCanceledException();
+            if (Cache.TryGetValue(key, out var cached)) { Touch(cached); _hits++; return cached.Value; }
+            if (Requests.TryGetValue(key, out var existing))
+            {
+                if ((IsPreview(purpose) || purpose is Purpose.ReviewThumbnail or Purpose.CompactThumbnail) &&
+                    existing.Cancellation.IsCancellationRequested)
+                {
+                    try { await existing.Completion.Task.WaitAsync(token); }
+                    catch (OperationCanceledException) { token.ThrowIfCancellationRequested(); }
+                    continue;
+                }
+                request = existing;
+                break;
+            }
+
             if (!IsPreview(purpose) && Requests.Values.Count(r => !IsPreview(r.Key.Purpose)) >= 96)
             {
                 var victim = Requests.Values.LastOrDefault(r => !r.Running && r.Priority == ImagePriority.Prefetch);
-                if (victim is null || priority == ImagePriority.Prefetch) throw new OperationCanceledException("图片队列已满");
-                CancelQueued(victim);
+                if (victim is not null && priority != ImagePriority.Prefetch) CancelQueued(victim);
+                else if (independentThumbnail)
+                {
+                    var space = _thumbnailSpace ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
+                    await space.Task.WaitAsync(token);
+                    continue;
+                }
+                else throw new OperationCanceledException("图片队列已满");
             }
-            request = new Request(key, item, priority); Requests.Add(key, request);
+            request = new Request(key, item, priority);
+            Requests.Add(key, request);
             _peakRequests = Math.Max(_peakRequests, Requests.Values.Count(r => !IsPreview(r.Key.Purpose)));
+            break;
         }
         if (priority < request.Priority) request.Priority = priority;
-        request.Users++; SchedulePump();
+        request.Users++;
+        if (independentThumbnail) request.IndependentThumbnailUsers++;
+        SchedulePump();
         try { return await request.Completion.Task.WaitAsync(token); }
         finally
         {
+            if (independentThumbnail) request.IndependentThumbnailUsers--;
             if (--request.Users == 0 && !request.Completion.Task.IsCompleted)
             {
                 if (!request.Running) CancelQueued(request);
-                else if (IsPreview(purpose) || purpose == Purpose.ReviewThumbnail) request.Cancellation.Cancel();
+                else if (IsPreview(purpose) || purpose is Purpose.ReviewThumbnail or Purpose.CompactThumbnail) request.Cancellation.Cancel();
             }
         }
     }
@@ -186,7 +217,16 @@ public static class ImageLoader
     {
         if (request.Running || !Requests.TryGetValue(request.Key, out var current) || !ReferenceEquals(current, request)) return;
         Requests.Remove(request.Key); request.Completion.TrySetCanceled(); request.Cancellation.Dispose();
+        if (!IsPreview(request.Key.Purpose)) SignalThumbnailSpace();
     }
+
+    private static void SignalThumbnailSpace()
+    {
+        var available = _thumbnailSpace;
+        _thumbnailSpace = null;
+        available?.TrySetResult();
+    }
+
     private static void SchedulePump()
     {
         _dispatcher ??= DispatcherQueue.GetForCurrentThread();
@@ -223,15 +263,17 @@ public static class ImageLoader
         {
             var key = request.Key;
             Pixels pixels;
-            if (key.Purpose == Purpose.ProtectedThumbnail || key.Purpose == Purpose.ReviewThumbnail && key.Blur > 0)
+            var compact = key.Purpose == Purpose.CompactThumbnail;
+            if (key.Purpose == Purpose.ProtectedThumbnail || (compact || key.Purpose == Purpose.ReviewThumbnail) && key.Blur > 0)
             {
-                var baseKey = key with { Edge = 256, Blur = 0, Purpose = Purpose.ProtectedBase };
+                var baseEdge = compact ? ThumbnailService.CompactEdge : 256;
+                var baseKey = key with { Edge = baseEdge, Blur = 0, Purpose = Purpose.ProtectedBase };
                 if (Cache.TryGetValue(baseKey, out var entry)) { Touch(entry); _hits++; pixels = entry.Value.Pixels!; }
                 else
                 {
                     if (!BaseLoads.TryGetValue(baseKey, out var loading))
                     {
-                        _baseReads++; loading = Task.Run(() => ReadPixelsAsync(request.Item, 256, true, CancellationToken.None));
+                        _baseReads++; loading = Task.Run(() => ReadPixelsAsync(request.Item, baseEdge, true, CancellationToken.None, compact));
                         BaseLoads.Add(baseKey, loading);
                     }
                     try { pixels = await loading; Store(new Entry(baseKey, null, pixels, pixels.Bytes.LongLength)); }
@@ -239,7 +281,7 @@ public static class ImageLoader
                 }
                 var source = pixels; pixels = await Task.Run(() => Blur(source, key.Blur));
             }
-            else pixels = await Task.Run(() => ReadPixelsAsync(request.Item, key.Edge, key.Purpose is Purpose.Thumbnail or Purpose.ReviewThumbnail, request.Cancellation.Token));
+            else pixels = await Task.Run(() => ReadPixelsAsync(request.Item, key.Edge, compact || key.Purpose is Purpose.Thumbnail or Purpose.ReviewThumbnail, request.Cancellation.Token, compact));
             _decodeMs += watch.ElapsedMilliseconds;
             request.Cancellation.Token.ThrowIfCancellationRequested(); watch.Restart();
             Entry result;
@@ -263,10 +305,11 @@ public static class ImageLoader
                 Requests.Remove(request.Key);
             _active--; _scratch -= request.Weight;
             if (IsPreview(request.Key.Purpose)) _previewActive--;
+            else SignalThumbnailSpace();
             request.Cancellation.Dispose(); SchedulePump(); WorkCompleted?.Invoke();
         }
     }
-    private static async Task<Pixels> ReadPixelsAsync(PhotoItem item, int edge, bool thumbnail, CancellationToken token)
+    private static async Task<Pixels> ReadPixelsAsync(PhotoItem item, int edge, bool thumbnail, CancellationToken token, bool compact = false)
     {
         string path = item.FullPath;
         var scanner = AppService.Scanner;
@@ -276,22 +319,33 @@ public static class ImageLoader
             // 正常预览由 VideoViewer 接管，这里主要服务卡片缩略图。
             double mtime = item.ModifiedAtUnix ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(path));
             token.ThrowIfCancellationRequested(); Interlocked.Increment(ref _builds);
-            path = scanner.Thumbs.GetOrBuildVideo(path, mtime, item.FileSize, edge)
+            path = scanner.Thumbs.GetOrBuildVideo(path, mtime, item.FileSize, edge, compact)
                 ?? throw new IOException("视频封面不可用");
         }
         else if (thumbnail && scanner is not null)
         {
             double mtime = item.ModifiedAtUnix ?? StoreService.ToUnixSeconds(File.GetLastWriteTimeUtc(path));
-            var destination = scanner.Thumbs.CachePath(path, mtime, item.FileSize, edge);
+            var destination = scanner.Thumbs.CachePath(path, mtime, item.FileSize, edge, compact);
             var smaller = edge == 256 ? scanner.Thumbs.Get(path, mtime, item.FileSize) : null;
             if (File.Exists(destination)) path = destination;
             else if (smaller is not null) path = smaller;
             else
             {
                 token.ThrowIfCancellationRequested(); Interlocked.Increment(ref _builds);
-                path = scanner.Thumbs.GetOrBuild(path, mtime, item.FileSize, edge) ?? path;
+                path = scanner.Thumbs.GetOrBuild(path, mtime, item.FileSize, edge, compact) ?? path;
             }
         }
+        try { return await DecodePixelsAsync(path, edge, token); }
+        catch (Exception ex) when (!item.IsVideo && path != item.FullPath && !token.IsCancellationRequested &&
+            ex is IOException or System.Runtime.InteropServices.COMException)
+        {
+            // 文件在命中缓存后被清理，或缓存无法解码时，仍可从原图生成同尺寸像素。
+            return await DecodePixelsAsync(item.FullPath, edge, token);
+        }
+    }
+
+    private static async Task<Pixels> DecodePixelsAsync(string path, int edge, CancellationToken token)
+    {
         token.ThrowIfCancellationRequested();
         var file = await StorageFile.GetFileFromPathAsync(path);
         using var input = await file.OpenReadAsync(); var decoder = await BitmapDecoder.CreateAsync(input);

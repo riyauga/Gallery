@@ -42,6 +42,9 @@ public sealed class SearchInputBox : UserControl
     /// </summary>
     public Func<bool, bool>? TabHandler { get; set; }
 
+    /// <summary>候选列表关闭时的 Esc：宿主用它关闭所在弹窗。</summary>
+    public event Action? EscapePressed;
+
     /// <summary>把字符追加到搜索框末尾并接管焦点（历史标签上直接打字时用）。</summary>
     public void AppendText(string text)
     {
@@ -136,6 +139,15 @@ public sealed class SearchInputBox : UserControl
 
     private void Input_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 候选列表打开时 Esc 归它自己关；否则交给宿主（弹窗用它做「Esc 关闭」，
+        // 不能依赖 ContentDialog 默认行为——AutoSuggestBox 会先吞掉这一次）。
+        if (!e.Handled && e.Key == VirtualKey.Escape && !_input.IsSuggestionListOpen
+            && EscapePressed is { } escape)
+        {
+            e.Handled = true;
+            escape();
+            return;
+        }
         if (!e.Handled && e.Key == VirtualKey.Tab && !IsDown(VirtualKey.Control) && !IsDown(VirtualKey.Menu)
             && TabHandler?.Invoke(IsDown(VirtualKey.Shift)) == true)
         {

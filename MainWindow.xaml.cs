@@ -1,4 +1,4 @@
-﻿using Microsoft.UI;
+using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -40,7 +40,8 @@ public sealed partial class MainWindow : Window
     private readonly SettingsPage _settingsPage = new();
 
     // 导航历史：主页与设置页共用一条，记的是「位置标识」而不是控件引用（目录树会重建）。
-    private readonly List<string> _navHistory = [];
+    private sealed record NavigationLocation(string Route, Controls.Catalog.CatalogPage.Location? Catalog = null);
+    private readonly List<NavigationLocation> _navHistory = [];
     private int _navIndex = -1;
     private bool _replayingHistory;
     private const int NavHistoryLimit = 50;
@@ -53,23 +54,35 @@ public sealed partial class MainWindow : Window
         return page;
     }
 
-    /// <summary>侧栏「待审核」显示待处理条数（0 时隐藏）。</summary>
-    private void UpdateReviewBadge()
+    private bool _reviewBadgeUpdating, _reviewBadgeDirty;
+
+    /// <summary>后台读取待审核计数，合并启动或入库时连续发来的更新。</summary>
+    private async void UpdateReviewBadge()
     {
-        var store = Services.AppService.Store;
-        if (store is null) return;
+        _reviewBadgeDirty = true;
+        if (_reviewBadgeUpdating || _quitting || AppService.Store is not { } store) return;
+        _reviewBadgeUpdating = true;
+        try
+        {
+            do
+            {
+                _reviewBadgeDirty = false;
+                var pending = await Task.Run(store.ReviewableIngestCount);
+                if (_quitting) return;
 
-        var pending = store.ReviewableIngestCount();
-
-        // 待审核数量显示在标题栏和侧栏文字里。侧栏不再用 InfoBadge：
-        // 角标会挤占内容列，导致右侧导入按钮和「图库」的添加按钮对不齐。
-        ReviewNavText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
-        ReviewChipButton.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ReviewChipText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
-        UpdateTitleBarRegions();
-        // 刚切完可见性还没排版，等一轮低优先级再算一次（否则角标拿不到 ActualWidth）
-        DispatcherQueue.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateTitleBarRegions);
+                ReviewNavText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
+                ReviewChipButton.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+                ReviewChipText.Text = pending > 0 ? $"待审核 {pending}" : "待审核";
+                UpdateTitleBarRegions();
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateTitleBarRegions);
+            }
+            while (_reviewBadgeDirty);
+        }
+        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or ObjectDisposedException)
+        {
+            AppService.DebugLog("review badge: " + ex.Message);
+        }
+        finally { _reviewBadgeUpdating = false; }
     }
 
     /// <summary>
@@ -253,6 +266,7 @@ public sealed partial class MainWindow : Window
         ImageLoader.SetGalleryActive(true);
         if (ReferenceEquals(page, _page)) _page.SetActive(true);
         else if (_reviewPage is not null && ReferenceEquals(page, _reviewPage)) _reviewPage.SetActive(true);
+        else if (ReferenceEquals(page, _catalogPage)) _catalogPage?.ResumeMediaThumbnails();
         AppService.DebugLog("low power: resumed");
     }
 
@@ -487,7 +501,7 @@ public sealed partial class MainWindow : Window
                 var delta = command == 1 ? -1 : 1;
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (!HasKeyboardPopup()) HandleHistoryInput(delta);
+                    HandleHistoryInput(delta);
                 });
                 return (IntPtr)1;
             }
@@ -504,7 +518,6 @@ public sealed partial class MainWindow : Window
                 var delta = button == 1 ? -1 : 1;
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (HasKeyboardPopup()) return;
                     HandleHistoryInput(delta);
                 });
                 return (IntPtr)1;
@@ -735,6 +748,7 @@ public sealed partial class MainWindow : Window
         _searchHistory.DismissRequested += () => DispatcherQueue.TryEnqueue(DismissSearchHistory);
         _searchHistory.TypingStarted += text => DispatcherQueue.TryEnqueue(() =>
         {
+            if (SearchBox.Visibility != Visibility.Visible) return;
             // 先把焦点还给搜索框再追加字符：TextChanged 关浮层时不在焦点切换过程中。
             SearchBox.FocusSearch();
             SearchBox.AppendText(text);
@@ -763,18 +777,27 @@ public sealed partial class MainWindow : Window
         _page.ToastRequested += ShowToast;
         _page.ToastKindRequested += (msg, kind, detail) => ShowToast(msg, kind, detail);
         _page.PreviewRequested += req => Preview.Open(req);
-        _page.ItemsChanged += Preview.RefreshItems;
+        _page.ItemsChanged += items =>
+        {
+            if (_catalogPage is not { Visibility: Visibility.Visible }) Preview.RefreshItems(items);
+        };
         _page.ReviewQueueChanged += () => { UpdateReviewBadge(); _reviewPage?.Reload(); };
         _page.TagsEdited += () =>
         {
             Preview.RefreshItems(_page.CurrentItems);
             Preview.RefreshCurrentTags();
+            if (_catalogPage is { } catalog) _ = catalog.RefreshLinkedTagsAsync();
         };
-        Preview.TagsEdited += _ => _page.RefreshFromStore();
+        Preview.TagsEdited += item =>
+        {
+            _page.RefreshFromStore();
+            if (_catalogPage is { } catalog) _ = catalog.RefreshLinkedTagsAsync();
+        };
         Preview.ToastRequested += ShowToast;
         // 详情标签右键「按此标签进行筛选」：收起预览，图库按该标签筛出一份结果。
         Preview.TagFilterRequested += (category, name) =>
         {
+            if (_catalogPage is { Visibility: Visibility.Visible }) Nav.SelectedItem = Nav.MenuItems[0];
             _page.FilterByTag(category, name);
             Preview.CloseFromNavigation();
         };
@@ -783,6 +806,7 @@ public sealed partial class MainWindow : Window
         {
             ShowToast(message);
             _page.RefreshFromStore();
+            if (_catalogPage is { IsLoaded: true }) _ = _catalogPage.RefreshAsync();
             if (_reviewPage is { IsLoaded: true }) _reviewPage.RefreshPreview();
         });
         Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
@@ -912,6 +936,49 @@ public sealed partial class MainWindow : Window
         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height, 0x0004);
     }
 
+#if GALLERY_DEVELOPMENT
+    /// <summary>无窗口自测入口：导航到资料库并打开第一条资料详情。</summary>
+    public async Task VerifyCatalogDetail()
+    {
+        NavigateSelection("catalog");
+        if (_catalogPage is null) throw new InvalidOperationException("catalog page not created");
+        await _catalogPage.OpenFirstEntryForVerification();
+    }
+
+    /// <summary>无窗口自测：详情关系区勾选框与选择按钮的状态切换（只读）。</summary>
+    public async Task<string> VerifyRelationCheckAsync()
+    {
+        NavigateSelection("catalog");
+        await Task.Delay(1500);
+        if (_catalogPage is null) return "NO_CATALOG";
+        return await _catalogPage.VerifyRelationCheckAsync();
+    }
+
+    /// <summary>无窗口自测：图库搜索／清空搜索保留选区。</summary>
+    public async Task<string> VerifyGallerySelectionAsync()
+    {
+        NavigateSelection("gallery");
+        await Task.Delay(1500);
+        return await _page.VerifySearchKeepsSelectionAsync();
+    }
+
+    /// <summary>无窗口自测：Esc 链路能否关掉「添加角色」这类带搜索框的弹窗。</summary>
+    public async Task<string> VerifyEscapeClosesDialogAsync()
+    {
+        NavigateSelection("catalog");
+        await Task.Delay(1200);
+        if (_catalogPage is null) return "NO_CATALOG";
+        _catalogPage.OpenAddRelationForVerification();
+        await Task.Delay(1800);
+        var opened = Services.DialogService.IsShowing;
+        // 无窗口环境无法合成真实的 WinUI 键盘事件（PostMessage 进不了输入管线），
+        // 这里验证「搜索框 Esc 回调 → 关闭弹窗」的接线：直接走同一个 Hide 路径。
+        _catalogPage.RaisePickerEscapeForVerification();
+        await Task.Delay(1200);
+        return $"ESC opened={opened} closed={!Services.DialogService.IsShowing}";
+    }
+#endif
+
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem { Tag: string tag }) return;
@@ -926,6 +993,7 @@ public sealed partial class MainWindow : Window
     {
         // 详情层是全窗遮罩：切页前先收掉，否则新页面被压在下面（用户实测：开着详情点「查看并归档」没反应）。
         if (Preview.IsOpen) Preview.CloseImmediate();
+        SetTitleSearchScope(tag is "all" or "fav" ? tag : null);
         if (tag == "settings")
         {
             SearchBox.DefaultFocusAnchor = ContentHost;
@@ -938,7 +1006,6 @@ public sealed partial class MainWindow : Window
             SearchBox.DefaultFocusAnchor = ContentHost;
             _reviewPage ??= CreateReviewPage();
             ShowContent(_reviewPage);
-            _reviewPage.Reload();
             RecordLocation("nav:" + tag);
             return;
         }
@@ -949,10 +1016,30 @@ public sealed partial class MainWindow : Window
                 Nav.SelectedItem = Nav.MenuItems[0];
                 return;
             }
-            SearchBox.DefaultFocusAnchor = ContentHost;
-            _catalogPage ??= new Controls.Catalog.CatalogPage(Services.AppService.Catalog);
+            if (_catalogPage is null)
+            {
+                _catalogPage = new Controls.Catalog.CatalogPage(Services.AppService.Catalog);
+                _catalogPage.Navigated += RecordCatalogLocation;
+                _catalogPage.HistoryRequested += HandleHistoryInput;
+                _catalogPage.TagCopied += _ => ShowToast("已复制标签");
+                _catalogPage.ToastRequested += ShowToast;
+                _catalogPage.PreviewRequested += request => Preview.Open(request);
+                _catalogPage.ToggleFavorite = _page.ToggleFavoriteAsync;
+                _catalogPage.TagFilterRequested += (id, name) =>
+                {
+                    Nav.SelectedItem = Nav.MenuItems[0];
+                    _page.FilterByTag(id, name);
+                };
+                _catalogPage.Changed += () =>
+                {
+                    _page.RefreshFromStore();
+                    Preview.RefreshCurrentTags();
+                    _reviewPage?.RefreshPreview();
+                };
+            }
+            SearchBox.DefaultFocusAnchor = _catalogPage;
             ShowContent(_catalogPage);
-            RecordLocation("nav:" + tag);
+            RecordLocation("nav:catalog", _catalogPage.CaptureLocation());
             return;
         }
         SearchBox.DefaultFocusAnchor = _page.FocusAnchor;
@@ -963,6 +1050,7 @@ public sealed partial class MainWindow : Window
         {
             case "fav":
                 _page.SetMode(true);
+                _page.SetDirectory(null, null);
                 break;
             case "all":
                 _page.SetMode(false);
@@ -983,10 +1071,11 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>把一次真实切换记进历史；历史回放期间和重复位置都不记。</summary>
-    private void RecordLocation(string location)
+    private void RecordLocation(string route, Controls.Catalog.CatalogPage.Location? catalog = null)
     {
         if (_replayingHistory) return;
-        if (_navIndex >= 0 && _navIndex < _navHistory.Count && _navHistory[_navIndex] == location) return;
+        var location = new NavigationLocation(route, catalog);
+        if (_navIndex >= 0 && _navHistory[_navIndex] == location) return;
         if (_navIndex < _navHistory.Count - 1)
             _navHistory.RemoveRange(_navIndex + 1, _navHistory.Count - _navIndex - 1);
         _navHistory.Add(location);
@@ -994,24 +1083,71 @@ public sealed partial class MainWindow : Window
         _navIndex = _navHistory.Count - 1;
     }
 
+    private void RecordCatalogLocation(Controls.Catalog.CatalogPage.Location previous, Controls.Catalog.CatalogPage.Location next)
+    {
+        if (_replayingHistory || _navIndex < 0 || _navHistory[_navIndex].Route != "nav:catalog") return;
+        _navHistory[_navIndex] = new("nav:catalog", previous);
+        if (previous != next) RecordLocation("nav:catalog", next);
+        else if (next.Popup is null && _navIndex > 0 && _navHistory[_navIndex - 1].Catalog is { } earlier &&
+            earlier.Kind == next.Kind && earlier.Key == next.Key && earlier.Surface == next.Surface && earlier.Popup is null)
+        {
+            _navHistory.RemoveAt(_navIndex);
+            _navHistory[--_navIndex] = new("nav:catalog", next);
+        }
+    }
+
+    private void CaptureCatalogHistory()
+    {
+        if (_replayingHistory || _navIndex < 0 || _navHistory[_navIndex].Route != "nav:catalog" ||
+            _catalogPage is not { Visibility: Visibility.Visible } page) return;
+        _navHistory[_navIndex] = new("nav:catalog", page.CaptureLocation(_navHistory[_navIndex].Catalog?.Card));
+    }
+
     /// <summary>沿历史前移／后移一步；没有可去的位置时返回 false。</summary>
     private bool NavigateHistory(int delta)
     {
         if (_replayingHistory) return false;
         var next = _navIndex + delta;
-        while (next >= 0 && next < _navHistory.Count && !CanApplyLocation(_navHistory[next]))
+        while (next >= 0 && next < _navHistory.Count && !CanApplyLocation(_navHistory[next].Route))
             next += delta;
         if (next < 0 || next >= _navHistory.Count) return false;
-        _navIndex = next;
-        ApplyLocation(_navHistory[next]);
+        return ApplyHistoryIndex(next);
+    }
+
+    private bool ApplyHistoryIndex(int index)
+    {
+        CaptureCatalogHistory();
+        _navIndex = index;
+        ApplyLocation(_navHistory[index]);
         return true;
     }
 
+    private bool ReturnFromCatalogOnEscape()
+    {
+        if (_catalogPage is not { Visibility: Visibility.Visible, DetailOpen: true } page) return false;
+        if (page.Editing && NavigateCatalogBack()) return true;
+        for (var i = _navIndex - 1; i >= 0 && _navHistory[i].Catalog is { } location; i--)
+            if (location is { Key: null, Surface: null, Popup: null }) return ApplyHistoryIndex(i);
+        return page.ReturnToIndex();
+    }
+
+    private bool NavigateCatalogBack()
+        => _navIndex > 0 && _navHistory[_navIndex - 1].Catalog is not null && ApplyHistoryIndex(_navIndex - 1);
+
     private bool HandleHistoryInput(int delta)
     {
+        if (HasKeyboardPopup() && _catalogPage is not { Visibility: Visibility.Visible, HasHistoryPopup: true })
+            return false;
         if (Preview.IsOpen)
         {
             if (delta < 0) Preview.CloseFromNavigation();
+            return true;
+        }
+        if (delta < 0 && _catalogPage is { Visibility: Visibility.Visible } page)
+        {
+            if (NavigateCatalogBack()) return true;
+            if (!page.HasHistoryPopup) return page.ReturnToIndex();
+            DialogService.Dismiss();
             return true;
         }
         return NavigateHistory(delta);
@@ -1019,6 +1155,7 @@ public sealed partial class MainWindow : Window
 
     private void OnNavigationPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        if (e.Handled && _catalogPage?.HasHistoryPopup == true) return;
         var delta = e.GetCurrentPoint(RootGrid).Properties.PointerUpdateKind switch
         {
             Microsoft.UI.Input.PointerUpdateKind.XButton1Pressed => -1,
@@ -1029,7 +1166,7 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (!HasKeyboardPopup()) HandleHistoryInput(delta);
+            HandleHistoryInput(delta);
         });
     }
 
@@ -1041,8 +1178,9 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>回放一个历史位置。期间所有切换都不再写入历史，避免自激。</summary>
-    private void ApplyLocation(string location)
+    private void ApplyLocation(NavigationLocation entry)
     {
+        var location = entry.Route;
         _replayingHistory = true;
         try
         {
@@ -1056,6 +1194,7 @@ public sealed partial class MainWindow : Window
                 var tag = location[4..];
                 if (tag == "all") Nav.SelectedItem = Nav.MenuItems[0];
                 else if (FindNavItem(Nav.MenuItems, tag) is { } item) Nav.SelectedItem = item;
+                if (tag == "catalog" && entry.Catalog is { } catalog) _catalogPage?.RestoreLocation(catalog);
             }
         }
         finally { _replayingHistory = false; }
@@ -1195,6 +1334,7 @@ public sealed partial class MainWindow : Window
     // 页面留在同一棵可视树中，往返不触发图库卸载和图片重建。
     private void ShowContent(UIElement page)
     {
+        if (!ReferenceEquals(page, _catalogPage)) CaptureCatalogHistory();
         _page.SetActive(ReferenceEquals(page, _page));
         if (!ContentHost.Children.Contains(page)) ContentHost.Children.Add(page);
         foreach (var child in ContentHost.Children)
@@ -1222,8 +1362,33 @@ public sealed partial class MainWindow : Window
             Nav.SelectedItem = Nav.MenuItems[navIndex];
     }
 
+    private string? _titleSearchScope;
+    private string _gallerySearchText = "";
+    private string _favoritesSearchText = "";
+    private bool _changingTitleSearch;
+
+    private void SetTitleSearchScope(string? scope)
+    {
+        if (_titleSearchScope == scope) return;
+        if (_titleSearchScope == "all") _gallerySearchText = SearchBox.Text;
+        if (_titleSearchScope == "fav") _favoritesSearchText = SearchBox.Text;
+        _titleSearchScope = scope;
+        HideSearchHistory();
+
+        var text = scope switch { "all" => _gallerySearchText, "fav" => _favoritesSearchText, _ => "" };
+        _changingTitleSearch = true;
+        SearchBox.Visibility = scope is null ? Visibility.Collapsed : Visibility.Visible;
+        SearchBox.PlaceholderText = scope == "fav" ? "在收藏夹中搜索" : "在图库中搜索";
+        SearchBox.Text = text;
+        _changingTitleSearch = false;
+
+        _page.SetSearch(text);
+        UpdateTitleBarRegions();
+    }
+
     private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
+        if (_changingTitleSearch || SearchBox.Visibility != Visibility.Visible) return;
         _page.SetSearch(SearchBox.Text);
         if (SearchBox.Text.Trim().Length == 0)
         {
@@ -1235,7 +1400,7 @@ public sealed partial class MainWindow : Window
     /// <summary>回车提交才算一次搜索：记一条历史（新的在前、去重、最多 20 条）。</summary>
     private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
     {
-        if (args.QueryText.Trim().Length == 0) return;
+        if (SearchBox.Visibility != Visibility.Visible || args.QueryText.Trim().Length == 0) return;
         var settings = AppService.Settings.Settings;
         if (settings.search_history_enabled)
         {
@@ -1252,6 +1417,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowSearchHistory()
     {
+        if (SearchBox.Visibility != Visibility.Visible) return;
         var settings = AppService.Settings.Settings;
         if (!settings.search_history_enabled) return;
         var history = settings.search_history;
@@ -1278,7 +1444,10 @@ public sealed partial class MainWindow : Window
         popup.IsOpen = true;
         // 打开 Popup 会把焦点从输入框带走（实测），不回焦就没法接着打字。
         DispatcherQueue.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, SearchBox.FocusSearch);
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                if (popup.IsOpen && SearchBox.Visibility == Visibility.Visible) SearchBox.FocusSearch();
+            });
     }
 
     private void HideSearchHistory()
@@ -1289,6 +1458,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Esc 收起浮层并把焦点还给搜索框；这一次焦点回来不重新弹浮层。</summary>
     private void DismissSearchHistory()
     {
+        if (SearchBox.Visibility != Visibility.Visible) return;
         _suppressHistoryOnFocus = true;
         HideSearchHistory();
         SearchBox.FocusSearch();
@@ -1338,6 +1508,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Esc / 选条目 / 清空后回到搜索框，便于接着改词。</summary>
     private void SearchHistory_QueryPicked(string query) => DispatcherQueue.TryEnqueue(() =>
     {
+        if (SearchBox.Visibility != Visibility.Visible) return;
         SearchBox.Text = query;
         SearchHistory.Remember(AppService.Settings.Settings, query);
         AppService.Settings.Save();
@@ -1354,7 +1525,7 @@ public sealed partial class MainWindow : Window
 
     private void OnSearchInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (Preview.IsOpen || HasKeyboardPopup()) return;
+        if (SearchBox.Visibility != Visibility.Visible || Preview.IsOpen || HasKeyboardPopup()) return;
         SearchBox.FocusSearch();
         args.Handled = true;
     }
@@ -1588,7 +1759,8 @@ public sealed partial class MainWindow : Window
     private void OnGalleryBlankPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         _page.HideKeyboardFocus();
-        if (_page.Visibility != Visibility.Visible || Preview.IsOpen
+        var catalogVisible = _catalogPage is { Visibility: Visibility.Visible };
+        if ((!catalogVisible && _page.Visibility != Visibility.Visible) || Preview.IsOpen
             || !e.GetCurrentPoint(RootGrid).Properties.IsLeftButtonPressed) return;
         // 窗口 XAML 内非交互空白（含卡片间隙、工具栏及侧栏留白）统一退出。
         for (var current = e.OriginalSource as DependencyObject; current is not null && current != RootGrid;
@@ -1599,7 +1771,11 @@ public sealed partial class MainWindow : Window
                 or TimelineScrollbar or ContinuousScrollBar or ContentDialog
                 or TextBlock { IsTextSelectionEnabled: true }) return;
         }
-        _page.ExitSelection();
+        if (catalogVisible)
+        {
+            if (!_catalogPage!.ExitDetailSelection()) _catalogPage.ExitSelection();
+        }
+        else _page.ExitSelection();
     }
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -1614,9 +1790,20 @@ public sealed partial class MainWindow : Window
         // Esc 优先给查看器（退全屏/关闭），其次返回设置首页或退出图库多选。
         // 注意不能放在图库页面 Root 的 KeyDown 里：单击缩略图后焦点会落到弹层里的
         // ScrollViewer 上，页面收不到按键（实测），而窗口级加速器不受焦点位置影响。
+        // 模态弹窗打开时 Esc 一律关闭它：不能只靠 ContentDialog 的默认行为，
+        // 焦点在 AutoSuggestBox / 文本框里时 Esc 会被控件自己吃掉，表现为「按了没反应」。
+        if (DialogService.IsShowing)
+        {
+            DialogService.Dismiss();
+            args.Handled = true;
+            return;
+        }
         if (HasKeyboardPopup()) return;
         // 查看器先走：焦点停在详情里可选中文字上也要能关，输入框由 TryHandleKey 自己挡。
         if (Preview.IsOpen) { args.Handled = Preview.TryHandleKey(Windows.System.VirtualKey.Escape); return; }
+        if (_catalogPage is { Visibility: Visibility.Visible } catalog &&
+            (catalog.ExitDetailSelection() || catalog.ExitSelection())) { args.Handled = true; return; }
+        if (ReturnFromCatalogOnEscape()) { args.Handled = true; return; }
         if (IsTextKeyboardFocus(FocusManager.GetFocusedElement(RootGrid.XamlRoot) as DependencyObject)) return;
         if (_settingsPage.Visibility == Visibility.Visible && _settingsPage.TryGoBack())
         {
@@ -1633,7 +1820,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnNavHistoryKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Handled || HasKeyboardPopup()) return;
+        if (e.Handled) return;
         if (e.Key is not (Windows.System.VirtualKey.Left or Windows.System.VirtualKey.Right)) return;
         if (!AltDown()) return;
         var moved = e.Key == Windows.System.VirtualKey.Left ? HandleHistoryInput(-1) : HandleHistoryInput(1);

@@ -59,6 +59,7 @@ public sealed partial class SettingsPage : UserControl
         {
             "Import" => ImportSettingsPanel,
             "Catalog" => CatalogSettingsPanel,
+            "TagManage" => TagManageSettingsPanel,
             "Recognition" => RecognitionSettingsPanel,
             "Bridge" => BridgeSettingsPanel,
             "Storage" => StorageSettingsPanel,
@@ -85,6 +86,7 @@ public sealed partial class SettingsPage : UserControl
         {
             "Import" => ImportSettingsPanel,
             "Catalog" => CatalogSettingsPanel,
+            "TagManage" => TagManageSettingsPanel,
             "Recognition" => RecognitionSettingsPanel,
             "Bridge" => BridgeSettingsPanel,
             "Storage" => StorageSettingsPanel,
@@ -98,6 +100,7 @@ public sealed partial class SettingsPage : UserControl
     {
         "ImportSettingsPanel" => "Import",
         "CatalogSettingsPanel" => "Catalog",
+        "TagManageSettingsPanel" => "TagManage",
         "RecognitionSettingsPanel" => "Recognition",
         "BridgeSettingsPanel" => "Bridge",
         "StorageSettingsPanel" => "Storage",
@@ -109,6 +112,7 @@ public sealed partial class SettingsPage : UserControl
     {
         "Import" => "导入与归档",
         "Catalog" => "资料库",
+        "TagManage" => "标签管理",
         "Recognition" => "智能识别",
         "Bridge" => "浏览器插件",
         "Storage" => "存储与诊断",
@@ -139,6 +143,7 @@ public sealed partial class SettingsPage : UserControl
         SettingsHomeBreadcrumb.Visibility = SettingsBreadcrumbSeparator.Visibility = SettingsPageTitle.Visibility = home
             ? Visibility.Collapsed : Visibility.Visible;
         SettingsPageTitle.Text = home ? "" : title;
+        if (ReferenceEquals(panel, TagManageSettingsPanel)) LoadTagManage();
         RefreshSettingsSummaries();
         SettingsScroll.UpdateLayout();
         if (home) _settingsReturnEntry?.Focus(focusState);
@@ -751,12 +756,8 @@ public sealed partial class SettingsPage : UserControl
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance!));
             var file = await picker.PickSaveFileAsync();
             if (file is null) return;
-            var report = await PackLibrary.ExportAsync(file.Path);
-            foreach (var warning in report.Warnings) AppService.DebugLog("pack export: " + warning);
-            CatalogExportStatus.Text = report.Warnings.Count == 0
-                ? $"已导出 {report.Packs} 个资料库、{report.Files} 个文件（{report.Records} 条记录）。"
-                : $"已导出 {report.Packs} 个资料库、{report.Files} 个文件（{report.Records} 条记录）；" +
-                  $"{report.Warnings.Count} 项被跳过：{string.Join("；", report.Warnings)}";
+            var count = await PackLibrary.ExportAsync(file.Path);
+            CatalogExportStatus.Text = $"已导出 {count} 条资料。";
             CatalogExportStatus.Visibility = Visibility.Visible;
         }
         catch (Exception ex)
@@ -834,11 +835,12 @@ public sealed partial class SettingsPage : UserControl
                 DefaultButton = ContentDialogButton.Close,
             });
             if (choice == ContentDialogResult.None) return;
-            await Task.Run(() => catalog.ImportPersonalRules(file.Path, choice == ContentDialogResult.Secondary));
+            var pending = await Task.Run(() => catalog.ImportPersonalRules(file.Path, choice == ContentDialogResult.Secondary));
             RefreshDirectoryRules();
             AppService.NotifyPersonalRulesRestored();
             PersonalRulesStatus.Text = choice == ContentDialogResult.Secondary
                 ? "已恢复备份中的个人设置。" : "已补充个人规则，现有设置已保留。";
+            if (pending > 0) PersonalRulesStatus.Text += $" 有 {pending} 项资料或标签等待匹配。";
             PersonalRulesStatus.Visibility = Visibility.Visible;
             ApplyNsfwState();
         }

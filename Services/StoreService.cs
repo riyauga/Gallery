@@ -1044,11 +1044,11 @@ public sealed partial class StoreService : IDisposable
         var games = new HashSet<string>(StringComparer.Ordinal);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
-            "SELECT m.game_key,COALESCE(g.zh,''),COALESCE(g.en,'') FROM catalog_memberships m " +
-            "LEFT JOIN catalog_games g ON g.game_key=m.game_key " +
+            "SELECT m.game_key,COALESCE(g.zh,''),COALESCE(g.en,'') FROM catalog_effective_memberships m " +
+            "LEFT JOIN catalog_effective_games g ON g.game_key=m.game_key " +
             "WHERE m.identity_key IN ($a,$b) " +
-            "UNION SELECT e.game_key,COALESCE(g2.zh,''),COALESCE(g2.en,'') FROM catalog_entities e " +
-            "LEFT JOIN catalog_games g2 ON g2.game_key=e.game_key WHERE e.entity_key IN ($a,$b)";
+            "UNION SELECT e.game_key,COALESCE(g2.zh,''),COALESCE(g2.en,'') FROM catalog_effective_entities e " +
+            "LEFT JOIN catalog_effective_games g2 ON g2.game_key=e.game_key WHERE e.entity_key IN ($a,$b)";
         cmd.Parameters.AddWithValue("$a", identity);
         cmd.Parameters.AddWithValue("$b", entity);
         using var r = cmd.ExecuteReader();
@@ -2485,11 +2485,13 @@ public sealed partial class StoreService : IDisposable
             cmd.CommandText =
                 "SELECT t.id,t.name,t.color,COALESCE(t.category,'custom')," +
                 "(SELECT COUNT(*) FROM image_tags it WHERE it.tag_id=t.id) AS c," +
-                "COALESCE(p.zh,''),COALESCE(p.en,''),COALESCE(p.entity_key,'')," +
+                "CASE WHEN personal.zh IS NOT NULL THEN COALESCE(e.zh,'') ELSE COALESCE(p.zh,'') END," +
+                "CASE WHEN personal.en IS NOT NULL THEN COALESCE(e.en,'') ELSE COALESCE(p.en,'') END,COALESCE(p.entity_key,'')," +
                 "COALESCE(e.identity_key,''),COALESCE(e.game_key,'')," +
                 "COALESCE(t.tag_key,''),COALESCE(ti.link_status,'pending'),COALESCE(ti.identity_key,'') " +
                 "FROM tags t LEFT JOIN tag_profiles p ON p.tag_id=t.id " +
-                "LEFT JOIN catalog_entities e ON e.entity_key=p.entity_key " +
+                "LEFT JOIN catalog_effective_entities e ON e.entity_key=p.entity_key " +
+                "LEFT JOIN catalog_personal_entries personal ON personal.kind=e.kind AND personal.key=CASE WHEN e.kind='work' THEN e.game_key ELSE e.identity_key END " +
                 "LEFT JOIN tag_identities ti ON ti.tag_id=t.id " +
                 "ORDER BY t.name COLLATE NOCASE";
             using var r = cmd.ExecuteReader();
@@ -2543,7 +2545,7 @@ public sealed partial class StoreService : IDisposable
             using var cmd = _conn.CreateCommand();
             cmd.CommandText =
                 "SELECT entity_key,COALESCE(NULLIF(identity_key,''),entity_key)," +
-                "COALESCE(zh,''),COALESCE(aliases,'[]') FROM catalog_entities";
+                "COALESCE(zh,''),COALESCE(aliases,'[]') FROM catalog_effective_entities";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2603,10 +2605,11 @@ public sealed partial class StoreService : IDisposable
     public Dictionary<(string Category, string Name), string> ResolveTagLabels(IEnumerable<(string Category, string Name)> names)
     {
         var requested = names.Distinct().ToArray();
-        var known = AllTags().ToDictionary(tag => (tag.Category, tag.Name));
+        var known = AllTags().ToLookup(tag => (tag.Category, tag.Name));
         var mode = TagDisplayState.GlobalMode(_conn);
-        var tags = requested.Select(key => known.TryGetValue(key, out var tag) ? tag
+        var tags = requested.Select(key => known[key].Count() == 1 ? known[key].Single()
             : new TagInfo { Id = 0, Category = key.Category, Name = key.Name,
+                LinkStatus = known.Contains(key) ? "independent" : "pending",
                 DisplayMode = key.Category is "character" or "work" ? mode : TagDisplayState.DefaultGlobalMode }).ToList();
         var catalog = new TagCatalogService(this);
         tags = catalog.ResolveDisplayNames(tags);
@@ -2627,7 +2630,7 @@ public sealed partial class StoreService : IDisposable
         using (var cmd = _conn.CreateCommand())
         {
             cmd.CommandText =
-                "SELECT e.game_key FROM catalog_names n JOIN catalog_entities e ON e.entity_key=n.entity_key " +
+                "SELECT e.game_key FROM catalog_effective_names n JOIN catalog_effective_entities e ON e.entity_key=n.entity_key " +
                 "WHERE n.term=$t AND e.kind='work' AND COALESCE(e.game_key,'')<>''";
             cmd.Parameters.AddWithValue("$t", term);
             using var r = cmd.ExecuteReader();

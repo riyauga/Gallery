@@ -101,6 +101,34 @@ public sealed class ContinuousScrollBar : Grid
     /// <summary>交互结束（点击动画和吸附已完成），宿主可提交详情或最终位置。</summary>
     public event Action? InteractionCompleted;
 
+    /// <summary>Bind an external vertical rail to a host's actual scroll viewport.</summary>
+    internal void BindVerticalViewport(ScrollViewer viewer)
+    {
+        var interacting = false;
+        var syncing = false;
+        void Sync()
+        {
+            syncing = true;
+            Maximum = viewer.ScrollableHeight;
+            ViewportSize = viewer.ViewportHeight;
+            Visibility = Maximum > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (!interacting) Value = viewer.VerticalOffset;
+            syncing = false;
+        }
+
+        viewer.RegisterPropertyChangedCallback(ScrollViewer.ScrollableHeightProperty, (_, _) => Sync());
+        viewer.RegisterPropertyChangedCallback(ScrollViewer.ViewportHeightProperty, (_, _) => Sync());
+        viewer.ViewChanged += (_, _) => { Sync(); NotifyActivity(); };
+        viewer.AddHandler(PointerWheelChangedEvent, new PointerEventHandler((_, _) => CancelInteraction()), true);
+        InteractionStarted += () => interacting = true;
+        InteractionCompleted += () => { interacting = false; Sync(); };
+        ValueChanged += value =>
+        {
+            if (!syncing) viewer.ChangeView(null, value, null, true);
+        };
+        Sync();
+    }
+
     /// <summary>指针进入/离开；显隐由组件管理，宿主可据此调整滑块外观。</summary>
     public event Action<bool>? HoverChanged;
 
