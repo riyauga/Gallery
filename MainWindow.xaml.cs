@@ -945,6 +945,38 @@ public sealed partial class MainWindow : Window
         await _catalogPage.OpenFirstEntryForVerification();
     }
 
+    /// <summary>无窗口自测：关联标签瓦片点击 → 预览层是否打开（只读）。</summary>
+    public async Task<string> VerifyTagPreviewAsync()
+    {
+        NavigateSelection("catalog");
+        await Task.Delay(1500);
+        if (_catalogPage is null) return "NO_CATALOG";
+        var report = await _catalogPage.VerifyTagPreviewAsync();
+        await Task.Delay(900);
+        return report + $"\npreviewOpen={Preview.IsOpen}";
+    }
+
+    /// <summary>取证用：停在「设置 → 标签管理」面板上，供外部用 UI 自动化读取与点击。</summary>
+    public async Task<string> PrepareTagManageShotAsync()
+    {
+        NavigateSelection("settings");
+        await Task.Delay(1000);
+        _settingsPage.ShowSection("TagManage");
+        await Task.Delay(1000);
+        return "ready " + _settingsPage.CurrentSection;
+    }
+
+    /// <summary>无窗口自测：标签管理的列表/搜索/分类/详情/重复检测/增删改。</summary>
+    public async Task<string> VerifyTagManageAsync()
+    {
+        NavigateSelection("settings");
+        await Task.Delay(900);
+        _settingsPage.ShowSection("TagManage");
+        await Task.Delay(900);
+        var report = await _settingsPage.VerifyTagManageAsync();
+        return report + $"\nsection={_settingsPage.CurrentSection}";
+    }
+
     /// <summary>无窗口自测：详情关系区勾选框与选择按钮的状态切换（只读）。</summary>
     public async Task<string> VerifyRelationCheckAsync()
     {

@@ -394,17 +394,18 @@
                 </StackPanel>
 
                 <StackPanel x:Name="TagManageSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">
-                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="标签管理" />
-                    <Border Padding="16"
+                    <!-- 页头已经是「设置 › 标签管理」，这里不再重复一个小标题 -->
+                    <Border Padding="16" Margin="0,24,0,0"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}">
                         <Grid x:Name="TagManageHost" RowSpacing="12">
                             <Grid.RowDefinitions>
+                                <!-- 搜索 + 主操作同一行，分类栏一行，其余全留给列表 -->
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <!-- 标签列表：9 行（平台 ListViewItem 44）+ 半行，底部露半条提示还有更多 -->
-                                <RowDefinition Height="418"/>
+                                <!-- 标签列表：9 行（行高 48，见 ItemContainerStyle）+ 半行，底部露半条提示还有更多 -->
+                                <RowDefinition Height="456"/>
                             </Grid.RowDefinitions>
                         </Grid>
                     </Border>

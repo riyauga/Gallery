@@ -103,6 +103,29 @@ public partial class App : Application
         _desktopPipe = new DesktopPipe(false, window.DispatcherQueue, window.HandleDesktopCommandAsync);
         if (uriLaunch) await window.ShowInGalleryAsync("");
 #if GALLERY_DEVELOPMENT
+        if (Environment.GetCommandLineArgs().Contains("--prepare-tag-manage"))
+        {
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(3500);
+                var msg = await window.PrepareTagManageShotAsync();
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "tag_manage_shot.txt"), msg);
+            });
+        }
+        if (Environment.GetCommandLineArgs().Contains("--verify-tag-manage"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_tag_manage.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            System.IO.File.WriteAllText(rep, "APP_HOOK");
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(4000);
+                try { System.IO.File.WriteAllText(rep, await window.VerifyTagManageAsync()); }
+                catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
+                App.Current.Exit();
+            });
+        }
         if (Environment.GetCommandLineArgs().Contains("--verify-catalog-detail"))
         {
             var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_catalog_detail.txt");
@@ -139,6 +162,18 @@ public partial class App : Application
             {
                 await Task.Delay(6000);
                 try { System.IO.File.WriteAllText(rep, await window.VerifyRelationCheckAsync()); }
+                catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
+                App.Current.Exit();
+            });
+        }
+        if (Environment.GetCommandLineArgs().Contains("--verify-tag-preview"))
+        {
+            var rep = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "verify_tag_preview.txt");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(rep)!);
+            window.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(6000);
+                try { System.IO.File.WriteAllText(rep, await window.VerifyTagPreviewAsync()); }
                 catch (Exception ex) { System.IO.File.WriteAllText(rep, "VERIFY_ERR " + ex); }
                 App.Current.Exit();
             });

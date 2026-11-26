@@ -47,6 +47,8 @@ public sealed class CatalogPage : Grid
     private Grid _banner = null!;
     private readonly StackPanel _detail = new() { Spacing = 24 };
     private StackPanel? _linkedTags;
+    /// <summary>最近一次在标签缩略图上按下的时刻，用于让「展开后顶到视口」的滚动避开点击。</summary>
+    private long _lastTagTilePress;
     // 标签折叠区里的缩略图对账队列：每个面板各自去重，避免多标签同时展开时互相压制。
     private readonly HashSet<PhotoGalleryPanel> _tagThumbnailPending = [];
     private int _tagRefreshRevision;
@@ -715,6 +717,43 @@ public sealed class CatalogPage : Grid
             lines.Add($"untoggle1 ticked={cards.Count(c => c.Selected)} expect=1");
             _relationSelection.Exit();
             lines.Add($"exit boxes={cards.Count(c => c.SelectMode)} ticked={cards.Count(c => c.Selected)}");
+        }
+        catch (Exception ex) { lines.Add("VERIFY_ERR " + ex); }
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>无窗口自测：关联标签展开后的瓦片是否具备点击条件（只读）。</summary>
+    public async System.Threading.Tasks.Task<string> VerifyTagPreviewAsync()
+    {
+        var lines = new List<string>();
+        try
+        {
+            await RefreshAsync();
+            const string probeKey = "zenless-zone-zero-wiki:zenless-zone-zero:page:15114";
+            var target = Source("character").FirstOrDefault(e => e.Key == probeKey)
+                ?? Source("character").FirstOrDefault(e => _catalog.LibraryTags(e.Kind, e.Key).Any(t => t.Usage > 0))
+                ?? Source("work").FirstOrDefault(e => _catalog.LibraryTags(e.Kind, e.Key).Any(t => t.Usage > 0));
+            if (target is null) return "NO_TARGET";
+            lines.Add($"entry={target.Key} name={target.Name} tags=[{string.Join(",", _catalog.LibraryTags(target.Kind, target.Key).Select(t => $"{t.Name}:{t.Usage}"))}]");
+            Navigate(target.Kind, target.Key);
+            await Task.Delay(1200);
+            UpdateLayout();
+            var section = _linkedTags?.Children.OfType<Expander>().FirstOrDefault();
+            if (section is null) return string.Join("\n", lines.Append("NO_TAG_SECTION"));
+            section.IsExpanded = true;
+            await Task.Delay(2400);
+            var panel = section.Content as PhotoGalleryPanel;
+            var tiles = panel?.Children.OfType<PhotoTile>().ToArray() ?? [];
+            lines.Add($"content={section.Content?.GetType().Name} panel={(panel is null ? "null" : $"{panel.ActualWidth:0}x{panel.ActualHeight:0}")} " +
+                $"items={panel?.Items.Count ?? -1} tiles={tiles.Length} wired={tiles.Count(t => t.EventsWired)}");
+            if (tiles.Length > 0)
+            {
+                var t0 = tiles[0];
+                var at = t0.TransformToVisual(this).TransformPoint(new(0, 0));
+                lines.Add($"first pos={at.X:0},{at.Y:0} size={t0.ActualWidth:0}x{t0.ActualHeight:0} detached={t0.Detached} index={panel!.IndexOfTile(t0)}");
+                OpenTagMediaPreview(panel, t0);
+                lines.Add("invoked=1");
+            }
         }
         catch (Exception ex) { lines.Add("VERIFY_ERR " + ex); }
         return string.Join("\n", lines);
@@ -1480,6 +1519,7 @@ public sealed class CatalogPage : Grid
     private void RevealTagMediaWhenArranged(Expander section)
     {
         var offset = _scroll.VerticalOffset;
+        var startedAt = Environment.TickCount64;
         void Stop()
         {
             section.LayoutUpdated -= OnLayout;
@@ -1490,6 +1530,14 @@ public sealed class CatalogPage : Grid
         void OnUnloaded(object sender, RoutedEventArgs args) => Stop();
         void OnLayout(object? sender, object args)
         {
+            // 用户已经在图片上按下（或刚按过）：此时再滚动会把指针底下的元素换掉，点击就丢了。
+            // 展开后的自动滚动只是「把标签区顶到视口」的便利，让位给用户操作。
+            if (Environment.TickCount64 - _lastTagTilePress < 600 ||
+                Environment.TickCount64 - startedAt > 2000)
+            {
+                Stop();
+                return;
+            }
             if (!section.IsExpanded || section.Content is not FrameworkElement content ||
                 content is Border or PhotoGalleryPanel { IsBuilding: true } ||
                 content.ActualHeight <= 0 || _scroll.ViewportHeight <= 0) return;
@@ -1545,6 +1593,7 @@ public sealed class CatalogPage : Grid
                 return;
             }
 
+            AppService.DebugLog($"tag-panel build tag={state.Id} items={items.Count}");
             var panel = new PhotoGalleryPanel { Mode = GalleryLayoutMode.Grid, Size = ThumbnailSize.Small,
                 RealizationBufferRatio = .25,
                 TileTemplate = (DataTemplate)Application.Current.Resources["CatalogPhotoTileTemplate"] };
@@ -1555,17 +1604,16 @@ public sealed class CatalogPage : Grid
             panel.SizeChanged += (_, _) => ScheduleTagThumbnails(section, panel);
             panel.TilePrepared += tile =>
             {
-                if (tile.EventsWired) return;
-                tile.EventsWired = true;
+                // 只做瓦片级的一次性接线；点击统一在面板层判定（见 WireTagPanelClick），
+                // 不用「瓦片是否已接线」当门控——瓦片会被回收复用，门控会让新绑定的瓦片漏掉点击。
                 tile.FavoriteRequested = ToggleFavorite;
-                tile.ThumbnailInvalidated += () => ScheduleTagThumbnails(section, panel);
-                tile.Tapped += (_, args) =>
+                if (!tile.EventsWired)
                 {
-                    if (tile.Detached || !ReferenceEquals(section.Content, panel) || panel.IndexOfTile(tile) < 0) return;
-                    args.Handled = true;
-                    OpenTagMediaPreview(panel, tile);
-                };
+                    tile.EventsWired = true;
+                    tile.ThumbnailInvalidated += () => ScheduleTagThumbnails(section, panel);
+                }
             };
+            WireTagPanelClick(panel);
             panel.SetItems(items);
             // 展开这一帧的 Loaded／LayoutReady／ViewportInvalidated 都早于首次测量，
             // 此刻 Repeater 还没有瓦片；强制布局后下一帧再对账一次。
@@ -1585,9 +1633,64 @@ public sealed class CatalogPage : Grid
         }
     }
 
+    /// <summary>
+    /// 标签区缩略图的点击判定：按下与抬起都在**窗口坐标**里比较，位移超阈值或调用 Tapped 语义之外的
+    /// 情况一律不算点击。原先绑在瓦片上的 Tapped 会被两件事吃掉——把标签区顶到视口的那次
+    /// ChangeView（元素在指针下移动）与布局重排瞬间的 IndexOfTile 守卫——表现就是「图在、点了没反应」，
+    /// 而且只偶发。绑定挂在面板上而不是瓦片上：瓦片被回收复用后不会漏绑，也不会重复绑。
+    /// </summary>
+    private void WireTagPanelClick(PhotoGalleryPanel panel)
+    {
+        if (panel.Tag is TagPanelClickState) return;
+        var state = new TagPanelClickState();
+        panel.Tag = state;
+        panel.PointerPressed += (_, e) =>
+        {
+            if (FindTagTile(e.OriginalSource) is not { } tile) return;
+            _lastTagTilePress = Environment.TickCount64;
+            state.Tile = tile;
+            state.Start = e.GetCurrentPoint(null).Position;
+            state.At = Environment.TickCount64;
+        };
+        panel.PointerReleased += (_, e) =>
+        {
+            var tile = state.Tile;
+            state.Tile = null;
+            if (tile is null || tile.Detached || tile.Item is null) return;
+            if (!ReferenceEquals(FindTagTile(e.OriginalSource), tile)) return;
+            var end = e.GetCurrentPoint(null).Position;
+            if (Math.Abs(end.X - state.Start.X) > 8 || Math.Abs(end.Y - state.Start.Y) > 8) return;
+            if (Environment.TickCount64 - state.At > 1200) return;
+            AppService.DebugLog($"tag-tile-tap index={panel.IndexOfTile(tile)} items={panel.Items.Count}");
+            OpenTagMediaPreview(panel, tile);
+        };
+        panel.PointerCaptureLost += (_, _) => state.Tile = null;
+        panel.PointerCanceled += (_, _) => state.Tile = null;
+    }
+
+    private sealed class TagPanelClickState
+    {
+        public PhotoTile? Tile;
+        public Windows.Foundation.Point Start;
+        public long At;
+    }
+
+    /// <summary>从事件源向上找最近的瓦片；找不到说明点在空白处。</summary>
+    private static PhotoTile? FindTagTile(object? source)
+    {
+        var node = source as DependencyObject;
+        for (var depth = 0; node is not null && depth < 12; depth++)
+        {
+            if (node is PhotoTile tile) return tile;
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return null;
+    }
+
     private void OpenTagMediaPreview(PhotoGalleryPanel panel, PhotoTile tile)
     {
         var (rect, fully) = GalleryPage.TileFlightRect(tile, _scroll);
+        AppService.DebugLog($"tag-preview-open image={tile.Item.ImageId} items={panel.Items.Count} rect={rect.X:0},{rect.Y:0},{rect.Width:0}x{rect.Height:0}");
         PreviewRequested?.Invoke(new(tile.Item, panel.Items.ToArray(), rect, fully, item =>
             panel.Children.FirstOrDefault(t => !t.Detached && t.Item.ImageId == item.ImageId && panel.IndexOfTile(t) >= 0) is { IsLoaded: true } source
                 ? GalleryPage.TileFlightRect(source, _scroll).Rect : null,

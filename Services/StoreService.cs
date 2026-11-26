@@ -74,6 +74,19 @@ public sealed partial class StoreService : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// 单值查询。需要「写入后立刻取 last_insert_rowid()」时必须走这里：
+    /// 另开一条连接看不到未提交的改动，只会拿到 0。
+    /// </summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public long Scalar(string sql)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = sql;
+        var value = cmd.ExecuteScalar();
+        return value is null or DBNull ? 0 : Convert.ToInt64(value);
+    }
+
     /// <summary>自动提交模式下语句即时持久化；保留方法名与 galleryold 对齐。</summary>
     [MethodImpl(MethodImplOptions.Synchronized)]
     public void Commit() { }
