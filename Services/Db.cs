@@ -42,7 +42,7 @@ public sealed class Db : IDisposable
     }
 
     /// <summary>
-    /// 空库直接建当前 v10；旧库依次增量迁移；
+    /// 空库直接建当前 v11；旧库依次增量迁移；
     /// 其他版本一律拒绝打开，避免误改用户数据。
     /// </summary>
     private void EnsureSchema()
@@ -54,21 +54,22 @@ public sealed class Db : IDisposable
             using var stream = typeof(Db).Assembly.GetManifestResourceStream("Gallery.Services.LibrarySchema.sql")
                 ?? throw new InvalidOperationException("缺少新图库的数据结构资源。");
             using var reader = new StreamReader(stream);
-            Exec("BEGIN IMMEDIATE");
+            using var fresh = Connection.BeginTransaction();
             try
             {
-                Exec(reader.ReadToEnd());
-                Exec("ALTER TABLE images ADD COLUMN commentary_title TEXT; ALTER TABLE images ADD COLUMN commentary_desc TEXT;");
-                Exec(LibraryMigrationV7.SchemaSql);
-                Exec(LibraryMigrationV8.SchemaSql);
-                Exec(LibraryMigrationV9.SchemaSql);
-                Exec(LibraryMigrationV10.SchemaSql);
-                Exec("UPDATE meta SET value='10' WHERE key='schema_version'");
-                Exec("COMMIT");
+                void Create(string sql) { using var c = Connection.CreateCommand(); c.Transaction = fresh; c.CommandText = sql; c.ExecuteNonQuery(); }
+                Create(reader.ReadToEnd());
+                Create("ALTER TABLE images ADD COLUMN commentary_title TEXT; ALTER TABLE images ADD COLUMN commentary_desc TEXT;");
+                Create(LibraryMigrationV7.SchemaSql);
+                Create(LibraryMigrationV8.SchemaSql);
+                Create(LibraryMigrationV9.SchemaSql);
+                Create(LibraryMigrationV10.SchemaSql);
+                LibraryMigrationV11.Initialize(Connection, fresh);
+                fresh.Commit();
             }
             catch
             {
-                Exec("ROLLBACK");
+                fresh.Rollback();
                 throw;
             }
             return;
@@ -113,9 +114,14 @@ public sealed class Db : IDisposable
             LibraryMigrationV10.Upgrade(Connection, DbPath);
             version = SchemaVersion;
         }
-        if (version != LibraryMigrationV10.TargetVersion)
+        if (version == LibraryMigrationV10.TargetVersion)
+        {
+            LibraryMigrationV11.Upgrade(Connection, DbPath);
+            version = SchemaVersion;
+        }
+        if (version != LibraryMigrationV11.TargetVersion)
             throw new InvalidDataException(
-                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV10.TargetVersion}），未修改原有数据结构。");
+                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV11.TargetVersion}），未修改原有数据结构。");
     }
 
     public int SchemaVersion

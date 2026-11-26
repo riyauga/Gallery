@@ -22,7 +22,7 @@ public static class TagManageService
 
     public static readonly (string Key, string Label)[] AllCategories =
     [
-        ("character", "角色"), ("work", "作品"), ("artist", "画师"),
+        ("character", "角色"), ("work", "作品"), ("artist", "作者"),
         ("kind", "类型"), ("custom", "自定义"), ("resolution", "分辨率"), ("rating", "分级"),
     ];
 
@@ -59,7 +59,7 @@ public static class TagManageService
             WHERE {KeywordFilter}
               AND ($c='' OR t.category=$c)
               AND ($zero=1 OR EXISTS(SELECT 1 FROM image_tags it2 WHERE it2.tag_id=t.id))
-            -- 默认按关联图片数降序：入口进来先看到在用的标签，而不是按分类字母序排在前面的画师。
+            -- 默认按关联图片数降序：入口进来先看到在用的标签，而不是按分类字母序排在前面的作者。
             ORDER BY 8 DESC,t.category,t.name COLLATE NOCASE
             """;
         cmd.Parameters.AddWithValue("$q", keyword);

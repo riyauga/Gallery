@@ -553,14 +553,18 @@ public sealed partial class SettingsPage : UserControl
         SetPackStatus(isModel, "正在导入…", isError: false);
         try
         {
-            var report = await PackLibrary.ImportAsync(items, isModel);
+            var dispatcher = DispatcherQueue;
+            var root = XamlRoot;
+            var report = await PackLibrary.ImportAsync(items, isModel, batch => Gallery.Controls.Catalog.CatalogImportDialog.ReviewAsync(dispatcher, root, batch));
             foreach (var error in report.Errors) AppService.DebugLog("pack import: " + error);
             if (report.Model > 0) Services.AppService.ActivateModelPack();
             if (report.Catalog > 0) await Task.Run(Services.AppService.ImportCatalogPacks);
             ApplyNsfwState();
             RefreshPackLists();
 
-            if (report.Errors.Count > 0)
+            if (report.Cancelled)
+                SetPackStatus(isModel, "已取消资料导入。", isError: false);
+            else if (report.Errors.Count > 0)
                 SetPackStatus(isModel, string.Join("；", report.Errors), isError: true);
             else if (report.Any)
                 SetPackStatus(isModel, isModel ? "模型已导入，下次识别时使用。" : "资料库已导入。", isError: false);

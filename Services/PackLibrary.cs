@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text.Json;
 using Windows.Storage;
 
@@ -17,6 +17,7 @@ public static class PackLibrary
 {
     public sealed record ImportReport(int Catalog, int Model, List<string> Errors)
     {
+        public bool Cancelled { get; init; }
         public bool Any => Catalog > 0 || Model > 0;
     }
 
@@ -80,6 +81,8 @@ public static class PackLibrary
         finally { MutationGate.Release(); }
     }
 
+    private static readonly JsonSerializerOptions ArchiveJson = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+
     private const string LibraryArchiveEntry = "gallery-catalog.json";
 
     /// <summary>导出当前生效的作品、角色、关系和背景图片。</summary>
@@ -94,13 +97,28 @@ public static class PackLibrary
                 var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 try
                 {
-                    int count;
+                    var document = catalog.ExportCatalogDocument();
+                    if (document.Entries.Length == 0) throw new InvalidOperationException("资料库里还没有可导出的内容");
                     using (var stream = new FileStream(temporary, FileMode.CreateNew))
                     using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
-                    using (var contents = zip.CreateEntry(LibraryArchiveEntry, CompressionLevel.Optimal).Open())
-                        count = catalog.WriteLibraryArchive(contents);
+                    {
+                        void Write<T>(string name, T value)
+                        {
+                            using var entry = zip.CreateEntry(name, CompressionLevel.Optimal).Open();
+                            JsonSerializer.Serialize(entry, value, ArchiveJson);
+                        }
+                        Write("manifest.json", new { format = "gallery-catalog", version = 2 });
+                        Write("entries.json", document.Entries);
+                        Write("entity_ids.json", document.EntityIds);
+                        Write("distinct_pairs.json", document.DistinctPairs);
+                        foreach (var asset in document.Assets)
+                        {
+                            using var entry = zip.CreateEntry("assets/" + asset.Hash + ".jpg", CompressionLevel.Optimal).Open();
+                            entry.Write(asset.Image);
+                        }
+                    }
                     File.Move(temporary, destination, overwrite: true);
-                    return count;
+                    return document.Entries.Length;
                 }
                 finally { File.Delete(temporary); }
             });
@@ -109,17 +127,18 @@ public static class PackLibrary
     }
 
     // isModel 为 null 仅供已有无窗口验证入口自动识别；设置页必须指定目标类型。
-    public static async Task<ImportReport> ImportAsync(IReadOnlyList<IStorageItem> items, bool? isModel = null)
+    public static async Task<ImportReport> ImportAsync(IReadOnlyList<IStorageItem> items, bool? isModel = null,
+        Func<TagCatalogService.CatalogImportBatch, Task<bool>>? review = null)
     {
         var paths = items.Select(i => i.Path).ToArray();
         await MutationGate.WaitAsync();
-        try { return await Task.Run(() => Import(paths, isModel)); }
+        try { return await Task.Run(() => Import(paths, isModel, review)); }
         finally { MutationGate.Release(); }
     }
 
     private sealed record Candidate(string Source, string Name, bool IsModel, string[] Jsons, string? Relations = null);
 
-    private static ImportReport Import(string[] paths, bool? isModel)
+    private static ImportReport Import(string[] paths, bool? isModel, Func<TagCatalogService.CatalogImportBatch, Task<bool>>? review)
     {
         var errors = new List<string>();
         var candidates = new List<Candidate>();
@@ -151,6 +170,11 @@ public static class PackLibrary
                         Extract(path, source);
                     }
                     var snapshot = Path.Combine(source, LibraryArchiveEntry);
+                    if (File.Exists(Path.Combine(source, "manifest.json")))
+                    {
+                        snapshots.Add(Path.Combine(source, "manifest.json"));
+                        continue;
+                    }
                     if (File.Exists(snapshot))
                     {
                         snapshots.Add(snapshot);
@@ -178,8 +202,22 @@ public static class PackLibrary
                 try
                 {
                     var service = AppService.Catalog ?? throw new InvalidOperationException("资料库尚未就绪");
-                    using var contents = File.OpenRead(snapshot);
-                    if (service.ReadLibraryArchive(contents, overwrite: null) > 0) catalog++;
+                    TagCatalogService.CatalogDocument document;
+                    if (Path.GetFileName(snapshot) == "manifest.json") document = ReadCatalogDirectory(Path.GetDirectoryName(snapshot)!);
+                    else
+                    {
+                        using var contents = File.OpenRead(snapshot);
+                        document = TagCatalogService.ReadLibraryArchiveDocument(contents);
+                    }
+                    var cancelled = false;
+                    var imported = service.ImportCatalogDocumentAsync(document, review is null ? null : async batch =>
+                    {
+                        var accepted = await review(batch);
+                        cancelled = !accepted;
+                        return accepted;
+                    }).GetAwaiter().GetResult();
+                    if (cancelled) return new(catalog, model, errors) { Cancelled = true };
+                    if (imported > 0) catalog++;
                 }
                 catch (Exception ex) { errors.Add(ex.Message); }
             }
@@ -212,6 +250,32 @@ public static class PackLibrary
         catch (Exception ex) { errors.Add(ex.Message); }
         finally { TryDelete(staging); }
         return new(catalog, model, errors);
+    }
+
+    private static TagCatalogService.CatalogDocument ReadCatalogDirectory(string directory)
+    {
+        T Read<T>(string name)
+        {
+            using var stream = File.OpenRead(Path.Combine(directory, name));
+            return JsonSerializer.Deserialize<T>(stream, ArchiveJson) ?? throw new InvalidDataException("资料库文件无效：" + name);
+        }
+        var manifest = Read<JsonElement>("manifest.json");
+        if (manifest.GetProperty("format").GetString() != "gallery-catalog" || manifest.GetProperty("version").GetInt32() != 2)
+            throw new InvalidDataException("不支持的资料库分享格式");
+        var entries = Read<TagCatalogService.CatalogRecord[]>("entries.json");
+        var hashes = entries.Where(e => e is not null && e.CoverHash is not null).Select(e => e.CoverHash!).Distinct().ToArray();
+        if (hashes.Any(h => h.Length != 64 || !h.All(Uri.IsHexDigit))) throw new InvalidDataException("背景图编号无效");
+        var assets = hashes.Select(h =>
+        {
+            var path = Path.Combine(directory, "assets", h + ".jpg");
+            if (new FileInfo(path).Length is < 3 or > 8 * 1024 * 1024)
+                throw new InvalidDataException("资料库背景图片大小无效，单张不能超过 8 MB");
+            return new TagCatalogService.CatalogAsset(h, File.ReadAllBytes(path));
+        }).ToArray();
+        var document = new TagCatalogService.CatalogDocument("gallery-catalog", 2, entries,
+            Read<TagCatalogService.CatalogIdentity[]>("entity_ids.json"), Read<TagCatalogService.CatalogDistinct[]>("distinct_pairs.json"), assets);
+        TagCatalogService.ValidateCatalogDocument(document);
+        return document;
     }
 
     private static IEnumerable<Candidate> Discover(string directory, string name)

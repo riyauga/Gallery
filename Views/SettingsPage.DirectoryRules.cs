@@ -11,7 +11,7 @@ public sealed partial class SettingsPage
     private FolderMap _directoryMap = new();
     private static readonly (string Key, string Label)[] DirectoryCategories =
     [
-        ("work", "作品"), ("character", "角色"), ("artist", "画师"),
+        ("work", "作品"), ("character", "角色"), ("artist", "作者"),
         ("kind", "类型"), ("custom", "自定义"), ("rating", "分级"),
     ];
 
@@ -27,7 +27,7 @@ public sealed partial class SettingsPage
             return;
         }
         if (_directoryMap.RoutingRules.Count == 0)
-            DirectoryRulesList.Children.Add(new TextBlock { Text = _directoryMap.ManagedDirs.Count > 0 ? "暂无标签分流规则，使用已有作品／画师目录配置。" : "暂无目录规则，归档到你选择的目录。", Opacity = .6 });
+            DirectoryRulesList.Children.Add(new TextBlock { Text = _directoryMap.ManagedDirs.Count > 0 ? "暂无标签分流规则，使用已有作品／作者目录配置。" : "暂无目录规则，归档到你选择的目录。", Opacity = .6 });
         for (var i = 0; i < _directoryMap.RoutingRules.Count; i++)
         {
             var index = i;
@@ -47,7 +47,7 @@ public sealed partial class SettingsPage
             text.Children.Add(new TextBlock
             {
                 Text = rule.Folder + (rule.SplitRating ? $" · 分级 {rule.SfwFolder} / {rule.NsfwFolder}" : "")
-                    + (rule.AppendArtist ? " · 按画师细分" : ""),
+                    + (rule.AppendArtist ? " · 按作者细分" : ""),
                 TextTrimming = TextTrimming.CharacterEllipsis, Opacity = .6, FontSize = 12,
             });
             Grid.SetColumn(text, 1);
@@ -132,7 +132,7 @@ public sealed partial class SettingsPage
             var nsfw = new TextBox { Header = "NSFW 子目录名", Text = original.NsfwFolder, IsEnabled = original.SplitRating };
             split.Checked += (_, _) => { sfw.IsEnabled = nsfw.IsEnabled = true; };
             split.Unchecked += (_, _) => { sfw.IsEnabled = nsfw.IsEnabled = false; };
-            var author = new CheckBox { Content = "再按画师细分（有画师标签时）", IsChecked = original.AppendArtist };
+            var author = new CheckBox { Content = "再按作者细分（有作者标签时）", IsChecked = original.AppendArtist };
             var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
             var content = new StackPanel { Spacing = 12, MinWidth = 340, MaxWidth = 540 };
             foreach (var control in new UIElement[] { new StackPanel { Spacing = 5, Children = { new TextBlock { Text = "标签类型" }, category } }, name, folder, split, sfw, nsfw, author,

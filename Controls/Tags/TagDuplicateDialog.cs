@@ -25,7 +25,7 @@ public sealed class TagDuplicateDialog : ContentDialog
     ];
 
     private readonly StackPanel _groups = new() { Spacing = 12 };
-    private readonly TextBlock _status = new() { Opacity = .7, FontSize = 12 };
+    private readonly TextBlock _status = new() { Opacity = .7, FontSize = 12, TextWrapping = TextWrapping.Wrap };
     private readonly Dictionary<string, CheckBox> _checks = new(StringComparer.Ordinal);
     private bool _busy;
 
@@ -46,20 +46,25 @@ public sealed class TagDuplicateDialog : ContentDialog
 
     private UIElement BuildContent()
     {
-        var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+        var columns = XamlRoot.Size.Width < 760 ? 2 : 4;
+        var bar = new Grid { ColumnSpacing = 12, RowSpacing = 4 };
+        for (var column = 0; column < columns; column++) bar.ColumnDefinitions.Add(new ColumnDefinition());
+        for (var row = 0; row < (Conditions.Length + columns - 1) / columns; row++) bar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         foreach (var condition in Conditions)
         {
             var check = new CheckBox { Content = condition.Label, MinWidth = 0 };
             check.Checked += (_, _) => Recheck();
             check.Unchecked += (_, _) => Recheck();
             _checks[condition.Key] = check;
+            Grid.SetColumn(check, bar.Children.Count % columns);
+            Grid.SetRow(check, bar.Children.Count / columns);
             bar.Children.Add(check);
         }
 
         return new StackPanel
         {
             Spacing = 12,
-            MinWidth = 620,
+            Width = Math.Max(280, Math.Min(620, XamlRoot.Size.Width - 112)),
             Children =
             {
                 new TextBlock
@@ -71,7 +76,7 @@ public sealed class TagDuplicateDialog : ContentDialog
                 _status,
                 new ScrollViewer
                 {
-                    MaxHeight = 420,
+                    MaxHeight = Math.Max(160, Math.Min(420, XamlRoot.Size.Height - 300)),
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                     Padding = new Thickness(0, 0, 16, 0),
                     Content = _groups,
@@ -109,26 +114,28 @@ public sealed class TagDuplicateDialog : ContentDialog
         for (var i = 0; i < group.Members.Count; i++)
         {
             var member = group.Members[i];
+            var content = new Grid { ColumnSpacing = 8 };
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+            content.ColumnDefinitions.Add(new ColumnDefinition());
+            content.ColumnDefinitions.Add(new ColumnDefinition());
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var values = new[] { TagManageService.Label(member.Category), member.Name, member.Zh.Length > 0 ? member.Zh : "—", $"{member.Usage} 张" };
+            for (var column = 0; column < values.Length; column++)
+            {
+                var text = new TextBlock { Text = values[column], TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = VerticalAlignment.Center, Opacity = column == 1 ? 1 : .72, FontSize = column == 1 ? 14 : 12 };
+                ToolTipService.SetToolTip(text, values[column]);
+                Grid.SetColumn(text, column);
+                content.Children.Add(text);
+            }
             var radio = new RadioButton
             {
                 GroupName = groupName,
                 IsChecked = i == 0,
                 MinWidth = 0,
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    Children =
-                    {
-                        new TextBlock { Text = TagManageService.Label(member.Category), Opacity = .6, FontSize = 12,
-                            Width = 36, VerticalAlignment = VerticalAlignment.Center },
-                        new TextBlock { Text = member.Name, VerticalAlignment = VerticalAlignment.Center },
-                        new TextBlock { Text = member.Zh.Length > 0 ? member.Zh : "—", Opacity = .72, FontSize = 12,
-                            VerticalAlignment = VerticalAlignment.Center },
-                        new TextBlock { Text = $"{member.Usage} 张", Opacity = .72, FontSize = 12,
-                            VerticalAlignment = VerticalAlignment.Center },
-                    },
-                },
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = content,
             };
             radio.Tag = member;
             radios.Add(radio);
@@ -165,7 +172,7 @@ public sealed class TagDuplicateDialog : ContentDialog
                     {
                         Text = $"组 {index + 1} · {group.Members.Sum(m => m.Usage)} 张 · 命中：{group.Reason}" +
                                (sameCategory ? "" : " · 分类不同，只能保留一个"),
-                        FontSize = 12, Opacity = .7,
+                        FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap,
                     },
                     members,
                     actions,
@@ -200,7 +207,7 @@ public sealed class TagDuplicateDialog : ContentDialog
         {
             try
             {
-                var report = Preview(winner, losers);
+                var report = RunPlan(winner, losers, apply: false);
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     preview.Text = report;
@@ -220,7 +227,7 @@ public sealed class TagDuplicateDialog : ContentDialog
             confirm.IsEnabled = false;
             try
             {
-                await Task.Run(() => Apply(winner, losers));
+                await Task.Run(() => RunPlan(winner, losers, apply: true));
                 Changed = true;
                 AppService.NotifyPackRemoved();
                 Recheck();
@@ -271,25 +278,20 @@ public sealed class TagDuplicateDialog : ContentDialog
         host.Children.Add(confirm);
     }
 
-    private static string PlanPath => System.IO.Path.Combine(
-        System.IO.Path.GetTempPath(), "ptv", "tag_manage_merge.json");
-
-    private static string Preview(TagManageService.TagRow winner, TagManageService.TagRow[] losers)
+    private static string RunPlan(TagManageService.TagRow winner, TagManageService.TagRow[] losers, bool apply)
     {
-        using var store = new StoreService(AppPaths.DbPath);
-        return TagMergeService.Run(store, WritePlan(winner, losers), apply: false);
-    }
-
-    private static string Apply(TagManageService.TagRow winner, TagManageService.TagRow[] losers)
-    {
-        using var store = new StoreService(AppPaths.DbPath);
-        return TagMergeService.Run(store, WritePlan(winner, losers), apply: true);
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ptv", "tag-merge-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            using var store = new StoreService(AppPaths.DbPath);
+            return TagMergeService.Run(store, WritePlan(path, winner, losers), apply);
+        }
+        finally { System.IO.File.Delete(path); }
     }
 
     /// <summary>合并服务走的还是命令行那份 JSON 计划，这里把界面上选的保留项翻译成计划。</summary>
-    private static string WritePlan(TagManageService.TagRow winner, TagManageService.TagRow[] losers)
+    private static string WritePlan(string path, TagManageService.TagRow winner, TagManageService.TagRow[] losers)
     {
-        var path = PlanPath;
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         var plan = losers.Select(l => new
         {

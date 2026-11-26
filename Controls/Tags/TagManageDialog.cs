@@ -38,7 +38,17 @@ public sealed class TagManageDialog : ContentDialog
         CloseButtonText = "取消";
         SecondaryButtonText = "删除";
         DefaultButton = ContentDialogButton.Primary;
-        Content = BuildContent();
+        var content = BuildContent();
+        var scroll = new ScrollViewer
+        {
+            Content = content, Padding = new Thickness(0, 0, 16, 0),
+            MaxHeight = Math.Max(180, Math.Min(540, root.Size.Height - 220)),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
+        var bar = new ContinuousScrollBar { Step = 0, HorizontalAlignment = HorizontalAlignment.Right };
+        Content = new Grid { Children = { scroll, bar } };
+        Opened += (_, _) => bar.BindVerticalViewport(scroll);
 
         PrimaryButtonClick += OnSave;
         SecondaryButtonClick += (_, args) =>
@@ -115,7 +125,7 @@ public sealed class TagManageDialog : ContentDialog
         return new StackPanel
         {
             Spacing = 12,
-            MinWidth = 420,
+            Width = Math.Max(280, Math.Min(440, XamlRoot.Size.Width - 112)),
             Children =
             {
                 facts,
@@ -139,7 +149,7 @@ public sealed class TagManageDialog : ContentDialog
         };
     }
 
-    private static StackPanel Row(string label, string value, bool mono = false)
+    private static Grid Row(string label, string value, bool mono = false)
     {
         var text = new TextBlock
         {
@@ -149,17 +159,14 @@ public sealed class TagManageDialog : ContentDialog
             VerticalAlignment = VerticalAlignment.Center,
         };
         if (mono) text.FontFamily = new FontFamily("Consolas, Cascadia Mono, Segoe UI");
-        return new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Children =
-            {
-                new TextBlock { Text = label, Width = 64, Opacity = .65, FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center },
-                text,
-            },
-        };
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.Children.Add(new TextBlock { Text = label, Opacity = .65, FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+        return row;
     }
 
     private void RefreshAliases()
@@ -172,7 +179,7 @@ public sealed class TagManageDialog : ContentDialog
         }
         foreach (var alias in _aliases.ToArray())
         {
-            var text = new TextBlock { Text = alias, VerticalAlignment = VerticalAlignment.Center };
+            var text = new TextBlock { Text = alias, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
             var remove = new Button
             {
                 Content = new FontIcon { Glyph = "\uE711", FontSize = 11 },
@@ -188,12 +195,13 @@ public sealed class TagManageDialog : ContentDialog
                 _aliases.Remove(alias);
                 RefreshAliases();
             };
-            _aliasHost.Children.Add(new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Children = { text, remove },
-            });
+            var row = new Grid { ColumnSpacing = 6 };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(text);
+            Grid.SetColumn(remove, 1);
+            row.Children.Add(remove);
+            _aliasHost.Children.Add(row);
         }
     }
 
@@ -221,6 +229,7 @@ public sealed class TagManageDialog : ContentDialog
             var category = (_category.SelectedItem as ComboBoxItem)?.Tag as string ?? _detail.Category;
             var zh = _zh.Text.Trim();
             var en = _en.Text.Trim();
+            AddAlias(_newAlias.Text);
             var aliases = _aliases.ToArray();
             await Task.Run(() =>
             {

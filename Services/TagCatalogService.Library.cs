@@ -8,6 +8,8 @@ public sealed partial class TagCatalogService
     public sealed record LibraryEntry(string Key, string EntityKey, string IdentityKey, string Kind, string Zh,
         string En, string[] Aliases, string Origin, bool Created, bool Edited)
     {
+        public long Id { get; init; }
+        public string EntityId { get; init; } = "";
         public string Name => Zh.Length > 0 ? Zh : En;
         public bool Matches(string search) => SearchMatcher(search)(this);
 
@@ -46,7 +48,7 @@ public sealed partial class TagCatalogService
         var characters = ReadEntries(conn, tx, "character");
         var memberships = ReadAppearances(conn, tx);
         var covers = new HashSet<(string Kind, string Key)>();
-        using (var cmd = Query(conn, tx, "SELECT kind,key FROM catalog_covers"))
+        using (var cmd = Query(conn, tx, "SELECT kind,legacy_key FROM catalog_entries WHERE cover_hash IS NOT NULL"))
         using (var reader = cmd.ExecuteReader())
             while (reader.Read()) covers.Add((reader.GetString(0), reader.GetString(1)));
         return new(works, characters, memberships, covers);
@@ -65,7 +67,7 @@ public sealed partial class TagCatalogService
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT image FROM catalog_covers WHERE kind=$kind AND key=$key";
+        cmd.CommandText = "SELECT a.image FROM catalog_entries e JOIN catalog_assets a ON a.hash=e.cover_hash WHERE e.kind=$kind AND e.legacy_key=$key";
         cmd.Parameters.AddWithValue("$kind", kind);
         cmd.Parameters.AddWithValue("$key", key);
         return cmd.ExecuteScalar() as byte[];
@@ -82,23 +84,18 @@ public sealed partial class TagCatalogService
 
     private static void WriteLibraryCover(SqliteConnection conn, SqliteTransaction tx, string kind, string key, byte[]? image)
     {
-        if (image is null)
-            Exec(conn, tx, "DELETE FROM catalog_covers WHERE kind=$kind AND key=$key", ("$kind", kind), ("$key", key));
-        else
-            Exec(conn, tx, """
-                INSERT INTO catalog_covers(kind,key,image) VALUES($kind,$key,$image)
-                ON CONFLICT(kind,key) DO UPDATE SET image=excluded.image
-                """, ("$kind", kind), ("$key", key), ("$image", image));
+        SetCatalogAsset(conn, tx, kind, key, image);
+        CollectCatalogAssets(conn, tx);
     }
 
-    private static List<LibraryEntry> ReadEntries(SqliteConnection conn, SqliteTransaction tx, string kind, string? key = null)
+    private static List<LibraryEntry> ReadEntries(SqliteConnection conn, SqliteTransaction tx, string kind, string? key = null, bool legacy = false)
     {
         var work = kind == "work";
         var groupKey = work ? "e.game_key" : "e.identity_key";
         var fields = work ? "COALESCE(NULLIF(g.zh,''),e.zh),COALESCE(NULLIF(g.en,''),e.en),g.aliases,e.game_key" : "e.zh,e.en,e.aliases,COALESCE(o.game_key,'')";
         var joins = work ? "JOIN catalog_effective_games g ON g.game_key=e.game_key"
             : "LEFT JOIN catalog_character_origins o ON o.identity_key=e.identity_key";
-        using var cmd = Query(conn, tx, $"""
+        var sql = $"""
             WITH selected AS (
                 SELECT {groupKey} key,e.entity_key,e.identity_key,e.zh,e.en,e.aliases,e.game_key,e.source_kind,
                        ROW_NUMBER() OVER(PARTITION BY {groupKey}
@@ -113,12 +110,25 @@ public sealed partial class TagCatalogService
             FROM selected e {joins}
             LEFT JOIN catalog_personal_entries p ON p.kind=$kind AND p.key=e.key
             WHERE e.rank=1
-            """, ("$kind", kind), ("$key", (object?)key ?? DBNull.Value));
+            """;
+        if (legacy)
+            foreach (var view in new[] { "catalog_effective_games", "catalog_effective_entities", "catalog_character_origins" })
+                sql = sql.Replace(view, view.Replace("catalog_", "catalog_legacy_"));
+        using var cmd = Query(conn, tx, sql, ("$kind", kind), ("$key", (object?)key ?? DBNull.Value));
         using var r = cmd.ExecuteReader();
         var entries = new List<LibraryEntry>();
         while (r.Read())
             entries.Add(new(r.GetString(0), r.GetString(1), r.GetString(2), kind, r.GetString(3), r.GetString(4),
                 DecodeAliases(r.GetString(5)), r.GetString(6), r.GetBoolean(7), r.GetBoolean(8)));
+        r.Close();
+        if (!legacy)
+        {
+            using var ids = Query(conn, tx, "SELECT legacy_key,id,entity_id FROM catalog_entries WHERE kind=$kind", ("$kind", kind));
+            using var rows = ids.ExecuteReader();
+            var index = new Dictionary<string, (long Id, string Entity)>();
+            while (rows.Read()) index[rows.GetString(0)] = (rows.GetInt64(1), rows.GetString(2));
+            entries = entries.Select(e => e with { Id = index[e.Key].Id, EntityId = index[e.Key].Entity }).ToList();
+        }
         return entries.OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(e => e.Key, StringComparer.Ordinal).ToList();
     }
 
@@ -184,6 +194,8 @@ public sealed partial class TagCatalogService
         var entry = new LibraryEntry(key, old?.EntityKey ?? generatedKey, old?.IdentityKey ?? generatedKey,
             kind, zh, en, names, kind == "work" ? key : personalOrigin ?? "", old?.Created ?? true, true);
         if (old is null) EnsureIdentity(conn, tx, entry);
+        if (kind == "character" && personalOrigin is { Length: > 0 }) SaveAppearance(conn, tx, new(key, personalOrigin, true));
+        entry = RequireEntry(conn, tx, kind, key);
         tx.Commit();
         return entry;
     }
@@ -211,7 +223,7 @@ public sealed partial class TagCatalogService
     private static LibraryEntry RequireEntry(SqliteConnection conn, SqliteTransaction tx, string kind, string key)
         => ReadEntries(conn, tx, kind, key).SingleOrDefault() ?? throw new InvalidOperationException("这条资料已不可用");
 
-    private static void SavePersonalEntry(SqliteConnection conn, SqliteTransaction tx, PersonalEntry entry)
+    private static void SavePersonalEntry(SqliteConnection conn, SqliteTransaction tx, PersonalEntry entry, bool synchronize = true)
     {
         var terms = entry.Aliases?.Append(entry.Zh ?? "").Append(entry.En ?? "")
             .Concat(entry.Kind == "work" ? [entry.Key] : [])
@@ -226,6 +238,11 @@ public sealed partial class TagCatalogService
             ("$aliases", entry.Aliases is null ? DBNull.Value : JsonSerializer.Serialize(entry.Aliases)),
             ("$terms", terms is null ? DBNull.Value : JsonSerializer.Serialize(terms)),
             ("$origin", (object?)entry.Origin ?? DBNull.Value));
+        if (synchronize)
+        {
+            var effective = ReadEntries(conn, tx, entry.Kind, entry.Key, legacy: true).SingleOrDefault();
+            if (effective is not null) SyncLegacyEntry(conn, tx, effective);
+        }
     }
 
     private static void EnsureIdentity(SqliteConnection conn, SqliteTransaction tx, LibraryEntry entry)
@@ -247,10 +264,20 @@ public sealed partial class TagCatalogService
     }
 
     private static void SaveAppearance(SqliteConnection conn, SqliteTransaction tx, PersonalAppearance appearance)
-        => Exec(conn, tx, """
+    {
+        Exec(conn, tx, """
             INSERT INTO catalog_personal_memberships(identity_key,game_key,included) VALUES($i,$g,$b)
             ON CONFLICT(identity_key,game_key) DO UPDATE SET included=excluded.included
             """, ("$i", appearance.Identity), ("$g", appearance.Work), ("$b", appearance.Included ? 1 : 0));
+        Exec(conn, tx, appearance.Included ? """
+            INSERT OR IGNORE INTO catalog_appearances(character_entity_id,work_entity_id)
+            SELECT c.entity_id,w.entity_id FROM catalog_entries c,catalog_entries w
+            WHERE c.kind='character' AND c.legacy_key=$i AND w.kind='work' AND w.legacy_key=$g
+            """ : """
+            DELETE FROM catalog_appearances WHERE character_entity_id=(SELECT entity_id FROM catalog_entries WHERE kind='character' AND legacy_key=$i)
+                AND work_entity_id=(SELECT entity_id FROM catalog_entries WHERE kind='work' AND legacy_key=$g)
+            """, ("$i", appearance.Identity), ("$g", appearance.Work));
+    }
 
     public void SetAppearance(string identity, string work, bool included)
     {
@@ -286,6 +313,7 @@ public sealed partial class TagCatalogService
                              .Where(t => t.Length > 0).Distinct())
                     Exec(conn, tx, "INSERT INTO catalog_names(term,entity_key) VALUES($t,$k)", ("$t", term), ("$k", entity));
             }
+            SyncLegacyCatalog(conn, tx);
             tx.Commit();
         }
     }
@@ -501,9 +529,6 @@ public sealed partial class TagCatalogService
             var workKey = item.Kind == "work" ? item.Key : "";
             var args = new (string Name, object Value)[] { ("$work", workKey), ("$characters", JsonSerializer.Serialize(characterKeys)) };
             Exec(conn, tx, """
-                INSERT INTO catalog_deleted_entries(kind,key)
-                    SELECT 'work',$work WHERE $work<>''
-                    UNION ALL SELECT 'character',value FROM json_each($characters);
                 DELETE FROM catalog_personal_tags WHERE (category='work' AND target=$work AND $work<>'')
                     OR (category='character' AND target IN (SELECT value FROM json_each($characters)));
                 DELETE FROM catalog_personal_entries WHERE (kind='work' AND key=$work)
@@ -513,7 +538,10 @@ public sealed partial class TagCatalogService
                 DELETE FROM catalog_covers WHERE (kind='work' AND key=$work)
                     OR (kind='character' AND key IN (SELECT value FROM json_each($characters)));
                 """, args);
+            foreach (var character in characterKeys) EraseCatalogEntry(conn, tx, "character", character);
+            if (workKey.Length > 0) EraseCatalogEntry(conn, tx, "work", workKey);
         }
+        CollectCatalogAssets(conn, tx);
         tx.Commit();
         return tags.Length > 0;
     }
@@ -577,7 +605,7 @@ public sealed partial class TagCatalogService
     {
         var current = ReadPersonalCatalog(conn, tx);
         var existingEntries = current.Entries.ToDictionary(e => (e.Kind, e.Key));
-        foreach (var entry in incoming.Entries)
+        foreach (var entry in incoming.Entries.OrderBy(e => e.Kind == "work" ? 0 : 1))
         {
             if (existingEntries.TryGetValue((entry.Kind, entry.Key), out var old))
             {

@@ -76,6 +76,9 @@ try {
     }
     @{ version = $version; installer = (Asset $setupName); portable = (Asset $zipName) } | ConvertTo-Json -Depth 4 |
         Set-Content -LiteralPath (Join-Path $dist 'update-manifest.json') -Encoding utf8
+    # The optional catalog is a v2 snapshot, separate from application-files.json. Models use a fixed download link.
+    & python (Join-Path $repo 'tools\export-catalog.py') --output (Join-Path $dist ('Gallery-' + $version + '-catalog.zip'))
+    if ($LASTEXITCODE -ne 0) { throw 'Catalog export failed.' }
     Copy-Item -LiteralPath (Join-Path $repo 'RELEASE_NOTES.md') -Destination $dist
     # Synchronize only files owned by the new product. Distribution packages remain in dist.
     foreach ($file in $files) {

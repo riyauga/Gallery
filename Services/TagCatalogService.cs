@@ -137,7 +137,7 @@ public sealed partial class TagCatalogService
         }.ToString());
         conn.Open();
         using var pragma = conn.CreateCommand();
-        pragma.CommandText = "PRAGMA busy_timeout=8000;";
+        pragma.CommandText = "PRAGMA busy_timeout=8000; PRAGMA foreign_keys=ON;";
         pragma.ExecuteNonQuery();
         return conn;
     }
@@ -232,6 +232,7 @@ public sealed partial class TagCatalogService
                     "MIN(entity_key)," + now + "," + now + " FROM catalog_entities " +
                     "WHERE COALESCE(NULLIF(identity_key,''),entity_key)<>'' " +
                     "GROUP BY COALESCE(NULLIF(identity_key,''),entity_key)");
+                SyncLegacyCatalog(conn, tx);
                 tx.Commit();
             }
             catch
@@ -355,6 +356,7 @@ public sealed partial class TagCatalogService
                             "AND NOT EXISTS(SELECT 1 FROM catalog_memberships m JOIN catalog_entities e ON e.identity_key=m.identity_key WHERE m.game_key=$g)", ("$g", game));
                 }
                 RebuildMemberships(conn, tx, remaining);
+                SyncLegacyCatalog(conn, tx);
                 tx.Commit();
             }
             catch
@@ -2040,6 +2042,17 @@ public sealed partial class TagCatalogService
                 cmd.ExecuteNonQuery();
             }
         }
+        foreach (var (key, identity) in changed)
+        {
+            var targetEntry = ReadEntries(conn, tx, "character", identity, legacy: true).SingleOrDefault();
+            if (targetEntry is null) continue;
+            SyncLegacyEntry(conn, tx, targetEntry);
+            Exec(conn, tx, """
+                UPDATE catalog_entity_ids SET target_entity_id=(SELECT entity_id FROM catalog_entries WHERE kind='character' AND legacy_key=$target)
+                WHERE target_entity_id=(SELECT entity_id FROM catalog_entries WHERE kind='character' AND legacy_key=$old)
+                """, ("$target", identity), ("$old", current[key]));
+        }
+        SyncLegacyCatalog(conn, tx);
         tx.Commit();
         log?.Invoke($"身份映射：{applied} 条，实体变更 {changed.Count} 条");
         return (applied, changed.Count);
@@ -2054,7 +2067,7 @@ public sealed partial class TagCatalogService
         {
             if (merge.LoserCategory != "custom" || merge.WinnerCategory is not ("character" or "artist" or "work" or "kind"))
             {
-                log?.Invoke($"标签合并跳过（只处理计划内 0 图 custom→角色/画师/作品/类型）：{merge.LoserName}");
+                log?.Invoke($"标签合并跳过（只处理计划内 0 图 custom→角色/作者/作品/类型）：{merge.LoserName}");
                 continue;
             }
             var loserId = TagId(conn, merge.LoserCategory, merge.LoserName);

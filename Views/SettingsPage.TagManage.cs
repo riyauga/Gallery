@@ -141,12 +141,12 @@ public sealed partial class SettingsPage
                      不用 Visibility 切换，否则既做不了动画，又要靠绑定反复重绘。 -->
                 <Border x:Name="HighlightLayer" Background="{ThemeResource AccentFillColorDefaultBrush}"
                         CornerRadius="4" Opacity="0.01" IsHitTestVisible="False"/>
-                <Grid ColumnSpacing="10">
+                <Grid ColumnSpacing="10" Margin="12,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="24"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="72"/>
+                    <ColumnDefinition Width="Auto" MinWidth="72"/>
                   </Grid.ColumnDefinitions>
                   <!-- 勾选框自绘：选中才有勾，未选中只有描边（不用 CheckBox，深色下会是深底黑勾）。
                        列宽固定 24 不随显隐塌陷，否则进出选择模式整行文字会横跳。 -->

@@ -336,7 +336,7 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                 <StackPanel Spacing="3">
                                     <TextBlock Text="标签与归档目录" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="同时命中时采用最上面的启用规则。未命中时按作品和画师分目录。"
+                                    <TextBlock Text="同时命中时采用最上面的启用规则。未命中时按作品和作者分目录。"
                                         TextWrapping="Wrap" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
                                 </StackPanel>
                                 <Button x:Name="DirectoryRuleAddButton" Grid.Column="1" Content="添加规则" Click="DirectoryRuleAdd_Click" />

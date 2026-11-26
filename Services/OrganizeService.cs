@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace Gallery.Services;
 
 /// <summary>
-/// 按标签把受管目录里的图片整理成 作品/画师 两级（受管范围与例外见 <see cref="FolderMap"/>）。
+/// 按标签把受管目录里的图片整理成 作品/作者 两级（受管范围与例外见 <see cref="FolderMap"/>）。
 /// 只搬盘上真实存在的活图：先算目标目录，再复用 <see cref="FileActions.MoveImages"/>（同盘改名、
 /// 双目录 sidecar），最后清掉腾空的旧目录。预演完全不写数据、不建目录、不搬文件。
 /// </summary>
@@ -69,7 +69,7 @@ public static class OrganizeService
 
         report.AppendLine("== 作品层 ==");
         foreach (var group in byWork)
-            report.AppendLine($"    {group.Key,-34} {group.Count(),4} 张  → {group.Select(i => i.Target.Split('/').Last()).Distinct().Count()} 个画师目录");
+            report.AppendLine($"    {group.Key,-34} {group.Count(),4} 张  → {group.Select(i => i.Target.Split('/').Last()).Distinct().Count()} 个作者目录");
         report.AppendLine();
 
         // 目标已存在同名文件 / 两个来源撞同一个目标名：MoveImages 会拒绝，先说清楚
