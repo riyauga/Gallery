@@ -46,6 +46,16 @@ ImageSharp 仍有 8 条已知公告，涉及 GIF、TIFF、ICC 和直方图处理
 
 ## 验证边界
 
+### 1.4.1 交付验证（2026-11-26）
+
+Debug 与 Release 构建均 0 警告 0 错误。安装包 91,705,543 字节、免安装 ZIP 128,730,848 字节，`update-manifest.json` 的大小与 SHA-256 与实际文件逐项一致（version `1.4.1`）。ZIP 共 728 个条目、单层根目录 `Gallery-1.4.1/`，含 `App.xbf`、`MainWindow.xbf`、`Gallery.pri`、`Gallery.exe`、`Gallery.Updater.exe`、`application-files.json`，未包含 PDB、tools、models、packs 或 archive。
+
+免安装包解压后启动，进程存活 18 秒且 `fault.log` 无新增。安装包静默安装到临时目录 628 个文件、`distribution-kind.txt` 为 `installed`，启动后存活 16 秒；静默卸载后残留 0 个文件。
+
+Release `v1.4.1` 指向提交 `6524012`，五个资产（安装包、免安装 ZIP、更新清单、资料库包、识别模型包）的大小与本地逐一一致；匿名 `/releases/latest` 返回 `v1.4.1` 且两项直链 200。资料库包 215 个条目（214 个 JSON、解压 9.8 MB）、识别模型包 3 个条目（`model.onnx` 解压 982.8 MB），均单层根目录。
+
+**未验证**：应用内「检查更新→下载→安装重启」的 UI 端到端未跑通；识别模型包未在无模型环境实际导入并跑一次识别；标签管理的动效手感、浅色主题对比度与真实鼠标拖选由用户实机确认。
+
 ### 1.4.0 交付验证（2026-11-25）
 
 Debug 与 Release 构建均 0 警告 0 错误。安装包 91,692,948 字节，免安装 ZIP 128,710,579 字节，`update-manifest.json` 中的大小与 SHA-256 与实际文件逐项一致（installer `07beb0a7…`、portable `1081731311…`）。ZIP 共 728 个条目、单层根目录 `Gallery-1.4.0/`，含 `App.xbf`、`MainWindow.xbf`、`Gallery.pri`、`Gallery.exe`、`Gallery.Updater.exe`、`application-files.json`，未包含 PDB、tools、models、packs 或 archive。
