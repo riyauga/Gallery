@@ -13,6 +13,9 @@ screen*.png
 crop*.png
 validation/
 
+# 开发验证与原型草稿（不新增跟踪；已跟踪的验证入口仍保留）
+Development/
+
 # 崩溃日志
 crash.log
 
