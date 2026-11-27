@@ -17,6 +17,7 @@ namespace Gallery.Services;
 public sealed class AppSettings
 {
     public bool check_updates_on_start { get; set; } = true;
+    public string pending_update_version { get; set; } = "";
     public string skipped_update_version { get; set; } = "";
     public List<string> created_folders { get; set; } = [];
     public List<string> roots { get; set; } = [];

@@ -121,18 +121,18 @@ public static class AppService
             Settings.Load();
             AppPaths.EnsureDirs();
             Store = new StoreService(AppPaths.DbPath);
+            RetiredResolutionTags.CleanCurrentPersonalRules();
         Catalog = new TagCatalogService(Store);
             Archiver = new ArchiveService(Store);
             Store.SidecarEnabled = Settings.Settings.sidecar_enabled;
             Store.HideSidecar = Settings.Settings.hide_sidecar;
-            // 修历史漂移（nsfw 列与评分表不一致、分辨率标签被旧版「整批替换」吃掉）
+            // 修复来源信息和 nsfw 列与评分表的历史漂移。
             try
             {
                 var originsFixed = Store.RestoreArchivedOrigins();
                 if (originsFixed > 0) DebugLog($"restored origins={originsFixed}");
-                var (nsfwFixed, resolutionFixed) = Store.RepairDerived();
-                if (nsfwFixed + resolutionFixed > 0)
-                    DebugLog($"repaired nsfw={nsfwFixed} resolution={resolutionFixed}");
+                var nsfwFixed = Store.RepairDerived();
+                if (nsfwFixed > 0) DebugLog($"repaired nsfw={nsfwFixed}");
             }
             catch (Microsoft.Data.Sqlite.SqliteException ex)
             {
@@ -150,6 +150,12 @@ public static class AppService
             Watcher.Start();
             Settings.Changed += ApplyWriteSettings;
             DbReady = true;
+            var cleanupStore = Store;
+            _sidecarCleanupTask = Task.Run(() =>
+            {
+                try { RetiredResolutionTags.CleanPendingSidecars(cleanupStore); }
+                catch (Microsoft.Data.Sqlite.SqliteException ex) { DebugLog("v12 sidecar cleanup pending: " + ex.Message); }
+            });
             PackFolders.MigrateLegacy();
             if (PackFolders.MigrationWarning.Length == 0)
             {
@@ -394,6 +400,7 @@ public static class AppService
 
     public static int CatalogImported { get; private set; }
     private static Task? _catalogTask;
+    private static Task? _sidecarCleanupTask;
 
     /// <summary>对应 Gallery_Old quit_app/check_quit：停止新输入、等待已有工作，再关闭数据库。</summary>
     public static async Task ShutdownAsync()
@@ -406,6 +413,7 @@ public static class AppService
         await Task.WhenAll(_retiredBridgeTasks.ToArray());
         await StopIngestReconciliationAsync();
         if (_catalogTask is not null) await _catalogTask;
+        if (_sidecarCleanupTask is not null) await _sidecarCleanupTask;
         Task? align;
         lock (CatalogWorkGate) align = _catalogAlignTask;
         if (align is not null) await align;

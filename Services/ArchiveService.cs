@@ -283,7 +283,6 @@ public sealed class ArchiveService(StoreService store)
             store.ApplyIngestCommentary(imageId, payload);
             ApplyPayloadTags(imageId, payload);
             ApplyPayloadNsfw(imageId, payload);
-            ApplyResolutionTags(imageId, meta?.Width, meta?.Height);
             return (imageId, "");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
@@ -316,26 +315,6 @@ public sealed class ArchiveService(StoreService store)
         catch (Microsoft.Data.Sqlite.SqliteException ex)
         {
             AppService.DebugLog("payload nsfw failed: " + ex.Message);
-        }
-    }
-
-    /// <summary>归档时按真实像素补分辨率/横竖图；队列里的基础标签只作入队记录，尺寸以文件为准。</summary>
-    private void ApplyResolutionTags(int imageId, int? width, int? height)
-    {
-        var resolution = Taxonomy.ResolutionTags(width, height);
-        if (resolution.Count == 0) return;
-        try
-        {
-            var pairs = store.CategorizedTags(imageId)
-                .Where(pair => pair.Category != "resolution")
-                .ToList();
-            pairs.AddRange(resolution.Select(tag => ("resolution", tag)));
-            store.SetCategorizedTags([imageId], pairs);
-            store.Commit();
-        }
-        catch (Microsoft.Data.Sqlite.SqliteException ex)
-        {
-            AppService.DebugLog("archive resolution failed: " + ex.Message);
         }
     }
 

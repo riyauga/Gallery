@@ -59,6 +59,7 @@ public static class HistoryCleanupDialog
             XamlRoot = root,
         };
 
+        Gallery.Services.DialogService.UseDestructivePrimary(dialog);
         deleteAll.Checked += (_, _) => keep.IsEnabled = false;
         deleteAll.Unchecked += (_, _) => keep.IsEnabled = true;
         dialog.PrimaryButtonClick += (_, args) =>

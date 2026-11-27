@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace Gallery.Services;
 
-/// <summary>待归档记录的路径与六类可手工编辑标签；顺序与 <see cref="Taxonomy.Categories"/> 一致（去掉自动识别的分辨率）。</summary>
+/// <summary>待归档记录的路径与六类可手工编辑标签；顺序与 <see cref="Taxonomy.Categories"/> 一致。</summary>
 public static class IngestReview
 {
     public static readonly string[] Categories = ["work", "character", "artist", "kind", "rating", "custom"];
@@ -147,8 +147,8 @@ public static class IngestReview
         catch (JsonException) { return 0; }
     }
 
-    /// <summary>队列里是否已经有入队时生成的分辨率/横竖图；没有就需要补一次。</summary>
-    public static bool NeedsResolution(string payload)
+    /// <summary>队列是否缺少真实像素尺寸。</summary>
+    public static bool NeedsDimensions(string payload)
     {
         try
         {
@@ -158,11 +158,7 @@ public static class IngestReview
                 return true;
             if (!root.TryGetProperty("height", out var heightValue) || !heightValue.TryGetInt32(out var height) || height <= 0)
                 return true;
-            if (!root.TryGetProperty("basic_tags", out var basics) || basics.ValueKind != JsonValueKind.Object)
-                return true;
-            if (!basics.TryGetProperty("resolution", out var resolution) || resolution.ValueKind != JsonValueKind.Array)
-                return true;
-            return resolution.GetArrayLength() < 2;
+            return false;
         }
         catch (JsonException)
         {
@@ -170,17 +166,13 @@ public static class IngestReview
         }
     }
 
-    /// <summary>把入队时算出的分辨率/横竖图写进 payload；不改其他标签。</summary>
-    public static string WithResolution(string payload, int width, int height)
+    /// <summary>把真实像素尺寸写进 payload；不生成标签。</summary>
+    public static string WithDimensions(string payload, int width, int height)
     {
         if (width <= 0 || height <= 0) return payload;
         if (JsonNode.Parse(payload) is not JsonObject root) return payload;
         root["width"] = width;
         root["height"] = height;
-        var basics = root["basic_tags"] as JsonObject ?? new JsonObject();
-        basics["resolution"] = new JsonArray(Taxonomy.ResolutionTags(width, height)
-            .Select(tag => (JsonNode?)JsonValue.Create(tag)).ToArray());
-        root["basic_tags"] = basics;
         return root.ToJsonString();
     }
 
@@ -210,10 +202,10 @@ public static class IngestReview
             reviewed[category] = new JsonArray(tags[category].Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
         root["review_tags"] = reviewed;
         root["rating"] = rating;
-        if (rating.Length > 0) root["rating_source"] = "model";
+        if (score.Rating.Length > 0) root["rating_source"] = "model";
         var basics = root["basic_tags"] as JsonObject ?? new JsonObject();
         basics["model_tags_checked"] = true;
-        basics["rating_checked"] = true;
+        if (score.Rating.Length > 0) basics["rating_checked"] = true;
         basics["model_tags_model"] = score.ModelName;
         basics["model_tags_hash"] = score.ModelHash;
         basics["model_character"] = score.Character;

@@ -188,6 +188,7 @@ internal sealed class ReviewCarousel : Grid
             if (_browser.Parent is null) Children.Insert(0, _browser);
             await _browser.EnsureCoreWebView2Async(environment);
             var core = _browser.CoreWebView2;
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(TextSelectionBehavior.WebScript);
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;

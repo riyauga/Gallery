@@ -1,6 +1,7 @@
-using Gallery.Services;
+﻿using Gallery.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
 
 namespace Gallery.Views;
 
@@ -15,10 +16,22 @@ public sealed partial class SettingsPage
     private Func<PreparedUpdate, Task<bool>>? _installUpdate;
     private Action<string>? _updateToast;
 
+    private void RefreshUpdateNotification()
+    {
+        var settings = AppService.Settings.Settings;
+        var active = Version.TryParse(settings.pending_update_version, out var pending)
+            && pending > Version.Parse(UpdateService.CurrentVersion)
+            && settings.pending_update_version != settings.skipped_update_version;
+        AboutUpdateDot.IsActive = active;
+        AutomationProperties.SetItemStatus(AboutSettingsEntry, active ? "有新版本可更新" : "");
+        ToolTipService.SetToolTip(AboutSettingsEntry, active ? "有新版本可更新" : "版本信息与应用更新");
+    }
+
     private void InitializeUpdates()
     {
         AppVersionText.Text = "当前版本 " + UpdateService.CurrentVersion;
         AutoUpdateToggle.IsOn = AppService.Settings.Settings.check_updates_on_start;
+        RefreshUpdateNotification();
         try
         {
             var root = UpdateProtocol.UpdatesRoot(AppPaths.LocalDataDir);
@@ -56,6 +69,12 @@ public sealed partial class SettingsPage
         {
             _availableUpdate = await _updates.CheckAsync();
             if (AppService.IsShuttingDown) return;
+            var settings = AppService.Settings.Settings;
+            var detectedVersion = _availableUpdate?.Version ?? "";
+            var changed = settings.pending_update_version != detectedVersion;
+            settings.pending_update_version = detectedVersion;
+            RefreshUpdateNotification();
+            if (changed) AppService.Settings.Save();
             UpdateDetailsButton.Visibility = _availableUpdate is null ? Visibility.Collapsed : Visibility.Visible;
             UpdateStatusText.Text = _availableUpdate is null ? "当前已是最新版。" : "发现新版本 " + _availableUpdate.Version;
             if (_availableUpdate is { } update)
@@ -88,6 +107,7 @@ public sealed partial class SettingsPage
         if (result == ContentDialogResult.Secondary)
         {
             AppService.Settings.Settings.skipped_update_version = update.Version;
+            RefreshUpdateNotification();
             AppService.Settings.Save();
             UpdateStatusText.Text = "已跳过此版本。你仍可手动检查并安装。";
         }

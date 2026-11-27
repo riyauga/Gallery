@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using Gallery.Models;
 using Gallery.Services;
 using Microsoft.UI.Text;
@@ -182,6 +182,7 @@ public sealed partial class ViewerWindow : Window
             _casting = null;
         };
         Content = _root;
+        TextSelectionBehavior.Attach(_root);
     }
 
     // ---------- 结构 ----------
@@ -1035,7 +1036,7 @@ public sealed partial class ViewerWindow : Window
     {
         if (_item is null || !File.Exists(CurrentPath)) { ShowStatus("文件已不在原位。"); return; }
         var path = CurrentPath;
-        if (await DialogService.ShowAsync(new ContentDialog
+        var confirm = new ContentDialog
         {
             XamlRoot = _root.XamlRoot,
             Title = "删除这个文件？",
@@ -1043,7 +1044,9 @@ public sealed partial class ViewerWindow : Window
             PrimaryButtonText = "删除",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
-        }) != ContentDialogResult.Primary) return;
+        };
+        DialogService.UseDestructivePrimary(confirm);
+        if (await DialogService.ShowAsync(confirm) != ContentDialogResult.Primary) return;
         await _host.ChangeFileAsync(path, null, async () =>
         {
             if (!await Task.Run(() => FileActions.DeleteToRecycle(path))) throw new IOException("文件仍在使用，未能删除。");

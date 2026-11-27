@@ -35,8 +35,8 @@ public sealed class TagDuplicateDialog : ContentDialog
     {
         XamlRoot = root;
         Title = "重复标签";
-        PrimaryButtonText = "关闭";
-        DefaultButton = ContentDialogButton.Primary;
+        CloseButtonText = "关闭";
+        DefaultButton = ContentDialogButton.None;
         Content = BuildContent();
 
         foreach (var condition in Conditions)

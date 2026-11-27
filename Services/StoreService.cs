@@ -1365,13 +1365,8 @@ public sealed partial class StoreService : IDisposable
         }
     }
 
-    /// <summary>NSFW/SFW 标签互斥写入。</summary>
-    /// <summary>
-    /// 修历史漂移：① images.nsfw 和 nsfw_scores.rating 不一致时以评分表为准；
-    /// ② 分辨率标签被误删的图（老版本「整批替换」的受害者）补回来。
-    /// 只补不改别的，重复跑是幂等的。
-    /// </summary>
-    public (int NsfwFixed, int ResolutionFixed) RepairDerived()
+    /// <summary>修复 images.nsfw 与评分表的历史漂移。</summary>
+    public int RepairDerived()
     {
         lock (SyncRoot)
         {
@@ -1385,29 +1380,8 @@ public sealed partial class StoreService : IDisposable
                 nsfwFixed = cmd.ExecuteNonQuery();
             }
 
-            var rows = new List<(int Id, int? W, int? H)>();
-            using (var cmd = _conn.CreateCommand())
-            {
-                cmd.CommandText =
-                    "SELECT i.id,i.width,i.height FROM images i " +
-                    "WHERE i.missing=0 AND i.media_kind='image' AND i.width>0 AND i.height>0 AND NOT EXISTS(" +
-                    "SELECT 1 FROM image_tags it JOIN tags t ON t.id=it.tag_id " +
-                    "WHERE it.image_id=i.id AND t.category='resolution')";
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    rows.Add((r.GetInt32(0), r.IsDBNull(1) ? null : r.GetInt32(1),
-                        r.IsDBNull(2) ? null : r.GetInt32(2)));
-            }
-
-            foreach (var (id, w, h) in rows)
-            {
-                var pairs = CategorizedTags(id).Where(p => p.Category != "resolution").ToList();
-                pairs.AddRange(Taxonomy.ResolutionTags(w, h).Select(t => ("resolution", t)));
-                SetCategorizedTags([id], pairs);
-            }
-
             Commit();
-            return (nsfwFixed, rows.Count);
+            return nsfwFixed;
         }
     }
 
@@ -1996,7 +1970,7 @@ public sealed partial class StoreService : IDisposable
         }
     }
 
-    /// <summary>入队后补分辨率/横竖图；只改 pending 记录，并保留并发写入的其他字段。</summary>
+    /// <summary>入队后补真实像素尺寸；只改 pending 记录，并保留并发写入的其他字段。</summary>
     public bool UpdateIngestBasics(int id, int width, int height)
     {
         lock (SyncRoot)
@@ -2011,7 +1985,7 @@ public sealed partial class StoreService : IDisposable
             if (string.IsNullOrEmpty(payload)) return false;
 
             string updated;
-            try { updated = IngestReview.WithResolution(payload, width, height); }
+            try { updated = IngestReview.WithDimensions(payload, width, height); }
             catch (JsonException) { return false; }
             if (string.Equals(updated, payload, StringComparison.Ordinal)) return false;
 
@@ -3127,7 +3101,7 @@ public sealed partial class StoreService : IDisposable
             var tags = new List<string>();
             if (element.TryGetProperty("tags", out var tv) && tv.ValueKind == JsonValueKind.Array)
                 foreach (var t in tv.EnumerateArray())
-                    if (t.ValueKind == JsonValueKind.String) tags.Add(t.GetString() ?? "");
+                    if (t.ValueKind == JsonValueKind.String && !RetiredResolutionTags.IsRaw(t.GetString() ?? "")) tags.Add(t.GetString() ?? "");
 
             var parsed = new List<(string Cat, string Name, List<string> Aliases)>();
             var typed = element.TryGetProperty("classified_tags", out var ctv) &&
@@ -3138,6 +3112,7 @@ public sealed partial class StoreService : IDisposable
                 {
                     var cat = t.TryGetProperty("category", out var c) ? c.GetString() : null;
                     var nm = t.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (cat == "resolution") continue;
                     if (cat is null || nm is null || !Taxonomy.IsValidCategory(cat))
                     {
                         typed = false;

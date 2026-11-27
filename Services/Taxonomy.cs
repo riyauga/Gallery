@@ -6,20 +6,20 @@ using System.Text.Json;
 
 namespace Gallery.Services;
 
-/// <summary>七类标签编解码，移植 galleryold <c>app/taxonomy.py</c>。</summary>
+/// <summary>六类标签编解码，移植 galleryold <c>app/taxonomy.py</c>。</summary>
 public static class Taxonomy
 {
     public static readonly string[] Categories =
-        ["work", "character", "artist", "kind", "rating", "resolution", "custom"];
+        ["work", "character", "artist", "kind", "rating", "custom"];
 
     public static readonly string[] CategoryTitles =
-        ["作品", "角色", "作者", "类型", "分级", "分辨率", "自定义"];
+        ["作品", "角色", "作者", "类型", "分级", "自定义"];
 
     public static readonly IReadOnlyDictionary<string, string> SidecarPrefix =
         new Dictionary<string, string>
         {
             ["work"] = "作品", ["character"] = "角色", ["artist"] = "作者",
-            ["kind"] = "类型", ["rating"] = "分级", ["resolution"] = "分辨率",
+            ["kind"] = "类型", ["rating"] = "分级",
             ["custom"] = "",
         };
 
@@ -160,28 +160,4 @@ public static class Taxonomy
         return ("custom", s);
     }
 
-    public static string OrientationTag(int? width, int? height)
-    {
-        if (width is null || height is null || width <= 0 || height <= 0) return "";
-        var ratio = (double)width.Value / height.Value;
-        if (ratio > 1.15) return "横图";
-        if (ratio < 0.87) return "竖图";
-        return "方图";
-    }
-
-    public static string TierTag(int? width, int? height)
-    {
-        if (width is null || height is null || width <= 0 || height <= 0) return "";
-        return $"{width}x{height}";
-    }
-
-    public static List<string> ResolutionTags(int? width, int? height)
-    {
-        var o = OrientationTag(width, height);
-        var t = TierTag(width, height);
-        var list = new List<string>(2);
-        if (o.Length > 0) list.Add(o);
-        if (t.Length > 0) list.Add(t);
-        return list;
-    }
 }

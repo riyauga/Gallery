@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 
 namespace Gallery.Services;
 
@@ -42,7 +42,7 @@ public sealed class Db : IDisposable
     }
 
     /// <summary>
-    /// 空库直接建当前 v11；旧库依次增量迁移；
+    /// 空库直接建当前 v12；旧库依次增量迁移；
     /// 其他版本一律拒绝打开，避免误改用户数据。
     /// </summary>
     private void EnsureSchema()
@@ -65,6 +65,7 @@ public sealed class Db : IDisposable
                 Create(LibraryMigrationV9.SchemaSql);
                 Create(LibraryMigrationV10.SchemaSql);
                 LibraryMigrationV11.Initialize(Connection, fresh);
+                LibraryMigrationV12.Initialize(Connection, fresh);
                 fresh.Commit();
             }
             catch
@@ -119,9 +120,14 @@ public sealed class Db : IDisposable
             LibraryMigrationV11.Upgrade(Connection, DbPath);
             version = SchemaVersion;
         }
-        if (version != LibraryMigrationV11.TargetVersion)
+        if (version == LibraryMigrationV11.TargetVersion)
+        {
+            LibraryMigrationV12.Upgrade(Connection, DbPath);
+            version = SchemaVersion;
+        }
+        if (version != LibraryMigrationV12.TargetVersion)
             throw new InvalidDataException(
-                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV11.TargetVersion}），未修改原有数据结构。");
+                $"图库数据库版本不兼容（当前 v{version}，需要 v{LibraryMigrationV12.TargetVersion}），未修改原有数据结构。");
     }
 
     public int SchemaVersion

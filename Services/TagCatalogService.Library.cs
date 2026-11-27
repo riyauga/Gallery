@@ -585,6 +585,7 @@ public sealed partial class TagCatalogService
     private static PersonalCatalog ParsePersonalCatalog(JsonElement element)
     {
         var value = element.Deserialize<PersonalCatalog>(CatalogJson);
+        if (value?.Tags is not null) value = value with { Tags = value.Tags.Where(t => t?.Category != "resolution").ToArray() };
         if (value?.Entries is null || value.Appearances is null || value.Tags is null ||
             value.Entries.Any(e => e is null || string.IsNullOrWhiteSpace(e.Key) || e.Kind is not ("work" or "character")
                 || e.Created && (e.Zh is null || e.En is null || string.IsNullOrWhiteSpace(e.Zh) && string.IsNullOrWhiteSpace(e.En)

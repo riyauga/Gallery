@@ -23,10 +23,10 @@ public static class TagManageService
     public static readonly (string Key, string Label)[] AllCategories =
     [
         ("character", "角色"), ("work", "作品"), ("artist", "作者"),
-        ("kind", "类型"), ("custom", "自定义"), ("resolution", "分辨率"), ("rating", "分级"),
+        ("kind", "类型"), ("custom", "自定义"), ("rating", "分级"),
     ];
 
-    /// <summary>允许人工新建的分类：分辨率与分级由识别流程自动写入，手工建进去只会被下次覆盖。</summary>
+    /// <summary>允许人工新建的分类；分级由四级判定维护。</summary>
     public static readonly string[] ManualCategories = ["character", "work", "artist", "kind", "custom"];
 
     public static string Label(string category) =>

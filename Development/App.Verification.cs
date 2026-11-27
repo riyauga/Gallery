@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Gallery.Services;
 namespace Gallery;
 public partial class App
@@ -1450,7 +1450,7 @@ public partial class App
 
             var live = store.QueryAll("SELECT * FROM images WHERE root_id=$r", ("$r", root.Id)).Single();
             report.AppendLine($"活行    = #{live.Id} {live.DirRel}/{live.Name}");
-            store.SetCategorizedTags([live.Id], [("resolution", "1x1")]);
+            store.SetCategorizedTags([live.Id], [("custom", "migration-fixture")]);
 
             // 老记录：目录大小写不同、missing=1，标签挂在它身上（真实数据就是这么来的）
             var phantomSidecar = Path.Combine(lib, "cartoon", "Case", StoreService.SidecarName);
@@ -1466,7 +1466,7 @@ public partial class App
             store.Exec($"INSERT OR IGNORE INTO favorites(image_id,added_at) VALUES({phantomId},1)");
             store.Exec("INSERT OR IGNORE INTO nsfw_scores(image_id,source,rating,value,nsfw_prob,confidence," +
                        $"margin,model_name,model_hash,detail,checked_at) VALUES({phantomId},'danbooru','s','',0,0,0,'','','',1)");
-            store.Exec($"INSERT OR IGNORE INTO image_manual_categories(image_id,category) VALUES({phantomId},'resolution')");
+            store.Exec($"INSERT OR IGNORE INTO image_manual_categories(image_id,category) VALUES({phantomId},'custom')");
             store.Exec($"INSERT OR REPLACE INTO sidecar_state(path,mtime,hash) VALUES('{Sql(phantomSidecar)}',1,NULL)");
             var imagesBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM images");
             var linksBefore = RawLong(AppPaths.DbPath, "SELECT COUNT(*) FROM image_tags");
@@ -1494,7 +1494,7 @@ public partial class App
                 RawText(AppPaths.DbPath, "SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id " +
                     $"WHERE it.image_id={live.Id} AND t.category='artist'") == "veri_artist" &&
                 RawText(AppPaths.DbPath, "SELECT name FROM tags t JOIN image_tags it ON it.tag_id=t.id " +
-                    $"WHERE it.image_id={live.Id} AND t.category='resolution'") == "1x1");
+                    $"WHERE it.image_id={live.Id} AND t.category='custom'") == "migration-fixture");
             Check("标签关联总数不变（只是换了归属）", linksAfter == linksBefore, $"{linksBefore} → {linksAfter}");
             Check("收藏跟着活行",
                 RawLong(AppPaths.DbPath, $"SELECT COUNT(*) FROM favorites WHERE image_id={live.Id}") == 1);

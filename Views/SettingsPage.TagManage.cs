@@ -665,9 +665,10 @@ public sealed partial class SettingsPage
                 CloseButtonText = "取消", DefaultButton = ContentDialogButton.Primary,
                 Content = new StackPanel { Spacing = 8, MinWidth = 360, Children = { category, name, zh, en, error } },
             };
+            Controls.TextSelectionBehavior.Attach(dialog);
             while (true)
             {
-                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+                if (await DialogService.ShowAsync(dialog) != ContentDialogResult.Primary) return;
                 var categoryKey = (category.SelectedItem as ComboBoxItem)?.Tag as string ?? "custom";
                 var raw = name.Text.Trim();
                 if (raw.Length == 0)

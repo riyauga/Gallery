@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 namespace Gallery.Controls.Catalog;
 
 /// <summary>
-/// 宿主无关的选择模式状态机，按 UI_CONVENTIONS.md「选择模式（通用）」实现。
+/// 宿主无关的选择模式状态机，按 UI_INTERACTION.md「选择模式（通用）」实现。
 /// 只管选中集合、锚点与键盘/右键语义；勾选框、按钮、确认和删除由宿主接。
 /// </summary>
 internal sealed class LocalSelectionController

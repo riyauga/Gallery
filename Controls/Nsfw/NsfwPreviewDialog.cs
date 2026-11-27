@@ -41,7 +41,7 @@ public sealed class NsfwPreviewDialog
             Height = 320,
             Width = 460,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            // 浮层滚动条会盖住行右端的分数与勾选框，行的右侧留 16（UI_CONVENTIONS.md R1）。
+            // 浮层滚动条会盖住行右端的分数与勾选框，行的右侧留 16（UI_INTERACTION.md R1）。
             Padding = new Thickness(0, 0, 16, 0),
             Content = list,
         };

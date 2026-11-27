@@ -329,7 +329,7 @@ public sealed partial class MainWindow : Window
             {
                 XamlRoot = RootGrid.XamlRoot, Title = "还有未确认的输入",
                 Content = "审核页有尚未添加的标签文字、未归档的目标目录或进行中的操作。已保存的标签会保留。你可以返回完成输入，也可以放弃这些未确认的输入并更新。",
-                PrimaryButtonText = "放弃输入并更新", CloseButtonText = "返回完成输入", DefaultButton = ContentDialogButton.Close,
+                PrimaryButtonText = "放弃输入并更新", CloseButtonText = "返回完成输入", DefaultButton = ContentDialogButton.None,
             });
             if (choice != ContentDialogResult.Primary) return false;
         }
@@ -666,6 +666,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Controls.TextSelectionBehavior.Attach(RootGrid);
         _settingsPage.SetUpdateHost(() => RootGrid.XamlRoot, update => InstallUpdateAsync(update), message => ShowToast(message));
         Instance = this;
 
@@ -2187,6 +2188,7 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Secondary,
             XamlRoot = Content.XamlRoot,
         };
+        Gallery.Services.DialogService.UseDestructivePrimary(dialog);
         var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
         var error = await Task.Run(() =>
@@ -2271,6 +2273,7 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Secondary, // 取消为默认
             XamlRoot = Content.XamlRoot,
         };
+        Gallery.Services.DialogService.UseDestructivePrimary(dialog);
         var result = await Gallery.Services.DialogService.ShowAsync(dialog);
         if (result != ContentDialogResult.Primary) return;
         var ok = await Task.Run(() => FileActions.DeleteToRecycle(target));

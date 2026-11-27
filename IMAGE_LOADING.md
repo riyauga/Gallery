@@ -2,7 +2,7 @@
 
 更新时间：2026-10-26 11:42（Asia/Tokyo）；本次文档整理时间，不代表重新运行或验收。
 
-本文件维护图片解码、调度、缓存与 PixAI 推理设备；共享窗口规则见 [UI](UI_CONVENTIONS.md)，审核写入见 [归档](ARCHIVE_REVIEW.md)。
+本文件维护图片解码、调度、缓存与 PixAI 推理设备；共享窗口规则见 [UI](UI_INTERACTION.md)，审核写入见 [归档](ARCHIVE_REVIEW.md)。
 
 ## 加载契约
 

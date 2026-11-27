@@ -79,3 +79,5 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 ## 工具栏图标
 
 扩展使用透明底图片符号，主体扩大到接近工具栏图标的可用区域；浅色和深色背景通过细轮廓保持辨识。开发资源可用 `python tools/make_icon.py --extension-only` 生成16/32/48/128像素PNG，不改桌面程序图标。替换扩展文件后需在扩展管理页重新加载；实际视觉大小仍以浏览器工具栏显示为准。
+
+扩展页面的可选文字和文本输入遵循项目的[文本选择规范](../UI_INTERACTION.md#文本选择)，与桌面端共用分词、整行选择约定。

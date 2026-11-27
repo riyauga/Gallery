@@ -1,4 +1,4 @@
-"""Export the current v11 catalog as a public v2 sharing ZIP, without personal settings."""
+"""Export a v11/v12 catalog as a public v2 sharing ZIP, without personal settings."""
 import argparse
 from collections import defaultdict
 import hashlib
@@ -22,8 +22,8 @@ def export_catalog(database: Path, destination: Path) -> dict:
         source.close()
     try:
         version = snapshot.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]
-        if version != '11':
-            raise ValueError('Catalog export requires schema v11; upgrade in Gallery first.')
+        if version not in ('11', '12'):
+            raise ValueError('Catalog export requires schema v11 or v12; upgrade in Gallery first.')
         appearances = defaultdict(list)
         for character, work in snapshot.execute('SELECT character_entity_id,work_entity_id FROM catalog_appearances ORDER BY work_entity_id'):
             appearances[character].append(work)

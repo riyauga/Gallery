@@ -20,7 +20,6 @@ public static class TagColors
             ["artist"] = [("#fbeceb", "#e4bab5", "#843f38"), ("#472f2f", "#9c6460", "#f3d3cf")],
             ["kind"] = [("#eaf3eb", "#b5d0b8", "#3c6442"), ("#2d3d30", "#64856a", "#d3e8d6")],
             ["rating"] = [("#fbf2df", "#ddca9d", "#785e28"), ("#453b28", "#95804f", "#efe0b9")],
-            ["resolution"] = [("#e5f3f4", "#a8ced2", "#32666c"), ("#293e41", "#577f85", "#cbe7ea")],
             ["custom"] = [("#f7f7f4", "#ddddd6", "#565650"), ("#5c5a55", "#9c9a93", "#f1f0eb")],
         };
 

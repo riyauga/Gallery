@@ -49,7 +49,7 @@ public sealed class AlignAmbiguousDialog
         {
             MaxHeight = 420,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            // 浮层滚动条会盖住候选行的右端，行的右侧留 16（UI_CONVENTIONS.md R1）。
+            // 浮层滚动条会盖住候选行的右端，行的右侧留 16（UI_INTERACTION.md R1）。
             Padding = new Thickness(0, 0, 16, 0),
             Content = _list,
         };

@@ -1,4 +1,4 @@
-﻿namespace Gallery.Services;
+namespace Gallery.Services;
 
 public sealed record ScanResult
 {
@@ -257,7 +257,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
         }
     }
 
-    /// <summary>对应 sync_managed：只更新主动管理过的图片（含分辨率标签），再写回 sidecar。</summary>
+    /// <summary>对应 sync_managed：只更新主动管理过的图片，再写回 sidecar。</summary>
     private void SyncManaged(int rootId)
     {
         var rows = store.QueryAll(
@@ -266,14 +266,6 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
         var directories = new HashSet<string>();
         foreach (var row in rows)
         {
-            using var tx = store.Transaction();
-            var pairs = store.CategorizedTags(row.Id)
-                .Where(p => p.Category != "resolution")
-                .ToList();
-            pairs.AddRange(Taxonomy.ResolutionTags(row.Width, row.Height)
-                .Select(tag => ("resolution", tag)));
-            store.SetCategorizedTags([row.Id], pairs);
-            tx.Success = true;
             directories.Add(row.DirRel);
         }
         if (store.SidecarEnabled)

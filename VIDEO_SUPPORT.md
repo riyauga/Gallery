@@ -2,7 +2,7 @@
 
 更新时间：2026-10-26 11:42（Asia/Tokyo）；本次文档整理时间，不代表重新运行或验收。
 
-> 代码已接入；真实播放／声音、长视频、菜单、跨屏与资源释放仍按下文待人工验收。全屏临时小窗口修复的用户确认不覆盖视频。共享窗口规则见 [UI_CONVENTIONS.md](UI_CONVENTIONS.md)。
+> 代码已接入；真实播放／声音、长视频、菜单、跨屏与资源释放仍按下文待人工验收。全屏临时小窗口修复的用户确认不覆盖视频。共享窗口规则见 [UI_INTERACTION.md](UI_INTERACTION.md)。
 
 ## 一、范围（已与用户确认）
 
@@ -88,7 +88,7 @@
 | `Controls/Viewer/VideoViewer.cs` | 播放面与播放状态 API（新增）；播放条在 `PreviewOverlay` |
 | `Controls/PreviewOverlay.xaml(.cs)` | 浮层内图片/视频切换、自绘播放条与生命周期 |
 | `App.xaml.cs` | `--verify-video` 沙箱验收入口（新增） |
-| `README.md` / `IMAGE_LOADING.md` / `UI_CONVENTIONS.md` | 用户与实现约定同步 |
+| `README.md` / `IMAGE_LOADING.md` / `UI_INTERACTION.md` | 用户与实现约定同步 |
 
 ## 六、验证记录
 

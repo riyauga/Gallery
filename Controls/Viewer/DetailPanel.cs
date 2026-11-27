@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -28,11 +28,6 @@ public sealed class DetailPanel : Grid
     private readonly StackPanel _commentary;
     private readonly FavoriteButton _favorite;
     private readonly Button _openButton;
-    private TextBlock? _clickedText;
-    private long _lastClickAt;
-    private Windows.Foundation.Point _lastClickPosition;
-    private int _clickCount;
-    private TextBlock? _tripleClickedText;
 
     public event Action<PhotoItem>? EditTagsRequested;
     public event Action<PhotoItem>? OpenExternalRequested;
@@ -132,8 +127,6 @@ public sealed class DetailPanel : Grid
             }
         };
         Children.Add(scroll);
-        AddHandler(PointerPressedEvent, new PointerEventHandler(OnTextPointerPressed), true);
-        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTextPointerReleased), true);
         ActualThemeChanged += (_, _) => ApplyTheme();
         Loaded += (_, _) => ApplyTheme();
         ApplyTheme();
@@ -186,59 +179,6 @@ public sealed class DetailPanel : Grid
     }
 
     private readonly List<TextBlock> _tagLabels = [];
-
-    private static TextBlock? SelectableText(object source)
-    {
-        for (var node = source as DependencyObject; node is not null; node = VisualTreeHelper.GetParent(node))
-            if (node is TextBlock { IsTextSelectionEnabled: true } text) return text;
-        return null;
-    }
-
-    private void OnTextPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        _tripleClickedText = null;
-        var point = e.GetCurrentPoint(this);
-        if (point.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse
-            || !point.Properties.IsLeftButtonPressed) return;
-        var text = SelectableText(e.OriginalSource);
-        var now = Environment.TickCount64;
-        var position = point.Position;
-        if (text is not null && text == _clickedText && now - _lastClickAt <= 500
-            && Math.Abs(position.X - _lastClickPosition.X) <= 4
-            && Math.Abs(position.Y - _lastClickPosition.Y) <= 4)
-            _clickCount++;
-        else
-            _clickCount = text is null ? 0 : 1;
-        _clickedText = text;
-        _lastClickAt = now;
-        _lastClickPosition = position;
-        if (_clickCount == 3)
-        {
-            _tripleClickedText = text;
-            _clickCount = 0;
-        }
-    }
-
-    private void OnTextPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (_tripleClickedText is not { } text) return;
-        _tripleClickedText = null;
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (!text.Text.Contains('\n'))
-            {
-                text.SelectAll();
-                return;
-            }
-            var offset = Math.Clamp(text.SelectionStart.Offset - text.ContentStart.Offset, 0, text.Text.Length);
-            var lineStart = offset == 0 ? 0 : text.Text.LastIndexOf('\n', offset - 1) + 1;
-            var lineEnd = text.Text.IndexOf('\n', offset);
-            if (lineEnd < 0) lineEnd = text.Text.Length;
-            var start = text.ContentStart.GetPositionAtOffset(lineStart, Microsoft.UI.Xaml.Documents.LogicalDirection.Forward);
-            var end = text.ContentStart.GetPositionAtOffset(lineEnd, Microsoft.UI.Xaml.Documents.LogicalDirection.Forward);
-            if (start is not null && end is not null) text.Select(start, end);
-        });
-    }
 
     public void SetSource(string? pageUrl, string? sourceUrl)
     {

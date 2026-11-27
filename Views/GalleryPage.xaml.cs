@@ -117,10 +117,10 @@ public sealed partial class GalleryPage : UserControl
         _filterPanel = new Controls.FilterPanel();
         if (FilterButton.Flyout is Flyout filterFlyout) filterFlyout.Content = _filterPanel.Root;
         SortTagMenu.Icon = new FontIcon { Glyph = "\uE8EC" };
-        SortTagCharacter.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("character") };
-        SortTagKind.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("kind") };
-        SortTagWork.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("work") };
-        SortTagArtist.Icon = new FontIcon { Glyph = Controls.Tags.TagCategoryIcons.Glyph("artist") };
+        SortTagCharacter.Icon = Controls.Tags.TagCategoryIcons.Create("character");
+        SortTagKind.Icon = Controls.Tags.TagCategoryIcons.Create("kind");
+        SortTagWork.Icon = Controls.Tags.TagCategoryIcons.Create("work");
+        SortTagArtist.Icon = Controls.Tags.TagCategoryIcons.Create("artist");
         _filterPanel.Media = _filter switch
         {
             FilterKind.Photos => Controls.FilterPanel.MediaKind.Photos,
@@ -1430,8 +1430,7 @@ public sealed partial class GalleryPage : UserControl
         }));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(Item("编辑标签", "\uE8EC", () => _ = EditTagsAsync(items)));
-        if (includeOpen)
-            menu.Items.Add(Item("重新归档审核", "\uE7A7", () => _ = ReturnToReviewAsync(ids)));
+        menu.Items.Add(Item("重新归档审核", "\uE7A7", () => _ = ReturnToReviewAsync(ids)));
         if (!batching)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
@@ -1468,7 +1467,7 @@ public sealed partial class GalleryPage : UserControl
         }
 
         // 手动标分级：模型接入前的兜底（g/s/q/e 对齐 danbooru 四级，q/e 算敏感）
-        var ratingMenu = new MenuFlyoutSubItem { Text = "标记分级" };
+        var ratingMenu = new MenuFlyoutSubItem { Text = "标记分级", Icon = Gallery.Controls.Tags.TagCategoryIcons.Create("rating") };
         foreach (var level in new[] { "g", "s", "q", "e" })
         {
             var rating = level;
@@ -1570,8 +1569,7 @@ public sealed partial class GalleryPage : UserControl
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
         };
-        confirm.Resources["ContentDialogButton1BackgroundBrush"] =
-            new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x99, 0xA4));
+        Gallery.Services.DialogService.UseDestructivePrimary(confirm);
         if (await Gallery.Services.DialogService.ShowAsync(confirm) != ContentDialogResult.Primary) return;
 
         FileOperationStarting?.Invoke();

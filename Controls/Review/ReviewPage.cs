@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Gallery.Controls.Tags;
@@ -126,7 +126,7 @@ public sealed partial class ReviewPage : Grid
     private readonly StackPanel _detailsPanel = new() { Spacing = 12 };
     private readonly StackPanel _archivePanel = new() { Spacing = 10 };
     private Tags.TagChip? _ratingBadge;
-    // 右侧留 16 给浮层滚动条，否则它会压在标签行与归档目录输入框的右缘（UI_CONVENTIONS.md R1）。
+    // 右侧留 16 给浮层滚动条，否则它会压在标签行与归档目录输入框的右缘（UI_INTERACTION.md R1）。
     private readonly ScrollViewer _detailScroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 16, 0) };
     private List<StoreService.PendingIngestRow> _rows = [];
     private StoreService.PendingIngestRow? _selected;
@@ -389,7 +389,7 @@ public sealed partial class ReviewPage : Grid
         // 批量 AI 分析放在中间空隙的右端，靠右贴着卡片大小下拉，尺寸与两侧按钮一致。
         _batchAiAnalyze.Click += async (_, _) => await AnalyzeBatchWithAiAsync();
         AutomationProperties.SetName(_batchAiAnalyze, "用模型分析已选的图片");
-        ToolTipService.SetToolTip(_batchAiAnalyze, "对已勾选的待归档图片逐张重跑模型：角色、作品、类型、分级按结果顶替；作者和自定义不动");
+        ToolTipService.SetToolTip(_batchAiAnalyze, "对已勾选的待归档图片逐张角色、作品、分级非空覆盖；类型去重追加；作者和自定义不动");
         Grid.SetColumn(_batchAiAnalyze, 1);
         batchActions.Children.Add(_batchAiAnalyze);
         Grid.SetColumn(_cardSize, 2);
@@ -470,7 +470,7 @@ public sealed partial class ReviewPage : Grid
             VerticalAlignment = VerticalAlignment.Center,
         });
         AutomationProperties.SetName(_aiAnalyze, "用模型重新分析这张图");
-        ToolTipService.SetToolTip(_aiAnalyze, "重跑模型：角色、作品、类型、分级按结果顶替；作者和自定义不动");
+        ToolTipService.SetToolTip(_aiAnalyze, "角色、作品、分级非空覆盖；类型去重追加；作者和自定义不动");
         _aiAnalyze.Click += async (_, _) => await AnalyzeWithAiAsync();
         Grid.SetColumn(_aiAnalyze, 1);
         tagHeader.Children.Add(_aiAnalyze);
@@ -745,7 +745,7 @@ public sealed partial class ReviewPage : Grid
                     MarkAnalyzed(id);
                     continue;
                 }
-                if (outcome.Rating.Length == 0 && !outcome.ResolutionChanged && !outcome.TagsChanged)
+                if (outcome.Rating.Length == 0 && !outcome.DimensionsChanged && !outcome.TagsChanged)
                 {
                     MarkAnalyzed(id);
                     continue;
@@ -843,6 +843,7 @@ public sealed partial class ReviewPage : Grid
 
     private void RebuildTagGroups()
     {
+        _tagDisplaySnapshot = null;
         var pending = _tagInputs.ToDictionary(pair => pair.Key, pair => pair.Value.Text);
         _tagGroups.Children.Clear();
         _tagInputs.Clear();
@@ -1054,24 +1055,41 @@ public sealed partial class ReviewPage : Grid
 
     private int? _pendingNotificationId;
 
-    private async Task LoadTagChipLabels(string category, string payload, TagWrapPanel panel,
+    private sealed record TagDisplaySnapshot(Dictionary<(string Category, string Name), string> Labels,
+        Dictionary<string, List<CharacterSkin>> Skins);
+    private Task<TagDisplaySnapshot>? _tagDisplaySnapshot;
+    private string _tagDisplaySnapshotKey = "";
+
+    private Task<TagDisplaySnapshot> TagDisplaySnapshotAsync(string payload)
+    {
+        var names = _tags.Where(p => p.Key is "work" or "character")
+            .SelectMany(p => p.Value.Select(name => (Category: p.Key, Name: name))).Distinct().ToArray();
+        var key = _selectionGeneration + "\n" + payload + "\n" + JsonSerializer.Serialize(names.Select(p => new[] { p.Category, p.Name }));
+        if (_tagDisplaySnapshot is not null && key == _tagDisplaySnapshotKey) return _tagDisplaySnapshot;
+        _tagDisplaySnapshotKey = key;
+        var path = AppService.Store!.DbPath;
+        return _tagDisplaySnapshot = Task.Run(() =>
+        {
+            using var reader = new StoreService(path, readOnly: true);
+            var labels = reader.ResolveTagLabels(names);
+            var skins = names.Where(p => p.Category == "character")
+                .ToDictionary(p => p.Name, p => reader.SkinsForCharacter(payload, p.Name));
+            return new TagDisplaySnapshot(labels, skins);
+        });
+    }
+
+    private async Task<bool> LoadTagChipLabels(string category, string payload, TagWrapPanel panel,
         IReadOnlyList<(string Name, Tags.TagChip Chip)> chips, Action rebuild)
     {
-        if (chips.Count == 0 || AppService.Store is not { } store) return;
+        if (chips.Count == 0) return true;
+        if (AppService.Store is null) return false;
         var generation = _selectionGeneration;
         try
         {
-            var (labels, skins) = await Task.Run(() =>
-            {
-                using var reader = new StoreService(store.DbPath, readOnly: true);
-                var names = chips.Select(chip => chip.Name).Distinct().ToArray();
-                var resolved = reader.ResolveTagLabels(names.Select(name => (category, name)));
-                var variants = category == "character"
-                    ? names.ToDictionary(name => name, name => reader.SkinsForCharacter(payload, name))
-                    : [];
-                return (resolved, variants);
-            });
-            if (generation != _selectionGeneration || !_active) return;
+            var snapshot = await TagDisplaySnapshotAsync(payload);
+            var labels = snapshot.Labels;
+            var skins = snapshot.Skins;
+            if (generation != _selectionGeneration || !_active) return false;
             foreach (var (name, chip) in chips)
             {
                 if (!panel.Children.Contains(chip)) continue;
@@ -1088,6 +1106,7 @@ public sealed partial class ReviewPage : Grid
                     edit.Click += async (_, _) =>
                     {
                         await EditSkinChineseNameAsync(skin);
+                        _tagDisplaySnapshot = null;
                         if (generation == _selectionGeneration) rebuild();
                     };
                     menu.Items.Add(edit);
@@ -1098,8 +1117,11 @@ public sealed partial class ReviewPage : Grid
         }
         catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
         {
+            _tagDisplaySnapshot = null;
             AppService.DebugLog("review tag labels: " + ex.Message);
+            return false;
         }
+        return true;
     }
 
     private void BuildTagGroup(string category, string title)
@@ -1111,8 +1133,9 @@ public sealed partial class ReviewPage : Grid
         var controls = new StackPanel { Spacing = 7 };
         Grid.SetColumn(controls, 1);
         group.Children.Add(controls);
-        var chips = new TagWrapPanel();
-        controls.Children.Add(chips);
+        var chipHost = new Grid();
+        controls.Children.Add(chipHost);
+        var chipVersion = 0;
         Rebuild();
         if (category == "rating") _ratingRebuild = Rebuild;
         if (category != "rating")
@@ -1168,9 +1191,11 @@ public sealed partial class ReviewPage : Grid
         }
         _tagGroups.Children.Add(group);
 
-        void Rebuild()
+        async void Rebuild()
         {
-            chips.Children.Clear();
+            var version = ++chipVersion;
+            var generation = _selectionGeneration;
+            var chips = new TagWrapPanel();
             var namedChips = new List<(string Name, Tags.TagChip Chip)>();
             if (category == "rating")
             {
@@ -1218,13 +1243,15 @@ public sealed partial class ReviewPage : Grid
                         Rebuild();
                     };
                     var chip = new Tags.TagChip(category, name, remove);
+                    chip.Label.IsTextSelectionEnabled = true;
                     ToolTipService.SetToolTip(chip, name);
                     if (category is "character" or "work") namedChips.Add((name, chip));
                     chips.Children.Add(chip);
                 }
             }
-            if (namedChips.Count > 0 && _selected is { } row)
-                _ = LoadTagChipLabels(category, row.Payload, chips, namedChips, Rebuild);
+            if (namedChips.Count > 0 && _selected is { } row
+                && !await LoadTagChipLabels(category, row.Payload, chips, namedChips, Rebuild)) return;
+            if (version != chipVersion || generation != _selectionGeneration) return;
             if (category == "rating")
             {
                 var classify = new Button { Content = new FontIcon { Glyph = "\uE895", FontSize = 14 }, Padding = new Thickness(9, 5, 9, 5), IsEnabled = _state == "pending" };
@@ -1233,6 +1260,9 @@ public sealed partial class ReviewPage : Grid
                 classify.Click += async (_, _) => { await ClassifyAsync(); Rebuild(); };
                 chips.Children.Add(classify);
             }
+            // 名称和皮肤准备完再原位替换，不把原名当作临时显示值。
+            chipHost.Children.Clear();
+            chipHost.Children.Add(chips);
         }
     }
 
@@ -1339,16 +1369,11 @@ public sealed partial class ReviewPage : Grid
         var path = IngestReview.LocalPath(row);
         if (!File.Exists(path)) return ("文件不存在：" + path, "", "");
         var score = scorer.Score(path);
-        if (score.Rating.Length == 0) return ("模型没有给出分级", "", scorer.EffectiveDevice);
         var whitelist = Taxonomy.LoadKindWhitelist(AppService.Settings.Settings.kind_whitelist_path);
-        var kinds = ModelTagMapper.PickKinds(score.Tags, whitelist);
         var tags = IngestReview.Tags(row.Payload, row.Rating);
-        if (score.Character.Length > 0) tags["character"] = [score.Character];
-        if (score.Work.Length > 0) tags["work"] = [score.Work];
-        foreach (var kind in kinds)
-            if (kind.Length > 0 && !tags["kind"].Contains(kind, StringComparer.OrdinalIgnoreCase))
-                tags["kind"].Add(kind);
-        store.UpdateIngestReview(id, IngestReview.ApplyModelOverwrite(row.Payload, tags, score.Rating, score), score.Rating);
+        ActiveAiTags.Apply(tags, score, whitelist);
+        var rating = score.Rating.Length > 0 ? score.Rating : row.Rating ?? "";
+        store.UpdateIngestReview(id, IngestReview.ApplyModelOverwrite(row.Payload, tags, rating, score), rating);
         return ("", score.Rating, scorer.EffectiveDevice);
     }
 

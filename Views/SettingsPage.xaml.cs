@@ -1,4 +1,4 @@
-﻿using Gallery.Services;
+using Gallery.Services;
 using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -334,6 +334,7 @@ public sealed partial class SettingsPage : UserControl
                 CloseButtonText = "取消",
                 DefaultButton = ContentDialogButton.Close,
             };
+            Gallery.Services.DialogService.UseDestructivePrimary(dialog);
             if (await Gallery.Services.DialogService.ShowAsync(dialog) != ContentDialogResult.Primary)
             {
                 ThumbCacheClearButton.IsEnabled = true;
@@ -927,7 +928,7 @@ public sealed partial class SettingsPage : UserControl
         {
             XamlRoot = XamlRoot,
             Title = "最近错误",
-            // 浮层滚动条会压在正文上，正文右侧自己留 16（UI_CONVENTIONS.md R1）。
+            // 浮层滚动条会压在正文上，正文右侧自己留 16（UI_INTERACTION.md R1）。
             Content = new ScrollViewer { Content = body, MaxHeight = 420, MinWidth = 520, Padding = new Thickness(0, 0, 16, 0) },
             CloseButtonText = "关闭",
         };

@@ -283,8 +283,9 @@ public sealed partial class SettingsPage
                 chips.Children.Clear();
                 foreach (var name in selectedTags)
                 {
-                    var chip = new Button { Content = name + "  ×", Padding = new Thickness(8, 4, 8, 4) };
-                    chip.Click += (_, _) => { selectedTags.Remove(name); RefreshTags(); };
+                    var chip = new TagChip((string)((ComboBoxItem)category.SelectedItem!).Tag, name,
+                        () => { selectedTags.Remove(name); RefreshTags(); });
+                    chip.Label.IsTextSelectionEnabled = true;
                     chips.Children.Add(chip);
                 }
             }

@@ -87,6 +87,7 @@
     <EmbeddedResource Include="Services\LibrarySchema.sql" LogicalName="Gallery.Services.LibrarySchema.sql" />
     <EmbeddedResource Include="Services\NaturalSortUnicode.txt" LogicalName="Gallery.Services.NaturalSortUnicode.txt" />
     <EmbeddedResource Include="Controls\Review\Spray.cur" LogicalName="Gallery.Controls.Review.Spray.cur" />
+    <EmbeddedResource Include="extension\text-selection.js" LogicalName="Gallery.Controls.TextSelection.js" />
     <EmbeddedResource Include="Controls\Review\ReviewCarousel.html" LogicalName="Gallery.Controls.Review.ReviewCarousel.html" />
   </ItemGroup>
 </Project>

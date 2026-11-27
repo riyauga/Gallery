@@ -944,7 +944,7 @@ public sealed partial class TagCatalogService
 
     private static TagPlan ReadPersonalPlan(string path)
     {
-        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+        using var doc = JsonDocument.Parse(RetiredResolutionTags.CleanPayload(File.ReadAllText(path)));
         var root = doc.RootElement;
         if (Str(root, "format") != "gallery-personal-rules" || root.GetProperty("version").GetInt32() != 1)
             throw new InvalidDataException("请选择 Gallery 个人规则备份，不要选择公共资料包");

@@ -2273,7 +2273,7 @@ public sealed class CatalogPage : Grid
     private ContentDialog Dialog(string title, object content, string primary = "") => new()
     {
         XamlRoot = XamlRoot, Title = title, Content = content, PrimaryButtonText = primary,
-        CloseButtonText = primary.Length == 0 ? "关闭" : "取消", DefaultButton = ContentDialogButton.None,
+        CloseButtonText = primary.Length == 0 ? "关闭" : "取消", DefaultButton = primary.Length == 0 ? ContentDialogButton.None : ContentDialogButton.Primary,
     };
 
     private async Task<bool> Confirm(string title, string message, string action) =>

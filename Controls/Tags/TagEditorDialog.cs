@@ -1,13 +1,12 @@
 // 标签编辑器（阶段 C）：单图/多图统一——给选中的图片增删标签。
 // 分组方式照待审核页（Controls/Review/ReviewPage.cs）：一行一类，左边分类名，
 // 右边该类已有标签 + 该类自己的输入框（回车即在该类下新增，候选来自标签库与角色词库）；
-// 保存才写库。分辨率由图片自动识别，不在这里编辑。
+// 保存才写库。
 // 标签编辑方式与归档页一致：每个标签左边一个叉号（悬停亮起，点击即取消该标签），不再有勾/叉三态。
 // 分级同归档页：左边显示的那一个 SFW/NSFW 由右侧四级（g/s/q/e）自动算出，不能直接编辑分级标签。
-// 分级行右侧的循环按钮：用已接入的本地模型重跑分级（结果先挂起，保存才写库）。
+// AI 分析逐图更新草稿，保存才写库。
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -17,7 +16,6 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using Gallery.Models;
 using Gallery.Services;
 
@@ -42,63 +40,46 @@ public sealed class TagEditorDialog
         string Detail, string ModelName, string ModelHash);
 
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
-    /// <summary>打开时图片已有的标签名：只有本次新加的角色才顺带补作品。</summary>
-    private readonly HashSet<string> _initialNames = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>逐图记录原有角色：只有本次手工新增的角色才顺带补作品。</summary>
+    private readonly Dictionary<int, HashSet<string>> _initialCharacters = new();
     private readonly Dictionary<string, string> _profiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, PendingRating> _pendingRatings = new();
     private readonly List<PhotoItem> _items;
     private readonly StackPanel _rowsHost = new() { Spacing = 12 };
+    private readonly ContentControl _rowsGate = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     /// <summary>每类一行的芯片容器（行只建一次：改标签时只重填芯片，输入框不失焦）。</summary>
     private readonly Dictionary<string, Panel> _rowChips = new(StringComparer.Ordinal);
     private readonly TextBox _pageUrl = new() { PlaceholderText = "https://来源页面/帖子地址", Width = 420, FontSize = 13 };
     private readonly TextBox _sourceUrl = new() { PlaceholderText = "https://原图地址", Width = 420, FontSize = 13 };
     private readonly TextBlock _hint = new() { FontSize = 12, Opacity = 0.6, Visibility = Visibility.Collapsed };
     private readonly TextBlock _modelHint = new() { FontSize = 12, Opacity = 0.6, TextWrapping = TextWrapping.Wrap };
-    private readonly RotateTransform _syncRotate = new();
-    private readonly FontIcon _syncIcon = new()
-    {
-        Glyph = "\uE895",
-        FontSize = 12,
-        VerticalAlignment = VerticalAlignment.Center,
-        RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5),
-    };
-    private readonly Button _syncButton = new();
+    private readonly Button _analyzeButton = new() { Content = "AI分析", HorizontalAlignment = HorizontalAlignment.Right };
+    private ContentDialog? _dialog;
+    private readonly Dictionary<int, List<(string Category, string Name)>> _drafts = new();
+    private readonly Dictionary<string, Entry> _manualChanges = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, string> _ratingDrafts = new();
+    private readonly Dictionary<int, string> _manualRatings = new();
     private readonly Action<string, ToastKind, string?>? _toast;
 
-    private Storyboard? _spin;
     private CancellationTokenSource? _runCts;
     private bool _running;
     private bool _closed;
-    private bool _ratingTouched;
 
     /// <summary>分级当前显示的等级（g/s/q/e）；空串表示没有可显示的统一分级。</summary>
     private string _rating = "";
     /// <summary>所选图片的分级不一致（有的有、有的没有，或各不相同）。</summary>
     private bool _ratingMixed;
-    /// <summary>用户在对话框里点过四级；只有点过才在保存时写分级（避免多选串级）。</summary>
-    private bool _ratingChosen;
-
     private static readonly string[] RatingLevels = ["g", "s", "q", "e"];
 
     private TagEditorDialog(IReadOnlyList<PhotoItem> items, Action<string, ToastKind, string?>? toast)
     {
         _items = items.ToList();
         _toast = toast;
+        _rowsGate.Content = _rowsHost;
 
-        _syncIcon.RenderTransform = _syncRotate;
-        _syncButton.Content = _syncIcon;
-        _syncButton.Padding = new Thickness(0);
-        _syncButton.MinWidth = 0;
-        _syncButton.MinHeight = 0;
-        _syncButton.Width = 20;
-        _syncButton.Height = 20;
-        _syncButton.CornerRadius = new CornerRadius(4);
-        _syncButton.BorderThickness = new Thickness(0);
-        _syncButton.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        _syncButton.VerticalAlignment = VerticalAlignment.Center;
-        _syncButton.Click += (_, _) => _ = RerunRatingAsync();
-        ToolTipService.SetToolTip(_syncButton, "自动判断敏感程度（保存后写入）");
-        AutomationProperties.SetName(_syncButton, "自动判断敏感程度");
+        _analyzeButton.Click += (_, _) => _ = AnalyzeAsync();
+        ToolTipService.SetToolTip(_analyzeButton, "角色、作品、分级非空覆盖；类型去重追加。保存后写入");
+
     }
 
     /// <summary>弹出编辑器；返回是否保存成功。</summary>
@@ -109,13 +90,14 @@ public sealed class TagEditorDialog
         var editor = new TagEditorDialog(items, toast);
         var dialog = new ContentDialog
         {
-            Title = items.Count == 1 ? "编辑标签" : $"编辑标签（{items.Count} 张）",
+            Title = editor.BuildTitle(items.Count == 1 ? "编辑标签" : $"编辑标签（{items.Count} 张）"),
             PrimaryButtonText = "保存",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = root,
             Content = editor.Build(root),
         };
+        editor._dialog = dialog;
         dialog.PreviewKeyDown += (_, args) =>
         {
             if (args.Key != Windows.System.VirtualKey.Escape) return;
@@ -132,6 +114,17 @@ public sealed class TagEditorDialog
         finally { editor.OnClosed(); }
     }
 
+    private UIElement BuildTitle(string title)
+    {
+        var header = new Grid { Width = 460, ColumnSpacing = 12 };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(_analyzeButton, 1);
+        header.Children.Add(_analyzeButton);
+        return header;
+    }
+
     private UIElement Build(XamlRoot root)
     {
         foreach (var category in EditableCategories)
@@ -145,7 +138,7 @@ public sealed class TagEditorDialog
             {
                 // 只在不入库时用来说一句；平时隐藏，不占提示行
                 _hint,
-                _rowsHost,
+                _rowsGate,
                 _modelHint,
             },
         };
@@ -180,7 +173,7 @@ public sealed class TagEditorDialog
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             MaxHeight = root.Size.Height > 0 ? Math.Clamp(root.Size.Height - 300, 320, 560) : 520,
-            // 浮层滚动条会盖住标签行与输入框的右缘，正文右侧留 16（UI_CONVENTIONS.md R1）。
+            // 浮层滚动条会盖住标签行与输入框的右缘，正文右侧留 16（UI_INTERACTION.md R1）。
             Padding = new Thickness(0, 0, 16, 0),
             Content = body,
         };
@@ -189,12 +182,10 @@ public sealed class TagEditorDialog
     private void LoadCurrent()
     {
         _entries.Clear();
-        _initialNames.Clear();
+        _initialCharacters.Clear();
         _pendingRatings.Clear();
         _rating = "";
         _ratingMixed = false;
-        _ratingChosen = false;
-        _ratingTouched = false;
         _modelHint.Text = "";
         _hint.Visibility = Visibility.Collapsed;
         var ids = _items.Where(i => i.ImageId > 0).Select(i => i.ImageId).ToList();
@@ -207,8 +198,14 @@ public sealed class TagEditorDialog
 
         var store = AppService.Store;
         var details = store is null ? [] : store.TagDetailsForImages(ids);
-        // 多选时取并集：任一张已有该标签就显示（保存按同一份集合应用到每张）。
-        // 只收可手工编辑的六类：分辨率由图片自动识别，带进来会在多选保存时串到别的图上。
+        // 并集仅用于展示；保存按每张图自己的草稿和明确的手工增删计算。
+        foreach (var id in ids)
+        {
+            _drafts[id] = details.TryGetValue(id, out var list)
+                ? list.Where(t => t.Category != "rating").Select(t => (t.Category, t.Name)).ToList() : [];
+            _initialCharacters[id] = _drafts[id].Where(t => t.Category == "character")
+                .Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
         // 分级不进 _entries：它由四级自动算出（同归档页），只走 _rating。
         foreach (var list in details.Values)
             foreach (var tag in list)
@@ -220,7 +217,6 @@ public sealed class TagEditorDialog
                         Name = tag.Name,
                         Display = tag.Display,
                     });
-                    _initialNames.Add(tag.Name);
                 }
 
         LoadRating(store, ids);
@@ -231,8 +227,9 @@ public sealed class TagEditorDialog
     private void LoadRating(StoreService? store, List<int> ids)
     {
         var levels = store is null ? new Dictionary<int, string>() : store.NsfwRatings(ids);
+        foreach (var id in ids) _ratingDrafts[id] = ArchiveService.NormalizeRating(levels.GetValueOrDefault(id));
         var seen = ids
-            .Select(id => ArchiveService.NormalizeRating(levels.GetValueOrDefault(id)))
+            .Select(id => _ratingDrafts[id])
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var rated = seen.Where(v => v.Length > 0).ToList();
@@ -293,14 +290,18 @@ public sealed class TagEditorDialog
         if (!_ratingMixed && level == _rating) { RebuildChips(); return; }
         _rating = level;
         _ratingMixed = false;
-        _ratingChosen = true;
-        TouchedIfRating("rating");
+        _pendingRatings.Clear();
+        foreach (var id in _ratingDrafts.Keys.ToArray())
+        {
+            _ratingDrafts[id] = level;
+            _manualRatings[id] = level;
+        }
         RebuildChips();
     }
 
-    /// <summary>可手工编辑的六类：顺序照词库 Taxonomy，分辨率由图片自动识别、不在这里编辑。</summary>
+    /// <summary>可手工编辑类别，顺序沿用 Taxonomy。</summary>
     private static readonly string[] EditableCategories =
-        [.. Taxonomy.Categories.Where(c => c != "resolution")];
+        Taxonomy.Categories;
 
     private static string CategoryTitle(string category)
     {
@@ -308,7 +309,7 @@ public sealed class TagEditorDialog
         return index >= 0 ? Taxonomy.CategoryTitles[index] : category;
     }
 
-    /// <summary>一行一类：左侧分类名（分级多一个重跑按钮），右侧该类标签 + 该类输入框。</summary>
+    /// <summary>一行一类：左侧分类名，右侧该类标签和输入框。</summary>
     private UIElement BuildCategoryRow(string category)
     {
         var title = CategoryTitle(category);
@@ -316,30 +317,11 @@ public sealed class TagEditorDialog
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        if (category == "rating")
+        grid.Children.Add(new TextBlock
         {
-            var header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                Margin = new Thickness(0, 4, 0, 0),
-                VerticalAlignment = VerticalAlignment.Top,
-            };
-            header.Children.Add(new TextBlock { Text = title, FontSize = 12, Opacity = 0.6, VerticalAlignment = VerticalAlignment.Center });
-            header.Children.Add(_syncButton);
-            grid.Children.Add(header);
-        }
-        else
-        {
-            grid.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 12,
-                Opacity = 0.6,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 6, 0, 0),
-            });
-        }
+            Text = title, FontSize = 12, Opacity = 0.6,
+            VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 6, 0, 0),
+        });
 
         var content = new StackPanel { Spacing = 6 };
         Grid.SetColumn(content, 1);
@@ -416,19 +398,14 @@ public sealed class TagEditorDialog
     }
 
     /// <summary>标签贴纸：左边一个叉号，点它即取消这个标签（保存时删除）；悬停时光标处的叉号亮起。</summary>
-    private UIElement BuildChip(Entry entry) => new TagChip(
-        entry.Category, entry.Display.Length > 0 ? entry.Display : entry.Name, () =>
+    private UIElement BuildChip(Entry entry)
     {
-        entry.State = TagState.Exclude;
-        RebuildChips();
-    });
-
-    /// <summary>手动动过分级 → 模型挂起的结果作废（手动优先，保存只按手动选写标签）。</summary>
-    private void TouchedIfRating(string category)
-    {
-        if (category != "rating") return;
-        _ratingTouched = true;
-        _pendingRatings.Clear();
+        var chip = new TagChip(entry.Category, entry.Display.Length > 0 ? entry.Display : entry.Name, () =>
+        {
+            SetState(entry.Category, entry.Name, TagState.Exclude, entry.Display);
+        });
+        chip.Label.IsTextSelectionEnabled = true;
+        return chip;
     }
 
     /// <summary>写入一个标签的去留；分级不走这里（由四级单独处理）。</summary>
@@ -455,224 +432,107 @@ public sealed class TagEditorDialog
                 State = state,
             };
         }
+        _manualChanges[clean] = _entries[clean];
         RebuildChips();
     }
 
-    // ------------------------------------------------------------ 模型重跑分级
+    // ------------------------------------------------------------ 主动 AI 分析
 
-    /// <summary>用已接入的本地模型重跑选中图片的分级；结果先挂起，保存时才落库。</summary>
-    private async Task RerunRatingAsync()
+    private async Task AnalyzeAsync()
     {
         if (_running || _closed) return;
-        var targets = _items
-            .Where(i => i.ImageId > 0 && !string.IsNullOrEmpty(i.FullPath))
-            .Select(i => (i.ImageId, i.FullPath))
-            .ToList();
-        if (targets.Count == 0) return;   // 没入库的图：加载时已经写进提示行
-
-        var dir = AppService.Settings.Settings.nsfw_model_dir;
-        if (!PixaiScorer.LooksConfigured(dir))
-        {
-            const string message = "还没有选择识别模型";
-            _modelHint.Text = message;
-            Toast(message);
-            return;
-        }
-
+        var targets = _items.Where(i => i.ImageId > 0 && !string.IsNullOrEmpty(i.FullPath)).ToList();
+        if (targets.Count == 0) return;
         _running = true;
-        _syncButton.IsEnabled = false;
-        (PixaiScorer? Scorer, string Error) loaded;
-        try { loaded = await Task.Run(() => { var model = PixaiScorer.TryCreate(dir, out var message); return (model, message); }); }
-        finally { _running = false; _syncButton.IsEnabled = true; }
-        if (_closed) return;
-        var (scorer, error) = loaded;
-        if (scorer is null)
-        {
-            const string message = "无法加载识别模型";
-            _modelHint.Text = message;
-            Toast(message, ToastKind.Info, error);
-            return;
-        }
-
-        _running = true;
-        _ratingTouched = false;
-        _syncButton.IsEnabled = false;
-        StartSpin();
-
+        _analyzeButton.IsEnabled = false;
+        _rowsGate.IsEnabled = false;
+        if (_dialog is not null) _dialog.IsPrimaryButtonEnabled = false;
         var cts = new CancellationTokenSource();
         _runCts = cts;
-        var token = cts.Token;
-        var scored = new List<(int ImageId, NsfwProbs Probs, string Detail)>();
-        var gate = new object();
-        var failed = 0;
-        string? firstError = null;
-        var cancelled = false;
+        _modelHint.Text = "正在分析…";
         try
         {
-            await Task.Run(() =>
+            var results = await Task.Run(() =>
             {
-                Parallel.ForEach(
-                    targets,
-                    new ParallelOptions
-                    {
-                        MaxDegreeOfParallelism = 1,
-                        CancellationToken = token,
-                    },
-                    item =>
-                    {
-                        token.ThrowIfCancellationRequested();
-                        try
-                        {
-                            if (!File.Exists(item.FullPath))
-                            {
-                                lock (gate)
-                                {
-                                    failed++;
-                                    firstError ??= "找不到文件（可能已移动或删除）";
-                                }
-
-                                return;
-                            }
-
-                            var probs = scorer.Score(item.FullPath, token).Probs;
-                            var detail = JsonSerializer.Serialize(new
-                            {
-                                g = Math.Round(probs.G, 4),
-                                s = Math.Round(probs.S, 4),
-                                q = Math.Round(probs.Q, 4),
-                                e = Math.Round(probs.E, 4),
-                            });
-                            lock (gate) scored.Add((item.ImageId, probs, detail));
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            // 单张失败不打断整批，但把第一条原因留下来给用户看
-                            lock (gate)
-                            {
-                                failed++;
-                                firstError ??= ex.Message;
-                            }
-                        }
-                    });
-            }, token);
+                var scorer = PixaiScorer.TryCreate(AppService.Settings.Settings.nsfw_model_dir, out var error)
+                    ?? throw new InvalidOperationException(error);
+                var scores = new List<(int Id, PixaiScore Score)>();
+                var failures = new List<string>();
+                foreach (var item in targets)
+                {
+                    cts.Token.ThrowIfCancellationRequested();
+                    try { scores.Add((item.ImageId, scorer.Score(item.FullPath, cts.Token))); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex) { failures.Add(item.Name + ": " + ex.Message); }
+                }
+                return (Scores: scores, Failures: failures,
+                    Whitelist: Taxonomy.LoadKindWhitelist(AppService.Settings.Settings.kind_whitelist_path));
+            }, cts.Token);
+            if (_closed) return;
+            foreach (var (id, score) in results.Scores)
+            {
+                var tags = EditableCategories.ToDictionary(c => c,
+                    c => _drafts[id].Where(t => t.Category == c).Select(t => t.Name).ToList());
+                ActiveAiTags.Apply(tags, score, results.Whitelist);
+                _drafts[id] = tags.Where(p => p.Key != "rating")
+                    .SelectMany(p => p.Value.Select(n => (p.Key, n))).ToList();
+                if (score.Rating.Length == 0) continue;
+                var probs = score.Probs;
+                var (_, confidence, margin) = probs.Verdict();
+                _pendingRatings[id] = new(score.Rating, probs.NsfwProb, confidence, margin,
+                    JsonSerializer.Serialize(new { g = probs.G, s = probs.S, q = probs.Q, e = probs.E }),
+                    score.ModelName, score.ModelHash);
+                _manualRatings.Remove(id);
+                _ratingDrafts[id] = score.Rating;
+            }
+            RefreshDraftEntries();
+            var levels = _ratingDrafts.Values.Distinct().ToList();
+            _rating = levels.Count == 1 ? levels[0] : "";
+            _ratingMixed = levels.Count > 1;
+            RebuildChips();
+            _modelHint.Text = $"已分析 {results.Scores.Count} 张，保存后写入"
+                + (results.Failures.Count > 0 ? $"；{results.Failures.Count} 张失败，保留原内容" : "");
+            ToolTipService.SetToolTip(_modelHint, string.Join("\n", results.Failures));
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
         {
-            cancelled = true;
+            if (!_closed) { _modelHint.Text = "分析失败，保留原内容"; Toast(_modelHint.Text, ToastKind.Info, ex.Message); }
         }
         finally
         {
-            StopSpin();
-            _syncButton.IsEnabled = true;
             _running = false;
             _runCts = null;
             cts.Dispose();
+            if (!_closed)
+            {
+                _analyzeButton.IsEnabled = true;
+                _rowsGate.IsEnabled = true;
+                if (_dialog is not null) _dialog.IsPrimaryButtonEnabled = true;
+            }
         }
-
-        if (cancelled || _closed) return;   // 关掉对话框 = 取消任务，什么都不留
-        ApplyRatings(scorer, scored, failed, firstError);
     }
 
-    /// <summary>把模型结果挂起：整批一致就动芯片，不一致只在提示行写分布。</summary>
-    private void ApplyRatings(
-        PixaiScorer scorer, List<(int ImageId, NsfwProbs Probs, string Detail)> scored, int failed,
-        string? firstError)
+    private void RefreshDraftEntries()
     {
-        if (_ratingTouched)
+        var displays = _entries.ToDictionary(p => p.Key, p => p.Value.Display, StringComparer.OrdinalIgnoreCase);
+        _entries.Clear();
+        foreach (var (category, name) in _drafts.Values.SelectMany(t => t))
+            _entries.TryAdd(name, new Entry { Category = category, Name = name, Display = displays.GetValueOrDefault(name, "") });
+        foreach (var (name, entry) in _manualChanges) _entries[name] = entry;
+        if (AppService.Store is { } store)
         {
-            _modelHint.Text = "未采用自动判断（你手动改过分级）";
-            Toast("未采用自动判断");
-            return;
+            var labels = store.ResolveTagLabels(_entries.Values.Where(e => e.Category is "work" or "character")
+                .Select(e => (e.Category, e.Name)));
+            foreach (var entry in _entries.Values)
+                if (labels.TryGetValue((entry.Category, entry.Name), out var label)) entry.Display = label;
         }
-
-        if (scored.Count == 0)
-        {
-            _modelHint.Text = "自动判断失败";
-            ToolTipService.SetToolTip(_modelHint, firstError);
-            Toast($"自动判断失败（{failed} 张）", ToastKind.Info, firstError);
-            return;
-        }
-
-        _pendingRatings.Clear();
-        foreach (var (imageId, probs, detail) in scored)
-        {
-            var (_, confidence, margin) = probs.Verdict();
-            _pendingRatings[imageId] = new PendingRating(
-                probs.Rating, probs.NsfwProb, confidence, margin, detail, scorer.ModelName, scorer.ModelHash);
-        }
-
-        var nsfw = scored.Count(s => s.Probs.Rating is "q" or "e");
-        var sfw = scored.Count - nsfw;
-        var distinct = scored
-            .Select(s => ArchiveService.NormalizeRating(s.Probs.Rating))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        if (distinct.Count == 1 && distinct[0].Length > 0)
-        {
-            // 整批同一个等级：左边的分级标签跟着四级一起更新
-            _rating = distinct[0];
-            _ratingMixed = false;
-            _ratingChosen = false;   // 模型结果优先，不再写之前手动点的等级
-            RebuildChips();
-            var tagName = _rating is "q" or "e" ? "NSFW" : "SFW";
-            var levels = string.Join("、", scored
-                .GroupBy(s => s.Probs.Rating)
-                .OrderBy(g => g.Key, StringComparer.Ordinal)
-                .Select(g => scored.Count == 1 ? LevelLabel(g.Key) : $"{LevelLabel(g.Key)} ×{g.Count()}"));
-            _modelHint.Text = scored.Count == 1
-                ? $"自动判断：{tagName}（{levels}）"
-                : $"自动判断：{tagName}（{levels}）· {scored.Count} 张";
-        }
-        else
-        {
-            // 结果不一致：四级表达不了「每张各写各的」，只在提示行写分布
-            _rating = "";
-            _ratingMixed = true;
-            _ratingChosen = false;
-            RebuildChips();
-            _modelHint.Text = $"自动判断：SFW {sfw} 张 / NSFW {nsfw} 张";
-        }
-
-        var summary = $"已重新判断：SFW {sfw} 张 / NSFW {nsfw} 张，保存后写入";
-        Toast(failed == 0 ? summary : $"{summary}；{failed} 张失败", ToastKind.Info, failed == 0 ? null : firstError);
-    }
-
-    private static string LevelLabel(string rating) => RatingText.Level(rating);
-
-    private void StartSpin()
-    {
-        _spin ??= BuildSpin();
-        _spin.Begin();
-    }
-
-    private void StopSpin() => _spin?.Stop();
-
-    private Storyboard BuildSpin()
-    {
-        var spin = new DoubleAnimation
-        {
-            From = 0,
-            To = 360,
-            Duration = new Duration(TimeSpan.FromMilliseconds(900)),
-            RepeatBehavior = RepeatBehavior.Forever,
-            EnableDependentAnimation = true,
-        };
-        Storyboard.SetTarget(spin, _syncRotate);
-        Storyboard.SetTargetProperty(spin, "Angle");
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(spin);
-        return storyboard;
     }
 
     private void OnClosed()
     {
         _closed = true;
         _runCts?.Cancel();
-        StopSpin();
     }
 
     private void Toast(string message, ToastKind kind = ToastKind.Info, string? detail = null)
@@ -684,11 +544,11 @@ public sealed class TagEditorDialog
         if (ids.Count == 0 || AppService.Store is null) return false;
         var store = AppService.Store;
 
-        var include = _entries.Values
+        if (_running) return false;
+        var include = _manualChanges.Values
             .Where(e => e.State == TagState.Include)
             .ToList();
-        var exclude = _entries.Values.Where(e => e.State == TagState.Exclude).ToList();
-        var includePairs = include.Select(e => (e.Category, e.Name)).ToList();
+        var exclude = _manualChanges.Values.Where(e => e.State == TagState.Exclude).ToList();
         var excludeNames = exclude.Select(e => e.Name).ToList();
         var profiles = new Dictionary<string, string>(_profiles, StringComparer.OrdinalIgnoreCase);
         var item = _items.Count == 1 ? _items[0] : null;
@@ -699,26 +559,26 @@ public sealed class TagEditorDialog
         {
             lock (AppService.DbLock)
             {
-                autoWork = SuggestWorksForNewCharacters(store, ids, include, excludeNames);
-                if (excludeNames.Count > 0) store.RemoveTags(ids, excludeNames);
-                // 保留每张图原有的其他标签：只对「添加」的集合做按分类覆盖
-                foreach (var group in includePairs.GroupBy(p => p.Category))
+                foreach (var id in ids)
                 {
-                    var cat = group.Key;
-                    var names = group.Select(p => p.Name).ToList();
-                    foreach (var id in ids)
+                    var draft = _drafts[id].ToList();
+                    foreach (var entry in _manualChanges.Values)
                     {
-                        var add = cat == "work" && autoWork.TryGetValue(id, out var extra)
-                            ? names.Concat(extra.Where(n => !names.Contains(n, StringComparer.OrdinalIgnoreCase)))
-                                .ToList()
-                            : names;
-                        store.SetCategorizedTags([id], MergeWithExisting(store, id, cat, add));
+                        draft.RemoveAll(p => p.Category == entry.Category && string.Equals(p.Name, entry.Name, StringComparison.OrdinalIgnoreCase));
+                        if (entry.State == TagState.Include) draft.Add((entry.Category, entry.Name));
                     }
+                    _drafts[id] = draft;
                 }
-                // 作品行没有被手动改过时，补上的作品仍要单独写进去
-                if (autoWork.Count > 0 && includePairs.All(p => p.Category != "work"))
-                    foreach (var (id, extra) in autoWork)
-                        store.SetCategorizedTags([id], MergeWithExisting(store, id, "work", extra));
+                autoWork = SuggestWorksForNewCharacters(store, ids, include, excludeNames);
+                foreach (var id in ids)
+                {
+                    var pairs = _drafts[id].ToList();
+                    if (autoWork.TryGetValue(id, out var extra))
+                        pairs.AddRange(extra.Select(name => ("work", name)));
+                    // 分级判定单独保存；此处完整保留每图已有的分级标签。
+                    pairs.AddRange(store.CategorizedTags(id).Where(p => p.Category == "rating"));
+                    store.SetCategorizedTags([id], pairs);
+                }
 
                 // 挂起的模型分级写在标签之后：NSFW/SFW 标签以模型结果为准
                 foreach (var (imageId, pending) in _pendingRatings)
@@ -728,12 +588,8 @@ public sealed class TagEditorDialog
                         pending.Detail, tagIt: true);
                 }
 
-                // 用户点过四级：写判定并顺手同步 SFW/NSFW 标签（与归档页一致，贴纸由等级算出来）
-                if (_ratingChosen && _rating.Length > 0)
-                {
-                    foreach (var id in ids)
-                        store.SetNsfwScore(id, "manual", _rating, tagIt: true);
-                }
+                foreach (var (id, rating) in _manualRatings)
+                    store.SetNsfwScore(id, "manual", rating, tagIt: true);
 
                 if (profiles.Count > 0)
                 {
@@ -778,7 +634,7 @@ public sealed class TagEditorDialog
         StoreService store, List<int> ids, List<Entry> include, List<string> excludeNames)
     {
         var added = include
-            .Where(e => e.Category == "character" && !_initialNames.Contains(e.Name))
+            .Where(e => e.Category == "character")
             .Select(e => (e.Name, Key: _profiles.GetValueOrDefault(e.Name, "")))
             .ToList();
         var result = new Dictionary<int, List<string>>();
@@ -788,13 +644,14 @@ public sealed class TagEditorDialog
         var excluded = new HashSet<string>(excludeNames, StringComparer.OrdinalIgnoreCase);
         foreach (var id in ids)
         {
-            var current = store.CategorizedTags(id)
+            var current = _drafts[id]
                 .Where(pair => pair.Category == "work")
                 .Select(pair => pair.Name)
                 .ToList();
             var add = new List<string>();
             foreach (var (name, key) in added)
             {
+                if (_initialCharacters[id].Contains(name)) continue;
                 string? work;
                 try { work = catalog.SuggestWorkTag(name, key, [.. current, .. add]); }
                 catch (Microsoft.Data.Sqlite.SqliteException ex)
@@ -812,13 +669,4 @@ public sealed class TagEditorDialog
         return result;
     }
 
-    /// <summary>把该分类的「要添加的标签」合并进图片现有标签，再整体写回（避免覆盖其他分类）。</summary>
-    private static List<(string Category, string Name)> MergeWithExisting(
-        StoreService store, int imageId, string category, List<string> addNames)
-    {
-        var merged = store.CategorizedTags(imageId).ToList();
-        merged.RemoveAll(p => p.Category == category);
-        foreach (var name in addNames) merged.Add((category, name));
-        return merged;
-    }
 }

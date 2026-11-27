@@ -253,13 +253,7 @@ public sealed partial class ReviewPage
         // 图标常驻，只表示类型；颜色与标签底色共用一套 TagColors，一眼对上分类。
         foreach (var (category, title) in IngestReview.Categories.Zip(IngestReview.Titles))
         {
-            var icon = new FontIcon { Glyph = Gallery.Controls.Tags.TagCategoryIcons.Glyph(category), FontSize = 16 };
-            if (category == "rating")
-            {
-                icon.FontFamily = new FontFamily("Segoe UI Variable");
-                icon.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                icon.FontSize = 18;
-            }
+            var icon = Gallery.Controls.Tags.TagCategoryIcons.Create(category, 16);
             var button = new Button
             {
                 Width = 28, Height = 28, Padding = new Thickness(0), MinWidth = 0, MinHeight = 0,
@@ -317,7 +311,7 @@ public sealed partial class ReviewPage
         foreach (var (category, button) in _railButtons)
         {
             var selected = _railCategory == category;
-            if (button.Content is not FontIcon icon) continue;
+            if (button.Content is not IconElement icon) continue;
             icon.Foreground = selected
                 ? new SolidColorBrush(TagColors.FromHex(TagColors.Get(category, dark).Border))
                 : idle;
