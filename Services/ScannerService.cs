@@ -1,4 +1,4 @@
-namespace Gallery.Services;
+﻿namespace Gallery.Services;
 
 public sealed record ScanResult
 {
@@ -136,7 +136,6 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
             catch (Exception ex) { res.Errors.Add($"{dirRel}: sidecar 导入失败 {ex.Message}"); }
 
             // 2) 索引文件
-            var newIds = new List<int>();
             foreach (var entry in IterImageFiles(dirpath, res))
             {
                 if (cancel?.Invoke() == true) { res.Cancelled = true; break; }
@@ -163,7 +162,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
                         if (isVideo) video = VideoInfo.ReadMeta(entry);
                         else meta = ImageInfo.ReadMeta(entry);
                     }
-                    var (imageId, created) = store.UpsertImage(
+                    var (_, created) = store.UpsertImage(
                         rootId: rootId, relPath: rel, absPath: entry, dirRel: dirRel,
                         name: name, ext: Path.GetExtension(entry).ToLowerInvariant(),
                         size: size, mtime: mtime,
@@ -173,7 +172,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
                         takenAt: isVideo ? null : meta?.TakenAt,
                         mediaKind: isVideo ? "video" : "image",
                         duration: video?.Duration);
-                    if (created) { res.Added++; newIds.Add(imageId); }
+                    if (created) res.Added++;
                     else res.Updated++;
                 }
                 catch (Exception ex)
@@ -186,16 +185,7 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
             try { res.SidecarsImported += store.ImportSidecar(rootId, dirRel); }
             catch (Exception ex) { res.Errors.Add($"{dirRel}: 标签恢复失败 {ex.Message}"); }
 
-            // 3) 新文件按目录自动打标签
-            if (settings.auto_tag_from_folder && newIds.Count > 0)
-            {
-                var tags = AutoTagsFor(dirRel, settings.auto_tag_depth);
-                if (tags.Count > 0)
-                {
-                    try { store.AddTags(newIds, tags); }
-                    catch (Exception ex) { res.Errors.Add($"{dirRel}: 自动标签失败 {ex.Message}"); }
-                }
-            }
+
         }
 
         res.DirectoriesComplete &= !res.Cancelled;
@@ -265,13 +255,6 @@ public sealed class ScannerService(StoreService store, AppSettings settings)
                 queue.Enqueue((sub, new HashSet<string>(ancestors)));
             }
         }
-    }
-
-    /// <summary>把相对目录前 depth 段当标签："微博/2026-01" + 1 → ["微博"]。</summary>
-    private static List<string> AutoTagsFor(string dirRel, int depth)
-    {
-        if (depth <= 0 || dirRel.Length == 0) return [];
-        return dirRel.Split('/', StringSplitOptions.RemoveEmptyEntries).Take(depth).ToList();
     }
 
     /// <summary>对应 sync_managed：只更新主动管理过的图片（含分辨率标签），再写回 sidecar。</summary>

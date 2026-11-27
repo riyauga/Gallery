@@ -89,9 +89,12 @@ public sealed partial class ReviewPage
         var item = await Task.Run(() =>
         {
             var row = store.IngestRow(id);
-            var relative = batch.FixedDestination || row is null ? "" : FolderMap.Load(AppPaths.FolderMapPath).Resolve(IngestReview.Tags(row.Payload, row.Rating));
-            var target = batch.FixedDestination ? batch.Destination : relative.Length == 0 || batch.Root.Length == 0
-                ? "" : Path.Combine(batch.Root, relative.Replace('/', Path.DirectorySeparatorChar));
+            var context = row is null ? new FolderMap.FolderContext()
+                : new FolderMap.FolderContext(row.PageUrl, row.ReceivedAt);
+            var relative = batch.FixedDestination || row is null ? ""
+                : FolderMap.Load(AppPaths.FolderMapPath).Resolve(IngestReview.Tags(row.Payload, row.Rating), context);
+            var target = batch.FixedDestination ? batch.Destination : batch.Root.Length == 0
+                ? "" : Path.Combine(batch.Root, relative.Length == 0 ? "" : relative.Replace('/', Path.DirectorySeparatorChar));
             return (Target: target, Moving: row is not null && !ArchiveService.KeepsOriginal(row.Payload),
                 Path: row is null ? "" : IngestReview.LocalPath(row));
         });

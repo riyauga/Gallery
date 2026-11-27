@@ -61,7 +61,8 @@
 
 ## PixAI 推理与设备
 
-- 仅 PixAI Tagger v1.0 `model.onnx + config.json`，1008×1008 NCHW，透明合白、RGB 等比缩放、居中黑补边、归一化 [-1,1]。不兼容旧 WD 输入，不处理视频，不负责图片显示解码。
+- 仅 PixAI Tagger v1.0 系列：`config.json` + `model.onnx`／`fp32.onnx`／`fp16.onnx`（按此顺序取第一个），NCHW，输入边长从 config 的 `img_size` 读取（原包 1008），透明合白、RGB 等比缩放、居中黑补边、归一化 [-1,1]。config 必须含完整标签表、`tags_split` 和 `rating:g/s/q/e`，缺分级视为不支持；输出维度须等于标签数，输入形状须与 `img_size` 一致。不兼容旧 WD 输入、v0.9（pth）及无配套词表的第三方量化版（如 Mexes INT8），不处理视频，不负责图片显示解码。
+- 已查证的第三方候选（2026-11-27，只读核对仓库文件与 config，**未导入实测、未承诺速度**）：[bdsqlsz 1008](https://huggingface.co/bdsqlsz/pixai-tagger-v1.0-ONNX)（model.onnx + config.json，结构兼容）、[HentaiSL 336/672/1008](https://huggingface.co/HentaiSL/pixai-tagger-v1.0-onnx-1008-672-336-ft)（各尺寸目录含 config.json，标签表与分级齐全，本体名为 fp16/fp32.onnx）、[noaione](https://huggingface.co/noaione/pixai-tagger-v1.0-onnx)（只有 tags.json，缺 config.json）、[Mexes INT8](https://huggingface.co/Mexes/pixai-tagger-v1.0-onnx-fp32-fp16-int8)（只有 selected_tags.csv，缺 config.json）。前两类是否满足 DirectML／实际耗时仍需用户在目标机器验证。
 - `PixaiScorer.LooksConfigured(dir)`／`TryCreate(dir, out error)`／`Score(path, token)`；结果含分级概率、类型标签、最高角色／作品候选、分数及模型 SHA256。角色 ≥0.27，作品独立 ≥0.24，general/meta 类型 ≥0.17；分级按 g/s/q/e 标签名映射，不猜输出顺序。
 - `settings.nsfw_device` 默认 auto，另有 cpu／gpu；`DirectML 1.20.1` 包同时提供 GPU、CPU。DML 会话必须保留 CPU 执行器（部分 fp16 Tile 节点只有 CPU kernel），不可回退到“禁用 DirectML”的旧阶段约束；回退原因显示在结果尾注。
 - 自动识别得到的类型／分级／角色等标签与人工标签共用个人目录解析，不在识别模块特判真人目录；识别本身不因规则改变搬动图片。目录规则及个人备份边界见 [个人目录规则](PACKS_AND_RULES.md#个人目录规则)。

@@ -1,33 +1,52 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Gallery.Services;
 
 /// <summary>
-/// 目录分层规则，读 <c>%APPDATA%\Gallery\folder_map.json</c>（v4）：
-/// <c>managed_dirs</c> = 由标签接管的一级目录；<c>skip_dirs</c> = 受管目录里不再接管的相对路径；
-/// <c>rules</c> = 例外覆盖（把某个标签映射到指定目录名，原样使用、参与多标签择优）。
-/// 文件缺失时没有目录规则；配置损坏时停止自动计算并报告错误，不搬动图片。
+/// 归档目录配置，读 <c>%APPDATA%\Gallery\folder_map.json</c>（v7）。
+/// v7：默认逐级路径 + 按标签条件覆盖；兼容 v5 共用及 v6 每级标签选取方式。
+/// 无默认级且未命中条件时直接进根目录。v3/v4 只读入兼容个人备份，不参与目录计算。
+/// 文件缺失时没有目录级；配置损坏时停止自动计算并报告错误，不搬动图片。
 /// </summary>
 public sealed class FolderMap
 {
-    public const string NoSource = "no_source";      // 没有作品标签时的兜底（original 是真正的「原创作品」标签，走 Sanitize 自然得到 original/）
-    public const string NoArtist = "_无作者";        // 没有作者标签时的兜底
+    public const string NoSource = "no_source";      // 旧整理工具兜底
+    public const string NoArtist = "_无作者";        // 旧整理工具兜底
 
     public sealed record Rule(string Category, string Name, string Folder);
-
-    public List<string> ManagedDirs { get; } = [];
-    public List<string> SkipDirs { get; } = [];
-    public List<Rule> Rules { get; } = [];
-
     public sealed record RoutingRule(bool Enabled, string Category, string Name, string Folder,
         bool SplitRating, string SfwFolder, string NsfwFolder, bool AppendArtist);
 
+    /// <summary>一级目录的数据来源。Kind 为 fixed / tag / source / date。</summary>
+    public sealed record FolderLevel(string Kind, string Category = "", bool UseTagName = true,
+        string Fixed = "", string Fallback = "", string DatePart = "", string TagOrder = "input");
+
+    /// <summary>归档时一张图片的附加上下文：来源页网址与导入时间（Unix 秒）。</summary>
+    public sealed record FolderContext(string PageUrl = "", double ImportedAt = 0);
+
+    public const int MaxLevels = 8;
+    public const string DefaultFallback = "_未分类";
+
+    /// <summary>已登记图库目录的绝对路径；为空表示沿用审核页记忆的目录。</summary>
+    public string Root { get; private set; } = "";
+    public List<FolderLevel> Levels { get; } = [];
+    public sealed record PathOverride(string Category, List<string> Tags, int Position,
+        FolderLevel Directory, bool ReplaceTail, List<FolderLevel> Children);
+    public List<PathOverride> Overrides { get; } = [];
+
+    // v3/v4 旧字段：只为个人备份的读写兼容，不参与 v5 目录计算。
+    public List<string> ManagedDirs { get; } = [];
+    public List<string> SkipDirs { get; } = [];
+    public List<Rule> Rules { get; } = [];
     public List<RoutingRule> RoutingRules { get; } = [];
+
     public string LoadError { get; private set; } = "";
     public static event Action? Changed;
     internal static void NotifyChanged() => Changed?.Invoke();
+
+    public void SetRoot(string value) => Root = value.Trim();
 
     public static FolderMap Load(string path)
     {
@@ -46,8 +65,8 @@ public sealed class FolderMap
     public static FolderMap Parse(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("version", out var version)
-            || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var schema) || schema is not (3 or 4))
-            throw new InvalidDataException("目录配置格式无效，只支持 folder_map 版本 3 或 4");
+            || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var schema) || schema is not (3 or 4 or 5 or 6 or 7))
+            throw new InvalidDataException("目录配置格式无效，只支持 folder_map 版本 3、4、5、6 或 7");
         var map = new FolderMap();
         ReadStrings(root, "managed_dirs", map.ManagedDirs);
         ReadStrings(root, "skip_dirs", map.SkipDirs);
@@ -66,42 +85,80 @@ public sealed class FolderMap
                     rule.GetProperty("folder").GetString() ?? "", rule.GetProperty("split_rating").GetBoolean(),
                     rule.GetProperty("sfw_folder").GetString() ?? "", rule.GetProperty("nsfw_folder").GetString() ?? "",
                     rule.GetProperty("append_artist").GetBoolean()));
+        if (root.TryGetProperty("root", out var rootElement) && rootElement.ValueKind == JsonValueKind.String)
+            map.Root = rootElement.GetString() ?? "";
+        var legacyTagOrder = root.TryGetProperty("tag_order", out var orderElement)
+            && orderElement.ValueKind == JsonValueKind.String && orderElement.GetString() == "text" ? "text" : "input";
+        if (root.TryGetProperty("levels", out var levels))
+            map.Levels.AddRange(levels.EnumerateArray().Select(l => ReadLevel(l, schema < 6 ? legacyTagOrder : "input")));
+        if (root.TryGetProperty("overrides", out var overrides))
+            foreach (var rule in overrides.EnumerateArray())
+                map.Overrides.Add(new PathOverride(rule.GetProperty("category").GetString() ?? "",
+                    rule.GetProperty("tags").EnumerateArray().Select(t => t.GetString() ?? "").ToList(),
+                    rule.GetProperty("position").GetInt32(), ReadLevel(rule.GetProperty("directory")),
+                    rule.GetProperty("replace_tail").GetBoolean(),
+                    rule.GetProperty("children").EnumerateArray().Select(l => ReadLevel(l)).ToList()));
         map.Validate();
         return map;
     }
 
+    private static FolderLevel ReadLevel(JsonElement level, string defaultOrder = "input")
+        => new(level.TryGetProperty("kind", out var k) ? (k.GetString() ?? "").ToLowerInvariant() : "tag",
+            level.TryGetProperty("category", out var c) ? (c.GetString() ?? "").ToLowerInvariant() : "",
+            !level.TryGetProperty("use_tag_name", out var u) || u.GetBoolean(),
+            level.TryGetProperty("fixed_name", out var f) ? f.GetString() ?? "" : "",
+            level.TryGetProperty("fallback", out var b) ? b.GetString() ?? "" : "",
+            level.TryGetProperty("date_part", out var d) ? (d.GetString() ?? "").ToLowerInvariant() : "",
+            level.TryGetProperty("tag_order", out var o) ? o.GetString() ?? defaultOrder : defaultOrder);
+
     public void Validate()
     {
         if (LoadError.Length > 0) throw new InvalidDataException(LoadError);
-        foreach (var dir in ManagedDirs)
-            if (RelativeFolder(dir).Contains('/')) throw new InvalidDataException("受管目录只能填写一级目录名");
-        foreach (var dir in SkipDirs) _ = RelativeFolder(dir);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var rule in RoutingRules)
+        if (Levels.Count > MaxLevels) throw new InvalidDataException($"目录最多配置 {MaxLevels} 级");
+        foreach (var level in Levels) ValidateLevel(level);
+        foreach (var rule in Overrides)
         {
-            if (rule.Category is not ("work" or "character" or "artist" or "kind" or "custom" or "rating")
-                || string.IsNullOrWhiteSpace(rule.Name)) throw new InvalidDataException("请选择标签类型并填写标签名");
-            if (!seen.Add(rule.Category + "\0" + rule.Name.Trim())) throw new InvalidDataException("同一类型的同名标签只能配置一条规则");
-            _ = RelativeFolder(rule.Folder);
-            if (rule.SplitRating)
-            {
-                if (string.IsNullOrWhiteSpace(rule.SfwFolder) || string.IsNullOrWhiteSpace(rule.NsfwFolder))
-                    throw new InvalidDataException("启用分级细分后，请填写 SFW 和 NSFW 子目录名");
-                _ = RelativeFolder(rule.SfwFolder); _ = RelativeFolder(rule.NsfwFolder);
-            }
+            if (rule.Category is not ("work" or "character" or "artist" or "kind" or "rating" or "custom")
+                || rule.Tags.Count == 0 || rule.Tags.Any(string.IsNullOrWhiteSpace))
+                throw new InvalidDataException("请选择条件的标签类型和至少一个标签");
+            if (rule.Position < 0 || rule.Position >= MaxLevels || rule.Position + 1 + rule.Children.Count > MaxLevels)
+                throw new InvalidDataException($"路径最多 {MaxLevels} 级");
+            ValidateLevel(rule.Directory);
+            foreach (var level in rule.Children) ValidateLevel(level);
         }
     }
+
+    private static void ValidateLevel(FolderLevel level)
+    {
+        if (level.TagOrder is not ("input" or "text")) throw new InvalidDataException("不支持的标签选取方式");
+        switch (level.Kind)
+        {
+            case "fixed": _ = RelativeFolder(level.Fixed); break;
+            case "tag":
+                if (level.Category is not ("work" or "character" or "artist" or "kind" or "rating" or "custom"))
+                    throw new InvalidDataException("请选择标签类型");
+                if (!level.UseTagName) _ = RelativeFolder(level.Fixed);
+                break;
+            case "source": break;
+            case "date":
+                if (level.DatePart is not ("year" or "month" or "day")) throw new InvalidDataException("请选择导入时间的精度");
+                break;
+            default: throw new InvalidDataException("不支持的目录命名方式");
+        }
+        if (level.Fallback.Length > 0) _ = RelativeFolder(level.Fallback);
+    }
+
+    private static object WriteLevel(FolderLevel l) => new { kind = l.Kind, category = l.Category,
+        use_tag_name = l.UseTagName, fixed_name = l.Fixed, fallback = l.Fallback, date_part = l.DatePart, tag_order = l.TagOrder };
 
     public JsonElement ToJson()
     {
         Validate();
         return JsonSerializer.SerializeToElement(new
         {
-            version = 4, managed_dirs = ManagedDirs, skip_dirs = SkipDirs,
-            rules = Rules.Select(r => new { category = r.Category, name = r.Name, folder = r.Folder }),
-            routing_rules = RoutingRules.Select(r => new { enabled = r.Enabled, category = r.Category, name = r.Name,
-                folder = r.Folder, split_rating = r.SplitRating, sfw_folder = r.SfwFolder,
-                nsfw_folder = r.NsfwFolder, append_artist = r.AppendArtist }),
+            version = 7, root = Root, levels = Levels.Select(WriteLevel),
+            overrides = Overrides.Select(r => new { category = r.Category, tags = r.Tags, position = r.Position,
+                directory = WriteLevel(r.Directory), replace_tail = r.ReplaceTail, children = r.Children.Select(WriteLevel) }),
         });
     }
 
@@ -117,51 +174,72 @@ public sealed class FolderMap
 
     public static FolderMap Merge(FolderMap current, FolderMap incoming, bool overwrite)
     {
-        var result = Parse((overwrite ? incoming : current).ToJson());
-        if (overwrite) return result;
-        foreach (var rule in incoming.RoutingRules)
-            if (!result.RoutingRules.Any(r => r.Category.Equals(rule.Category, StringComparison.OrdinalIgnoreCase)
-                && r.Name.Equals(rule.Name, StringComparison.OrdinalIgnoreCase))) result.RoutingRules.Add(rule);
-        foreach (var rule in incoming.Rules)
-            if (!result.Rules.Any(r => r.Category.Equals(rule.Category, StringComparison.OrdinalIgnoreCase)
-                && r.Name.Equals(rule.Name, StringComparison.OrdinalIgnoreCase))) result.Rules.Add(rule);
+        if (overwrite) return Parse(incoming.ToJson());
+        var result = Parse(current.ToJson());
+        if (result.Levels.Count == 0 && result.Overrides.Count == 0 && (incoming.Levels.Count > 0 || incoming.Overrides.Count > 0))
+        {
+            result.SetRoot(incoming.Root);
+            foreach (var level in incoming.Levels) result.Levels.Add(level);
+            result.Overrides.AddRange(Parse(incoming.ToJson()).Overrides);
+        }
         return result;
     }
 
-    public string Resolve(IReadOnlyDictionary<string, List<string>> tags, string? managedDir = null)
+    /// <summary>按逐级模板算相对目录（正斜杠）；没有目录级时返回空字符串（=进根目录）。</summary>
+    public string Resolve(IReadOnlyDictionary<string, List<string>> tags, FolderContext? context = null)
     {
         if (LoadError.Length > 0) return "";
-        var rating = RatingGroup(tags);
-        foreach (var rule in RoutingRules.Where(r => r.Enabled))
+        var ctx = context ?? new FolderContext();
+        var parts = new List<string>();
+        var path = Levels.ToList();
+        // 无默认级时也允许条件在一级目录建立路径；后续级只在实际路径中应用。
+        if (path.Count == 0 && Overrides.Any(r => r.Position == 0 && Matches(r, tags)))
+            path.Add(new FolderLevel("fixed", Fixed: DefaultFallback));
+        for (var i = 0; i < path.Count; i++)
         {
-            var matches = tags.TryGetValue(rule.Category, out var names)
-                && names.Contains(rule.Name, StringComparer.OrdinalIgnoreCase);
-            if (rule.Category == "rating" && (rule.Name.Equals("SFW", StringComparison.OrdinalIgnoreCase)
-                || rule.Name.Equals("NSFW", StringComparison.OrdinalIgnoreCase)))
-                matches = rating.Equals(rule.Name, StringComparison.OrdinalIgnoreCase);
-            if (!matches) continue;
-            var target = RelativeFolder(rule.Folder);
-            if (rule.SplitRating)
+            var rule = Overrides.FirstOrDefault(r => r.Position == i && Matches(r, tags));
+            var level = rule?.Directory ?? path[i];
+            if (rule is { ReplaceTail: true })
             {
-                if (rating.Length == 0) return target;
-                target += "/" + RelativeFolder(rating == "NSFW" ? rule.NsfwFolder : rule.SfwFolder);
+                path.RemoveRange(i + 1, path.Count - i - 1);
+                path.AddRange(rule.Children);
             }
-            if (rule.AppendArtist && tags.TryGetValue("artist", out var authors) && authors.Count > 0)
+            var value = level.Kind switch
             {
-                var author = ArtistFolder(authors);
-                if (author.Length > 0) target += "/" + author;
-            }
-            return target;
+                "fixed" => level.Fixed,
+                "tag" => TagFolder(level, tags),
+                "source" => SourceFolder(ctx.PageUrl, level.Fallback),
+                "date" => DateFolder(ctx.ImportedAt, level.DatePart, level.Fallback),
+                _ => "",
+            };
+            if (value.Length > 0) parts.Add(RelativeFolder(value));
         }
-        return TargetDirRel(tags.GetValueOrDefault("work") ?? [], tags.GetValueOrDefault("artist") ?? [], managedDir);
+        return string.Join('/', parts);
     }
 
-    public string? ResolveForExisting(string dirRel, IReadOnlyDictionary<string, List<string>> tags)
+    private static bool Matches(PathOverride rule, IReadOnlyDictionary<string, List<string>> tags)
     {
-        if (LoadError.Length > 0 || !IsManaged(dirRel)) return null;
-        var target = Resolve(tags, FirstSegment(dirRel));
-        return target.Length == 0 || SkipDirs.Any(skip => Matches(target, skip)) ? null : target;
+        var names = tags.GetValueOrDefault(rule.Category) ?? [];
+        return rule.Tags.Any(t => names.Contains(t, StringComparer.OrdinalIgnoreCase)
+            || rule.Category == "rating" && string.Equals(t, RatingGroup(tags), StringComparison.OrdinalIgnoreCase));
     }
+
+    private string TagFolder(FolderLevel level, IReadOnlyDictionary<string, List<string>> tags)
+    {
+        if (level.Category == "rating")
+        {
+            var group = RatingGroup(tags);
+            return group.Length > 0 ? group : Fallback(level.Fallback);
+        }
+        var names = tags.GetValueOrDefault(level.Category) ?? [];
+        if (names.Count == 0) return Fallback(level.Fallback);
+        if (!level.UseTagName) return level.Fixed;
+        var ordered = level.TagOrder == "text" ? names.OrderBy(n => n, StringComparer.Ordinal).ToList() : names;
+        return Sanitize(ordered.First());
+    }
+
+    private static string Fallback(string configured)
+        => configured.Length > 0 ? configured : DefaultFallback;
 
     private static string RatingGroup(IReadOnlyDictionary<string, List<string>> tags)
     {
@@ -172,9 +250,41 @@ public sealed class FolderMap
         return names.Contains("SFW", StringComparer.OrdinalIgnoreCase) ? "SFW" : "";
     }
 
+    /// <summary>从来源页网址取站点前缀；识别不了就用域名，没有网址走兜底。</summary>
+    private static string SourceFolder(string pageUrl, string fallback)
+    {
+        if (!Uri.TryCreate(pageUrl, UriKind.Absolute, out var uri)) return Fallback(fallback);
+        var host = uri.Host.Trim().ToLowerInvariant();
+        if (string.Equals(host, "x.com", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".x.com", StringComparison.OrdinalIgnoreCase)
+            || host.Contains("twitter.com", StringComparison.OrdinalIgnoreCase)) return "x";
+        if (host.Contains("danbooru", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".donmai.us", StringComparison.OrdinalIgnoreCase)) return "danbooru";
+        if (host.Contains("pixiv", StringComparison.OrdinalIgnoreCase)) return "pixiv";
+        if (host.Contains("pinterest", StringComparison.OrdinalIgnoreCase)) return "pinterest";
+        var bare = host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? host[4..] : host;
+        // 域名作为目录名保留点号（如 example.com），不套标签名的清洗规则。
+        return bare.Length == 0 ? Fallback(fallback) : bare;
+    }
+
+    private static string DateFolder(double importedAt, string part, string fallback)
+    {
+        if (importedAt <= 0) return Fallback(fallback);
+        DateTimeOffset time;
+        try { time = DateTimeOffset.FromUnixTimeSeconds((long)importedAt).ToLocalTime(); }
+        catch (ArgumentOutOfRangeException) { return Fallback(fallback); }
+        return part switch
+        {
+            "year" => time.ToString("yyyy"),
+            "month" => time.ToString("yyyy-MM"),
+            "day" => time.ToString("yyyy-MM-dd"),
+            _ => Fallback(fallback),
+        };
+    }
+
     private static string RelativeFolder(string value)
     {
-        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value)) throw new InvalidDataException("目标目录必须相对图库根目录，不能填写绝对路径");
+        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value)) throw new InvalidDataException("目录名必须相对图库根目录，不能是绝对路径");
         var parts = value.Replace('\\', '/').Split('/');
         foreach (var part in parts)
         {
@@ -187,7 +297,7 @@ public sealed class FolderMap
         return string.Join('/', parts);
     }
 
-    /// <summary>该目录是否由标签接管（一级目录命中且不在 skip_dirs 里）。</summary>
+    // 以下供命令行「手动整理」工具使用；v5 下没有受管目录概念，整理不再自动搬动图片。
     public bool IsManaged(string dirRel)
     {
         var top = FirstSegment(dirRel);
@@ -195,11 +305,16 @@ public sealed class FolderMap
         return !SkipDirs.Any(skip => Matches(dirRel, skip));
     }
 
-    /// <summary>按图片当前所在目录算目标目录（相对根、正斜杠）；不在受管范围内返回 null。</summary>
+    public string? ResolveForExisting(string dirRel, IReadOnlyDictionary<string, List<string>> tags)
+    {
+        if (LoadError.Length > 0 || !IsManaged(dirRel)) return null;
+        var target = TargetDirRel(tags.GetValueOrDefault("work") ?? [], tags.GetValueOrDefault("artist") ?? [], FirstSegment(dirRel));
+        return target.Length == 0 || SkipDirs.Any(skip => Matches(target, skip)) ? null : target;
+    }
+
     public string? TargetDirRel(string dirRel, IReadOnlyList<string> works, IReadOnlyList<string> artists)
         => IsManaged(dirRel) ? TargetDirRel(works, artists, FirstSegment(dirRel)) : null;
 
-    /// <summary>新图归档用：没有现成目录时用首选受管目录拼目标目录。</summary>
     public string TargetDirRel(IReadOnlyList<string> works, IReadOnlyList<string> artists, string? managedDir = null)
     {
         var top = managedDir is { Length: > 0 } ? managedDir
@@ -209,13 +324,8 @@ public sealed class FolderMap
             .Where(part => part.Length > 0));
     }
 
-    /// <summary>作品目录名：有 rules 覆盖就按覆盖（原样），否则取字典序第一个标签名；没有作品标签时用 <see cref="NoSource"/>。</summary>
-    public string WorkFolder(IReadOnlyList<string> works)
-        => FolderFor("work", works) ?? NoSource;
-
-    /// <summary>画师目录名：同上，没有画师标签时用 <see cref="NoArtist"/>。</summary>
-    public string ArtistFolder(IReadOnlyList<string> artists)
-        => FolderFor("artist", artists) ?? NoArtist;
+    public string WorkFolder(IReadOnlyList<string> works) => FolderFor("work", works) ?? NoSource;
+    public string ArtistFolder(IReadOnlyList<string> artists) => FolderFor("artist", artists) ?? NoArtist;
 
     private string? FolderFor(string category, IReadOnlyList<string> names)
     {
@@ -244,7 +354,6 @@ public sealed class FolderMap
         return collapsed.ToLowerInvariant();
     }
 
-    /// <summary>覆盖表里的目录名原样保留（只清掉不能进路径的字符与首尾空白点）。</summary>
     private static string CleanRuleFolder(string folder)
     {
         var sb = new StringBuilder(folder.Length);

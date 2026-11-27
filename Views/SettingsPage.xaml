@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!--
     设置页。
     照搬 photos 的 PhotosManager/Views/Pages/SettingsPage.xaml：
@@ -261,7 +261,7 @@
                     <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="功能设置" />
 
                     <ctc:SettingsCard x:Name="ImportSettingsEntry" Header="导入与归档"
-                        Description="通知、文件夹标签、自动分目录与历史保留" Tag="Import" IsClickEnabled="True"
+                        Description="通知、自动归档路径与历史保留" Tag="Import" IsClickEnabled="True"
                         IsActionIconVisible="True" Click="SettingsCategory_Click">
                         <ctc:SettingsCard.HeaderIcon><FontIcon FontSize="16" Glyph="&#xE8B5;" /></ctc:SettingsCard.HeaderIcon>
                         <ctc:SettingsCard.ActionIcon><FontIcon FontSize="12" Glyph="&#xE76C;" /></ctc:SettingsCard.ActionIcon>
@@ -314,40 +314,44 @@
                     <ctc:SettingsCard
                         Header="新图片归档提醒">
                         <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE7E7;" />
+                            <FontIcon FontSize="16" Glyph="&#xE8BD;" />
                         </ctc:SettingsCard.HeaderIcon>
                         <ToggleSwitch x:Name="NotifyNewImagesToggle" Toggled="NotifyNewImagesToggle_Toggled" />
                     </ctc:SettingsCard>
 
-                    <ctc:SettingsCard
-                        Description="按已配置的个人目录规则分流；未配置时请先添加规则"
-                        Header="按标签自动分目录">
+                    <ctc:SettingsCard Header="归档根目录">
                         <ctc:SettingsCard.HeaderIcon>
                             <FontIcon FontSize="16" Glyph="&#xE8B7;" />
                         </ctc:SettingsCard.HeaderIcon>
-                        <ToggleSwitch x:Name="ArchiveAutoByTagsToggle" Toggled="ArchiveAutoByTagsToggle_Toggled" />
+                        <ctc:SettingsCard.Description>
+                            <TextBlock x:Name="ArchiveRootValue" Text="未选择" TextTrimming="CharacterEllipsis" />
+                        </ctc:SettingsCard.Description>
+                        <Button x:Name="ArchiveRootPickButton" Content="选择目录" Click="ArchiveRootPick_Click" />
                     </ctc:SettingsCard>
 
-                    <Border Margin="0,12,0,12" Padding="16" CornerRadius="{ThemeResource ControlCornerRadius}"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                        <StackPanel Spacing="12">
+                    <ctc:SettingsCard Header="自动归档路径" ContentAlignment="Vertical"
+                        HorizontalContentAlignment="Stretch">
+                        <ctc:SettingsCard.HeaderIcon>
+                            <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                        </ctc:SettingsCard.HeaderIcon>
+                        <StackPanel x:Name="DirectoryRulesBody" Margin="0,12,0,0" Spacing="12">
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <StackPanel Spacing="3">
-                                    <TextBlock Text="标签与归档目录" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="同时命中时采用最上面的启用规则。未命中时按作品和作者分目录。"
-                                        TextWrapping="Wrap" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
-                                </StackPanel>
-                                <Button x:Name="DirectoryRuleAddButton" Grid.Column="1" Content="添加规则" Click="DirectoryRuleAdd_Click" />
+                                <TextBlock Text="默认路径" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <Button x:Name="DirectoryRuleAddButton" Grid.Column="1" Content="添加一级" Click="DirectoryRuleAdd_Click" />
                             </Grid>
                             <StackPanel x:Name="DirectoryRulesList" Spacing="6" />
-                            <TextBlock Text="保存规则不会搬动已有图片；只影响之后的归档和手动整理。规则随个人备份保存。"
-                                TextWrapping="Wrap" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" Margin="0,4" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="条件覆盖" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <Button x:Name="DirectoryOverrideAddButton" Grid.Column="1" Content="添加条件" Click="DirectoryOverrideAdd_Click" />
+                            </Grid>
+                            <StackPanel x:Name="DirectoryOverridesList" Spacing="6" />
                             <TextBlock x:Name="DirectoryRulesStatus" TextWrapping="Wrap" Visibility="Collapsed"
                                 Style="{StaticResource CaptionTextBlockStyle}" />
                         </StackPanel>
-                    </Border>
+                    </ctc:SettingsCard>
 
                     <ctc:SettingsCard
                         Description="清理历史时的默认保留范围；只删队列记录，不删文件"
@@ -368,29 +372,6 @@
                         </controls:SelectionDropDown>
                     </ctc:SettingsCard>
 
-                    <TextBlock Margin="1,24,0,6" AutomationProperties.HeadingLevel="Level2" Style="{StaticResource BodyStrongTextBlockStyle}" Text="文件夹标签" />
-
-                    <ctc:SettingsCard
-                        Description="用文件夹名生成标签，只对新加入的图片生效"
-                        Header="按文件夹自动打标签">
-                        <ctc:SettingsCard.HeaderIcon>
-                            <FontIcon FontSize="16" Glyph="&#xE8EC;" />
-                        </ctc:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch x:Name="AutoTagToggle" Toggled="AutoTagToggle_Toggled" />
-                            <controls:SelectionDropDown
-                                x:Name="AutoTagDepthBox"
-                                MinWidth="80"
-                                ToolTipService.ToolTip="从图库根目录往下取几层文件夹名作为标签"
-                                SelectionChanged="AutoTagDepth_SelectionChanged">
-                                <ComboBoxItem Content="1 层" Tag="1" />
-                                <ComboBoxItem Content="2 层" Tag="2" />
-                                <ComboBoxItem Content="3 层" Tag="3" />
-                                <ComboBoxItem Content="4 层" Tag="4" />
-                                <ComboBoxItem Content="5 层" Tag="5" />
-                            </controls:SelectionDropDown>
-                        </StackPanel>
-                    </ctc:SettingsCard>
                 </StackPanel>
 
                 <StackPanel x:Name="TagManageSettingsPanel" MaxWidth="958" Margin="0,0,0,64" Spacing="3" Visibility="Collapsed">

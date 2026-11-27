@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Gallery.Services;
@@ -42,8 +42,6 @@ public sealed class AppSettings
     public bool recursive { get; set; } = true;
     public string open_mode { get; set; } = "photos";
     public string open_custom_exe { get; set; } = "";
-    public bool auto_tag_from_folder { get; set; }
-    public int auto_tag_depth { get; set; } = 1;
     /// <summary>导入自动识别后要写入的标签类型；只影响待审核记录。</summary>
     public bool import_tag_character { get; set; } = true;
     public bool import_tag_work { get; set; } = true;

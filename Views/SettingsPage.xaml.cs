@@ -1,4 +1,4 @@
-using Gallery.Services;
+﻿using Gallery.Services;
 using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -155,7 +155,7 @@ public sealed partial class SettingsPage : UserControl
 
     private void RefreshSettingsSummaries()
     {
-        ImportSettingsEntry.Description = $"自动分目录{(ArchiveAutoByTagsToggle.IsOn ? "已开启" : "已关闭")} · 文件夹标签{(AutoTagToggle.IsOn ? "已开启" : "已关闭")}";
+        ImportSettingsEntry.Description = $"默认路径 {_directoryMap.Levels.Count} 级 · 条件 {_directoryMap.Overrides.Count}";
         RecognitionSettingsEntry.Description = NsfwCancelButton.Visibility == Visibility.Visible
             ? NsfwScanText.Text
             : $"{(string.IsNullOrWhiteSpace(AppService.Settings.Settings.nsfw_model_dir) ? "模型未配置" : "模型已配置")} · 导入自动识别{(AutoModelTagsToggle.IsOn ? "已开启" : "已关闭")}";
@@ -168,15 +168,19 @@ public sealed partial class SettingsPage : UserControl
     }
 
     private void OnBackgroundPointerPressed(object sender, PointerRoutedEventArgs args)
+        => MoveSettingsFocusToBackground(SettingsRoot, this, args);
+
+    private static void MoveSettingsFocusToBackground(UIElement target, DependencyObject scope, PointerRoutedEventArgs args)
     {
-        if (FocusManager.GetFocusedElement(XamlRoot) is not TextBox) return;
+        if (FocusManager.GetFocusedElement(target.XamlRoot) is not Control focused || ReferenceEquals(focused, target)) return;
         for (var element = args.OriginalSource as DependencyObject;
-             element is not null && !ReferenceEquals(element, this);
+             element is not null && !ReferenceEquals(element, scope);
              element = VisualTreeHelper.GetParent(element))
         {
-            if (element is TextBox or AutoSuggestBox or ButtonBase or RangeBase or ToggleSwitch) return;
+            if (element is TextBox or PasswordBox or RichEditBox or AutoSuggestBox or ButtonBase or RangeBase or ToggleSwitch or Selector
+                or SettingsCard { IsClickEnabled: true } or TextBlock { IsTextSelectionEnabled: true }) return;
         }
-        SettingsRoot.Focus(FocusState.Pointer);
+        target.Focus(FocusState.Pointer);
     }
 
     /// <summary>刷新桥接状态：地址用实际监听端口，令牌取已落盘的那个。</summary>
@@ -414,12 +418,9 @@ public sealed partial class SettingsPage : UserControl
 
         TrayToggle.IsOn = settings.minimize_to_tray;
         AutoStartToggle.IsOn = Services.AutoStart.IsEnabled();
-        ArchiveAutoByTagsToggle.IsOn = settings.archive_auto_by_tags;
         NotifyNewImagesToggle.IsOn = settings.notify_new_images;
         AuthorCommentaryToggle.IsOn = settings.show_author_commentary;
         SearchHistoryToggle.IsOn = settings.search_history_enabled;
-        AutoTagToggle.IsOn = settings.auto_tag_from_folder;
-        AutoTagDepthBox.IsEnabled = settings.auto_tag_from_folder;
         AutoModelTagsToggle.IsOn = settings.auto_model_tags;
         ImportTagCharacterCheck.IsChecked = settings.import_tag_character;
         ImportTagWorkCheck.IsChecked = settings.import_tag_work;
@@ -434,7 +435,6 @@ public sealed partial class SettingsPage : UserControl
         RescanTagKindCheck.IsChecked = settings.rescan_tag_kind;
         RescanTagRatingCheck.IsChecked = settings.auto_nsfw_tag;
         SelectRescanWriteMode(settings.rescan_overwrite_tags);
-        SelectAutoTagDepth(settings.auto_tag_depth);
         SelectHistoryKeep(settings.history_keep_days);
         SelectNsfwDevice(settings.nsfw_device);
         _sysSyncing = false;
@@ -1003,13 +1003,6 @@ public sealed partial class SettingsPage : UserControl
         Services.AppService.Settings.Save();
     }
 
-    private void ArchiveAutoByTagsToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_sysSyncing) return;
-        Services.AppService.Settings.Settings.archive_auto_by_tags = ArchiveAutoByTagsToggle.IsOn;
-        Services.AppService.Settings.Save();
-    }
-
     private void NotifyNewImagesToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_sysSyncing) return;
@@ -1029,24 +1022,6 @@ public sealed partial class SettingsPage : UserControl
         if (_sysSyncing) return;
         Services.AppService.Settings.Settings.search_history_enabled = SearchHistoryToggle.IsOn;
         Services.AppService.Settings.Save();
-    }
-
-    private void AutoTagToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_sysSyncing) return;
-        Services.AppService.Settings.Settings.auto_tag_from_folder = AutoTagToggle.IsOn;
-        Services.AppService.Settings.Save();
-        AutoTagDepthBox.IsEnabled = AutoTagToggle.IsOn;
-    }
-
-    private void AutoTagDepth_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_sysSyncing) return;
-        if (AutoTagDepthBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out var depth))
-        {
-            Services.AppService.Settings.Settings.auto_tag_depth = depth;
-            Services.AppService.Settings.Save();
-        }
     }
 
     private void HistoryKeep_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1070,19 +1045,6 @@ public sealed partial class SettingsPage : UserControl
             }
         }
         HistoryKeepBox.SelectedIndex = 0;
-    }
-
-    private void SelectAutoTagDepth(int depth)
-    {
-        foreach (var item in AutoTagDepthBox.Items.OfType<ComboBoxItem>())
-        {
-            if (item.Tag is string tag && int.TryParse(tag, out var value) && value == depth)
-            {
-                AutoTagDepthBox.SelectedItem = item;
-                return;
-            }
-        }
-        AutoTagDepthBox.SelectedIndex = 0;
     }
 
     private void NsfwDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -167,7 +167,7 @@ public static class PackFolders
 
     /// <summary>模型包里有没有可用的本体文件（不加载 onnx，避免拖进来就吃满显存）。</summary>
     public static bool LooksUsable(string dir)
-        => File.Exists(Path.Combine(dir, "model.onnx")) && IsReadableJson(Path.Combine(dir, "config.json"));
+        => PixaiScorer.FindModelFile(dir) is not null && IsReadableJson(Path.Combine(dir, "config.json"));
 
     private static bool IsReadableJson(string path)
     {

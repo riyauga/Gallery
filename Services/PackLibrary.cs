@@ -29,8 +29,8 @@ public static class PackLibrary
         foreach (var dir in PackFolders.ModelPacks())
         {
             var name = System.IO.Path.GetFileName(dir);
-            var onnx = System.IO.Path.Combine(dir, "model.onnx");
-            var size = File.Exists(onnx) ? FormatSize(new FileInfo(onnx).Length) : "";
+            var onnx = PixaiScorer.FindModelFile(dir);
+            var size = onnx is not null ? FormatSize(new FileInfo(onnx).Length) : "";
             var active = string.Equals(dir, activeModel, StringComparison.OrdinalIgnoreCase);
             var detail = active ? (size.Length > 0 ? size + " · 使用中" : "使用中") : size;
             list.Add(new PackEntry(dir, name, detail, true, active));
@@ -181,7 +181,7 @@ public static class PackLibrary
                         continue;
                     }
                     var found = Discover(source, name).ToList();
-                    if (found.Count == 0) throw new InvalidDataException("未找到有效资料库或 PixAI 模型（model.onnx + config.json）");
+                    if (found.Count == 0) throw new InvalidDataException("未找到有效资料库或 PixAI 模型（ONNX 模型文件 + config.json）");
                     candidates.AddRange(found);
                 }
                 catch (Exception ex) { errors.Add($"{Path.GetFileName(path)}：{ex.Message}"); }
@@ -282,9 +282,9 @@ public static class PackLibrary
     {
         if ((File.GetAttributes(directory) & System.IO.FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("资料包不能包含链接目录");
-        if (File.Exists(Path.Combine(directory, "model.onnx")))
+        if (PixaiScorer.FindModelFile(directory) is not null)
         {
-            if (!PackFolders.LooksUsable(directory)) throw new InvalidDataException("PixAI 模型配置无效");
+            if (!PackFolders.LooksUsable(directory)) throw new InvalidDataException("PixAI 模型配置无效：需要 config.json 含标签表、四类分级标签和有效 img_size");
             yield return new Candidate(directory, name, true, []);
             yield break;
         }

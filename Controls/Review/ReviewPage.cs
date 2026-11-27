@@ -1615,7 +1615,7 @@ public sealed partial class ReviewPage : Grid
     private async void RefreshDestination()
     {
         if (_state != "pending") return;
-        if (_batchMode && AppService.Settings.Settings.archive_auto_by_tags)
+        if (_batchMode)
         {
             if (_destinationEdited && !string.IsNullOrWhiteSpace(_destination.Text)) return;
             _settingDestination = true;
@@ -1627,18 +1627,18 @@ public sealed partial class ReviewPage : Grid
         }
         _destination.PlaceholderText = "选择图库内的归档目录";
         if (_selected is null || _destinationEdited) return;
-        if (!AppService.Settings.Settings.archive_auto_by_tags) return;
         if (AppService.Store is not { } store) return;
         var row = _selected;
         var revision = ++_destinationRevision;
         var tags = _tags.ToDictionary(pair => pair.Key, pair => new List<string>(pair.Value));
+        var context = new FolderMap.FolderContext(row.PageUrl, row.ReceivedAt);
         string target;
         try
         {
             target = await Task.Run(() =>
             {
                 using var reader = new StoreService(store.DbPath, readOnly: true);
-                return ArchiveTargetFor(reader, tags);
+                return ArchiveTargetFor(reader, tags, context);
             });
         }
         catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException or JsonException)
@@ -1647,35 +1647,33 @@ public sealed partial class ReviewPage : Grid
             return;
         }
         if (revision != _destinationRevision || _selected?.Id != row.Id || _state != "pending" ||
-            _batchMode || _destinationEdited || !AppService.Settings.Settings.archive_auto_by_tags || target.Length == 0) return;
+            _batchMode || _destinationEdited || target.Length == 0) return;
         _settingDestination = true;
         _autoDestination = target;
         _destination.Text = target;
         _settingDestination = false;
     }
 
-    /// <summary>
-    /// 按个人目录路由计算归档目录（绝对路径）；未命中时使用作品/画师两级。
-    /// </summary>
-    private static string ArchiveTargetFor(StoreService store, IReadOnlyDictionary<string, List<string>> tags)
+    /// <summary>按逐级目录模板计算归档目录（绝对路径）；模板为空时就是根目录。</summary>
+    private static string ArchiveTargetFor(StoreService store, IReadOnlyDictionary<string, List<string>> tags,
+        FolderMap.FolderContext? context = null)
     {
-        var root = ArchiveRoot(store);
-        if (root is null) return "";
         var map = FolderMap.Load(AppPaths.FolderMapPath);
-        var relative = map.Resolve(tags);
-        if (relative.Length == 0) return "";
-        return Path.Combine(root.Path, relative.Replace('/', Path.DirectorySeparatorChar));
+        var root = ArchiveRoot(store, map.Root);
+        if (root is null) return "";
+        var relative = map.Resolve(tags, context);
+        return Path.Combine(root.Path, relative.Length == 0 ? "" : relative.Replace('/', Path.DirectorySeparatorChar));
     }
 
-    /// <summary>归档用哪个根目录：优先上次用过的（还在图库里），否则第一个启用的根。</summary>
-    private static RootInfo? ArchiveRoot(StoreService store)
+    /// <summary>归档根目录：模板里选的目录优先，其次上次用过的（仍在图库里），最后第一个启用的根。</summary>
+    private static RootInfo? ArchiveRoot(StoreService store, string configured = "")
     {
         var enabled = store.Roots().Where(r => r.Enabled).ToList();
-        var remembered = AppService.Settings.Settings.archive_root;
-        if (remembered.Length > 0)
+        foreach (var candidate in new[] { configured, AppService.Settings.Settings.archive_root })
         {
+            if (candidate.Length == 0) continue;
             var hit = enabled.FirstOrDefault(r =>
-                string.Equals(FileIdentity.PathKey(r.Path), FileIdentity.PathKey(remembered), StringComparison.Ordinal));
+                string.Equals(FileIdentity.PathKey(r.Path), FileIdentity.PathKey(candidate), StringComparison.Ordinal));
             if (hit is not null) return hit;
         }
         return enabled.FirstOrDefault();
@@ -1717,9 +1715,8 @@ public sealed partial class ReviewPage : Grid
             return;
         }
         var destination = _destination.Text.Trim();
-        var auto = AppService.Settings.Settings.archive_auto_by_tags;
-        // 只有开启自动分目录时才允许留空，明确目录始终优先。
-        var fixedDestination = !auto || (_batchMode ? destination.Length > 0 : _destinationEdited);
+        // 没有归档模式开关：明确指定目录时用它，否则按逐级模板算（模板为空就进根目录）。
+        var fixedDestination = _batchMode ? destination.Length > 0 : _destinationEdited;
         try
         {
             if (fixedDestination && (destination.Length == 0 || archiver.ResolveRoot(destination).RootId < 0))
@@ -1738,7 +1735,9 @@ public sealed partial class ReviewPage : Grid
             : _selected is { State: "pending" } row ? new[] { row.Id } : Array.Empty<int>())
             .Where(id => !store.IsIngestArchiving(id)).ToArray();
         if (ids.Length == 0) return;
-        var batch = new ArchiveBatch(ids, fixedDestination, destination, auto, ArchiveRoot(store)?.Path ?? "");
+        var map = FolderMap.Load(AppPaths.FolderMapPath);
+        var batch = new ArchiveBatch(ids, fixedDestination, destination, true,
+            ArchiveRoot(store, map.Root)?.Path ?? "");
         store.BeginIngestArchiving(ids);
         _archiveQueue.Enqueue(batch);
         _rows.RemoveAll(row => store.IsIngestArchiving(row.Id));

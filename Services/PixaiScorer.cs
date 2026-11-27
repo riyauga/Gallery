@@ -20,7 +20,10 @@ public sealed record PixaiScore(string Character, string Work, string CharacterC
 /// <summary>PixAI v1.0 ONNX 概率输出版：独立识别最高分角色和作品，一次推理返回四类标签。</summary>
 public sealed class PixaiScorer
 {
+    /// <summary>默认尺寸；实际尺寸从模型 config.json 的 img_size 读取。</summary>
     public const int ImageSize = 1008;
+    /// <summary>模型目录里可识别的 ONNX 文件名，按此顺序取第一个存在的。</summary>
+    private static readonly string[] ModelFiles = ["model.onnx", "fp32.onnx", "fp16.onnx"];
     public const double CharacterThreshold = 0.27;
     public const double WorkThreshold = 0.24;
     private static readonly ConcurrentDictionary<string, PixaiScorer> Cache = new(StringComparer.OrdinalIgnoreCase);
@@ -30,6 +33,7 @@ public sealed class PixaiScorer
     private static Timer? _idleTimer;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly InferenceSession _session;
+    private readonly int _imageSize;
     private volatile bool _retired;
     private readonly string _input;
     private readonly string[] _tags;
@@ -64,22 +68,29 @@ public sealed class PixaiScorer
             throw new InvalidOperationException("PixAI config.json 缺少角色／作品标签，或标签长度不一致");
         _ratingIndices = new[] { "rating:g", "rating:s", "rating:q", "rating:e" }
             .Select(name => Array.IndexOf(_tags, name)).ToArray();
-        if (_ratingIndices.Any(i => i < 0)) throw new InvalidOperationException("PixAI 配置缺少四级分级标签");
-        var path = Path.Combine(dir, "model.onnx");
+        if (_ratingIndices.Any(i => i < 0)) throw new InvalidOperationException("PixAI 配置缺少 rating:g/s/q/e 四级分级标签，视为不支持的模型");
+        var size = config.RootElement.TryGetProperty("img_size", out var sizeElement) ? sizeElement.GetInt32() : ImageSize;
+        if (size < 32 || size > 4096) throw new InvalidOperationException("PixAI 配置的 img_size 不在 32–4096 范围内");
+        _imageSize = size;
+        var path = FindModelFile(dir) ?? throw new InvalidOperationException("模型目录缺少 model.onnx / fp32.onnx / fp16.onnx");
         using (var stream = File.OpenRead(path)) ModelHash = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
         ModelName = "PixAI v1.0/" + Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar));
         _session = CreateSession(path, device, out var effective, out var note);
         EffectiveDevice = effective;
         DeviceNote = note;
         var input = _session.InputMetadata.First();
-        if (_session.InputMetadata.Count != 1 || input.Value.Dimensions is not [1, 3, ImageSize, ImageSize]
+        if (_session.InputMetadata.Count != 1 || input.Value.Dimensions is not [1, 3, var h, var w] || h != _imageSize || w != _imageSize
             || _session.OutputMetadata.Values.First().Dimensions is not [1, var outputs] || outputs != _tags.Length)
         {
             _session.Dispose();
-            throw new InvalidOperationException("需要 PixAI v1.0 1008×1008 NCHW 单输入 ONNX 概率输出模型及配套 config.json");
+            throw new InvalidOperationException($"需要 PixAI v1.0 ONNX 概率模型：单输入 [1,3,{_imageSize},{_imageSize}]、输出维度 {_tags.Length}，并附带匹配 config.json");
         }
         _input = input.Key;
     }
+
+    /// <summary>按约定顺序找模型本体；找不到返回 null。</summary>
+    public static string? FindModelFile(string dir)
+        => ModelFiles.Select(name => Path.Combine(dir, name)).FirstOrDefault(File.Exists);
 
     /// <summary>CPU 会话选项：线程数按机器核数限流。</summary>
     private static SessionOptions CpuOptions()
@@ -119,7 +130,7 @@ public sealed class PixaiScorer
     }
 
     public static bool LooksConfigured(string? dir) => !string.IsNullOrWhiteSpace(dir)
-        && File.Exists(Path.Combine(dir, "model.onnx")) && File.Exists(Path.Combine(dir, "config.json"));
+        && FindModelFile(dir) is not null && File.Exists(Path.Combine(dir, "config.json"));
 
     /// <summary>执行设备设置值归一化：只认 cpu / gpu，其余（含空）按 auto。</summary>
     public static string NormalizeDevice(string? device) => device?.Trim().ToLowerInvariant() switch
@@ -133,7 +144,7 @@ public sealed class PixaiScorer
     public static PixaiScorer? TryCreate(string? dir, out string error, string? device = null)
     {
         error = "";
-        if (!LooksConfigured(dir)) { error = "识别模型未配置：需要 PixAI model.onnx 和 config.json"; return null; }
+        if (!LooksConfigured(dir)) { error = "识别模型未配置：需要 PixAI ONNX 模型文件（model.onnx / fp32.onnx / fp16.onnx）和 config.json"; return null; }
         var mode = NormalizeDevice(device ?? AppService.Settings.Settings.nsfw_device);
         var key = CacheKey(dir!, mode);
         lock (LoadGate)
@@ -148,7 +159,7 @@ public sealed class PixaiScorer
     }
 
     private static string CacheKey(string dir, string mode)
-        => Path.GetFullPath(dir) + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "model.onnx")).Ticks
+        => Path.GetFullPath(dir) + "|" + (FindModelFile(dir) is { } file ? File.GetLastWriteTimeUtc(file).Ticks : 0)
             + "|" + File.GetLastWriteTimeUtc(Path.Combine(dir, "config.json")).Ticks + "|" + mode;
 
     /// <summary>配置变更、包移除、空闲超时或退出时释放会话；等待当前单张推理结束，不释放正在使用的原生资源。</summary>
@@ -203,7 +214,7 @@ public sealed class PixaiScorer
             var input = Preprocess(path);
             token.ThrowIfCancellationRequested();
             using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(_input,
-                new DenseTensor<float>(input, new[] { 1, 3, ImageSize, ImageSize })) });
+                new DenseTensor<float>(input, new[] { 1, 3, _imageSize, _imageSize })) });
             var scores = results.First().AsEnumerable<float>().ToArray();
             token.ThrowIfCancellationRequested();
             var character = Top(scores, _characters);
@@ -231,27 +242,27 @@ public sealed class PixaiScorer
         return (_tags[at], scores[at]);
     }
 
-    private static float[] Preprocess(string path)
+    private float[] Preprocess(string path)
     {
         using var source = Image.Load<Rgba32>(path);
         using var flat = new Image<RgbaVector>(source.Width, source.Height, new RgbaVector(1, 1, 1, 1));
         flat.Mutate(x => x.DrawImage(source, new Point(0, 0), 1f));
-        var ratio = Math.Min((double)ImageSize / source.Width, (double)ImageSize / source.Height);
+        var ratio = Math.Min((double)_imageSize / source.Width, (double)_imageSize / source.Height);
         var width = Math.Max(1, (int)(source.Width * ratio));
         var height = Math.Max(1, (int)(source.Height * ratio));
         // 浮点 RGB 缩放，避免 uint8 中间结果舍入；保比例缩放、黑色补边后再归一化。
         flat.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(width, height), Mode = ResizeMode.Stretch,
             Sampler = KnownResamplers.Triangle }));
-        var plane = ImageSize * ImageSize;
+        var plane = _imageSize * _imageSize;
         var data = new float[3 * plane];
         Array.Fill(data, -1f);
-        var left = (ImageSize - width) / 2;
-        var top = (ImageSize - height) / 2;
+        var left = (_imageSize - width) / 2;
+        var top = (_imageSize - height) / 2;
         for (var y = 0; y < height; y++)
             for (var x = 0; x < width; x++)
             {
                 var pixel = flat[x, y];
-                var at = (y + top) * ImageSize + x + left;
+                var at = (y + top) * _imageSize + x + left;
                 data[at] = pixel.R * 2 - 1;
                 data[plane + at] = pixel.G * 2 - 1;
                 data[2 * plane + at] = pixel.B * 2 - 1;

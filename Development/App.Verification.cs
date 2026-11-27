@@ -567,6 +567,14 @@ public partial class App
             return true;
         }
 
+        // --verify-foldermap：v5 逐级目录模板验收（纯逻辑，写报告后退出）
+        if (cli.Contains("--verify-foldermap"))
+        {
+            RunVerifyFolderMap();
+            Exit();
+            return true;
+        }
+
         // --addroot <path>：非交互添加根目录 + 扫描（自动化测试用）
         var idx = Array.IndexOf(cli, "--addroot");
         if (idx >= 0 && idx + 1 < cli.Length)
@@ -1552,6 +1560,85 @@ public partial class App
             }
         }
         WriteVerifyReport("organize.txt", report);
+    }
+
+    /// <summary>v5 逐级目录模板：标签四级、来源、导入时间、兜底、多标签顺序、空模板。</summary>
+    private static void RunVerifyFolderMap()
+    {
+        var report = new StringBuilder();
+        void Check(string name, bool ok, string detail = "")
+            => report.AppendLine($"{(ok ? "PASS" : "FAIL")}  {name}{(detail.Length > 0 ? "  (" + detail + ")" : "")}");
+
+        try
+        {
+            var json = """
+                {
+                  "version": 5,
+                  "root": "D:/Photos",
+                  "tag_order": "input",
+                  "levels": [
+                    { "kind": "tag", "category": "kind", "use_tag_name": true, "fallback": "未分类", "date_part": "" },
+                    { "kind": "tag", "category": "work", "use_tag_name": true, "fallback": "未分类", "date_part": "" },
+                    { "kind": "tag", "category": "character", "use_tag_name": true, "fallback": "未分类", "date_part": "" },
+                    { "kind": "tag", "category": "rating", "use_tag_name": true, "fallback": "未分级", "date_part": "" }
+                  ]
+                }
+                """;
+            var map = FolderMap.Parse(System.Text.Json.JsonDocument.Parse(json).RootElement);
+            Check("v5 读入", map.LoadError.Length == 0 && map.Levels.Count == 4 && map.Root == "D:/Photos", map.LoadError);
+            var tags = new Dictionary<string, List<string>>
+            {
+                ["kind"] = ["动漫"], ["work"] = ["绝区零"], ["character"] = ["简"], ["rating"] = ["q"],
+            };
+            var got = map.Resolve(tags, new FolderMap.FolderContext("https://x.com/user/status/1", 0));
+            Check("四级标签目录 + NSFW 分组", got == "动漫/绝区零/简/NSFW", got);
+
+            var noTags = new Dictionary<string, List<string>>();
+            var fallback = map.Resolve(noTags);
+            Check("无标签走每级兜底", fallback == "未分类/未分类/未分类/未分级", fallback);
+
+            var fixedMap = FolderMap.Parse(System.Text.Json.JsonDocument.Parse("""
+                {"version":5,"root":"","tag_order":"input","levels":[
+                  {"kind":"tag","category":"kind","use_tag_name":false,"fixed_name":"插画","fallback":"未分类","date_part":""}]}
+                """).RootElement);
+            var fixedResult = fixedMap.Resolve(new Dictionary<string, List<string>> { ["kind"] = ["动漫"] });
+            Check("不勾选用固定名", fixedResult == "插画", fixedResult);
+            Check("无该类型标签走兜底", fixedMap.Resolve(noTags) == "未分类", fixedMap.Resolve(noTags));
+
+            var sourceDate = FolderMap.Parse(System.Text.Json.JsonDocument.Parse("""
+                {"version":5,"root":"","tag_order":"input","levels":[
+                  {"kind":"source","category":"","use_tag_name":true,"fixed_name":"","fallback":"未知来源","date_part":""},
+                  {"kind":"date","category":"","use_tag_name":true,"fixed_name":"","fallback":"未知时间","date_part":"month"}]}
+                """).RootElement);
+            var ctx = new FolderMap.FolderContext("https://www.pixiv.net/artworks/123",
+                new DateTimeOffset(2026, 11, 27, 0, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeSeconds());
+            var sd = sourceDate.Resolve(noTags, ctx);
+            Check("来源站点 + 导入月份", sd == "pixiv/2026-11", sd);
+            var unknown = sourceDate.Resolve(noTags, new FolderMap.FolderContext("https://example.com/a", 0));
+            Check("未知站点用域名 + 时间兜底", unknown == "example.com/未知时间", unknown);
+
+            var orderMap = FolderMap.Parse(System.Text.Json.JsonDocument.Parse(json.Replace("\"input\"", "\"text\"")).RootElement);
+            var multi = orderMap.Resolve(new Dictionary<string, List<string>>
+            {
+                ["kind"] = ["乙", "甲"], ["work"] = ["作品"], ["character"] = ["角色"], ["rating"] = ["e"],
+            });
+            Check("文字顺序取第一个", multi == "乙/作品/角色/NSFW", multi);
+
+            var empty = new FolderMap();
+            Check("空模板进根目录", empty.Resolve(tags).Length == 0);
+            var legacy = FolderMap.Parse(System.Text.Json.JsonDocument.Parse("""
+                {"version":4,"managed_dirs":["cartoon"],"skip_dirs":[],"rules":[],
+                 "routing_rules":[{"enabled":true,"category":"kind","name":"真人","folder":"真人",
+                 "split_rating":true,"sfw_folder":"n","nsfw_folder":"h","append_artist":true}]}
+                """).RootElement);
+            Check("v4 备份可读但不参与计算", legacy.ManagedDirs.Count == 1 && legacy.Levels.Count == 0
+                && legacy.Resolve(tags).Length == 0);
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("ERROR: " + ex);
+        }
+        WriteVerifyReport("foldermap.txt", report);
     }
 
     /// <summary>
