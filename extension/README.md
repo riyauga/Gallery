@@ -38,7 +38,7 @@ Chrome / Edge（Manifest V3）扩展，需要 130 或更高版本（读取存储
 | --- | --- |
 | Danbooru 帖子页 / 其 CDN 直链 | 取标签、分级、来源，`inbox_name` 用原名（含 md5 时带上） |
 | X / Twitter 帖子页与其 `pbs.twimg.com` 图 | 记录来源页、帖子 id、发帖账号（作者名称不带前导 `@`，保留账号原大小写），推文正文进作者评论；分辨率与目录手动填 |
-| Pixiv 作品页 / 其 `i.pximg.net` 图 | 调作品页自己的 `/ajax/illust/{id}`（失败退回页面元素），取标题、画师、原图地址、作品说明（进作者评论）；分级全年龄 `g`、R-18 `q`、R-18G `e`；标签只保留库里已有的作品与角色，其余丢弃 |
+| Pixiv 作品页 / 其 `i.pximg.net` 图 | 随当前作品切换读取 `/ajax/illust/{id}`（失败退回页面链接原文）；下载时缺少标签快照，只按下载图片的作品 ID 请求一次接口，失败后结束本次标签获取并通知，不再因定时检查、手动重新推送或浏览器重启重新获取，也不提交空快照。已取得标签的桌面端交付重发保留。取标题、画师、原图地址、作品说明（进作者评论）；分级全年龄 `g`、R-18 `q`、R-18G `e`；原文与译名一同交给桌面端分类，未匹配或有歧义的保留到自定义，规则见[标签身份与显示](../ARCHIVE_REVIEW.md#标签身份与显示) |
 | Pinterest pin 页与列表页 | 登录态读页面内嵌 pin 数据，未登录退回卡片链接；记 pin 页面、原图地址，作者写进画师，标题与描述不进标签 |
 | 其他站点 | 在「接收网站」里通过域名添加，复杂条件在高级规则中编辑和测试 |
 
@@ -60,11 +60,11 @@ node extension/tools/simulate.mjs --referrer "https://danbooru.donmai.us/posts/1
 | --- | --- | --- |
 | `GET` | `/ping` | 未配对仅返回 `{ok, app:"gallery", version, port, tokenRequired, protocol:2, reviewSubscription:true}`；携带有效 `X-Gallery-Token` 才附带 `received, pending` |
 | WebSocket | `/review/subscribe` | 扩展来源连接后，首条消息发送配对码，通过后推送 `{pending}` 快照、变更和心跳 |
-| `GET` | `/tags` | 需 `X-Gallery-Token`；桌面端标签词表 `{works, characters, aliases}`，含中文名与繁体写法；Pixiv 标签按它过滤，缓存 24 小时 |
+| `GET` | `/tags` | 需 `X-Gallery-Token`；旧扩展兼容词表 `{works, characters, aliases}`；新版 Pixiv 不再使用它过滤标签 |
 | `POST` | `/ingest` | 带 `X-Gallery-Token`；`{probe:true}` 只验证不落库；真实记录需 `download_state:"complete"`；返回 `{ok, persisted, queued, duplicate, ingest_id, name}` |
 | `POST` | `/ui/open` | `{view:"library"\|"pending", path}` 唤起桌面端窗口并定位 |
 
-升级桌面端后需重新加载分发包里的扩展，配对配置继续保留；旧扩展的无令牌私有 GET 请求会被拒绝。
+升级桌面端后需重新加载分发包里的扩展，并刷新已打开的来源网页，配对配置继续保留。扩展重载会使旧页面脚本的扩展上下文失效；X 脚本遇到该失效后停止监听，不重试或自动重新注入。旧扩展的无令牌私有 GET 请求会被拒绝。
 
 插件只在桌面端确认 `persisted` 且回显同一个 `ingest_id` 时才把记录从 outbox 删掉。浏览器启动时只登记重试闹钟，积压记录在一分钟后开始后台补推，也可从插件弹窗或桌面连接页触发。
 

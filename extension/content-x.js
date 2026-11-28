@@ -23,7 +23,14 @@
     if(!page_url && !article)page_url=post(location.href);
     // 推文正文就是作者评论；表情与链接文本保留原样，不做改写。
     const text=(article?.querySelector('[data-testid="tweetText"]')?.innerText || '').trim();
-    if(page_url)chrome.runtime.sendMessage({type:'xImageContext',payload:{image_url,page_url,text}}).catch(()=>{});
+    if(!page_url)return;
+    try {
+      chrome.runtime.sendMessage({type:'xImageContext',payload:{image_url,page_url,text}}).catch(()=>{});
+    } catch(error) {
+      if(!String(error?.message).includes('Extension context invalidated'))throw error;
+      document.removeEventListener('contextmenu',remember,true);
+      document.removeEventListener('click',remember,true);
+    }
   }
   document.addEventListener('contextmenu',remember,true);document.addEventListener('click',remember,true);
 })();

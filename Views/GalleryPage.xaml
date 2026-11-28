@@ -58,8 +58,7 @@
                 </controls:CustomCommandBar.Resources>
 
                 <!--  选择：Photos 里唯一一个「图标 + 文字」的按钮
-                      Label 文案来自 CommandBar_SelectSelectionText / CommandBar_CancelSelectionText
-                      → 可见文字是「选择」/「取消选择」（不是 UIA 的 Name「选择项目」）
+                      进入选择模式即显示「取消」，页头显示「选择项目」；选中后标题显示数量。
                       图标来自 IconService.GetCheckMarkIcon() = E73A（方框勾选）/ GetCancelIcon() = E711
                       带 AppBarButtonHighlightedStyles 的灰底高亮（Styles/AppBarButtonHighlightedStyles.xaml）  -->
                 <AppBarButton
@@ -125,10 +124,8 @@
                 </AppBarButton>
 
                 <!--
-                    选择态按钮（photos GalleryCommandBar.xaml DeleteButton / MoveCopyButton / ShareButton）：
-                    只在有选中时出现；删除/共享为纯图标（LabelPosition=Collapsed + 中文 ToolTip），
-                    移动或复制保留 Label（UIA 实测选择态可见文本「移动或复制」，带展开箭头）。
-                    未迁：EditButton(EF77，无编辑器)、幻灯片、OneDrive 备份/分享、Clipchamp。
+                    选择态操作只在有选中时出现；删除、移动或复制为纯图标，保留中文提示。
+                    移动或复制仍通过下拉菜单选择操作，不提供分享入口。
                 -->
                 <AppBarButton
                     x:Name="DeleteButton"
@@ -148,6 +145,7 @@
                 <AppBarButton
                     x:Name="MoveCopyButton"
                     Label="移动或复制"
+                    LabelPosition="Collapsed"
                     ToolTipService.ToolTip="移动或复制"
                     Visibility="Collapsed">
                     <AppBarButton.Resources>
@@ -173,21 +171,6 @@
                             </MenuFlyoutItem>
                         </MenuFlyout>
                     </AppBarButton.Flyout>
-                </AppBarButton>
-
-                <AppBarButton
-                    x:Name="ShareButton"
-                    Click="ShareButton_Click"
-                    Label="共享"
-                    LabelPosition="Collapsed"
-                    ToolTipService.ToolTip="共享"
-                    Visibility="Collapsed">
-                    <AppBarButton.Icon>
-                        <FontIcon
-                            FontSize="16"
-                            FontFamily="{StaticResource PhotosUWPFontFamily}"
-                            Glyph="&#xE72D;" />
-                    </AppBarButton.Icon>
                 </AppBarButton>
 
                 <!--  排序 / 筛选 / 布局：带下拉小箭头，实测 62 宽  -->

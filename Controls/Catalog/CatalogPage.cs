@@ -1691,9 +1691,7 @@ public sealed class CatalogPage : Grid
     {
         var (rect, fully) = GalleryPage.TileFlightRect(tile, _scroll);
         AppService.DebugLog($"tag-preview-open image={tile.Item.ImageId} items={panel.Items.Count} rect={rect.X:0},{rect.Y:0},{rect.Width:0}x{rect.Height:0}");
-        PreviewRequested?.Invoke(new(tile.Item, panel.Items.ToArray(), rect, fully, item =>
-            panel.Children.FirstOrDefault(t => !t.Detached && t.Item.ImageId == item.ImageId && panel.IndexOfTile(t) >= 0) is { IsLoaded: true } source
-                ? GalleryPage.TileFlightRect(source, _scroll).Rect : null,
+        PreviewRequested?.Invoke(new(tile.Item, panel.Items.ToArray(), rect, fully,
             tile.PreviewThumbnail, FollowGalleryResults: false));
     }
 

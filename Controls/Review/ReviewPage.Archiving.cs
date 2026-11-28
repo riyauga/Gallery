@@ -91,8 +91,14 @@ public sealed partial class ReviewPage
             var row = store.IngestRow(id);
             var context = row is null ? new FolderMap.FolderContext()
                 : new FolderMap.FolderContext(row.PageUrl, row.ReceivedAt);
-            var relative = batch.FixedDestination || row is null ? ""
-                : FolderMap.Load(AppPaths.FolderMapPath).Resolve(IngestReview.Tags(row.Payload, row.Rating), context);
+            var relative = "";
+            if (!batch.FixedDestination && row is not null)
+            {
+                var tags = IngestReview.Tags(row.Payload, row.Rating);
+                var folderNames = store.ResolveTagFolderNames(tags.SelectMany(pair =>
+                    pair.Value.Select(name => (Category: pair.Key, Name: name))));
+                relative = FolderMap.Load(AppPaths.FolderMapPath).Resolve(tags, context, folderNames);
+            }
             var target = batch.FixedDestination ? batch.Destination : batch.Root.Length == 0
                 ? "" : Path.Combine(batch.Root, relative.Length == 0 ? "" : relative.Replace('/', Path.DirectorySeparatorChar));
             return (Target: target, Moving: row is not null && !ArchiveService.KeepsOriginal(row.Payload),

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Gallery 图片自动归类",
   "version": "2.3.0",
-  "description": "Danbooru 图片取得标签后归档；X、Pixiv、Pinterest 图片记录来源与作者，Pixiv 额外按库里已有的作品与角色过滤标签；目录和其他标签手动填写。其他网站支持配置接收规则。",
+  "description": "Danbooru 图片取得标签后归档；X、Pixiv、Pinterest 图片记录来源与作者。Pixiv 原文与译名合并，桌面端自动匹配分类，未匹配标签保留到自定义。其他网站支持配置接收规则。",
   "minimum_chrome_version": "130",
 
   "permissions": [
@@ -17,6 +17,7 @@
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*",
+    "https://www.pixiv.net/*",
     "https://danbooru.donmai.us/*",
     "https://*.donmai.us/*"
   ],
@@ -32,7 +33,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.pixiv.net/artworks/*"],
+      "matches": ["https://www.pixiv.net/*"],
       "js": ["content-pixiv.js"],
       "run_at": "document_idle"
     },

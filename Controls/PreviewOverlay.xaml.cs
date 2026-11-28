@@ -19,7 +19,7 @@ namespace Gallery.Controls;
 /// 单图查看器：照搬 galleryold preview.py 的行为（容器与美术按 photos 规范）。
 /// 宽 ≥900：左图 + 右详情 360px；窄窗上下分栏。
 /// 缩放/平移/翻页在 ImageViewer；详情在 DetailPanel；
-/// 打开走 150ms 渐入（现有 fade 退化模式保留，飞入动画后续接入缩略图起点）。
+/// 打开使用 300ms 飞入／渐入；关闭立即收起，不保留关闭动画和命中遮罩。
 /// </summary>
 public sealed partial class PreviewOverlay : Grid
 {
@@ -251,7 +251,7 @@ public sealed partial class PreviewOverlay : Grid
 
     private void SetFullscreen(bool full)
     {
-        if (MainWindow.Instance is not { } window || _closing || !IsOpen || _fullscreen == full) return;
+        if (MainWindow.Instance is not { } window || !IsOpen || _fullscreen == full) return;
         _animation?.Stop();
         _animation = null;
         Viewer.IsAnimating = false;
@@ -460,15 +460,12 @@ public sealed partial class PreviewOverlay : Grid
     }
 
     private GalleryPage.PreviewRequest? _request;
-    private Windows.Foundation.Rect _lastSourceRect;
     private Storyboard? _animation;
-    private bool _closing;
     private string? _shownPath;
 
     public void Open(GalleryPage.PreviewRequest request)
     {
         _animation?.Stop();
-        _closing = false;
         _keyboardChrome = _zoomBarHovered = _topBarHovered = false;
         RefreshTagDisplay();
         RestoreChrome();
@@ -476,7 +473,6 @@ public sealed partial class PreviewOverlay : Grid
         FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
         FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
         _request = request;
-        _lastSourceRect = request.SourceRect;
         _index = FindItemIndex(request.Items, request.Item);
         _items = _index >= 0 ? request.Items : [request.Item];
         if (_index < 0) _index = 0;
@@ -850,7 +846,7 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Move(int delta)
     {
-        if (_closing || _items.Count == 0) return;
+        if (_items.Count == 0) return;
         int next = Math.Clamp(_index + delta, 0, _items.Count - 1);
         if (next == _index) return;
         _index = next;
@@ -897,7 +893,7 @@ public sealed partial class PreviewOverlay : Grid
     /// <summary>窗口加速器和查看器按键共用的隔离入口；控件与弹层保留自身按键。</summary>
     public bool TryHandleKey(VirtualKey key)
     {
-        if (!IsOpen || _closing || HasInputPopup()) return false;
+        if (!IsOpen || HasInputPopup()) return false;
         bool control = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         if (control && key is VirtualKey.B or VirtualKey.L)
@@ -987,8 +983,7 @@ public sealed partial class PreviewOverlay : Grid
     }
 
     /// <summary>
-    /// 切页前收摊：不做飞回动画。飞回的终点是图库里那张格子，切页后它已经不在视野里，
-    /// 动画只会和新页面抢 300ms 的显示时间。
+    /// 切页前立即收起详情，不把焦点交回即将隐藏的旧页面。
     /// </summary>
     public void CloseImmediate()
     {
@@ -1003,66 +998,15 @@ public sealed partial class PreviewOverlay : Grid
 
     private void Close()
     {
-        if (_closing || !IsOpen) return;
-        _closing = true;
-        Viewer.IsAnimating = true;
+        if (!IsOpen) return;
         _animation?.Stop();
-        if (_items.Count > 0)
-            _lastSourceRect = _request?.ResolveSourceRect(_items[_index]) ?? default;
-        else _lastSourceRect = default;
-        // 动画统一飞回（用户裁决）；遮罩同步淡出 300ms。视频只淡出，不让播放表面参与缩放。
-        bool flyBack = _lastSourceRect.Width > 0 && _items.Count > 0 && !_items[_index].IsVideo;
         _ = StopCastingAsync();
-        if (_items.Count > 0) VideoPlayer.Pause();
-        var sb = new Storyboard();
-
-        var fade = new DoubleAnimation
-        {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
-            EnableDependentAnimation = true,
-        };
-        Storyboard.SetTarget(fade, this);
-        Storyboard.SetTargetProperty(fade, "Opacity");
-        sb.Children.Add(fade);
-
-        if (flyBack)
-        {
-            double srcX = _lastSourceRect.X - 16;
-            double srcY = _lastSourceRect.Y - 52;
-            double hostW = PhotoArea.ActualWidth, hostH = PhotoArea.ActualHeight;
-            if (hostW > 0 && hostH > 0)
-            {
-                foreach (var (prop, to) in new[]
-                {
-                    ("ScaleX", _lastSourceRect.Width / hostW),
-                    ("ScaleY", _lastSourceRect.Height / hostH),
-                    ("TranslateX", srcX), ("TranslateY", srcY),
-                })
-                {
-                    var anim = new DoubleAnimation
-                    {
-                        To = to,
-                        Duration = TimeSpan.FromMilliseconds(300),
-                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-                        EnableDependentAnimation = true,
-                    };
-                    Storyboard.SetTarget(anim, FlightTransform);
-                    Storyboard.SetTargetProperty(anim, prop);
-                    sb.Children.Add(anim);
-                }
-            }
-        }
-
-        sb.Completed += (_, _) => ResetAfterClose(restoreFocus: true);
-        _animation = sb;
-        sb.Begin();
+        ResetAfterClose(restoreFocus: true);
     }
 
     /// <summary>收起遮罩并清掉这次预览的状态；是否把焦点还给图库由调用方决定。</summary>
     private void ResetAfterClose(bool restoreFocus)
     {
-        if (restoreFocus) ReturnFocusRequested?.Invoke();
         Visibility = Visibility.Collapsed;
         RestoreChrome();
         Viewer.Clear();
@@ -1072,9 +1016,9 @@ public sealed partial class PreviewOverlay : Grid
         _items = Array.Empty<PhotoItem>();
         _request = null;
         _animation = null;
-        _closing = false;
         FlightTransform.ScaleX = FlightTransform.ScaleY = 1;
         FlightTransform.TranslateX = FlightTransform.TranslateY = 0;
+        if (restoreFocus) ReturnFocusRequested?.Invoke();
     }
     /// <summary>标签保存后重新读一次，让详情面板立刻显示新集合。</summary>
     private readonly Dictionary<string, string> _tagDisplay = new(StringComparer.Ordinal);

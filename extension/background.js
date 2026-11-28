@@ -1,9 +1,9 @@
 /** Gallery download coordinator: persist post snapshots, bind downloads, deliver durable records. */
 import {DEFAULT_SETTINGS,DEFAULT_RULES,SEED_VERSION,BUILTIN_SITES,belongsToSite,normalizeRules,findRule,isImageDownload} from "./rules.js";
 import {chooseMetadata,completeMetadata,validPost,MD5_RE} from "./metadata.js";
-import {bridgePing,bridgeVerify,bridgeTags,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
+import {bridgePing,bridgeVerify,queueAdd,queueFlush,queueSize,migrateLegacyQueue,openDesktop} from "./bridge.js";
 import {isXPage,xPost,xImageKey,isXDownload,xMetadata} from './x-metadata.js';
-import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,matchPixivTags} from './pixiv-metadata.js';
+import {isPixivPage,pixivArtworkId,pixivImage,pixivRating,isPixivDownload,pixivSourceTags,pixivSnapshot} from './pixiv-metadata.js';
 import {isPinterestPage,pinImageHash,isPinterestDownload} from './pinterest-metadata.js';
 import {matchFilename} from "./filename-rules.js";
 
@@ -145,7 +145,19 @@ async function pixivContext(item) {
   const id=image?.artwork_id || pixivArtworkId(item.referrer);
   if(!id) return null;
   const stored=(await chrome.storage.local.get('pixiv:'+id))['pixiv:'+id];
-  const page=stored || {site:'pixiv',page_url:`https://www.pixiv.net/artworks/${id}`,post_id:id,artist:'',tags:[],x_restrict:0};
+  let page=stored;
+  if(!page?.tags?.length || !page.artist) {
+    const response=await fetch(`https://www.pixiv.net/ajax/illust/${id}?lang=zh`,{
+      credentials:'include',signal:AbortSignal.timeout(10000)
+    });
+    if(!response.ok) throw new Error(`Pixiv 标签读取失败（${response.status}），本次不再获取`);
+    const result=await response.json();
+    if(result.error || String(result.body?.illustId) !== id || !Array.isArray(result.body?.tags?.tags))
+      throw new Error('Pixiv 未返回对应作品的标签，本次不再获取');
+    page={...pixivSnapshot(result.body,`https://www.pixiv.net/artworks/${id}`),
+      commentary_desc:String(stored?.commentary_desc || '')};
+    await chrome.storage.local.set({['pixiv:'+id]:page});
+  }
   return {page,image};
 }
 
@@ -159,20 +171,6 @@ async function pinterestContext(item) {
   }
   const stored=pinId ? (await chrome.storage.local.get('pinterest:'+pinId))['pinterest:'+pinId] : null;
   return stored ? {...stored,pin_id:pinId} : null;
-}
-
-/** 库里已有的作品/角色名单，缓存 24 小时；拉不到就返回空表（标签一律丢弃）。 */
-const TAG_INDEX_KEY='tagIndex';
-async function tagIndex(settings) {
-  const cached=(await chrome.storage.local.get(TAG_INDEX_KEY))[TAG_INDEX_KEY];
-  if(cached && Date.now()-(cached.at||0) < 86400000) return cached.index;
-  const result=await bridgeTags(settings.bridgePort,settings.bridgeToken);
-  if(result.ok && result.data?.works) {
-    const index={works:result.data.works,characters:result.data.characters||[],aliases:result.data.aliases||{}};
-    await chrome.storage.local.set({[TAG_INDEX_KEY]:{at:Date.now(),index}});
-    return index;
-  }
-  return cached?.index || {works:[],characters:[],aliases:{}};
 }
 
 function downloadKey(item) { return "download:" + item.id + ":" + item.startTime; }
@@ -259,7 +257,7 @@ async function finishDownload(id, knownRecord) {
   if (!item) return;
   // 极快的下载可能先完成，再写入 onCreated 的绑定记录；完成事件也可按同一规则绑定。
   if (!record && item.state === "complete") record=await bindDownload(item);
-  if (!record || ["queued","delivered"].includes(record.state)) return;
+  if (!record || ["queued","delivered","metadata_failed"].includes(record.state)) return;
   if (item.state === "interrupted") {
     await chrome.storage.local.set({[record.key]:{...record,state:"interrupted"}});
     return;
@@ -267,7 +265,15 @@ async function finishDownload(id, knownRecord) {
   if (item.state !== "complete" || !item.filename) return;
   const x=record.site==='x' || isXDownload(item);
   const itemRef={...item,referrer:item.referrer || record.referrer};
-  const pixiv=!x && isPixivDownload(itemRef) ? await pixivContext(itemRef) : null;
+  let pixiv=null;
+  if (!x && isPixivDownload(itemRef)) {
+    try {
+      pixiv=await pixivContext(itemRef);
+    } catch (error) {
+      await chrome.storage.local.set({[record.key]:{...record,state:"metadata_failed"}});
+      throw error;
+    }
+  }
   const pinterest=!x && !pixiv && isPinterestDownload(itemRef) ? await pinterestContext(itemRef) : null;
   const page=x ? xMetadata({...item,referrer:item.referrer || record.referrer},[...await xContexts(),...(record.page?.post_id ? [{page_url:record.page.page_url,image_url:record.url}] : [])])
     : pixiv ? pixiv.page
@@ -275,11 +281,10 @@ async function finishDownload(id, knownRecord) {
   const filename=item.filename;
   const name=filename.replace(/\\/g,"/").split("/").pop();
   let tags=page?.tags || {}, rating=page?.rating || "", source=page?.source || "";
+  const sourceTags=pixiv ? pixivSourceTags(page.tags,(await state()).settings.pixivIgnoredTags) : [];
   if(pixiv) {
-    // 只保留库里已有的作品与角色；画师直接用接口给的名字，不靠标签猜。
-    const index=await tagIndex((await state()).settings);
-    const matched=matchPixivTags(page.tags,index);
-    tags={artist:page.artist?[page.artist]:[],...matched};
+    // 分类由桌面端按当前标签与资料库决定；旧桌面端仍可保留原文到自定义。
+    tags={artist:page.artist?[page.artist]:[],custom:sourceTags.map(t=>t.name)};
     rating=pixivRating(page.x_restrict);
     source=page.original_url || "";
   } else if(pinterest) {
@@ -295,7 +300,8 @@ async function finishDownload(id, knownRecord) {
     page_url:page?.page_url || record.referrer || "",post_id:page?.post_id || "",site:page?.site || "",
     rule_id:record.rule_id || "",
     tags,rating,source,
-    tag_string:pixiv ? (page.tags||[]).join(" ") : page?.tag_string || "",
+    ...(pixiv ? {source_tags:sourceTags} : {}),
+    tag_string:pixiv ? sourceTags.map(t=>t.name).join(" ") : page?.tag_string || "",
     commentary_title:String(page?.commentary_title || ""),
     commentary_desc:String(page?.commentary_desc || ""),
     filename_tags:matchFilename(record.filename_rules,name),
@@ -325,10 +331,10 @@ async function reconcile({pruneHistory=false}={}) {
   }
   for (const [key,record] of records) {
     if (record.state === "delivered") continue;
-    if (["queued","interrupted"].includes(record.state)) continue;
+    if (["queued","interrupted","metadata_failed"].includes(record.state)) continue;
     if (Date.now() - (record.last_attempt || 0) < RETRY_BACKOFF) continue;
     await chrome.storage.local.set({[key]:{...record,last_attempt:Date.now()}});
-    await finishDownload(record.download_id,record);
+    await finishDownload(record.download_id,record).catch(captureError);
   }
   if (stale.length) await chrome.storage.local.remove(stale);
   if (pruneHistory) await housekeeping();
@@ -455,6 +461,11 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
           const rules=await serial(async () => {
             const current=await chrome.storage.local.get(["settings","rules"]);
             const settings={...captureSettings(current.settings),...message.settings};
+            if (message.settings && "pixivIgnoredTags" in message.settings) {
+              if (!Array.isArray(settings.pixivIgnoredTags) || settings.pixivIgnoredTags.some(tag=>typeof tag !== "string"))
+                throw new Error("忽略标签必须是文本列表");
+              settings.pixivIgnoredTags=[...new Set(settings.pixivIgnoredTags.map(tag=>tag.trim()).filter(Boolean))];
+            }
             if (message.settings && "theme" in message.settings && !["system","light","dark"].includes(settings.theme)) throw new Error("主题无效");
             if (message.settings && "bridgePort" in message.settings &&
               (!Number.isInteger(Number(settings.bridgePort)) || settings.bridgePort < 1024 || settings.bridgePort > 65535)) throw new Error("端口应为 1024 到 65535");

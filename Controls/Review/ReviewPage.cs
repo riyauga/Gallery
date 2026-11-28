@@ -226,7 +226,17 @@ public sealed partial class ReviewPage : Grid
         _carousel.SelectionRequested += (index, shift, ctrl) =>
         {
             if (_batchMode) SelectBatchIndex(index, shift, ctrl);
-            else Select(index);
+            else if (_selected != _rows[index]) Select(index);
+            else
+            {
+                _index = index;
+                UpdateQueuePosition(false, false);
+            }
+        };
+        _carousel.MotionChanged += moving =>
+        {
+            _detailsHost.Opacity = moving ? 0 : 1;
+            _detailsHost.IsHitTestVisible = !moving;
         };
         _carousel.ClearSelectionRequested += ClearBatchSelection;
         _carousel.SelectAllRequested += SelectAllBatch;
@@ -958,6 +968,8 @@ public sealed partial class ReviewPage : Grid
     private void Select(int index, bool revealScroll = true)
     {
         if (_busy) return;
+        _detailsHost.Opacity = 1;
+        _detailsHost.IsHitTestVisible = true;
         var changed = _index != (index = _rows.Count == 0 ? 0 : Math.Clamp(index, 0, _rows.Count - 1));
         _index = index;
         _selected = _rows.Count == 0 ? null : _rows[_index];
@@ -1062,7 +1074,7 @@ public sealed partial class ReviewPage : Grid
 
     private Task<TagDisplaySnapshot> TagDisplaySnapshotAsync(string payload)
     {
-        var names = _tags.Where(p => p.Key is "work" or "character")
+        var names = _tags.Where(p => p.Key != "rating")
             .SelectMany(p => p.Value.Select(name => (Category: p.Key, Name: name))).Distinct().ToArray();
         var key = _selectionGeneration + "\n" + payload + "\n" + JsonSerializer.Serialize(names.Select(p => new[] { p.Category, p.Name }));
         if (_tagDisplaySnapshot is not null && key == _tagDisplaySnapshotKey) return _tagDisplaySnapshot;
@@ -1072,6 +1084,7 @@ public sealed partial class ReviewPage : Grid
         {
             using var reader = new StoreService(path, readOnly: true);
             var labels = reader.ResolveTagLabels(names);
+            StoreService.ApplySourceTagLabels(payload, labels);
             var skins = names.Where(p => p.Category == "character")
                 .ToDictionary(p => p.Name, p => reader.SkinsForCharacter(payload, p.Name));
             return new TagDisplaySnapshot(labels, skins);
@@ -1094,7 +1107,7 @@ public sealed partial class ReviewPage : Grid
             {
                 if (!panel.Children.Contains(chip)) continue;
                 var label = labels.GetValueOrDefault((category, name), name);
-                var variants = skins.GetValueOrDefault(name);
+                var variants = category == "character" ? skins.GetValueOrDefault(name) : null;
                 if (variants is { Count: > 0 }) label += " · " + string.Join(" / ", variants.Select(skin => skin.Display));
                 chip.Label.Text = label;
                 ToolTipService.SetToolTip(chip, label == name ? name : $"{label} · {name}");
@@ -1245,7 +1258,7 @@ public sealed partial class ReviewPage : Grid
                     var chip = new Tags.TagChip(category, name, remove);
                     chip.Label.IsTextSelectionEnabled = true;
                     ToolTipService.SetToolTip(chip, name);
-                    if (category is "character" or "work") namedChips.Add((name, chip));
+                    if (category != "rating") namedChips.Add((name, chip));
                     chips.Children.Add(chip);
                 }
             }
@@ -1686,7 +1699,9 @@ public sealed partial class ReviewPage : Grid
         var map = FolderMap.Load(AppPaths.FolderMapPath);
         var root = ArchiveRoot(store, map.Root);
         if (root is null) return "";
-        var relative = map.Resolve(tags, context);
+        var folderNames = store.ResolveTagFolderNames(tags.SelectMany(pair =>
+            pair.Value.Select(name => (Category: pair.Key, Name: name))));
+        var relative = map.Resolve(tags, context, folderNames);
         return Path.Combine(root.Path, relative.Length == 0 ? "" : relative.Replace('/', Path.DirectorySeparatorChar));
     }
 

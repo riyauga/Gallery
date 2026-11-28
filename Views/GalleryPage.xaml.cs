@@ -72,7 +72,6 @@ public sealed partial class GalleryPage : UserControl
     public sealed record PreviewRequest(
         PhotoItem Item, IReadOnlyList<PhotoItem> Items,
         Windows.Foundation.Rect SourceRect, bool FullyVisible,
-        Func<PhotoItem, Windows.Foundation.Rect?> ResolveSourceRect,
         Microsoft.UI.Xaml.Media.ImageSource? Thumbnail = null, bool KeepCurrentOnFilterChanges = false,
         bool FollowGalleryResults = true);
     public event Action<PreviewRequest>? PreviewRequested;
@@ -490,7 +489,7 @@ public sealed partial class GalleryPage : UserControl
         row.Tags = store.TagDetailsForImages([row.Id]).GetValueOrDefault(row.Id, [])
             .Select(tag => (tag.Category, tag.Name)).ToList();
         var item = MapRows([row], store.FavoriteIds(), "name")[0];
-        PreviewRequested?.Invoke(new PreviewRequest(item, [item], new Windows.Foundation.Rect(), true, _ => null,
+        PreviewRequested?.Invoke(new PreviewRequest(item, [item], new Windows.Foundation.Rect(), true,
             KeepCurrentOnFilterChanges: true));
     }
 
@@ -605,7 +604,7 @@ public sealed partial class GalleryPage : UserControl
             var point = e.GetCurrentPoint(tile);
             var pos = point.Position;
             var dist = Math.Abs(pos.X - dragStart.Value.X) + Math.Abs(pos.Y - dragStart.Value.Y);
-            if (dist < 12) return; // galleryold 用系统 startDragDistance，近似 12
+            if (dist < 16) return; // 保留现有距离算法，增加轻微抖动的点击容差（DIP）。
             dragStart = null;
             tile.ReleasePointerCapture(e.Pointer);
             await StartDragOutAsync(tile, point);
@@ -921,27 +920,26 @@ public sealed partial class GalleryPage : UserControl
     {
         int n = _selected.Count;
         string pageName = HasActiveFilter ? "筛选结果" : _favoritesMode ? "收藏夹" : _dirTitle ?? "图库";
-        IconAndTitleHeader.Title = n > 0 ? $"已选择 {n} 个项目" : pageName;
-        SubtitleText.Text = n > 0
+        IconAndTitleHeader.Title = _selectMode
+            ? n > 0 ? $"已选择 {n} 个项目" : "选择项目"
+            : pageName;
+        SubtitleText.Text = _selectMode
             ? pageName
             : $"{_items.Count} {(_items.Any(i => i.IsVideo) ? "个项目" : "张照片")}";
-        // 可见文案来自 GetSelectionText()（CommandBar_SelectSelectionText / _CancelSelectionText）
-        // → 「选择」/「取消选择」；UIA 的 Name 才是「选择项目」（GetSelectionButtonFriendlyName）
-        SelectButton.Label = n > 0 ? "取消选择" : "选择";
+        // 进入模式就显示取消，不等待选中第一张；清空选区也不退出模式。
+        SelectButton.Label = _selectMode ? "取消" : "选择";
         // GetSelectionIcon(): 取消=E711，勾选=E73A
-        SelectIcon.Glyph = n > 0 ? "\uE711" : "\uE73A";
+        SelectIcon.Glyph = _selectMode ? "\uE711" : "\uE73A";
 
         // photos GalleryHeader.xaml 的 VisualStateGroup ControlBackgroundGroup：
         // Normal = 透明，Selected = CardBackgroundFillColorDefaultBrush + CardStrokeColorDefaultBrush
-        bool selected = n > 0;
-        Header.Background = selected ? CardFillBrush(HeaderBackgroundKey) : TransparentBrush;
-        Header.BorderBrush = selected ? CardFillBrush(HeaderBorderKey) : TransparentBrush;
+        Header.Background = _selectMode ? CardFillBrush(HeaderBackgroundKey) : TransparentBrush;
+        Header.BorderBrush = _selectMode ? CardFillBrush(HeaderBorderKey) : TransparentBrush;
 
         // photos 这几个按钮的可见性绑命令（VisibilityBoundCommand / HasSelection）
-        var selectionVis = selected ? Visibility.Visible : Visibility.Collapsed;
+        var selectionVis = n > 0 ? Visibility.Visible : Visibility.Collapsed;
         DeleteButton.Visibility = selectionVis;
         MoveCopyButton.Visibility = selectionVis;
-        ShareButton.Visibility = selectionVis;
 
         SyncSortMenuChecks();
         SyncFilterMenuChecks();
@@ -1331,21 +1329,14 @@ public sealed partial class GalleryPage : UserControl
 
         var item = _items[index];
         PreviewRequested?.Invoke(new PreviewRequest(
-            item, _items.ToArray(), default, true, ResolveSourceRect));
+            item, _items.ToArray(), default, true));
         return true;
     }
 
     private void OpenPreview(PhotoTile tile)
     {
         var (rect, fully) = TileFlightRect(tile, Scroller);
-        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, ResolveSourceRect, tile.PreviewThumbnail));
-    }
-
-    private Windows.Foundation.Rect? ResolveSourceRect(PhotoItem item)
-    {
-        int index = _items.FindIndex(candidate => SelectionId(candidate) == SelectionId(item));
-        if (index < 0 || index >= Panel.Rects.Count) return null;
-        return Panel.TransformToVisual(null).TransformBounds(Panel.Rects[index]);
+        PreviewRequested?.Invoke(new PreviewRequest(tile.Item, _items.ToArray(), rect, fully, tile.PreviewThumbnail));
     }
 
     private bool ShowKeyboardFocus => _active && _showKeyboardFocus && XamlRoot is not null
@@ -1852,66 +1843,6 @@ public sealed partial class GalleryPage : UserControl
         }
         SyncSubfolderMenuChecks();
     }
-
-    /// <summary>命令栏「共享」（photos ShareButton / ShouldShowDefaultShareOption → 系统共享面板）。</summary>
-    private async void ShareButton_Click(object sender, RoutedEventArgs e)
-    {
-        var paths = SelectedItems()
-            .Where(item => !item.Missing)
-            .Select(item => item.FullPath)
-            .Where(path => !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
-            .ToArray();
-        if (paths.Length == 0)
-        {
-            ToastRequested?.Invoke("这些项目没有可用文件");
-            return;
-        }
-
-        var files = new List<Windows.Storage.StorageFile>(paths.Length);
-        foreach (var path in paths)
-        {
-            try
-            {
-                files.Add(await Windows.Storage.StorageFile.GetFileFromPathAsync(path));
-            }
-            catch (Exception)
-            {
-                // 单项读不到就跳过，剩下的仍然共享（原版也是这样逐项取 StorageFile）
-            }
-        }
-        if (files.Count == 0)
-        {
-            ToastRequested?.Invoke("这些项目没有可用文件");
-            return;
-        }
-
-        try
-        {
-            var manager = GetShareManager(AppService.MainWindowHandle);
-            // 每次点「共享」重挂一次，取完数据立刻摘掉，避免 DataRequested 订阅累积
-            Windows.Foundation.TypedEventHandler<
-                Windows.ApplicationModel.DataTransfer.DataTransferManager,
-                Windows.ApplicationModel.DataTransfer.DataRequestedEventArgs>? handler = null;
-            handler = (_, args) =>
-            {
-                manager.DataRequested -= handler;
-                args.Request.Data.SetStorageItems(files, true);
-            };
-            manager.DataRequested += handler;
-            Windows.ApplicationModel.DataTransfer.DataTransferManagerInterop.ShowShareUIForWindow(AppService.MainWindowHandle);
-        }
-        catch (Exception ex)
-        {
-            SendToast($"共享面板打不开：{ex.Message}", Gallery.Controls.ToastKind.Pending);
-        }
-    }
-
-    /// <summary>
-    /// 桌面应用没有 CoreWindow，DataTransferManager 必须经 IDataTransferManagerInterop 取窗口实例
-    /// （Microsoft 桌面共享标准做法：GetForWindow(hwnd) + ShowShareUIForWindow(hwnd)）。
-    /// </summary>
-    private static Windows.ApplicationModel.DataTransfer.DataTransferManager GetShareManager(IntPtr hwnd)
-        => Windows.ApplicationModel.DataTransfer.DataTransferManagerInterop.GetForWindow(hwnd);
 
     private void SortKey_Click(object sender, RoutedEventArgs e)
     {

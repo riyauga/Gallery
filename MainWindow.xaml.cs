@@ -810,7 +810,7 @@ public sealed partial class MainWindow : Window
             if (_catalogPage is { IsLoaded: true }) _ = _catalogPage.RefreshAsync();
             if (_reviewPage is { IsLoaded: true }) _reviewPage.RefreshPreview();
         });
-        Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Programmatic);
+        Preview.ReturnFocusRequested += () => SearchBox.DefaultFocusAnchor?.Focus(FocusState.Pointer);
         Preview.DeleteRequested = _page.DeleteAsync;
         Preview.RenameRequested = _page.RenameAsync;
         Preview.SetWallpaperRequested = _page.SetWallpaperAsync;
@@ -1377,6 +1377,22 @@ public sealed partial class MainWindow : Window
         // 那段露出的是岛底色，看上去就是页面左缘一条灰缝。切到该页时把这段留白刷成同一底色，
         // 切走就还原（其它页是透明的，留白要和内容岛一致）。
         MainPanel.Background = ReferenceEquals(page, _reviewPage) ? _reviewPage?.SurfaceBrush : null;
+        HideSearchHistory();
+        // 等可见页完成切换再放置焦点；导航本身不进入键盘焦点提示状态。
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (page.Visibility != Visibility.Visible) return;
+            if (ReferenceEquals(page, _page))
+            {
+                _page.HideKeyboardFocus();
+                _page.FocusAnchor.Focus(FocusState.Pointer);
+            }
+            else if (FocusManager.GetFocusedElement(RootGrid.XamlRoot) is UIElement focused
+                && IsWithin(focused, page))
+                focused.Focus(FocusState.Pointer);
+            else
+                ContentHost.Focus(FocusState.Pointer);
+        });
     }
 
     private void ShowPage(int navIndex)
@@ -1809,6 +1825,7 @@ public sealed partial class MainWindow : Window
             if (!_catalogPage!.ExitDetailSelection()) _catalogPage.ExitSelection();
         }
         else _page.ExitSelection();
+        SearchBox.DefaultFocusAnchor?.Focus(FocusState.Pointer);
     }
 
     private void OnEscapeInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

@@ -19,6 +19,7 @@ export const IMAGE_EXT_RE =
   /\.(jpe?g|jfif|png|gif|webp|bmp|tiff?|avif|heic|heif|ico|jxl|svg)(?:[?#]|$)/i;
 
 export const DEFAULT_SETTINGS = {
+  pixivIgnoredTags: [],
   enabled: true,
   dragEnabled: true,
   captureAllImages: false,

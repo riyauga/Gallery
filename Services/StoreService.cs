@@ -1175,17 +1175,26 @@ public sealed partial class StoreService : IDisposable
     /// <summary>整体替换标签集（managed=1），对应 set_categorized_tags。</summary>
     [MethodImpl(MethodImplOptions.Synchronized)]
     public void SetCategorizedTags(IReadOnlyCollection<int> imageIds,
-        IReadOnlyCollection<(string Category, string Name)> pairs)
+        IReadOnlyCollection<(string Category, string Name)> pairs, string? sourcePayload = null)
     {
         if (imageIds.Count == 0) return;
         var tagIds = new List<int>();
         var seen = new HashSet<int>();
+        var sourceIds = PrepareSourceTags(sourcePayload, pairs);
         foreach (var (category, name0) in pairs)
         {
             var name = (name0 ?? "").Trim();
             if (name.Length == 0) continue;
-            var tid = EnsureTag(name, category ?? "custom");
-            if (seen.Add(tid)) tagIds.Add(tid);
+            if (sourceIds.TryGetValue((category, name), out var resolved))
+            {
+                foreach (var tid in resolved)
+                    if (seen.Add(tid)) tagIds.Add(tid);
+            }
+            else
+            {
+                var tid = EnsureTag(name, category ?? "custom");
+                if (seen.Add(tid)) tagIds.Add(tid);
+            }
         }
         var idList = imageIds.ToList();
         var idMarks = string.Join(",", idList.Select((_, i) => $"$id{i}"));
@@ -1591,7 +1600,7 @@ public sealed partial class StoreService : IDisposable
         lock (SyncRoot)
         {
             var conn = _conn;
-            payloadJson = ApplyFilenameTags(payloadJson);
+            payloadJson = ApplyFilenameTags(NormalizePixivTags(payloadJson));
             payloadJson = NormalizeSkinPayload(IngestReview.NormalizeArtistPayload(payloadJson));
             if (IngestReview.RatingOf(payloadJson) is { Length: > 0 } parsedRating)
                 rating = parsedRating;
@@ -2601,6 +2610,34 @@ public sealed partial class StoreService : IDisposable
         var catalog = new TagCatalogService(this);
         tags = catalog.ResolveDisplayNames(tags);
         return ApplyTagDisplayNames(tags).ToDictionary(tag => (tag.Category, tag.Name), tag => tag.Display);
+    }
+
+    /// <summary>目录名独立于贴纸显示模式：配置英文名优先，其次中文，均未配置时保留原名。</summary>
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public Dictionary<(string Category, string Name), string> ResolveTagFolderNames(
+        IEnumerable<(string Category, string Name)> names)
+    {
+        var requested = names.Distinct().ToArray();
+        var known = AllTags();
+        var candidates = requested.Select(key =>
+        {
+            var matches = known.Where(tag => tag.Category == key.Category
+                && string.Equals(tag.Name, key.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length == 0)
+                matches = known.Where(tag => tag.Category == key.Category
+                    && tag.SearchTerms.Any(term => FoldForMatch(term) == FoldForMatch(key.Name))).ToArray();
+            var tag = matches.Length == 1 ? matches[0] : new TagInfo
+            {
+                Id = 0, Category = key.Category, Name = key.Name,
+                LinkStatus = matches.Length > 1 ? "independent" : "pending"
+            };
+            // 名称资料沿用已有精确解析；人工显示名与贴纸语言不参与路径选择。
+            return tag with { DisplayName = "", DisplayMode = "" };
+        }).ToArray();
+        var resolved = new TagCatalogService(this).ResolveDisplayNames(candidates);
+        return requested.Select((key, index) => (key, tag: resolved[index]))
+            .ToDictionary(pair => pair.key, pair => pair.tag.EnName.Trim().Length > 0 ? pair.tag.EnName.Trim()
+                : pair.tag.ZhName.Trim().Length > 0 ? pair.tag.ZhName.Trim() : pair.tag.Name);
     }
 
     /// <summary>

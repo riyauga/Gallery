@@ -369,7 +369,7 @@ public sealed class ArchiveService(StoreService store)
                 {
                     using (var tx = store.Transaction())
                     {
-                        store.SetCategorizedTags([imageId], edited);
+                        store.SetCategorizedTags([imageId], edited, payload);
                         store.ApplyImageSkins(imageId, payload);
                         tx.Success = true;
                     }
@@ -395,6 +395,8 @@ public sealed class ArchiveService(StoreService store)
 
             generalAndMeta.AddRange(ReadNames(tags, "general"));
             generalAndMeta.AddRange(ReadNames(tags, "meta"));
+            foreach (var category in new[] { "work", "kind", "custom" })
+                pairs.AddRange(ReadNames(tags, category).Select(name => (category, name)));
 
             var whitelist = Taxonomy.LoadKindWhitelist(
                 string.IsNullOrWhiteSpace(AppService.Settings?.Settings.kind_whitelist_path)
@@ -405,7 +407,12 @@ public sealed class ArchiveService(StoreService store)
 
             if (pairs.Count == 0) return;
 
-            store.SetCategorizedTags([imageId], pairs);
+            using (var tx = store.Transaction())
+            {
+                store.SetCategorizedTags([imageId], pairs, payload);
+                tx.Success = true;
+            }
+            store.SyncSidecars([imageId]);
             store.Commit();
             AppService.RequestCatalogAlign();
         }

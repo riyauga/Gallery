@@ -221,8 +221,29 @@ export function setupSites(state, send, feedback) {
       const panel=element("div","","disclosure-panel site-card-reveal");
       if(openId===group.id) {
         const body=element("div","","site-card-body");
-        if(group.builtin) body.append(element("p",({ "builtin-x":"记录来源和作者", "builtin-pixiv":"记录来源、作者、分级与资料库已有标签", "builtin-danbooru":"记录来源、分级与站内标签", "builtin-pinterest":"记录来源和作者" })[group.id]));
+        if(group.builtin) body.append(element("p",({ "builtin-x":"记录来源和作者", "builtin-pixiv":"记录来源、作者、分级和标签；桌面端自动分类，未匹配标签保留到自定义", "builtin-danbooru":"记录来源、分级与站内标签", "builtin-pinterest":"记录来源和作者" })[group.id]));
         else body.append(editor(group.rules[0],false));
+        if(group.id === "builtin-pixiv") {
+          const label=element("label","忽略标签","field");
+          const input=element("textarea","","input");
+          input.rows=4;
+          input.value=(state.settings.pixivIgnoredTags || []).join("\n");
+          input.placeholder="每行一个；留空导入全部标签";
+          label.append(input);
+          const save=element("button","保存","primary");
+          save.type="button";
+          save.onclick=async()=>{
+            save.disabled=true;
+            const pixivIgnoredTags=input.value.split(/\r?\n/).map(tag=>tag.trim()).filter(Boolean);
+            try {
+              await send({type:"saveState",settings:{pixivIgnoredTags}});
+              state.settings.pixivIgnoredTags=pixivIgnoredTags;
+              feedback("已保存");
+            } catch(e) { feedback(e.message,true); }
+            finally { save.disabled=false; }
+          };
+          body.append(label,element("p","按原文或译名精确匹配，跳过整条标签；不影响作者和分级。","muted"),save);
+        }
         panel.append(body);
       }
       card.append(header,panel); list.append(card);

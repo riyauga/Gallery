@@ -119,6 +119,7 @@ internal sealed class ReviewCarousel : Grid
     private string _ease = "out";
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public event Action<int, bool, bool>? SelectionRequested;
+    public event Action<bool>? MotionChanged;
     public event Action? ClearSelectionRequested;
     public event Action? SelectAllRequested;
     public event Action<IReadOnlyList<int>, bool, string>? BoxSelectionRequested;
@@ -969,6 +970,11 @@ internal sealed class ReviewCarousel : Grid
                 ScrollWindow(message.GetProperty("index").GetInt32(), message.GetProperty("deferImages").GetBoolean());
                 return;
             }
+            if (type == "motionStart")
+            {
+                if (!_batchMode) MotionChanged?.Invoke(true);
+                return;
+            }
             if (type == "settled")
             {
                 if (_rows.Count == 0) return;
@@ -977,6 +983,7 @@ internal sealed class ReviewCarousel : Grid
                 _index = Math.Clamp(message.GetProperty("index").GetInt32(), 0, _rows.Count - 1);
                 // 停稳后才提交详情并加载中心清晰图。
                 SelectionRequested?.Invoke(_index, false, false);
+                MotionChanged?.Invoke(false);
                 return;
             }
             if (type == "step")

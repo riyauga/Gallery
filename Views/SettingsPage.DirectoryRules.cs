@@ -221,7 +221,7 @@ public sealed partial class SettingsPage
         var category = DropDown(DirectoryCategories, original.Category.Length == 0 ? "work" : original.Category);
         var date = DropDown(DateParts, original.DatePart.Length == 0 ? "year" : original.DatePart);
         var order = DropDown(TagOrders, original.TagOrder);
-        var useTagName = new CheckBox { Content = "以标签名作为目录名", IsChecked = original.UseTagName };
+        var useTagName = new CheckBox { Content = "以标签名作为目录名（英文优先）", IsChecked = original.UseTagName };
         var fixedName = new TextBox { Text = original.Fixed, PlaceholderText = "请输入目录名称" };
         var fallback = new TextBox { Text = original.Fallback, PlaceholderText = FolderMap.DefaultFallback };
         var categoryRow = Labeled("标签类型", category);

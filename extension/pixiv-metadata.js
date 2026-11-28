@@ -44,34 +44,30 @@ export function normalizeTag(value) {
   return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
 }
 
-/**
- * 只保留库里已有的作品与角色。index 来自桌面端 /tags：
- * { works:["wuthering_waves"], characters:["hsin"], aliases:{"心":"hsin"} }
- * 命中别名时用规范名归类；未命中一律丢弃（用户要求：七类之外的不要）。
- */
-export function matchPixivTags(tags, index) {
-  const works = new Map((index?.works || []).map(n => [String(n).toLowerCase(), n]));
-  const characters = new Map((index?.characters || []).map(n => [String(n).toLowerCase(), n]));
-  const aliases = index?.aliases || {};
-  const result = { copyright: [], character: [] };
-  const seen = { copyright: new Set(), character: new Set() };
-  for (const raw of tags || []) {
-    const key = normalizeTag(raw);
-    if (!key) continue;
-    const canonical = normalizeTag(aliases[key] ?? aliases[String(raw).trim()] ?? key);
-    const kind = works.has(canonical) ? "copyright" : characters.has(canonical) ? "character" : "";
-    if (!kind || seen[kind].has(canonical)) continue;
-    seen[kind].add(canonical);
-    result[kind].push(canonical);
+/** 原文与译名作为一条记录传递；兼容更新前缓存中的字符串标签。 */
+export function pixivSourceTags(tags, ignoredTags = []) {
+  const ignored = new Set(ignoredTags.map(normalizeTag));
+  const records = new Map();
+  for (const value of Array.isArray(tags) ? tags : []) {
+    const name = typeof value === "string" ? value.trim() : String(value?.name ?? value?.tag ?? "").trim();
+    if (!name) continue;
+    const translations = value?.translations ?? value?.translation;
+    const key = normalizeTag(name);
+    const record = records.get(key) || {name, translations: {}};
+    if (translations && typeof translations === "object" && !Array.isArray(translations))
+      for (const [language, text] of Object.entries(translations))
+        if (typeof text === "string" && text.trim()) record.translations[language] = text.trim();
+    records.set(key, record);
   }
-  return result;
+  return [...records.values()].filter(record => ![record.name, ...Object.values(record.translations)]
+    .some(name => ignored.has(normalizeTag(name))));
 }
 
 /** 页面接口返回体 → 统一快照。任何字段缺失都不抛错。 */
 export function pixivSnapshot(body, pageUrl) {
   const id = pixivArtworkId(pageUrl);
   if (!id) return null;
-  const tags = (body?.tags?.tags || []).map(t => String(t?.tag ?? "")).filter(Boolean);
+  const tags = pixivSourceTags(body?.tags?.tags);
   return {
     site: "pixiv", page_url: `https://www.pixiv.net/artworks/${id}`, post_id: id,
     title: String(body?.illustTitle ?? ""),
@@ -79,7 +75,7 @@ export function pixivSnapshot(body, pageUrl) {
     artist_id: String(body?.userId ?? ""),
     x_restrict: Number(body?.xRestrict ?? 0),
     page_count: Number(body?.pageCount ?? 0),
-    tags, tag_string: tags.join(" "),
+    tags, tag_string: tags.map(t => t.name).join(" "),
     original_url: String(body?.urls?.original ?? ""),
     scraped_at: Date.now(),
   };

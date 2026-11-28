@@ -24,10 +24,6 @@ async function request(port,path,options,timeout=5000) {
 export async function bridgePing(port,token,timeout=900) {
   return request(port,"/ping",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
 }
-/** 库里已有的作品/角色名单，用于 Pixiv 标签过滤。 */
-export async function bridgeTags(port,token,timeout=4000) {
-  return request(port,"/tags",{method:"GET",headers:{"X-Gallery-Token":String(token || "")}},timeout);
-}
 export async function bridgeVerify(port,token) {
   return request(port,'/ingest',{method:'POST',headers:{'Content-Type':'application/json','X-Gallery-Token':String(token || '')},body:JSON.stringify({probe:true,filename:'__gallery_probe__',client:'gallery-extension'})});
 }

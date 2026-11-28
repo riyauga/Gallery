@@ -277,6 +277,8 @@ public sealed class SearchInputBox : UserControl
 
     private void SearchBox_GettingFocus(UIElement sender, GettingFocusEventArgs args)
     {
+        var intentionalEntry = _shouldFocusBeOnSearch || args.FocusState == FocusState.Keyboard
+            && args.Direction is FocusNavigationDirection.Next or FocusNavigationDirection.Previous;
         if (PreventAutomaticFocus &&
             !IsFocusOnSearchIntentional(args.OldFocusedElement, args.FocusState, args.Direction))
         {
@@ -285,7 +287,8 @@ public sealed class SearchInputBox : UserControl
             args.Handled = true;
         }
         _shouldFocusBeOnSearch = false;
-        if (!args.Handled) FocusEntered?.Invoke(this, EventArgs.Empty);
+        if (!args.Handled && (!PreventAutomaticFocus || intentionalEntry))
+            FocusEntered?.Invoke(this, EventArgs.Empty);
     }
 
     private bool IsFocusOnSearchIntentional(DependencyObject? oldFocusObject,

@@ -186,7 +186,8 @@ public sealed class FolderMap
     }
 
     /// <summary>按逐级模板算相对目录（正斜杠）；没有目录级时返回空字符串（=进根目录）。</summary>
-    public string Resolve(IReadOnlyDictionary<string, List<string>> tags, FolderContext? context = null)
+    public string Resolve(IReadOnlyDictionary<string, List<string>> tags, FolderContext? context = null,
+        IReadOnlyDictionary<(string Category, string Name), string>? folderNames = null)
     {
         if (LoadError.Length > 0) return "";
         var ctx = context ?? new FolderContext();
@@ -207,7 +208,7 @@ public sealed class FolderMap
             var value = level.Kind switch
             {
                 "fixed" => level.Fixed,
-                "tag" => TagFolder(level, tags),
+                "tag" => TagFolder(level, tags, folderNames),
                 "source" => SourceFolder(ctx.PageUrl, level.Fallback),
                 "date" => DateFolder(ctx.ImportedAt, level.DatePart, level.Fallback),
                 _ => "",
@@ -224,7 +225,8 @@ public sealed class FolderMap
             || rule.Category == "rating" && string.Equals(t, RatingGroup(tags), StringComparison.OrdinalIgnoreCase));
     }
 
-    private string TagFolder(FolderLevel level, IReadOnlyDictionary<string, List<string>> tags)
+    private string TagFolder(FolderLevel level, IReadOnlyDictionary<string, List<string>> tags,
+        IReadOnlyDictionary<(string Category, string Name), string>? folderNames)
     {
         if (level.Category == "rating")
         {
@@ -235,7 +237,8 @@ public sealed class FolderMap
         if (names.Count == 0) return Fallback(level.Fallback);
         if (!level.UseTagName) return level.Fixed;
         var ordered = level.TagOrder == "text" ? names.OrderBy(n => n, StringComparer.Ordinal).ToList() : names;
-        return Sanitize(ordered.First());
+        var name = ordered.First();
+        return Sanitize(folderNames?.GetValueOrDefault((level.Category, name), name) ?? name);
     }
 
     private static string Fallback(string configured)

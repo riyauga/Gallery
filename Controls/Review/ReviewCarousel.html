@@ -860,6 +860,7 @@ function frame(now){
 function beginMotion(){
  if(motionActive)return;
  motionActive=true;deck.classList.add('g-scrolling');
+ send({type:'motionStart'});
 }
 function finishMotion(){
  if(!motionActive)return;
@@ -868,7 +869,7 @@ function finishMotion(){
  motionActive=false;clearTimeout(loadTimer);loadTimer=0;lastDeferred=false;deck.classList.remove('g-scrolling');
  const index=Math.max(0,Math.min(count-1,Math.round(pos)));
  hostScroll=false;
- if(dragScrolling){lastReported=lastSent=index;dragScrolling=false;}
+ lastReported=lastSent=index;dragScrolling=false;
  if(active)send({type:'settled',index});
 }
 function syncWindow(force=false){
@@ -898,14 +899,16 @@ deck.addEventListener('wheel',event=>{
  if(!active)return;
  if(ringEntry)finishRing();
  if(batch){if(dealLayer)event.preventDefault();return;}
- if(initialized===false||count===0)return;
+ if(initialized===false||count<=1)return;
  const unit=event.deltaMode===1?16:event.deltaMode===2?deck.clientHeight:1;
  const raw=event.deltaY*unit;
  if(Math.abs(raw)<1)return;
+ const delta=Math.max(-WHEEL_CLAMP,Math.min(WHEEL_CLAMP,raw));
+ const target=Math.max(0,Math.min(count-1,goal+delta*WHEEL_GAIN));
+ if(target===goal)return;
  event.preventDefault();
  hostScroll=false;scrollSettle=true;beginMotion();
- const delta=Math.max(-WHEEL_CLAMP,Math.min(WHEEL_CLAMP,raw));
- goal=Math.max(0,Math.min(count-1,goal+delta*WHEEL_GAIN));
+ goal=target;
  mode='wheel';wheelAt=performance.now();wake();
 },{passive:false});
 // 左键拖动：向下拖上一张、向上拖下一张；松手后按拖动速度继续冲一段再吸附。
